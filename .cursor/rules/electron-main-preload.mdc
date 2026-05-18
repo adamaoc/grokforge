@@ -1,0 +1,21 @@
+---
+description: Main and preload IPC conventions for GrokForge
+globs:
+  - src/main/**/*.ts
+  - src/preload/**/*.ts
+alwaysApply: false
+---
+
+# Electron main & preload
+
+- Pair every **new** `ipcMain.handle` / `ipcMain.on` with an entry on `electronAPI` in `preload.ts` and `contextBridge.exposeInMainWorld`.
+- Keep **preload imports type-only** from main where possible (`import type`) to avoid bundling main code into preload incorrectly.
+- **`read-directory`**, **`read-file`**, and **`write-file`** only allow paths under resolved `currentProject.roots` (see `workspace-path-guard.ts` / `main.ts`). **`agent-tool-batch`** applies structured `write_file` ops with the same rules plus `manifest.ignore`; **`agent-undo-last-batch`** restores the snapshot from the last successful batch.
+- **`grok-stream-start`** / **`grok-stream-cancel`**: validate payloads in main (`grok-stream.ts`); xAI API key stays in **`process.env` (main only)** — never expose it to preload/renderer.
+- **`voice-session-start`** / **`voice-session-stop`** / **`voice-audio-chunk`**: WebSocket + Bearer auth live in **`voice-realtime.ts`** (main only). Renderer sends base64 PCM16 chunks via `voiceSendAudioChunk`; validate chunk type/length on main before forwarding to xAI.
+- **`tts-read-aloud`**: xAI **POST /v1/tts** in **`tts-read-aloud.ts`** (main only, same API key as chat). Renderer calls `readAloud` with `{ text, voiceId }`; validate with Zod on the main side.
+- **`get-chat-system-prompt`**: no args; uses current manifest and `buildChatSystemPrompt` in `agent-context.ts` (context paths resolve under **workspace roots** only; same rules as **008**).
+- **`search-workspace`** / **`search-workspace-cancel`**: validate payload in main (`parseSearchWorkspacePayload` in `workspace-search.ts`); search only walks **`currentProject.roots`** and respects **`shouldIgnoreFsEntry`**; cancel uses **`AbortController`** (no worker threads).
+- **`run_command` (agent only):** main `runCommandInRootForAgent` in `run-command.ts` after policy + user approval in chat; **`cwd`** is the resolved manifest root for `rootId`; stream/capture stays in main (no renderer IPC). Never import **`run-command.ts`** from the renderer; shared types live in **`run-command-contract.ts`** only.
+- `BrowserWindow` preload path resolves to `../preload/preload.js` next to compiled main — do not break output layout without updating `electron.vite.config.ts`.
+- When persisting manifest, use **`save-manifest`** → **`saveManifestForProject`** for **`currentProjectId`** (`app-project-store.ts`); do not write manifest JSON into user workspace folders.

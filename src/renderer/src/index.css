@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gf-canvas: #0a0a0a;
+    --gf-foreground: #ededed;
+    /* Default accent — Fern. Other themes: `html[data-accent="…"]` below. */
+    --gf-accent: #00ff9f;
+    --gf-accent-hover: #00cc7a;
+    --gf-scrollbar-track: #18181b;
+    --gf-scrollbar-thumb: #3f3f46;
+    --gf-scrollbar-thumb-hover: #52525b;
+
+    /* shadcn / Radix — GrokForge dark (zinc + accent primary), HSL channels for hsl(var(--token)) */
+    --radius: 0.75rem;
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 93%;
+    --card: 240 5% 6%;
+    --card-foreground: 0 0% 93%;
+    --popover: 240 5% 6%;
+    --popover-foreground: 0 0% 93%;
+    --primary: 158 100% 50%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 93%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 64%;
+    --accent: 240 4% 18%;
+    --accent-foreground: 0 0% 93%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 158 100% 45%;
+  }
+
+  html[data-accent='frost'] {
+    --gf-accent: #5edbff;
+    --gf-accent-hover: #22b8e8;
+    --primary: 192 100% 56%;
+    --ring: 192 95% 48%;
+  }
+
+  html[data-accent='flame'] {
+    --gf-accent: #ffb020;
+    --gf-accent-hover: #e68600;
+    --primary: 36 100% 55%;
+    --ring: 34 100% 48%;
+  }
+
+  html[data-accent='fuchsia'] {
+    --gf-accent: #ff5ee6;
+    --gf-accent-hover: #db24c9;
+    --primary: 315 100% 65%;
+    --ring: 315 90% 55%;
+  }
+
+  html[data-accent='fawn'] {
+    --gf-accent: #deb887;
+    --gf-accent-hover: #b08d5e;
+    --primary: 30 60% 68%;
+    --ring: 28 50% 48%;
+  }
+
+  html[data-accent='flint'] {
+    --gf-accent: #8fa3b8;
+    --gf-accent-hover: #5c6f84;
+    --primary: 210 25% 58%;
+    --ring: 210 22% 45%;
+  }
+
+  html[data-accent='flax'] {
+    --gf-accent: #f2d756;
+    --gf-accent-hover: #c9a82e;
+    --primary: 46 85% 58%;
+    --ring: 42 75% 45%;
+  }
+
+  html[data-accent='fog'] {
+    --gf-accent: #b4c0d4;
+    --gf-accent-hover: #8d9db5;
+    --primary: 218 28% 72%;
+    --ring: 218 22% 55%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Custom scrollbar for dark theme */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--gf-scrollbar-track);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--gf-scrollbar-thumb);
+  border-radius: 20px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--gf-scrollbar-thumb-hover);
+}
+
+/* Story 072 — chat composer auto-grow (`field-sizing`: Chromium 123+ / Electron 35+). */
+textarea.gf-chat-composer {
+  box-sizing: border-box;
+  field-sizing: content;
+  width: 100%;
+  min-block-size: 2.75rem; /* ~h-11 */
+  max-block-size: min(40vh, 10rem);
+  resize: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  line-height: 1.5;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/*
+ * Story 022 — Electron window chrome (not in-app element dragging).
+ * `-webkit-app-region: drag` marks HTML that behaves like the native title bar: pointer drag moves the
+ * whole BrowserWindow. Interactive controls must use `.gf-no-drag` or clicks go to window drag instead.
+ * Double-click-to-zoom follows OS/Chromium behavior for custom chrome — verify on macOS after layout changes.
+ * macOS: use with `titleBarStyle: 'hiddenInset'` in main. Other platforms: drag/no-drag honored where supported.
+ */
+.gf-drag-region {
+  -webkit-app-region: drag;
+}
+.gf-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Sonner toasts — GrokForge chrome; accent for non-error follows `html[data-accent]` via --primary / --gf-accent */
+@layer components {
+  [data-sonner-toast].gf-toast {
+    @apply flex w-full cursor-default items-start gap-3 rounded-2xl border border-border bg-card p-4 font-sans text-sm text-card-foreground;
+    box-shadow:
+      0 10px 38px -12px rgb(0 0 0 / 0.55),
+      0 4px 16px -4px rgb(0 0 0 / 0.32);
+  }
+
+  [data-sonner-toast].gf-toast--accent,
+  [data-sonner-toast].gf-toast:not([data-type='error']) {
+    border-color: hsl(var(--primary) / 0.45);
+    box-shadow:
+      0 10px 38px -12px rgb(0 0 0 / 0.55),
+      0 4px 16px -4px rgb(0 0 0 / 0.32),
+      inset 0 0 0 1px hsl(var(--primary) / 0.1);
+  }
+
+  [data-sonner-toast].gf-toast--error,
+  [data-sonner-toast].gf-toast[data-type='error'] {
+    border-color: rgb(248 113 113 / 0.42);
+    box-shadow:
+      0 10px 38px -12px rgb(0 0 0 / 0.55),
+      0 4px 16px -4px rgb(0 0 0 / 0.32),
+      inset 0 0 0 1px rgb(239 68 68 / 0.14);
+  }
+
+  [data-sonner-toast].gf-toast:not([data-type='error']) .gf-toast__title {
+    @apply font-semibold;
+    color: hsl(var(--primary));
+  }
+
+  [data-sonner-toast].gf-toast[data-type='error'] .gf-toast__title {
+    @apply font-semibold text-red-300;
+  }
+
+  [data-sonner-toast].gf-toast .gf-toast__description {
+    @apply mt-0.5 text-xs text-muted-foreground;
+  }
+
+  [data-sonner-toast].gf-toast:not([data-type='error']) [data-icon] {
+    color: var(--gf-accent);
+  }
+
+  [data-sonner-toast].gf-toast[data-type='error'] [data-icon] {
+    color: rgb(252 165 165);
+  }
+
+  [data-sonner-toast].gf-toast .gf-toast__close {
+    @apply rounded-md border border-zinc-700/90 bg-zinc-900/90 text-zinc-400;
+  }
+
+  [data-sonner-toast].gf-toast .gf-toast__close:hover {
+    @apply bg-zinc-800 text-foreground;
+  }
+}
+
+/* Monaco editor tweaks */
+.monaco-editor {
+  border-radius: 0;
+}
+
+/* Smooth transitions everywhere */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}

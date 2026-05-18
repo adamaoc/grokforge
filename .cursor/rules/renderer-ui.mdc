@@ -1,0 +1,19 @@
+---
+description: Renderer React and UI patterns for GrokForge
+globs:
+  - src/renderer/**/*.tsx
+  - src/renderer/**/*.ts
+  - src/renderer/**/*.css
+alwaysApply: false
+---
+
+# Renderer (React)
+
+- Use **`window.electron`** for all native capabilities (never `require('electron')` in renderer).
+- Path aliases from Vite: `@/`, `@components/`, `@lib/` map under `src/renderer/src/`.
+- **Manifest types**: import via `../types` or `@/` paths that re-export from `src/main/manifest.ts` — do not fork duplicate manifest interfaces.
+- **Never import `src/main/**` implementation modules from the renderer** (even for constants): if a main file imports `fs`, `path`, etc., Vite will try to bundle it and the window stays blank. Put shared constants + DTO types in **`src/shared/`** (see `workspace-search-contract.ts`, `chat-thread-schema.ts`) and import those from `types.ts` or directly.
+- **Visual language**: dark `bg-gf-canvas` / `zinc-*` surfaces; highlight accent via `bg-gf-accent`, `hover:bg-gf-accent-hover`, `text-primary`, `ring-primary` (tokens come from `index.css` `:root` default **Fern** and `html[data-accent="frost"|"flame"|…]` for other named themes). Match existing spacing and rounded-xl patterns.
+- **Brand-tinted UI** (highlights, listening state, search match emphasis, inline code on chat): use **`text-gf-accent`**, **`text-primary`**, or **`bg-gf-accent`** — do **not** use Tailwind **`emerald-*`** for those (breaks non-Fern accent themes).
+- **Monaco**: `@monaco-editor/react` — keep editor concerns inside `EditorPane` unless splitting is clearly needed.
+- Guard features when `window.electron` is missing (e.g. opening in a plain browser) with user-visible feedback (see `App.tsx` toast pattern).

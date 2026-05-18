@@ -1,0 +1,90 @@
+{
+  "$schema": "https://grok.dev/schemas/grokproject-v1.2.json",
+  "version": "1.2",
+  "name": "ClientX Dashboard Redesign",
+  "description": "Q2 2026 redesign including new auth flow, analytics dashboard, and mobile responsiveness. Spans frontend, backend, design, and client materials.",
+  
+  "roots": [
+    {
+      "id": "frontend",
+      "path": "/Users/adam/projects/clientx/dashboard",
+      "type": "code",
+      "label": "Next.js Frontend",
+      "git": true,
+      "defaultBranch": "main"
+    },
+    {
+      "id": "backend",
+      "path": "/Users/adam/projects/clientx/backend-api",
+      "type": "code",
+      "label": "Node/Express API",
+      "git": true,
+      "defaultBranch": "main"
+    },
+    {
+      "id": "docs",
+      "path": "/Users/adam/projects/clientx/docs",
+      "type": "docs",
+      "label": "Project Documentation"
+    },
+    {
+      "id": "research",
+      "path": "/Users/adam/projects/clientx/research",
+      "type": "research",
+      "label": "Competitor Analysis & Notes"
+    },
+    {
+      "id": "design",
+      "path": "/Users/adam/projects/clientx/design",
+      "type": "design",
+      "label": "Figma Exports, Mockups & Specs"
+    },
+    {
+      "id": "comms",
+      "path": "/Users/adam/projects/clientx/client-comms",
+      "type": "comms",
+      "label": "Client Emails & Meeting Notes"
+    }
+  ],
+  
+  "ignore": [
+    "**/node_modules",
+    "**/.git",
+    "**/dist",
+    "**/build",
+    "**/*.log",
+    "**/tmp"
+  ],
+  
+  "models": {
+    "default": "grok-code-fast-1",
+    "planning": "grok-4.3",
+    "execution": "grok-code-fast-1",
+    "reasoning": "grok-4.20-reasoning",
+    "voice": "grok-voice-think-fast-1.0"
+  },
+  
+  "voice": {
+    "enabled": true,
+    "defaultVoiceMode": "full-duplex",
+    "customVoiceId": null,
+    "autoListen": false,
+    "speakResponses": true
+  },
+  
+  "context": {
+    "alwaysInclude": [
+      "docs/project-brief.md",
+      "design/design-system.md",
+      "research/key-findings.md"
+    ],
+    "customInstructions": "Keep auth flow consistent between frontend and backend. Use Tailwind v4 and shadcn/ui.",
+    "customInstructionsFile": "docs/grok-instructions.md"
+  },
+  
+  "metadata": {
+    "createdAt": "2026-05-07T00:00:00Z",
+    "lastOpened": "2026-05-07T20:45:00Z",
+    "tags": ["nextjs", "typescript", "redesign"]
+  }
+}
