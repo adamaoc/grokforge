@@ -24,3 +24,7 @@ Build a **context bundle** service (main or renderer + main FS) that, given `Gro
 ## Key files
 
 - `src/main/manifest.ts`, new `src/main/context.ts` (or similar), `main.ts`, preload, optional dev panel in renderer.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

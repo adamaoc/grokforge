@@ -28,3 +28,7 @@ The Grok / xAI API key today is expected via **environment variables** (`XAI_API
 ## Notes
 
 - Coordinate with **025** if settings entry lives in a menu that was previously inert.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

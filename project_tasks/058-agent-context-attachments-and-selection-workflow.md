@@ -79,3 +79,7 @@ Rules:
 - `AgentChatActiveContext` now carries `attachments` and `editorSelection`; main-process parsing caps and validates those fields.
 - Retrieval boosts attached files/folders, reports rejected attachments in activity details, and keeps folder attachments as focus hints rather than prompt dumps.
 - Verification: `npm run typecheck`, `npm run test -- --run`, and `npm run build` passed.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

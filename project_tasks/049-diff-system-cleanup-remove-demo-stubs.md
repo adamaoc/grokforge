@@ -48,3 +48,7 @@ Remove or isolate demo-only diff code, update docs/tasks, and make sure every di
 - `src/renderer/src/App.tsx`
 - `AGENTS.md`
 - `README.md`
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

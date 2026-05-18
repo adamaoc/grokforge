@@ -122,3 +122,7 @@ Add tests for `applyWorkspaceFsMutate`:
 - `src/renderer/src/components/FileTree.tsx`
 - `src/main/main.ts` (`read-directory`)
 - `src/main/ignore-globs.ts`
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

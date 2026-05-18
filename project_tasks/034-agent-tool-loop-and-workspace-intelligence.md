@@ -285,3 +285,7 @@ E2E smoke:
 - `src/shared/*agent*contract*.ts`
 - `src/renderer/src/components/ChatThread.tsx`
 - `src/renderer/src/types.ts`
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

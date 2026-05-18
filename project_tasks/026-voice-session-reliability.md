@@ -36,3 +36,7 @@
 ## Notes
 
 - **013** shipped the pipeline; this story is **hardening + QA** from real-world feedback.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

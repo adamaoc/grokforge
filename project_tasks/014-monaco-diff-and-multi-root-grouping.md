@@ -27,3 +27,7 @@ Add **side-by-side or inline diff** using Monaco’s diff editor for two version
 ## Key files
 
 - `src/renderer/src/components/EditorPane.tsx`, new diff component(s), `package.json` if new helper deps.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

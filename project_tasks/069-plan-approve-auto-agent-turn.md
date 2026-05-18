@@ -27,3 +27,7 @@
 - [x] Auto-started turn references the in-thread plan via a **bounded** synthetic user line (`src/renderer/src/lib/approved-plan-auto-run.ts`); full plan JSON is not duplicated in that line.
 - [x] Command/edit safety unchanged from pre-approve behavior (`run_command` / `propose_file_edits` / agent-writes mode).
 - [x] Cancel during auto-started turn behaves like any other agent cancel.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

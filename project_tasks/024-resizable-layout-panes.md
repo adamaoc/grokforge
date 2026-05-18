@@ -34,3 +34,7 @@ We should be looking at a sidebar that is collapsable via a button in the header
 ## Key files
 
 - `App.tsx`, layout shell components, `src/renderer/src/components/ui/*` (shadcn).
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

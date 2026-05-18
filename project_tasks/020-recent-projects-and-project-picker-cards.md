@@ -39,3 +39,7 @@ SVG:
 ## Notes
 
 - **Context TBD:** exact card metadata (last opened date, roots count) — add when designing.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

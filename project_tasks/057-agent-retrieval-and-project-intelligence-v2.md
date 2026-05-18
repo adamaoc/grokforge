@@ -90,3 +90,7 @@ Add a ranking module separate from the tool runner:
 - Added a thread-menu action to manually refresh project intelligence.
 - Kept `grok-code-fast-1` as the default workhorse and renamed the visible alternate mode from “Plan” to the resolved `models.planning` id (`grok-4.3` by default) until story 062 makes planning a real workflow.
 - Verification: `npm run typecheck`, `npm run test -- --run`, and `npm run build` passed.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

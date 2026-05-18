@@ -31,3 +31,10 @@ Lightweight checklist for story **079** (pre-public OSS). **Reviewer:** Adam Moo
 
 - GitHub Actions CI (not required for initial public push).
 - Enable **Private vulnerability reporting** in the GitHub repo settings when the repository is created.
+
+## Story **080** — `project_tasks` hygiene (same review pass)
+
+- [x] [`project_tasks/README.md`](../project_tasks/README.md): progress table, **Next up** / last-progress lines, story-file convention block, note on skipped **076**.
+- [x] Every `NNN-*.md` and `post-mvp/*.md` story includes **`## Completion bookkeeping`** pointing at `README.md` + `stories.html` regeneration.
+- [x] Root [`CONTRIBUTING.md`](../CONTRIBUTING.md): “How we use `project_tasks`” section.
+- [x] [`project_tasks/stories.html`](../project_tasks/stories.html) regenerated via `npm run stories:html`.

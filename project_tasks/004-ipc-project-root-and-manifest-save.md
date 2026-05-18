@@ -26,3 +26,7 @@ Fix **technical debt** in the main process: track the **opened project directory
 ## Key files
 
 - `src/main/main.ts`, `src/preload/preload.ts`, consumers in renderer if API changes.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

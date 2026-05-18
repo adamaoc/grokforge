@@ -90,3 +90,7 @@ Manual QA:
 - `src/renderer/src/App.tsx`
 - `src/renderer/src/lib/workspace-path-check.ts`
 - `src/main/terminal-session.ts`
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

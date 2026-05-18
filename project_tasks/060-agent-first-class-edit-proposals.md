@@ -62,3 +62,7 @@ This story should coordinate with stories **045–047**. It is the agent-side br
 - [x] Existing apply/undo safety is preserved or improved.
 - [x] Fenced write blocks remain supported as a temporary compatibility path.
 - [x] Editor, tree, git status, and index refresh after applied proposals.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

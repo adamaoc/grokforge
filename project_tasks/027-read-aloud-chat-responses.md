@@ -44,3 +44,7 @@ Add a feature to **read back** (text-to-speech) **assistant / agent messages** i
 
 - Distinct from **026** realtime voice agent; this is **playback of text chat**.
 - Out of scope: share / like / dislike / regenerate row items from the reference screenshot.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

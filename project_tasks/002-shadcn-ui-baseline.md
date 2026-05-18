@@ -32,3 +32,7 @@ Theme tokens from **001** should map to shadcn CSS variables (`--background`, `-
 ## Key files
 
 - `src/renderer/`, `tailwind.config.js`, `package.json`, new `src/renderer/src/components/ui/*`.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

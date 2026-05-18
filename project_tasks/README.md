@@ -11,6 +11,17 @@ For a lightweight local overview with expandable full story text, run **`npm run
 
 Stories **001–003** establish UI foundations; **004+** build product behavior on top.
 
+There is **no story 076** in this queue (number skipped by historical bookkeeping).
+
+### Story file convention (`NNN-*.md`)
+
+Each numbered story file should lead with:
+
+- **`Status:`** — **`Done`**, **`Closed`**, or **`Not started`** (wording must match the [progress table](#progress-update-when-a-story-ships) below so `npm run stories:html` stays accurate).
+- **`Design skill:`** — **`N/A`** for main-only / docs-only work, or a pointer to **`styleguide-design`** when changing renderer UI.
+
+End the file with **`## Completion bookkeeping`** reminding editors to update this **`README.md`** table and run **`npm run stories:html`** after the story ships.
+
 **Automated tests:** `npm run test` (Vitest unit). **`npm run test:e2e`** (019) runs **`npm run build`** then Vitest smoke tests in `e2e/` (`vitest.e2e.config.ts`).
 
 ---
@@ -91,14 +102,14 @@ Stories **001–003** establish UI foundations; **004+** build product behavior 
 | 071 | Chat thread scroll restore per project | **Done** (v1: bottom on open) |
 | 072 | Chat composer auto-grow and word wrap | **Done** |
 | 073 | Chat attachments: uploads and file tree add to chat | **Done** |
-| 074 | Chat header removal or relocation | Done (v1: header removed; model + thread menu in composer strip) |
-| 075 | Files pane collapse defaults and file tree default open | Done (v1: collapsible editor + context bubble + empty state shortcuts) |
+| 074 | Chat header removal or relocation | **Done** (v1: header removed; model + thread menu in composer strip) |
+| 075 | Files pane collapse defaults and file tree default open | **Done** (v1: collapsible editor + context bubble + empty state shortcuts) |
 | 077 | Voice agent chat: polish, handoff, thread continuity | **Done** (v1: handoff button, coalesced partials, voice hydration) |
-| 078 | Assistant message actions: single-row density | Done (v1: single-row footer + truncation + 40px actions) |
+| 078 | Assistant message actions: single-row density | **Done** (v1: single-row footer + truncation + 40px actions) |
 | 079 | Open source prep: security review and README | **Done** |
-| 080 | Open source prep: stories and tasks hygiene | Not started |
+| 080 | Open source prep: stories and tasks hygiene | **Done** |
 
-**Next up:** **080** before public OSS push. *(Story **068** hero video / copy kit: closed from app backlog—track when redoing promotion video. Terminal dock layout is **post-mvp/081**.)*
+**Next up:** MVP **001–080** are complete or **Closed** in the table above. Further product ideas live in **[`post-mvp/`](post-mvp/)** (for example **018** handoff flows, **081** terminal dock). Choose next work from GitHub issues, discussion, or a new story file as needed. *(Story **068** hero video / public copy kit remains a **Closed** marketing deliverable—track outside this app repo if you revisit it.)*
 
 ---
 
@@ -109,4 +120,4 @@ Stories **001–003** establish UI foundations; **004+** build product behavior 
 | 018 | Handoff: Grok Build & Grok Computer | [`post-mvp/018-handoff-grok-build-and-grok-computer.md`](post-mvp/018-handoff-grok-build-and-grok-computer.md) |
 | 081 | Terminal dock: files pane or bottom drawer | [`post-mvp/081-terminal-dock-files-pane-or-bottom-drawer.md`](post-mvp/081-terminal-dock-files-pane-or-bottom-drawer.md) |
 
-*Last progress update: **079** OSS prep (README, MIT, SECURITY, CONTRIBUTING, review log). **080** still open before OSS push.*
+*Last progress update: **2026-05-18** — **080** stories/tasks hygiene (README convention, completion footers, `stories.html`). MVP queue **001–080** complete for public OSS baseline.*

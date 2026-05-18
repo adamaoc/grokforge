@@ -22,3 +22,7 @@ Add **explicit hand-off** flows from GrokForge to official xAI tools where usefu
 ## Key files
 
 - `ProjectHeader.tsx` or new menu component, `main.ts` (`shell` already imported).
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the tables in [`../README.md`](../README.md), and run **`npm run stories:html`** at the repo root so [`../stories.html`](../stories.html) stays in sync.

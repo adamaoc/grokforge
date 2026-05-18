@@ -79,3 +79,7 @@ Optional targeted checks:
 - Added `src/preload/preload-api-contract.test.ts`, a compile-time shape assertion that the preload implementation and shared contract match.
 - Moved runtime-safe model routing to `src/shared/model-router.ts`; `src/main/model-router.ts` now re-exports it for main-side compatibility. This removes the renderer’s runtime import from `src/main/model-router.ts`.
 - Remaining renderer imports from `src/main/*` in `src/renderer/src/types.ts` are type-only DTO imports. They do not pull Node-only code into the renderer bundle today; future IPC DTOs should prefer `src/shared/*` contracts.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

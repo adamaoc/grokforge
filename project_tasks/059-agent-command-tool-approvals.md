@@ -81,3 +81,7 @@ V1 default should be conservative:
 - Rejected commands return a tool result telling the model the user declined the command.
 - Agent command execution captures capped stdout/stderr for the model while preserving the existing terminal command UI stream path for human-triggered commands.
 - Verification: `npm run typecheck`, `npm run test -- --run`, focused command-policy/agent-command tests, and `npm run build` passed.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

@@ -22,3 +22,7 @@ Replace `ChatThread`’s **`setTimeout` mock** with the real streaming pipeline 
 ## Key files
 
 - `src/renderer/src/components/ChatThread.tsx`, preload, main Grok module, context builder from **008**.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

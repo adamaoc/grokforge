@@ -28,3 +28,7 @@ Refactor the renderer into **small, focused files** and **reusable primitives** 
 ## Key files
 
 - `App.tsx`, `Sidebar.tsx`, `ChatThread.tsx`, `EditorPane.tsx`, `ProjectHeader.tsx`, `VoiceControls.tsx`.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

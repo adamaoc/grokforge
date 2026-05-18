@@ -1,6 +1,6 @@
 # 080 — Open source prep: stories and tasks hygiene
 
-**Status:** Not started.
+**Status:** Done (2026-05-18).
 
 ## Why this story exists
 
@@ -36,10 +36,10 @@ The **`project_tasks`** tree is the product roadmap for humans and Cursor agents
 
 ## Acceptance criteria
 
-- [ ] **`README.md`** progress table is internally consistent with individual story **Status** lines for touched rows.
-- [ ] **Next up / last progress** text is accurate or intentionally generic.
-- [ ] **`stories.html`** regenerated and committed when story markdown or README table changes as part of this work.
-- [ ] No duplicate **backlog** session files remain unless explicitly desired (this story may delete stragglers).
+- [x] **`README.md`** progress table is internally consistent with individual story **Status** lines for touched rows.
+- [x] **Next up / last progress** text is accurate or intentionally generic.
+- [x] **`stories.html`** regenerated and committed when story markdown or README table changes as part of this work.
+- [x] No duplicate **backlog** session files remain unless explicitly desired (this story may delete stragglers).
 
 ## Related stories
 
@@ -47,4 +47,4 @@ The **`project_tasks`** tree is the product roadmap for humans and Cursor agents
 
 ## Completion bookkeeping
 
-When done: mark **080** done in this file, update `project_tasks/README.md`, run **`npm run stories:html`**.
+Shipped **2026-05-18**. If you revise this story later, update the [progress table](README.md) and run **`npm run stories:html`** at the repo root.

@@ -32,3 +32,7 @@ Historical note: this story originally referenced `.grokproject.json`, but GrokF
 - `saveManifestForProject()` persists `manifest.name` and normalizes `displayName` in app project storage.
 - `update-recent-picker-name` updates both MRU display name and canonical app project name via `updateStoredProjectDisplayName()`.
 - `AGENTS.md` documents the current behavior: `update-recent-picker-name` keeps MRU and canonical name in sync.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

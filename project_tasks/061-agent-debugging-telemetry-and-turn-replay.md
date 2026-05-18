@@ -84,3 +84,7 @@ Do not require deterministic model replay in V1.
 - [x] Sensitive data is redacted or omitted.
 - [x] Debug bundles can help diagnose user-reported agent issues.
 
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

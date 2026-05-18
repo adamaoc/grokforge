@@ -26,3 +26,7 @@ Replace `createVoiceSession` placeholder with a **real pipeline**: microphone ca
 ## Key files
 
 - `src/main/voice-realtime.ts`, `main.ts`, `preload.ts`, `src/renderer/src/hooks/useVoiceSession.ts`, `VoiceControls.tsx`, `App.tsx`.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

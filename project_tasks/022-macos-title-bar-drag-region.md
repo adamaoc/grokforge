@@ -28,3 +28,7 @@ What we don't want, is a full app title bar like old apps looked. New apps have 
 ## Notes
 
 - Coordinate with **021** if header structure changes.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

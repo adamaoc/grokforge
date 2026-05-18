@@ -52,3 +52,7 @@ There are **many controls and labels that do nothing** today. Do a pass across t
 
 - **031** — Git status: refresh, errors, discoverability. Decide on per-root manual refresh affordance and how `git_unavailable` is surfaced.
 - **032** — "About GrokForge" menu item: investigate intent (version modal vs remove) and ship or drop.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

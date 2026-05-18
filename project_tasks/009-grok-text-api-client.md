@@ -26,3 +26,7 @@ Implement a **typed HTTP client** for xAI Grok chat/completions with **streaming
 ## Key files
 
 - `src/main/` new module, `main.ts`, `preload.ts`, types in `src/renderer/src/types.ts` or shared.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

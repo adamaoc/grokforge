@@ -22,3 +22,7 @@ Improve **EditorPane** UX: Cmd/Ctrl+S save, visible dirty indicator on tabs, opt
 ## Key files
 
 - `src/renderer/src/components/EditorPane.tsx`, shared UI from **002–003**.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

@@ -31,3 +31,7 @@ Add **automated smoke coverage** for critical flows (open project, open file, sa
 ## Key files
 
 - `package.json` (`test:e2e`), `vitest.e2e.config.ts`, `e2e/*.test.ts`, `e2e/README.md`, renderer/main tweaks for a11y and dev-server detection.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

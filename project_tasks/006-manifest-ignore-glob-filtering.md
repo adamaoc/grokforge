@@ -21,3 +21,7 @@ Implement **ignore glob** matching from `manifest.ignore` (e.g. `**/node_modules
 ## Key files
 
 - `package.json` (dependency), `src/main/main.ts`, IPC handler from **005**, `FileTree.tsx` (pass-through only if filter server-side).
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

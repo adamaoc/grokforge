@@ -84,3 +84,7 @@ Do not silently set `root.git: true` for parent folders just because nested repo
 - Single nested repos show the repo-relative path in the tooltip; multiple nested repos are summarized without claiming the workspace root is itself one repo.
 - Sidebar refreshes git status on project/root changes, per-root manual refresh, and app-driven file changes from editor saves, agent writes/undo, and file tree mutations.
 - Root-level `node_modules` is now matched by `**/node_modules` in the shared ignore helper, aligning root-level and nested ignore behavior.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

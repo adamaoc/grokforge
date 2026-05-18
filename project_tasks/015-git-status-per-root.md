@@ -20,3 +20,7 @@ Surface **git status** for each manifest root where `git: true`: branch name, di
 ## Key files
 
 - `src/main/main.ts`, new `src/main/git.ts`, `Sidebar.tsx`, preload.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

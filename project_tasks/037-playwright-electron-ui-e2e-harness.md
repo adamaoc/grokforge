@@ -135,3 +135,7 @@ The harness itself should be proven by:
 - [ ] Documentation explains how to run and debug UI E2E locally.
 - [ ] Existing fast smoke tests remain available.
 
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

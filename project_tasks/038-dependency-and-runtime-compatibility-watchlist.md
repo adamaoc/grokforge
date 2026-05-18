@@ -122,3 +122,7 @@ Add or preserve tests that catch compatibility failures:
 - [ ] Compatibility smoke includes dev and built app launches.
 - [ ] Future dependency upgrades have a clear “done” definition.
 
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

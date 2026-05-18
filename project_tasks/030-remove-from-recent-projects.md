@@ -38,3 +38,7 @@ Users should be able to **drop a workspace from the recents list** without openi
 ## Notes
 
 - Reuse **020** contract types in `src/shared/recent-projects-contract.ts` unless a dedicated small DTO is needed for the remove payload.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

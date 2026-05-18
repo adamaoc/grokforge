@@ -161,3 +161,7 @@ Integration tests:
 - [x] Context preview/debug surface shows what was included and why.
 - [x] Workspace index remains a compact map, not an ever-growing prompt dump.
 - [x] Story 034 uses these rules when implementing the tool loop.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

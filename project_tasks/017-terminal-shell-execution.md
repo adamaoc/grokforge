@@ -25,3 +25,7 @@ Add optional command runner: execute shell commands with `cwd` set to a chosen r
 - `src/main/run-command.ts`, `src/main/run-command-policy.ts`, `src/shared/run-command-contract.ts`
 - Agent wiring: `src/main/agent-runner.ts` (approved **`run_command`** tool)
 - Human terminal: `src/main/terminal-session.ts`, `src/renderer/src/components/TerminalPanel.tsx`
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

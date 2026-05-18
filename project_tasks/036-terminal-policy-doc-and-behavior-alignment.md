@@ -33,3 +33,7 @@ The terminal redesign should keep the honest model:
 - Stale **017** language was corrected in **053** to remove sandbox claims.
 - Keep `run-command-policy` tests meaningful for the guarded command/tool path.
 - Ensure no user-facing copy claims root cwd is a security sandbox.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

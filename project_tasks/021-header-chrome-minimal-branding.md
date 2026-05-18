@@ -29,3 +29,7 @@ Cleaner look we should go for:
 ## Key files
 
 - `src/renderer/src/components/ProjectHeader.tsx`, parent layout in `App.tsx`.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

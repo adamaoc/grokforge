@@ -25,3 +25,7 @@ Here's a shot of the sidebar and file tree:
 ## Key files
 
 - `src/renderer/src/components/Sidebar.tsx`, `FileTree.tsx`, `App.tsx`.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

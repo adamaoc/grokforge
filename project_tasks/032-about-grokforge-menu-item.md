@@ -52,3 +52,7 @@ Decide what "About GrokForge" should show, then wire it up — or remove the men
 - `package.json` / Electron app metadata remains the version source via `app.getVersion()`.
 - The About modal reuses the existing dark fixed-overlay dialog pattern from the agent context preview.
 - The modal shows GrokForge tagline, app/runtime versions, platform/arch, and the app-storage/workspace-cleanliness note.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

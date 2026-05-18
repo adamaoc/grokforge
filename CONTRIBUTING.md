@@ -7,6 +7,12 @@ Thanks for your interest in GrokForge.
 - Read [`AGENTS.md`](AGENTS.md) for architecture, IPC boundaries, and how the main vs renderer processes interact.
 - For numbered backlog context, see [`project_tasks/README.md`](project_tasks/README.md).
 
+## How we use `project_tasks`
+
+Numbered specs live under [`project_tasks/`](project_tasks/). The index and progress table are in [`project_tasks/README.md`](project_tasks/README.md). After changing a story’s **Status** or the table, run **`npm run stories:html`** so [`project_tasks/stories.html`](project_tasks/stories.html) matches (used as a static viewer of the same content).
+
+Architecture and IPC rules remain in [`AGENTS.md`](AGENTS.md).
+
 ## Local checks
 
 From the repo root:

@@ -93,3 +93,7 @@ Keep first implementation simple:
 - `src/renderer/src/components/Sidebar.tsx`
 - `src/renderer/src/components/EditorPane.tsx`
 - `src/renderer/src/components/DiffEditorPane.tsx`
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

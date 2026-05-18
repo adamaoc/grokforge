@@ -117,3 +117,7 @@ Automated later:
 - `src/shared/terminal-session-contract.ts`
 - `src/preload/preload.ts`
 - `package.json`
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

@@ -69,3 +69,7 @@ Later, add a dev-only command to run a small set of prompts against a real model
 - [x] Tests verify active context, retrieval, ignore rules, sensitive exclusions, limits, and cancellation.
 - [x] Future agent changes can add new scenarios without rewriting the harness.
 
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.

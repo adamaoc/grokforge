@@ -73,3 +73,7 @@ The agent thread should support a workflow where it investigates, presents a sco
 ## Related
 
 - **[069 — Plan approve triggers agent execution](069-plan-approve-auto-agent-turn.md)** — Option B.
+
+## Completion bookkeeping
+
+When this story ships: update its **Status** line, the progress table in [`README.md`](README.md), and run **`npm run stories:html`** at the repo root so [`stories.html`](stories.html) stays in sync.
