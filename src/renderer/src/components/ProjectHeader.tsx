@@ -249,7 +249,7 @@ export function ProjectHeader({
               <dl className="grid grid-cols-[6rem_1fr] gap-x-3 gap-y-2 text-xs">
                 <dt className="text-zinc-500">Version</dt>
                 <dd className="font-mono text-zinc-200">{aboutInfo?.version ?? 'unknown'}</dd>
-                <dt className="text-zinc-500">Electron</dt>
+                <dt className="text-zinc-500">Electron runtime</dt>
                 <dd className="font-mono text-zinc-200">{aboutInfo?.electron ?? 'unknown'}</dd>
                 <dt className="text-zinc-500">Chromium</dt>
                 <dd className="font-mono text-zinc-200">{aboutInfo?.chromium ?? 'unknown'}</dd>

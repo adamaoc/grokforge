@@ -97,9 +97,11 @@
       "output": "release",
       "buildResources": "build"
     },
+    "icon": "assets/GF-logo.png",
     "files": [
       "dist/**/*",
-      "package.json"
+      "package.json",
+      "assets/GF-logo.png"
     ],
     "asar": true,
     "asarUnpack": [

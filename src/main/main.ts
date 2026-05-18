@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { app, BrowserWindow, ipcMain, dialog, session, shell, clipboard } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, session, shell, clipboard, nativeImage } from 'electron'
 import { join, resolve, relative, isAbsolute } from 'path'
 import { readFileSync, writeFileSync, existsSync, statSync } from 'fs'
 import { readdir } from 'fs/promises'
@@ -92,6 +92,9 @@ import type { ClearXaiApiKeyResult, SetXaiApiKeyResult, XaiKeyStatusPayload } fr
 import type { WorkspaceFsMutateResult } from '../shared/workspace-fs-mutation-contract'
 import type { AppInfoPayload } from '../shared/app-info-contract'
 
+/** Shown in the macOS menu bar and other OS shells instead of the default "Electron". */
+app.setName('GrokForge')
+
 let mainWindow: BrowserWindow | null = null
 let currentProject: GrokProjectManifest | null = null
 /** App-side workspace project id (`userData/workspace-projects/<id>/`). */
@@ -153,12 +156,26 @@ function isPathWithinWorkspaceRoots(candidate: string): boolean {
   return pathIsWithinWorkspaceRoots(candidate, currentProject.roots)
 }
 
+/** PNG next to `dist/` in dev and inside the app bundle when packaged (see `package.json` `build.files`). */
+function resolveAppIconPath(): string | undefined {
+  const fromDist = join(__dirname, '../../assets/GF-logo.png')
+  if (existsSync(fromDist)) return fromDist
+  const fromApp = join(app.getAppPath(), 'assets', 'GF-logo.png')
+  if (existsSync(fromApp)) return fromApp
+  return undefined
+}
+
 function createWindow() {
+  const iconPath = resolveAppIconPath()
+  const icon = iconPath ? nativeImage.createFromPath(iconPath) : undefined
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
+    title: 'GrokForge',
+    ...(icon && !icon.isEmpty() ? { icon } : {}),
     webPreferences: {
       preload: resolvePreloadPath(),
       contextIsolation: true,
