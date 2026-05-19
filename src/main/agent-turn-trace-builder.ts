@@ -1,8 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import type { AgentRetrievalDebugSnapshot } from './agent-context'
-import type { AgentChatActiveContext, AgentChatStartPayload } from '../shared/agent-chat-contract'
+import type { AgentProfileId } from '../shared/agent-profile'
+import type {
+  AgentChatActiveContext,
+  AgentChatStartPayload,
+  AgentChatTurnRouting,
+} from '../shared/agent-chat-contract'
+import type { AgentTurnSnapshot } from '../shared/agent-turn-snapshot'
+import { summarizeSnapshotForTrace } from '../shared/agent-turn-snapshot'
 import type { AgentTurnTraceV1 } from '../shared/agent-turn-trace-contract'
 import { AGENT_TURN_TRACE_SCHEMA_VERSION } from '../shared/agent-turn-trace-contract'
+
+export const AGENT_TURN_TRACE_MAX_PROVIDER_ROUNDS = 32
 
 const MAX_SELECTION_TEXT_IN_TRACE = 8000
 
@@ -13,6 +22,10 @@ export type TurnTraceScratch = {
   projectId: string
   streamId: string
   model: string
+  modelIntent?: AgentChatTurnRouting['modelIntent']
+  canonicalModelId?: string
+  harnessProfileKey?: AgentChatTurnRouting['harnessProfileKey']
+  agentProfileId?: AgentProfileId
   chatMode: AgentChatActiveContext['chatMode']
   userText: string
   startedAtMs: number
@@ -25,12 +38,15 @@ export type TurnTraceScratch = {
   totalToolCharsAccumulated: number
   assistantStreamChars: number
   maxToolIterationsHit?: boolean
+  providerRounds: NonNullable<AgentTurnTraceV1['providerRounds']>
+  lastSnapshotId?: string
 }
 
 export function createTurnTraceScratch(
   projectId: string,
   payload: AgentChatStartPayload,
   systemPromptChars?: number,
+  routing?: AgentChatTurnRouting,
 ): TurnTraceScratch {
   const approxTotalChars = payload.threadSnapshot.reduce((n, m) => n + m.content.length, 0)
   const active: AgentChatStartPayload['activeContext'] = {
@@ -47,6 +63,10 @@ export function createTurnTraceScratch(
     projectId,
     streamId: payload.streamId,
     model: payload.model,
+    modelIntent: routing?.modelIntent,
+    canonicalModelId: routing?.modelId,
+    harnessProfileKey: routing?.harnessProfileKey,
+    agentProfileId: routing?.agentProfileId,
     chatMode: payload.activeContext.chatMode,
     userText: payload.userText,
     startedAtMs: Date.now(),
@@ -57,7 +77,23 @@ export function createTurnTraceScratch(
     editProposalCreated: false,
     totalToolCharsAccumulated: 0,
     assistantStreamChars: 0,
+    providerRounds: [],
   }
+}
+
+export function pushProviderRound(
+  scratch: TurnTraceScratch,
+  snapshot: AgentTurnSnapshot,
+  outcome: 'completed' | 'cancelled' = 'completed',
+): void {
+  if (scratch.providerRounds.length >= AGENT_TURN_TRACE_MAX_PROVIDER_ROUNDS) return
+  scratch.providerRounds.push(summarizeSnapshotForTrace(snapshot, outcome))
+  scratch.lastSnapshotId = snapshot.snapshotId
+}
+
+export function markLastProviderRoundCancelled(scratch: TurnTraceScratch): void {
+  const last = scratch.providerRounds[scratch.providerRounds.length - 1]
+  if (last) last.outcome = 'cancelled'
 }
 
 function truncateSelectionForTrace(text: string | undefined): string | undefined {
@@ -117,6 +153,10 @@ export function finalizeTurnTrace(
     projectId: scratch.projectId,
     streamId: scratch.streamId,
     model: scratch.model,
+    modelIntent: scratch.modelIntent,
+    canonicalModelId: scratch.canonicalModelId,
+    harnessProfileKey: scratch.harnessProfileKey,
+    agentProfileId: scratch.agentProfileId,
     chatMode: scratch.chatMode,
     userText: scratch.userText,
     startedAt: new Date(scratch.startedAtMs).toISOString(),
@@ -133,5 +173,6 @@ export function finalizeTurnTrace(
     totalToolCharsAccumulated: scratch.totalToolCharsAccumulated,
     assistantStreamChars: scratch.assistantStreamChars,
     maxToolIterationsHit: scratch.maxToolIterationsHit,
+    providerRounds: scratch.providerRounds.length > 0 ? scratch.providerRounds : undefined,
   }
 }

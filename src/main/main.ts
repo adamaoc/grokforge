@@ -42,7 +42,11 @@ import {
   type GetChatSystemPromptResult,
 } from './agent-context'
 import { registerGrokStreamIpc, setGrokStreamTargetWindow } from './grok-stream'
-import { registerAgentChatIpc, setAgentChatTargetWindow } from './agent-runner'
+import {
+  flushActiveAgentTurnReceiptsAsInterruptedForApp,
+  registerAgentChatIpc,
+  setAgentChatTargetWindow,
+} from './agent-runner'
 import { refreshWorkspaceIndex } from './agent-index-store'
 import type { RefreshProjectIntelligenceResult } from '../shared/agent-chat-contract'
 import {
@@ -51,6 +55,15 @@ import {
   loadChatThread,
   parseIncomingPersistPayload,
 } from './chat-store'
+import {
+  findPlanByThreadMessageId,
+  markPlansSupersededForMessageIds,
+  setPlanArtifactStatus,
+} from './agent-plan-store'
+import {
+  buildApprovedPlanExecuteSummary,
+  PlanArtifactStatusSchema,
+} from '../shared/agent-plan-artifact'
 import {
   loadProjectContextPins,
   saveProjectContextPins,
@@ -276,6 +289,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  flushActiveAgentTurnReceiptsAsInterruptedForApp()
   killAllTerminalSessions()
 })
 
@@ -868,6 +882,65 @@ ipcMain.handle('append-chat-message', (_, payload: unknown) => {
     return { ok: false, error: 'Cannot persist synthetic welcome message' } as const
   }
   return appendChatMessage(currentProjectId, record)
+})
+
+ipcMain.handle('set-stored-plan-status', (_, raw: unknown) => {
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  const o = raw as { projectId?: unknown; planId?: unknown; status?: unknown }
+  const projectId = typeof o.projectId === 'string' && o.projectId.trim() ? o.projectId.trim() : ''
+  const planId = typeof o.planId === 'string' && o.planId.trim() ? o.planId.trim() : ''
+  const statusParsed = PlanArtifactStatusSchema.safeParse(o.status)
+  if (!projectId || !planId || !statusParsed.success || !isStoredProjectPresent(projectId)) {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  if (!setPlanArtifactStatus(projectId, planId, statusParsed.data)) {
+    return { ok: false as const, error: 'Plan not found' }
+  }
+  return { ok: true as const }
+})
+
+ipcMain.handle('get-stored-plan-for-message', (_, raw: unknown) => {
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  const o = raw as { projectId?: unknown; threadMessageId?: unknown }
+  const projectId = typeof o.projectId === 'string' && o.projectId.trim() ? o.projectId.trim() : ''
+  const threadMessageId =
+    typeof o.threadMessageId === 'string' && o.threadMessageId.trim() ? o.threadMessageId.trim() : ''
+  if (!projectId || !threadMessageId || !isStoredProjectPresent(projectId)) {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  const artifact = findPlanByThreadMessageId(projectId, threadMessageId)
+  if (!artifact) {
+    return { ok: true as const }
+  }
+  return {
+    ok: true as const,
+    planId: artifact.planId,
+    status: artifact.status,
+    summaryPreview: buildApprovedPlanExecuteSummary(artifact, 400),
+  }
+})
+
+ipcMain.handle('mark-stored-plans-superseded', (_, raw: unknown) => {
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  const o = raw as { projectId?: unknown; threadMessageIds?: unknown; supersededByPlanId?: unknown }
+  const projectId = typeof o.projectId === 'string' && o.projectId.trim() ? o.projectId.trim() : ''
+  if (!projectId || !isStoredProjectPresent(projectId)) {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  if (!Array.isArray(o.threadMessageIds)) {
+    return { ok: false as const, error: 'Invalid message ids' }
+  }
+  const threadMessageIds = o.threadMessageIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+  const supersededByPlanId =
+    typeof o.supersededByPlanId === 'string' && o.supersededByPlanId.trim() ? o.supersededByPlanId.trim() : undefined
+  const updated = markPlansSupersededForMessageIds(projectId, threadMessageIds, supersededByPlanId)
+  return { ok: true as const, updated }
 })
 
 ipcMain.handle('clear-chat-thread', (): ReturnType<typeof clearChatThread> => {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
+  Compass,
   Database,
   FileDiff,
   FileText,
@@ -24,6 +25,9 @@ type Props = {
   turnContext?: ChatTurnContextV1 | null
   defaultExpanded?: boolean
   isLive?: boolean
+  /** Best-effort execute progress vs approved plan steps (story 098). */
+  planStepCount?: number
+  completedEditActivities?: number
 }
 
 function compactFileLabel(path: string): string {
@@ -48,6 +52,8 @@ function ToolIcon({ tool }: { tool?: AgentChatActivityPayload['tool'] }) {
       return <FileDiff className={className} aria-hidden />
     case 'run_command':
       return <Terminal className={className} aria-hidden />
+    case 'spawn_subagent':
+      return <Compass className={className} aria-hidden />
     case 'retrieval':
       return <Search className={className} aria-hidden />
     default:
@@ -63,7 +69,7 @@ function StatusDot({ status }: { status: AgentChatActivityPayload['status'] }) {
     <span
       className={cn(
         'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full',
-        status === 'error' ? 'bg-red-400' : 'bg-zinc-500',
+        status === 'error' ? 'bg-red-400' : status === 'interrupted' ? 'bg-amber-400' : 'bg-zinc-500',
       )}
       aria-hidden
     />
@@ -75,6 +81,8 @@ export function AgentTurnToolActivityList({
   turnContext,
   defaultExpanded = false,
   isLive = false,
+  planStepCount,
+  completedEditActivities,
 }: Props) {
   const [expanded, setExpanded] = useState(defaultExpanded)
   if (activities.length === 0) return null
@@ -134,6 +142,17 @@ export function AgentTurnToolActivityList({
         </div>
       ) : null}
 
+      {planStepCount != null &&
+      planStepCount > 0 &&
+      completedEditActivities != null &&
+      isLive &&
+      turnContext?.chatMode === 'fast' ? (
+        <p className="mt-1.5 text-[10px] text-zinc-500">
+          Execution progress (best-effort): step{' '}
+          {Math.min(completedEditActivities, planStepCount)} of {planStepCount}
+        </p>
+      ) : null}
+
       {expanded ? (
         <ul className="mt-2 space-y-2 border-t border-zinc-800/80 pt-2">
           {activities.map((activity) => {
@@ -154,6 +173,7 @@ export function AgentTurnToolActivityList({
                       className={cn(
                         'min-w-0 truncate text-zinc-300',
                         activity.status === 'error' && 'text-red-300/90',
+                        activity.status === 'interrupted' && 'text-amber-200/90',
                       )}
                     >
                       {activity.title}

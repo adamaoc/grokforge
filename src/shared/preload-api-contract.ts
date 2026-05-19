@@ -23,6 +23,14 @@ import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../main/
 import type { VoiceSessionStartPayload } from './voice-session-contract'
 import type { GitDiffSessionResult, GitStatusSummary } from '../main/git'
 import type {
+  GetStoredPlanForMessageArgs,
+  GetStoredPlanForMessageResult,
+  MarkStoredPlansSupersededArgs,
+  MarkStoredPlansSupersededResult,
+  SetStoredPlanStatusArgs,
+  SetStoredPlanStatusResult,
+} from './agent-plan-artifact'
+import type {
   AgentChatCapabilitiesResult,
   AgentCommandApprovalRespondResult,
   AgentCommandApprovalResponse,
@@ -30,8 +38,6 @@ import type {
   AgentChatStartPayload,
   AgentChatStartResult,
   RefreshProjectIntelligenceResult,
-  ValidateAgentEditBatchPayload,
-  ValidateAgentEditBatchResult,
 } from './agent-chat-contract'
 import type {
   ExportSanitizedAgentTurnTraceResult,
@@ -117,7 +123,6 @@ export type ElectronAPI = {
   agentChatCapabilities(): Promise<AgentChatCapabilitiesResult>
   refreshProjectIntelligence(): Promise<RefreshProjectIntelligenceResult>
   agentChatStart(payload: AgentChatStartPayload): Promise<AgentChatStartResult>
-  validateAgentEditBatch(payload: ValidateAgentEditBatchPayload): Promise<ValidateAgentEditBatchResult>
   computeAgentContentHash(content: string): Promise<string | null>
   agentChatCancel(streamId: string): Promise<{ ok: boolean }>
   agentCommandApprovalRespond(payload: AgentCommandApprovalResponse): Promise<AgentCommandApprovalRespondResult>
@@ -129,6 +134,9 @@ export type ElectronAPI = {
   loadChatThread(): Promise<LoadChatThreadResult>
   appendChatMessage(payload: PersistedChatLineV1): Promise<AppendChatMessageResult>
   appendChatMessageForProject(args: { projectId: string; payload: PersistedChatLineV1 }): Promise<AppendChatMessageResult>
+  setStoredPlanStatus(args: SetStoredPlanStatusArgs): Promise<SetStoredPlanStatusResult>
+  getStoredPlanForMessage(args: GetStoredPlanForMessageArgs): Promise<GetStoredPlanForMessageResult>
+  markStoredPlansSuperseded(args: MarkStoredPlansSupersededArgs): Promise<MarkStoredPlansSupersededResult>
   clearChatThread(): Promise<ClearChatThreadResult>
   getProjectContextPins(args: { projectId: string }): Promise<GetProjectContextPinsResult>
   setProjectContextPins(args: {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, ChevronDown, ExternalLink, Loader2 } from 'lucide-react'
 import type { GrokProjectManifest, XaiKeyStatusPayload } from '@/types'
+import { getModelForIntent } from '@/types'
 import { normalizeTtsVoiceId, TTS_VOICE_PRESETS, XAI_API_KEY_MAX_LEN } from '@/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -413,6 +414,49 @@ export function SettingsPage({
             </div>
           </section>
 
+          {project ? (
+            <section
+              className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm"
+              aria-labelledby="gf-settings-agent-models-heading"
+            >
+              <h2 id="gf-settings-agent-models-heading" className="text-base font-semibold text-white">
+                Agent models
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                GrokForge resolves which xAI model runs each chat turn from this project manifest.
+                The composer <strong className="font-medium text-zinc-300">Fast</strong> chip maps to{' '}
+                <span className="font-mono text-xs text-zinc-500">models.default</span>; the planning
+                model chip maps to{' '}
+                <span className="font-mono text-xs text-zinc-500">models.planning</span>.{' '}
+                <strong className="font-medium text-zinc-300">Plan</strong> mode uses the planner
+                profile (read-only tools); <strong className="font-medium text-zinc-300">Approve and run</strong>{' '}
+                uses <span className="font-mono text-xs text-zinc-500">models.execution</span>. Main
+                process is the source of truth for the API model id (renderer sends a hint only).
+              </p>
+              <dl className="mt-4 divide-y divide-zinc-800/80 rounded-xl border border-zinc-800/80 text-sm">
+                {(
+                  [
+                    ['Default (Fast chat)', 'chat_default'],
+                    ['Planning', 'planning'],
+                    ['Execution (approve and run)', 'execution'],
+                    ['Reasoning', 'reasoning'],
+                    ['Voice', 'voice'],
+                  ] as const
+                ).map(([label, intent]) => (
+                  <AgentModelSlotRow
+                    key={intent}
+                    label={label}
+                    modelId={getModelForIntent(project, intent)}
+                  />
+                ))}
+              </dl>
+              <p className="mt-4 text-xs text-zinc-500">
+                Model id changes and retirement notes:{' '}
+                <span className="font-mono">docs/harness-102-xai-investigation.md</span> in the repo.
+              </p>
+            </section>
+          ) : null}
+
           {workspaceProjectId ? (
             <AgentWriteHistorySection
               projectId={workspaceProjectId}
@@ -622,6 +666,15 @@ export function SettingsPage({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+function AgentModelSlotRow({ label, modelId }: { label: string; modelId: string }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5">
+      <dt className="text-zinc-400">{label}</dt>
+      <dd className="font-mono text-xs text-zinc-200">{modelId}</dd>
     </div>
   )
 }

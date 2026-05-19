@@ -1,6 +1,6 @@
 # 103 — Per-model harness profiles (`grok-code-fast-1` vs `grok-4.3`)
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (main/shared agent loop; optional dev-only Settings preview of profile id).
 

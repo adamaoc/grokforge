@@ -1,6 +1,6 @@
 # 110 — Interrupted tool boundaries and turn receipts
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill (required):** Read `.cursor/skills/styleguide-design/SKILL.md` if surfacing interrupted state in chat (`@styleguide-design`).
 
@@ -47,9 +47,9 @@ In tool activity (**093**) metadata: `running` → `completed` | `failed` | `int
 
 ## Acceptance criteria
 
-- [ ] Cancelled and crashed turns persist distinguishable receipt status.
-- [ ] Next turn after interrupted receipt includes harness recovery hint in context (bounded chars).
-- [ ] `npm run typecheck` and `npm run test` pass.
+- [x] Cancelled and crashed turns persist distinguishable receipt status.
+- [x] Next turn after interrupted receipt includes harness recovery hint in context (bounded chars).
+- [x] `npm run typecheck` and `npm run test` pass.
 
 ## Related stories
 

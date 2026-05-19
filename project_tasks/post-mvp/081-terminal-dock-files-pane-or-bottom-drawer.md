@@ -1,6 +1,6 @@
 # 081 — Terminal dock: files pane vs bottom drawer
 
-**Status:** Post-MVP backlog.
+**Status:** Closed — not pursuing alternate terminal dock modes (right-column vs bottom drawer); current fixed shell layout is sufficient.
 
 **Moved from:** MVP story **076** (same scope; deferred past launch).
 

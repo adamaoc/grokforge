@@ -58,6 +58,6 @@ Epic is **done** when at least **two** of A–F are shipped with tests and docum
 
 Closed without a single epic PR. Delivered via child stories **082–088**, **091–096**.
 
-**Harness program (2026-05):** continued in **102–114** — dual-model manifests, per-model harness profiles, agent profiles/toolsets, turn snapshots, context offload, evals, RPI plan files, subagents. See **[111](111-harness-roadmap-and-retrospective-doc.md)**.
+**Harness program (2026-05):** continued in **102–114** — dual-model manifests, per-model harness profiles, agent profiles/toolsets, turn snapshots, context offload, evals, RPI plan files, subagents. See [`docs/harness-roadmap.md`](../../docs/harness-roadmap.md).
 
 Deferred beyond harness wave: unified diff apply (theme B), LSP-style edit ops (theme C).

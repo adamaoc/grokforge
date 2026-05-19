@@ -1,9 +1,10 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { GrokProjectManifest } from './manifest'
 import { validateAgentEditProposal } from './agent-edit-proposals'
+import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
 import { AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
 import {
   AGENT_EDIT_READ_BEFORE_WRITE_REASON,
@@ -34,12 +35,27 @@ function manifestForRoot(root: string): GrokProjectManifest {
   }
 }
 
-function env(root: string) {
+function env(root: string, overrides?: Partial<AgentToolExecutionContext>): AgentToolExecutionContext {
+  const manifest = manifestForRoot(root)
   return {
     projectId: 'test-project',
-    manifest: manifestForRoot(root),
-    activeContext: { activeRootId: 'root', openTabs: [], chatMode: 'fast' as const },
-    signal: new AbortController().signal,
+    streamId: 'stream-test',
+    snapshotId: '00000000-0000-4000-8000-000000000002',
+    toolCallId: 'tc-proposal',
+    activityId: 'act-proposal',
+    agentProfileId: 'default',
+    harnessProfileKey: 'grok_code_fast',
+    sessionDepth: 'parent',
+    abortSignal: new AbortController().signal,
+    manifest,
+    roots: manifest.roots,
+    activeContext: { activeRootId: 'root', openTabs: [], chatMode: 'fast' },
+    readPathsThisTurn: new Set(),
+    readHashesThisTurn: new Map(),
+    emitProgress: vi.fn(),
+    recordPathRead: vi.fn(),
+    askCommandApproval: vi.fn(async () => false),
+    ...overrides,
   }
 }
 

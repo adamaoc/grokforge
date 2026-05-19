@@ -1,6 +1,6 @@
 # 107 — Context offload for large tool results
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (optional renderer “context compressed” chip later).
 

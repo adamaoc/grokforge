@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Mic, MicOff, MessageSquareText } from 'lucide-react'
 import type { GrokProjectManifest } from '@/types'
-import { getModelForIntent } from '@/types'
+import { getModelForIntent, getHarnessProfile, resolveHarnessProfileKey } from '@/types'
 import { ModelBadge } from '@/components/grokforge/ModelBadge'
 import { motion } from 'framer-motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -36,6 +36,10 @@ export function VoiceControls({
   project,
 }: VoiceControlsProps) {
   const voiceModel = useMemo(() => getModelForIntent(project, 'voice'), [project])
+  const voiceHarness = useMemo(() => {
+    const key = resolveHarnessProfileKey(voiceModel)
+    return { key, displayName: getHarnessProfile(key).displayName }
+  }, [voiceModel])
   const voiceDisabled = project.voice.defaultVoiceMode === 'off'
 
   const getStatusText = () => {
@@ -137,6 +141,9 @@ export function VoiceControls({
             </div>
             <ModelBadge variant="voice" title={voiceModel}>
               {voiceModel}
+            </ModelBadge>
+            <ModelBadge variant="capsule" title={`Harness profile: ${voiceHarness.key}`}>
+              {voiceHarness.displayName}
             </ModelBadge>
           </div>
           <div className={`text-sm ${getStatusColor()} transition-colors`}>{getStatusText()}</div>

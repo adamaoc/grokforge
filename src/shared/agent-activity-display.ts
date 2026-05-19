@@ -50,6 +50,7 @@ const TOOL_LABELS: Record<AgentChatToolName | 'retrieval', string> = {
   search_replace: 'Search & replace',
   run_command: 'Run command',
   propose_file_edits: 'Propose edits',
+  spawn_subagent: 'Subagent exploration',
   retrieval: 'Context retrieval',
 }
 

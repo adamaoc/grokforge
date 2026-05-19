@@ -1,6 +1,6 @@
 # 098 — Planning mode: explicit plan → approve → execute UX
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill (required):** Read `.cursor/skills/styleguide-design/SKILL.md` (`@styleguide-design`).
 
@@ -68,10 +68,10 @@ States (persist per plan id in `plan-interaction-storage.ts` or extend):
 
 ## Acceptance criteria
 
-- [ ] User can distinguish plan vs execution phase without reading raw JSON.
-- [ ] Executing state visible from approve-and-run until turn completes.
-- [ ] Model/profile label shown during execute when **097** metadata present.
-- [ ] `npm run typecheck` passes.
+- [x] User can distinguish plan vs execution phase without reading raw JSON.
+- [x] Executing state visible from approve-and-run until turn completes.
+- [x] Model/profile label shown during execute when **097** metadata present.
+- [x] `npm run typecheck` passes.
 
 ## Related stories
 

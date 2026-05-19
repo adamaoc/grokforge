@@ -1,6 +1,6 @@
 # 097 — Runner phase routing: planner vs executor model intents
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (manifest + `model-router`; Settings copy for model slots recommended).
 
@@ -42,14 +42,26 @@ Output:
 }
 ```
 
-**Rules (v1):**
+**Rules (v1 — two axes):**
 
-| Condition | `modelIntent` | Expected model slot |
+**Model intent** (`resolveAgentChatModelIntent`):
+
+| Priority | Condition | `modelIntent` |
 | --- | --- | --- |
-| `chatMode === 'plan'` | `planning` | `models.planning` → typically `grok-4.3` |
-| `isApprovedPlanAutoRun` | `execution` | `models.execution` → typically `grok-code-fast-1` |
-| `chatMode === 'fast'` default | `chat_default` | `models.default` |
-| Renderer forces `planning` chip on fast mode | `planning` | User override (document) |
+| 1 | `isApprovedPlanAutoRun` | `execution` |
+| 2 | Renderer `modelIntent` chip (fast or plan) | as sent |
+| 3 | `chatMode === 'plan'` (no chip) | `planning` |
+| 4 | else | `chat_default` |
+
+**Agent profile** (`resolveAgentProfileId`):
+
+| Condition | `agentProfileId` |
+| --- | --- |
+| `chatMode === 'plan'` | `planner` |
+| `isApprovedPlanAutoRun` or `modelIntent === 'execution'` (fast) | `executor` |
+| else | `default` |
+
+Plan mode + Fast chip → planner profile + `models.default`. UI stepper: **098**.
 
 ### 2. Main owns resolution
 
@@ -89,12 +101,12 @@ Output:
 
 ## Acceptance criteria
 
-- [ ] Main process resolves `modelIntent` + `modelId` + profile keys per turn from documented rules.
-- [ ] Approve-and-run always uses `execution` intent (regression for **069**).
-- [ ] Plan mode uses `planning` intent for full turn unless documented override.
-- [ ] Turn metadata visible in dev logs or UI.
-- [ ] `AGENTS.md` documents mapping table.
-- [ ] `npm run typecheck` and `npm run test` pass.
+- [x] Main process resolves `modelIntent` + `modelId` + profile keys per turn from documented rules.
+- [x] Approve-and-run always uses `execution` intent (regression for **069**).
+- [x] Plan mode defaults to `planning` intent; chip override honored in plan mode.
+- [x] Turn metadata visible in dev logs (`turn_started.routing`).
+- [x] `AGENTS.md` documents mapping table.
+- [x] `npm run typecheck` and `npm run test` pass.
 
 ## Related stories
 

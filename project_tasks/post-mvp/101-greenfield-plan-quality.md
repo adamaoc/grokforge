@@ -1,6 +1,6 @@
 # 101 — Greenfield plan quality (per-profile prompts)
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (harness prompts in shared/main).
 

@@ -4,6 +4,9 @@ import type { GrokProjectManifest } from './manifest'
 import { getModelForIntent } from './model-router'
 import { getXaiApiKey } from './grok-stream'
 import { buildChatSystemPrompt } from './agent-context'
+import { buildVoiceHarnessAppendix } from '../shared/agent-harness-profile'
+import { resolveHarnessProfileKey } from '../shared/agent-harness-profile-contract'
+import { VOICE_THREAD_SUMMARY_EFFECTIVE_MAX } from '../shared/voice-session-contract'
 import { normalizeTtsVoiceId } from '../shared/tts-read-aloud-contract'
 
 const PCM_SAMPLE_RATE = 24_000
@@ -27,7 +30,17 @@ function forwardToRenderer(win: BrowserWindow, msg: VoiceRealtimeServerEvent) {
   }
 }
 
+function isDevMode(): boolean {
+  return process.env.NODE_ENV === 'development'
+}
+
 function buildSessionUpdatePayload(manifest: GrokProjectManifest, opts?: { threadSummary?: string }): string {
+  const voiceModelId = getModelForIntent(manifest, 'voice', { logSelection: true })
+  const harnessProfileKey = resolveHarnessProfileKey(voiceModelId)
+  if (isDevMode()) {
+    console.debug('[GrokForge voice] harness routing', { voiceModelId, harnessProfileKey })
+  }
+
   let instructions =
     manifest.context.customInstructions?.trim() ||
     'You are GrokForge, a concise voice coding assistant for a multi-root workspace.'
@@ -40,15 +53,13 @@ function buildSessionUpdatePayload(manifest: GrokProjectManifest, opts?: { threa
             '',
             '## Recent text chat (for continuity)',
             'The user may switch between voice and typed agent chat in one thread. Summarized recent messages:',
-            summary.slice(0, 10_000),
+            summary.slice(0, VOICE_THREAD_SUMMARY_EFFECTIVE_MAX),
           ].join('\n')
         : ''
     instructions = [
       systemPrompt.slice(0, 31_000),
       '',
-      '## Voice adapter note',
-      'Realtime voice does not run the full typed agent tool loop. For file inspection, edits, or multi-step implementation, offer to continue in **typed agent chat**; the user can tap **Continue in agent chat** in the voice bar to hand off the thread to tools.',
-      'Do **not** ask the user to paste absolute file paths for implementation work. After handoff, typed agent chat will locate files with `search_workspace`, `list_directory`, and `read_file` under the workspace roots.',
+      buildVoiceHarnessAppendix(harnessProfileKey),
       summaryBlock,
     ].join('\n')
     if (warnings.length > 0) {

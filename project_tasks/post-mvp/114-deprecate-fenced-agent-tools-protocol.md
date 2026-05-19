@@ -1,6 +1,6 @@
 # 114 — Deprecate fenced `grokforge-agent-tools` write protocol
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (renderer may remove parser UI).
 
@@ -16,6 +16,8 @@
 
 - Log when fence parser activates (dev counter).
 - If zero usage in manual testing for N weeks, proceed to removal.
+
+**Shipped:** Skipped separate telemetry phase; removed apply path directly after **108** coverage.
 
 ### 2. Removal (v2 in same story or follow-up PR)
 
@@ -33,9 +35,9 @@
 
 ## Acceptance criteria
 
-- [ ] Documented deprecation notice in changelog/docs.
-- [ ] No new turns can apply writes via fence (after removal phase).
-- [ ] `npm run test` pass without fence fixtures.
+- [x] Documented deprecation notice in changelog/docs.
+- [x] No new turns can apply writes via fence (after removal phase).
+- [x] `npm run test` pass without fence fixtures.
 
 ## Related stories
 

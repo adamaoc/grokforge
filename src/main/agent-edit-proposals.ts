@@ -1,9 +1,9 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import type { GrokProjectManifest } from './manifest'
 import { shouldIgnoreFsEntry } from './ignore-globs'
 import { isPathWithinWorkspaceRoots } from './workspace-path-guard'
 import { isLikelySensitivePath, resolveAgentWorkspacePath } from './agent-workspace-tools'
-import type { AgentChatActiveContext, AgentEditProposalPayload } from '../shared/agent-chat-contract'
+import type { AgentEditProposalPayload } from '../shared/agent-chat-contract'
+import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
 import { AGENT_TOOL_PROTOCOL_VERSION, type AgentToolBatchPayload } from '../shared/agent-tool-contract'
 import {
   AGENT_EDIT_READ_BEFORE_WRITE_REASON,
@@ -55,25 +55,21 @@ function validateExistingFileContentHash(
 
 export function validateAgentEditProposal(
   rawArgs: unknown,
-  env: {
-    projectId: string
-    manifest: GrokProjectManifest
-    activeContext: AgentChatActiveContext
-    signal: AbortSignal
-    readPathsThisTurn?: ReadonlySet<string>
-    readHashesThisTurn?: ReadonlyMap<string, string>
-  },
+  ctx: AgentToolExecutionContext,
 ): { ok: true; proposal: AgentEditProposalPayload } | { ok: false; error: string; proposal?: AgentEditProposalPayload } {
+  if (ctx.abortSignal.aborted) {
+    return { ok: false, error: 'Tool cancelled.' }
+  }
   const parsed = AgentToolBatchPayloadSchema.safeParse(rawArgs)
   if (!parsed.success) return { ok: false, error: parsed.error.message }
 
   const operations: AgentToolBatchPayload['operations'] = []
   const rejected: AgentEditProposalPayload['rejected'] = []
-  const roots = env.manifest.roots
-  const ignore = env.manifest.ignore ?? []
+  const roots = ctx.manifest.roots
+  const ignore = ctx.manifest.ignore ?? []
 
   for (const op of parsed.data.operations) {
-    const resolved = resolveAgentWorkspacePath(op.path, env)
+    const resolved = resolveAgentWorkspacePath(op.path, ctx)
     if (!resolved || !isPathWithinWorkspaceRoots(resolved, roots)) {
       rejected.push({ path: op.path, reason: 'Path outside workspace roots' })
       continue
@@ -95,7 +91,7 @@ export function validateAgentEditProposal(
           fileExistsOnDisk = false
         }
       }
-      if (isWriteFileBlockedWithoutRead(resolved, env.readPathsThisTurn, fileExistsOnDisk)) {
+      if (isWriteFileBlockedWithoutRead(resolved, ctx.readPathsThisTurn, fileExistsOnDisk)) {
         rejected.push({ path: op.path, reason: AGENT_EDIT_READ_BEFORE_WRITE_REASON })
         continue
       }
@@ -103,7 +99,7 @@ export function validateAgentEditProposal(
         const hashError = validateExistingFileContentHash(
           resolved,
           op.expectedContentHash,
-          env.readHashesThisTurn,
+          ctx.readHashesThisTurn,
         )
         if (hashError) {
           rejected.push({ path: op.path, reason: hashError })
@@ -114,7 +110,7 @@ export function validateAgentEditProposal(
         fileExistsOnDisk && op.expectedContentHash
           ? op.expectedContentHash
           : fileExistsOnDisk
-            ? resolveExpectedHash(op.expectedContentHash, resolved, env.readHashesThisTurn)
+            ? resolveExpectedHash(op.expectedContentHash, resolved, ctx.readHashesThisTurn)
             : undefined
       let normalizedContent = normalizeAgentWriteFileContent(op.content)
       if (needsSourceLayoutRepair(normalizedContent)) {
@@ -140,7 +136,7 @@ export function validateAgentEditProposal(
       const hashError = validateExistingFileContentHash(
         resolved,
         op.expectedContentHash,
-        env.readHashesThisTurn,
+        ctx.readHashesThisTurn,
       )
       if (hashError) {
         rejected.push({ path: op.path, reason: hashError })
@@ -151,7 +147,7 @@ export function validateAgentEditProposal(
       deleteExists && op.expectedContentHash
         ? op.expectedContentHash
         : deleteExists
-          ? resolveExpectedHash(op.expectedContentHash, resolved, env.readHashesThisTurn)
+          ? resolveExpectedHash(op.expectedContentHash, resolved, ctx.readHashesThisTurn)
           : undefined
     operations.push({
       op: 'delete_file',

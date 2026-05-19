@@ -109,7 +109,7 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 079 | Open source prep: security review and README | **Done** |
 | 080 | Open source prep: stories and tasks hygiene | **Done** |
 
-**Next up:** MVP **001–080** are complete or **Closed** in the table above. Further product ideas live in **[`post-mvp/`](post-mvp/)** (harness wave **102–114**, **081** terminal dock). Choose next work from GitHub issues, discussion, or a new story file as needed. *(Story **068** hero video / public copy kit remains a **Closed** marketing deliverable—track outside this app repo if you revisit it.)*
+**Next up:** MVP **001–080** are complete or **Closed** in the table above. Harness wave **102–114** is complete. Choose next work from GitHub issues, discussion, or a new story file as needed. *(Story **068** hero video / public copy kit remains a **Closed** marketing deliverable—track outside this app repo if you revisit it.)*
 
 ---
 
@@ -118,7 +118,7 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | ID | Story | Spec |
 |----|--------|------|
 | 018 | ~~Handoff: Grok Build & Grok Computer~~ **(closed)** | [`post-mvp/018-handoff-grok-build-and-grok-computer.md`](post-mvp/018-handoff-grok-build-and-grok-computer.md) |
-| 081 | Terminal dock: files pane or bottom drawer | [`post-mvp/081-terminal-dock-files-pane-or-bottom-drawer.md`](post-mvp/081-terminal-dock-files-pane-or-bottom-drawer.md) |
+| 081 | ~~Terminal dock: files pane or bottom drawer~~ **(closed)** | [`post-mvp/081-terminal-dock-files-pane-or-bottom-drawer.md`](post-mvp/081-terminal-dock-files-pane-or-bottom-drawer.md) |
 | 082 | Agent edits: require `read_file` before write **(done)** | [`post-mvp/082-agent-edit-require-read-before-write.md`](post-mvp/082-agent-edit-require-read-before-write.md) |
 | 083 | Agent edits: minimal-change prompting **(done)** | [`post-mvp/083-agent-edit-prompting-minimal-change.md`](post-mvp/083-agent-edit-prompting-minimal-change.md) |
 | 084 | Agent edits: pre-apply safety warnings **(done)** | [`post-mvp/084-agent-edit-pre-apply-safety-warnings.md`](post-mvp/084-agent-edit-pre-apply-safety-warnings.md) |
@@ -134,39 +134,39 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 094 | Agent context pinning and memory **(done)** | [`post-mvp/094-agent-context-pinning-and-memory.md`](post-mvp/094-agent-context-pinning-and-memory.md) |
 | 095 | First project onboarding **(done)** | [`post-mvp/095-first-project-onboarding.md`](post-mvp/095-first-project-onboarding.md) |
 | 096 | Applied edit history and revert **(done)** | [`post-mvp/096-applied-edit-history-and-revert.md`](post-mvp/096-applied-edit-history-and-revert.md) |
-| 097 | Runner phase routing: planner vs executor intents | [`post-mvp/097-model-routing-planner-vs-executor.md`](post-mvp/097-model-routing-planner-vs-executor.md) |
-| 098 | Planning mode execute UX polish | [`post-mvp/098-planning-mode-execute-ux-polish.md`](post-mvp/098-planning-mode-execute-ux-polish.md) |
+| 097 | Runner phase routing: planner vs executor intents **(done)** | [`post-mvp/097-model-routing-planner-vs-executor.md`](post-mvp/097-model-routing-planner-vs-executor.md) |
+| 098 | Planning mode execute UX polish **(done)** | [`post-mvp/098-planning-mode-execute-ux-polish.md`](post-mvp/098-planning-mode-execute-ux-polish.md) |
 | 099 | Plan mode: final contract + missing-plan toast **(done)** | [`post-mvp/099-plan-mode-final-contract-and-toast.md`](post-mvp/099-plan-mode-final-contract-and-toast.md) |
 | 100 | Proposal quality: auto-normalize + apply guard **(done)** | [`post-mvp/100-proposal-quality-auto-normalize.md`](post-mvp/100-proposal-quality-auto-normalize.md) |
-| 101 | Greenfield plan quality (per-profile prompts) | [`post-mvp/101-greenfield-plan-quality.md`](post-mvp/101-greenfield-plan-quality.md) |
-| 102 | Dual-model manifest + harness profile keys | [`post-mvp/102-dual-model-manifest-and-harness-foundation.md`](post-mvp/102-dual-model-manifest-and-harness-foundation.md) |
-| 103 | Per-model harness profiles (`fast` vs `4.3`) | [`post-mvp/103-agent-harness-per-model-profiles.md`](post-mvp/103-agent-harness-per-model-profiles.md) |
-| 104 | Agent profiles and toolsets | [`post-mvp/104-agent-profiles-and-toolsets.md`](post-mvp/104-agent-profiles-and-toolsets.md) |
-| 105 | Agent turn snapshots | [`post-mvp/105-agent-turn-snapshots.md`](post-mvp/105-agent-turn-snapshots.md) |
-| 106 | Unified tool execution context | [`post-mvp/106-agent-tool-execution-context.md`](post-mvp/106-agent-tool-execution-context.md) |
-| 107 | Context offload for large tool results | [`post-mvp/107-agent-context-offload-large-tool-results.md`](post-mvp/107-agent-context-offload-large-tool-results.md) |
-| 108 | Harness eval: per-model regressions | [`post-mvp/108-harness-eval-suite-per-model-regressions.md`](post-mvp/108-harness-eval-suite-per-model-regressions.md) |
-| 109 | RPI plan artifacts on disk | [`post-mvp/109-rpi-plan-artifacts-on-disk.md`](post-mvp/109-rpi-plan-artifacts-on-disk.md) |
-| 110 | Interrupted tool boundaries + turn receipts | [`post-mvp/110-agent-interrupted-tool-boundaries.md`](post-mvp/110-agent-interrupted-tool-boundaries.md) |
-| 111 | Harness roadmap + retrospective doc | [`post-mvp/111-harness-roadmap-and-retrospective-doc.md`](post-mvp/111-harness-roadmap-and-retrospective-doc.md) |
-| 112 | Subagents as child sessions | [`post-mvp/112-agent-subagents-child-sessions.md`](post-mvp/112-agent-subagents-child-sessions.md) |
-| 113 | Voice realtime harness alignment | [`post-mvp/113-voice-realtime-harness-profile-alignment.md`](post-mvp/113-voice-realtime-harness-profile-alignment.md) |
-| 114 | Deprecate fenced `grokforge-agent-tools` protocol | [`post-mvp/114-deprecate-fenced-agent-tools-protocol.md`](post-mvp/114-deprecate-fenced-agent-tools-protocol.md) |
+| 101 | Greenfield plan quality (per-profile prompts) **(done)** | [`post-mvp/101-greenfield-plan-quality.md`](post-mvp/101-greenfield-plan-quality.md) |
+| 102 | Dual-model manifest + harness profile keys **(done)** | [`post-mvp/102-dual-model-manifest-and-harness-foundation.md`](post-mvp/102-dual-model-manifest-and-harness-foundation.md) |
+| 103 | Per-model harness profiles (`fast` vs `4.3`) **(done)** | [`post-mvp/103-agent-harness-per-model-profiles.md`](post-mvp/103-agent-harness-per-model-profiles.md) |
+| 104 | Agent profiles and toolsets **(done)** | [`post-mvp/104-agent-profiles-and-toolsets.md`](post-mvp/104-agent-profiles-and-toolsets.md) |
+| 105 | Agent turn snapshots **(done)** | [`post-mvp/105-agent-turn-snapshots.md`](post-mvp/105-agent-turn-snapshots.md) |
+| 106 | Unified tool execution context **(done)** | [`post-mvp/106-agent-tool-execution-context.md`](post-mvp/106-agent-tool-execution-context.md) |
+| 107 | Context offload for large tool results **(done)** | [`post-mvp/107-agent-context-offload-large-tool-results.md`](post-mvp/107-agent-context-offload-large-tool-results.md) |
+| 108 | Harness eval: per-model regressions **(done)** | [`post-mvp/108-harness-eval-suite-per-model-regressions.md`](post-mvp/108-harness-eval-suite-per-model-regressions.md) |
+| 109 | RPI plan artifacts on disk **(done)** | [`post-mvp/109-rpi-plan-artifacts-on-disk.md`](post-mvp/109-rpi-plan-artifacts-on-disk.md) |
+| 110 | Interrupted tool boundaries + turn receipts **(done)** | [`post-mvp/110-agent-interrupted-tool-boundaries.md`](post-mvp/110-agent-interrupted-tool-boundaries.md) |
+| 111 | Harness roadmap + retrospective doc **(done)** | [`post-mvp/111-harness-roadmap-and-retrospective-doc.md`](post-mvp/111-harness-roadmap-and-retrospective-doc.md) |
+| 112 | Subagents as child sessions **(done)** | [`post-mvp/112-agent-subagents-child-sessions.md`](post-mvp/112-agent-subagents-child-sessions.md) |
+| 113 | Voice realtime harness alignment **(done)** | [`post-mvp/113-voice-realtime-harness-profile-alignment.md`](post-mvp/113-voice-realtime-harness-profile-alignment.md) |
+| 114 | Deprecate fenced `grokforge-agent-tools` protocol **(done)** | [`post-mvp/114-deprecate-fenced-agent-tools-protocol.md`](post-mvp/114-deprecate-fenced-agent-tools-protocol.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
 **Wave 1 — foundation & RPI feel**
 
-1. **111** (docs index, can start anytime) → **102** → **103** → **104** → **097** → **101** → **098**
+1. ~~**111**~~ (docs index) → ~~**102**~~ → ~~**103**~~ → ~~**104**~~ → ~~**097**~~ → ~~**101**~~ → ~~**098**~~
 
 **Wave 2 — harness hardening**
 
-2. **108** (parallel after **103**) → **105** → **106** → **107** → **110**
+2. ~~**108**~~ (parallel after **103**) → ~~**105**~~ → ~~**106**~~ → ~~**107**~~ → ~~**110**~~
 
 **Wave 3 — durability & cleanup**
 
-3. **109** → **113** → **112** → **114**
+3. ~~**109**~~ → ~~**112**~~ → ~~**113**~~ → ~~**114**~~
 
-**Parallel (not harness-core):** **081** terminal dock.
+**Parallel (not harness-core):** ~~**081**~~ terminal dock **(closed)**.
 
-*Last progress update: **2026-05-19** — **018** closed (no Grok Build/Computer handoff). Harness wave **102–114** on deck; start **102** or **111**. MVP **001–080** complete.*
+*Last progress update: **2026-05-19** — **081** closed (terminal dock modes out of scope). Harness wave **102–114** complete. MVP **001–080** complete.*

@@ -1,5 +1,7 @@
 # I am a harness
 
+**Program status:** shipped vs backlog, dual-model table, and harness debt retrospective — **[`harness-roadmap.md`](harness-roadmap.md)**.
+
 GrokForge is **not** the agent. GrokForge is the **harness** around Grok.
 
 When we design agent interactions, tools, safety, and UX, it helps to keep the **model** separate from everything we build around it. The **agent** is not a fourth product you ship — it is the *behavior* that emerges when a Grok model runs inside a well-built harness.
@@ -38,7 +40,17 @@ The model does not “know” your repo, terminal, or diff UI by itself. The har
 | What should we use for coding now? | **`grok-4.3`** — xAI’s current recommendation for agentic coding and tool use. |
 | Does the harness pick the model? | **Yes** — via `manifest.models` and `getModelForIntent()` (`chat_default`, `planning`, `execution`, `reasoning`, `voice`). The harness chooses *which* Grok id to call; xAI runs inference. |
 
-**GrokForge today:** new projects intentionally use a **dual-model** manifest: **`grok-code-fast-1`** on **`chat_default`** / **`execution`**, **`grok-4.3`** on **`planning`** (`src/shared/model-router.ts`, `app-project-store.ts`) so we can run **separate harness profiles per model** (see **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**). xAI may **redirect** retired ids — document behavior in **[102](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md)**. Program index: **[111](../project_tasks/post-mvp/111-harness-roadmap-and-retrospective-doc.md)**.
+**GrokForge today:** new projects intentionally use a **dual-model** manifest: **`grok-code-fast-1`** on **`chat_default`** / **`execution`**, **`grok-4.3`** on **`planning`** (`DUAL_MODEL_FALLBACKS` in `src/shared/model-router.ts`, `app-project-store.ts`) so we can run **separate harness profiles per model** (see **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**). Program index: **[`harness-roadmap.md`](harness-roadmap.md)**.
+
+### xAI redirect for `grok-code-fast-1` (story 102)
+
+After the [May 15, 2026 retirement](https://docs.x.ai/developers/migration/may-15-retirement), API requests that still send the **`grok-code-fast-1`** slug are **redirected to `grok-4.3`** with **`low` reasoning effort** — not a hard error. Billing uses **`grok-4.3`** pricing. GrokForge **keeps the fast id in manifest** on purpose for harness A/B (`resolveHarnessProfileKey` → `grok_code_fast` vs `grok_4_3`); switch a project to all **`grok-4.3`** in manifest when you want one id end-to-end. Investigation notes: [`docs/harness-102-xai-investigation.md`](harness-102-xai-investigation.md).
+
+At turn start, main emits **`turn_started.routing`** `{ modelIntent, modelId, harnessProfileKey }` and stores the same on agent turn traces (dev logs in development).
+
+**Shipped profiles (103):** `getHarnessProfile` in `src/shared/agent-harness-profile.ts` supplies per-key system sections, tool-loop bias, tool description overrides, and final-answer variants for `grok_code_fast`, `grok_4_3`, and `generic`. Reasoning traces: **preserve** (no strip until xAI message shape is handled in transport).
+
+**Shipped agent profiles (104):** `getAgentProfile` / `resolveAgentProfileId` in `src/shared/agent-profile.ts` control **which tools exist** in the API (`planner` = read-only toolset; `executor` / `default` = full). Harness profile = *how* the model is prompted; agent profile = *what* it may call.
 
 ---
 
@@ -164,7 +176,7 @@ The author reports improving a coding agent’s Terminal Bench 2.0 ranking from 
 | **Bash / code execution** | General-purpose “do work” tool | Write and run code to solve problems | Guarded `run_command` (approved, not full PTY for agent); human **terminal** is separate |
 | **Sandboxes** | Safe execution | Security when agents get shell access | Trusted-developer framing + policy blocks — **not** full Docker sandbox yet |
 | **Memory & search** | Long-term knowledge | Avoid forgetting the project | Workspace index, retrieval, thread memory / pins (post-MVP) |
-| **Context management** | Fight “context rot” | Long tasks degrade as the window fills | Context budget (**039**), retrieval governance; compaction/offloading still evolving |
+| **Context management** | Fight “context rot” | Long tasks degrade as the window fills | Context budget (**039**), retrieval governance; **tool-result offload** (**107**); LLM summarization still **gap** |
 | **Orchestration** | Sub-agents, handoffs, long loops | Planning + continuation for hard tasks | Plan vs fast, approve → execute (**069**); sub-agents / “Ralph loops” not first-class |
 | **Skills / progressive disclosure** | Avoid overloading context | Load only relevant tools/knowledge | Tool schemas + modes; no separate “skills” layer yet |
 
@@ -172,7 +184,7 @@ The author reports improving a coding agent’s Terminal Bench 2.0 ranking from 
 
 Long runs suffer **context rot** (quality drops as the window fills). Strong harnesses use compaction, offloading, and selective tool exposure — see the dedicated write-up below: **[Context Management for Deep Agents](#context-management-for-deep-agents-langchain)**.
 
-GrokForge touchpoints today: `agent-context.ts`, context budget (**039**), retrieval caps; deliberate offload + structured summarization is still a gap.
+GrokForge touchpoints today: `agent-context.ts`, context budget (**039**), retrieval caps, automatic tool-result offload (**107**); structured LLM summarization of history is still a gap.
 
 **4. Design for long-horizon work**
 
@@ -266,7 +278,7 @@ Compression = reduce what sits in **working memory** while keeping task-relevant
 
 | Direction | Notes |
 | --- | --- |
-| **Filesystem offloading** | Natural fit — we already have root-scoped `read_file` / writes; gap is **automatic** offload of huge tool returns and old turns into workspace or app-data artifacts with stable paths in context. |
+| **Filesystem offloading** | Natural fit — we already have root-scoped `read_file` / writes; **automatic** offload of huge tool returns to app-data with pointer + `read_file` recovery (**107**); offloading old **chat** turns still **gap**. |
 | **Compression strategy** | Don’t rely on Grok’s window alone; define thresholds, preview sizes, and what gets summarized vs pointed. Relates to **039** (context budget) but needs explicit **compression events**. |
 | **Recoverability** | Agent must re-read offloaded blobs; UI may show “context compressed” / what was summarized. |
 | **Goal drift** | If we add summarization, use structured fields and keep plan pins / thread memory (**094**) as anchors. |
@@ -347,7 +359,7 @@ When Cursor added **OpenAI Codex**, they **heavily customized** the harness (not
 | **Planning** | Mentioned in harness anatomy | Not highlighted | **Plan Mode** central | Align with plan → execute; persist plans usefully |
 | **Self-improvement** | Eval / harness engineering posts | Autonomous skills | Continuous harness iteration | Skills in repo + eval suite; not autonomous self-mod yet |
 | **Tool philosophy** | FS as overflow + tools | Tooling varies | Search + terminal exploration | Keep `search_workspace` / `read_file` strong; avoid context dumps |
-| **RPI / phased workflow** | Research → plan → implement as distinct artifacts | `spec:` / `plan.json` style skills | Plan mode + execute; not full RPI artifact chain | **Partial** — see [Martin Richards](#martin-richards--building-your-own-agent-harness) |
+| **RPI / phased workflow** | Research → plan → implement as distinct artifacts | `spec:` / `plan.json` style skills | Plan mode + execute; **`plan.json` / `plan.md` on disk (109)**; no `spec.md` pipeline yet | **Partial (109)** — see [Martin Richards](#martin-richards--building-your-own-agent-harness) |
 | **Sandbox execution** | Docker / isolated run loops | Observable harness loop | Guarded `run_command`; no agent Docker sandbox | **Partial** / **Gap** — see [Dev.to harness](#devto--building-a-coding-agent-harness) |
 
 ---
@@ -388,7 +400,7 @@ When Cursor added **OpenAI Codex**, they **heavily customized** the harness (not
 
 | Idea | GrokForge today |
 | --- | --- |
-| Model routing research vs implement | **Partial** — `planning` / `execution` / `default` intents (**012**, **097** backlog); not “cheap research sub-agent” |
+| Model routing research vs implement | **Partial** — `planning` / `execution` / `default` intents (**012**, **097**); canonical routing in `resolveAgentTurnRouting`; not “cheap research sub-agent” |
 | Sub-agents | **Gap** |
 | Structured handoff artifacts | **Partial** — merged edit proposals, `gf-plan`; weak cross-phase machine-readable bundle |
 | Codebase onboarding | **Partial** — workspace index, retrieval, rules; no dedicated onboarding story beyond **095** |
@@ -437,7 +449,7 @@ Patterns distilled from **LangChain**, **Hermes**, **Cursor**, **Martin Richards
 | Pattern | Description | GrokForge direction | Status | Source |
 | --- | --- | --- | --- | --- |
 | **Filesystem as source of truth** | Durable state, plans, offloads, artifacts on disk | User **workspace roots** are truth; app `userData` for manifest/chat/index | **Partial** | LangChain + Cursor + Martin Richards |
-| **Offloading over pure summarization** | Large tool outputs → disk; pointer + preview | Auto-offload huge tool returns; structured summary when still over budget | **Gap** | LangChain |
+| **Offloading over pure summarization** | Large tool outputs → disk; pointer + preview | Auto-offload huge tool returns (**107**); structured summary when still over budget | **Partial** | LangChain |
 | **Agent-driven context fetching** | Search tools over manual dumps | `search_workspace` + `read_file` + index; minimal preload | **Yes** / **Partial** | Cursor + Reddit |
 | **Sub-agents for context offloading** | Cheaper/smaller runs for research | Route research to lighter model or isolated sub-turn; pass structured artifact back | **Gap** | Reddit |
 | **Minimize handoff context loss** | Structured summaries between phases/sub-agents | `gf-plan`, pins, merged proposals — expand machine-readable handoff bundle | **Partial** | Reddit |
@@ -460,7 +472,7 @@ Patterns distilled from **LangChain**, **Hermes**, **Cursor**, **Martin Richards
 
 | Pattern | Description | GrokForge direction | Status | Source |
 | --- | --- | --- | --- | --- |
-| **RPI loop (Research → Plan → Implement)** | Distinct phases with reviewable artifacts (`spec.md`, `plan.json`) | Align plan mode + execute with explicit research pass; optional structured plan file on disk | **Partial** | Martin Richards + Reddit |
+| **RPI loop (Research → Plan → Implement)** | Distinct phases with reviewable artifacts (`spec.md`, `plan.json`) | Align plan mode + execute with explicit research pass; structured plan file on disk (**109**) | **Partial (109)** | Martin Richards + Reddit |
 | **Shared mutable plans + backflow** | Plan is living state; impl can send you back to plan/research | Persist plans; allow “re-plan” without losing thread; runner could detect failed apply → suggest plan | **Partial** | Martin Richards |
 | **Plan mode before coding** | No code until plan reviewed | Plan mode, `gf-plan`, no `propose_file_edits` on plan turn (**099**) | **Yes** | Cursor + Martin Richards |
 | **Skill taxonomies** | `spec:`, `oracle:`, `code:` style phased skills | Namespace skills by phase; load only matching prefix for current mode | **Gap** | Martin Richards |
@@ -483,14 +495,14 @@ Patterns distilled from **LangChain**, **Hermes**, **Cursor**, **Martin Richards
 
 | Pattern | Description | GrokForge direction | Status | Source |
 | --- | --- | --- | --- | --- |
-| **Task-based model routing** | Cheaper/faster for research; strong for plan/impl | `models.planning` vs `models.execution` vs `default`; extend **097** | **Partial** | Reddit + **097** |
+| **Task-based model routing** | Cheaper/faster for research; strong for plan/impl | `models.planning` vs `models.execution` vs `default`; **097** (two-axis routing) | **Partial** | Reddit + **097** |
 | **Model-specific harness tuning** | Prompts + tools per model | Grok 4.3 profile — not shared with Codex/Claude assumptions | **Gap** | Cursor |
 | **Preserve reasoning traces** | Keep thinking across turns when helpful | Test xAI; don’t strip if quality regresses | **Gap** (verify) | Cursor (Codex) |
 | **Bias toward action** | Implement unless planning-only | Execution mode + tool contracts | **Partial** | Cursor |
 | **Tool schema experimentation** | Descriptions tuned for Grok 4.3 | Per-profile tool defs in harness | **Gap** | Cursor |
 | **Preamble / instruction tuning** | System prompt per model family | `grok-4.3` variant; retire fast-code tone | **Gap** | Cursor |
 
-Dual-model + profile keys: **[102](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md)** → **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**. Phase routing: **[097](../project_tasks/post-mvp/097-model-routing-planner-vs-executor.md)**. Roadmap: **[111](../project_tasks/post-mvp/111-harness-roadmap-and-retrospective-doc.md)**.
+Dual-model + profile keys: **[102](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md)** → **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**. Canonical phase routing: **[097](../project_tasks/post-mvp/097-model-routing-planner-vs-executor.md)** (`resolveAgentTurnRouting` in `src/shared/agent-turn-routing.ts`). Roadmap: **[`harness-roadmap.md`](harness-roadmap.md)**.
 
 ### 7. Reliability & verification
 
@@ -506,8 +518,8 @@ Dual-model + profile keys: **[102](../project_tasks/post-mvp/102-dual-model-mani
 | Pattern | Description | GrokForge direction | Status | Source |
 | --- | --- | --- | --- | --- |
 | **Instrumentation & metrics** | Success, tokens, errors, satisfaction | Turn traces (**061**), eval harness (**063**), future Keep/apply rate | **Partial** | Cursor |
-| **Aggressive compression testing** | Early thresholds, needle tests | Dev mode compress at 10–20%; eval “find fact after offload” | **Gap** | LangChain |
-| **Anomaly detection** | Catch harness regressions | CI eval on prompt/tool changes; compare benchmark runs | **Partial** (**063**) | Cursor |
+| **Aggressive compression testing** | Early thresholds, needle tests | Offload needle in unit tests (**107**); manual offload follow-up in **[harness-eval-checklist.md](harness-eval-checklist.md)** | **Partial** | LangChain |
+| **Anomaly detection** | Catch harness regressions | CI eval matrix (**108**) on profile/agent/contract tags; `npm run test:agent-eval` | **Partial** (**063**, **108**) | Cursor |
 
 ---
 
@@ -518,7 +530,7 @@ Updated after Martin Richards (RPI), Reddit (routing/sub-agents), and Dev.to (sa
 | Priority | Pattern cluster | Why first | GrokForge gap / work |
 | --- | --- | --- | --- |
 | **High** | **RPI loop + reviewable artifacts** | Top leverage across Cursor + Martin Richards | Strengthen plan → execute; add optional `spec.md` / structured plan on disk; **098** |
-| **High** | **Filesystem-centric + offloading** | Foundation for context + durability | Auto-offload tool output; plan files under app or workspace path |
+| **High** | **Filesystem-centric + offloading** | Foundation for context + durability | Tool-result offload (**107**); plan files under app or workspace path |
 | **High** | **Planning as distinct reviewable phase** | Already started — don’t regress | Protect **099** contract; diff-before-apply |
 | **High** | **Sandbox + observable execution loop** | Safety + debuggability (Dev.to) | Docker-tier agent runs (future); expand traces (**061**) + tool activity |
 | **High** | **Model-specific harness (dual-model)** | Per-model tuning is not optional | **102** + **103** (`grok-code-fast-1` vs `grok-4.3` profiles) |
@@ -568,11 +580,11 @@ Earlier sources gave **principles** (LangChain, Cursor, RPI). The implementation
 | Pattern | Why | Priority | GrokForge today | Primary source |
 | --- | --- | --- | --- | --- |
 | **Agent profiles + permission scopes** | Different behaviors via tool access + rules, not prompts alone | **High** | **Partial** — plan vs fast + edit contract; not full profile matrix like OpenCode `build`/`plan`/`explore` | OpenCode |
-| **Turn snapshots** | Stable model/tools/prompt/messages for in-flight request; no mid-turn mutation bugs | **High** | **Gap** — runner assembles context per call; no frozen turn snapshot type | Pi |
-| **Rich tool execution context** | sessionId, abort, permission callback, progress/metadata for UI | **High** | **Partial** — cancel on turn; IPC events; no unified `ToolContext` passed to every tool | OpenCode + Hermes |
+| **Turn snapshots** | Stable model/tools/prompt/messages for in-flight request; no mid-turn mutation bugs | **High** | **Partial** — `AgentTurnSnapshot` per provider round (**105**); trace `providerRounds` metadata | Pi |
+| **Rich tool execution context** | sessionId, abort, permission callback, progress/metadata for UI | **High** | **Partial (106/110)** — **`AgentToolExecutionContext`** on all v1 tools (**106**); turn receipts + interrupted activity (**110**) | OpenCode + Hermes |
 | **Toolsets / curated bundles** | Different tools per mode/agent/platform | **High** | **Partial** — fixed v1 tool list; plan mode restricts edits via contract, not tool registry | Hermes |
 | **Subagents as isolated sessions** | Permissions, context, resume, inspectability | **Medium–High** | **Gap** | OpenCode + Hermes |
-| **Durable boundaries + recovery** | Checkpoint/log/receipt; mark interrupted work | **High** | **Partial** — chat thread + undo batch; no explicit “interrupted tool” boundary | Pi + T3 |
+| **Durable boundaries + recovery** | Checkpoint/log/receipt; mark interrupted work | **High** | **Partial (110)** — `turn-receipts.jsonl` + recovery hint; activity `interrupted`; no stream resume | Pi + T3 |
 | **Permissions as composable data** | Wildcard allow/deny/ask by pattern | **Medium** | **Partial** — `run_command` approval, ignore rules, scoped roots; not agent-profile rulesets | OpenCode |
 | **Extensions layer** | Customize without forking core harness | **Medium** | **Partial** — `.cursor/skills`, plugins N/A in app | Pi |
 | **Event normalization** | Stable UI over provider-native noise | **Medium** | **Partial** — `agent-chat` event stream; xAI-only today | T3 |
@@ -589,13 +601,13 @@ OpenCode agents (`build`, `plan`, `general`, `explore`, …) bundle **prompt + m
 
 Before each provider call, snapshot: session messages, system prompt, model, tools, resources, stream options. Mutations during the turn apply to **future** snapshots only.
 
-**GrokForge:** **Gap.** When adding compaction, tool list changes, or mid-turn pin updates, introduce something like `AgentTurnSnapshot` in `agent-runner.ts` built once per model round.
+**GrokForge:** **Partial (105).** `buildTurnSnapshot()` in `agent-runner.ts` freezes routing, tools, active context, and messages before each sample/final stream; live `messages` mutates only for the next round. Context offload (**107**) must not mutate prior snapshots.
 
 #### 3. Tool execution context (OpenCode + Hermes)
 
 Tools receive: session/project id, abort signal, tool call id, agent name, message context, permission `ask()`, metadata/progress callback.
 
-**GrokForge:** **Partial** — main owns cancel; renderer gets activity rows. **Next:** shared `AgentToolExecutionContext` type passed into `agent-workspace-tools` / `run-command` (even if Electron doesn’t need all fields yet).
+**GrokForge:** **Partial (106/110).** `buildAgentToolExecutionContext()` wires snapshot/tool ids, abort, read registry, throttled progress, and command approval (**106**). Turn receipts and `interrupted` tool activity boundaries ship in **110**. **Next:** permissions-as-data beyond command approval.
 
 #### 4. Toolsets (Hermes)
 
@@ -613,7 +625,7 @@ Child session with inherited/scoped permissions, resumable, visible in UI — no
 
 Don’t resume in-flight provider streams; recover from checkpoints, session log, receipts; mark tool runs `interrupted`.
 
-**GrokForge:** **Partial** — persisted chat + undo; **next:** explicit turn boundaries in thread log; on crash mid-tool, surface “interrupted” in UI and runner.
+**GrokForge:** **Partial (110/112)** — `turn-receipts.jsonl` per turn (`in_progress` → terminal), quit flush as `interrupted`, next-turn recovery system block; tool activity `interrupted` in UI. Child explorer sessions (**112**) persist under `agent-sessions/*.jsonl` with bounded `spawn_subagent` results to the parent.
 
 #### 7. Permissions as data (OpenCode)
 
@@ -635,10 +647,10 @@ From the [implementation report](research/agentic-coding-harnesses.md#questions-
 2. Where are xAI/Grok quirks normalized? — `agent-chat-model-transport`, per-model profile (**gap**)
 3. Tools: plain functions or session-aware? — **move toward session-aware**
 4. Permissions: data + UI? — **partial** (command approval, diff apply)
-5. Interrupt provider, shell, subagent? — cancel turn yes; subagent N/A
+5. Interrupt provider, shell, subagent? — cancel turn yes; parent abort propagates to child (**112**); no parallel subagents v1. Voice handoff → typed chat (**113**) does not run tools in the WebSocket layer.
 6. Persisted after each turn? — chat thread + proposals + index
 7. Crash mid-tool? — **define behavior** (interrupted vs retry)
-8. Context pressure / compaction? — budget **039**; offload **gap**
+8. Context pressure / compaction? — budget **039**; tool-result offload **107**; chat summarization **gap**
 9. Model select/switch? — `getModelForIntent` **yes**
 10. Extensions (tools, hooks, UI)? — skills/rules **partial**
 11. Subagent isolation? — **gap**

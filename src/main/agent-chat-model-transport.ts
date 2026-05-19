@@ -1,20 +1,9 @@
 import { AGENT_TOOL_DEFINITIONS } from './agent-workspace-tools'
 import { getChatCompletionsUrl, getXaiApiKey } from './grok-stream'
+import type { AgentProviderRequest } from '../shared/agent-turn-snapshot'
+import type { AgentModelToolCall } from '../shared/agent-model-message'
 
-/** Matches OpenAI-style tool_calls on assistant messages (agent runner). */
-export type AgentModelToolCall = {
-  id: string
-  type: 'function'
-  function: {
-    name: string
-    arguments: string
-  }
-}
-
-export type AgentModelChatMessage =
-  | { role: 'system' | 'user'; content: string }
-  | { role: 'assistant'; content: string | null; tool_calls?: AgentModelToolCall[] }
-  | { role: 'tool'; tool_call_id: string; content: string }
+export type { AgentModelChatMessage, AgentModelToolCall } from '../shared/agent-model-message'
 
 type ChatCompletionResponse = {
   choices?: Array<{
@@ -36,14 +25,9 @@ export type AgentChatSampleResult = {
  * Production uses HTTP; tests inject scripted implementations.
  */
 export type AgentChatModelTransport = {
-  sampleChatCompletion(
-    model: string,
-    messages: AgentModelChatMessage[],
-    signal: AbortSignal,
-  ): Promise<AgentChatSampleResult>
+  sampleChatCompletion(request: AgentProviderRequest, signal: AbortSignal): Promise<AgentChatSampleResult>
   streamFinalAnswer(
-    model: string,
-    messages: AgentModelChatMessage[],
+    request: AgentProviderRequest,
     signal: AbortSignal,
     emitChunk: (delta: string) => void,
   ): Promise<void>
@@ -65,12 +49,12 @@ async function postChatCompletion(body: unknown, signal: AbortSignal): Promise<R
 
 export function createHttpAgentChatModelTransport(): AgentChatModelTransport {
   return {
-    async sampleChatCompletion(model, messages, signal) {
+    async sampleChatCompletion(request, signal) {
       const res = await postChatCompletion(
         {
-          model,
-          messages,
-          tools: AGENT_TOOL_DEFINITIONS,
+          model: request.model,
+          messages: request.messages,
+          tools: request.tools.length > 0 ? request.tools : AGENT_TOOL_DEFINITIONS,
           tool_choice: 'auto',
           parallel_tool_calls: false,
           max_tokens: 1200,
@@ -89,11 +73,11 @@ export function createHttpAgentChatModelTransport(): AgentChatModelTransport {
         toolCalls: message?.tool_calls ?? [],
       }
     },
-    async streamFinalAnswer(model, messages, signal, emitChunk) {
+    async streamFinalAnswer(request, signal, emitChunk) {
       const res = await postChatCompletion(
         {
-          model,
-          messages,
+          model: request.model,
+          messages: request.messages,
           stream: true,
           max_tokens: 4096,
         },

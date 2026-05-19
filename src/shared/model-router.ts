@@ -23,7 +23,14 @@ export const MODEL_INTENT_MANIFEST_KEYS: Record<ModelIntent, keyof ModelRoutingM
   voice: 'voice',
 }
 
-const FALLBACK_MODELS: Record<ModelIntent, string> = {
+/**
+ * Dual-model harness defaults (story 102).
+ *
+ * We intentionally keep `grok-code-fast-1` on chat_default + execution and `grok-4.3` on
+ * planning so the app can run separate harness profiles per model id (story 103), even though
+ * xAI may redirect the fast slug to grok-4.3 at the API — see docs/harness-102-xai-investigation.md.
+ */
+export const DUAL_MODEL_FALLBACKS: Record<ModelIntent, string> = {
   chat_default: 'grok-code-fast-1',
   planning: 'grok-4.3',
   execution: 'grok-code-fast-1',
@@ -52,7 +59,7 @@ export function getModelForIntent(
   const manifestKey = MODEL_INTENT_MANIFEST_KEYS[intent]
   const raw = manifest.models[manifestKey]
   const trimmed = typeof raw === 'string' ? raw.trim() : ''
-  const model = trimmed.length > 0 ? trimmed : FALLBACK_MODELS[intent]
+  const model = trimmed.length > 0 ? trimmed : DUAL_MODEL_FALLBACKS[intent]
 
   if (opts?.logSelection && isDevMode()) {
     console.debug(`[GrokForge model-router] ${intent} -> ${model} (manifest key: ${String(manifestKey)})`)

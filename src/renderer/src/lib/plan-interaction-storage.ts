@@ -2,12 +2,38 @@ import { parseGfPlanFromAssistantContent } from '../../../shared/gf-plan-contrac
 
 export type PlanInteractionStatus = 'pending' | 'approved' | 'cancelled' | 'superseded'
 
+export type PlanRunPhase = 'executing' | 'done' | 'failed'
+
 export type PlanInteractionState = {
   status: PlanInteractionStatus
   stepDone: boolean[]
+  runPhase?: PlanRunPhase
+  /** Story 109 — durable plan artifact id in app userData. */
+  planId?: string
 }
 
+/** Derived UI phase for stepper + badges (story 098). */
+export type PlanUiPhase =
+  | 'planning'
+  | 'pending'
+  | 'approved_idle'
+  | 'executing'
+  | 'done'
+  | 'failed'
+  | 'cancelled'
+  | 'superseded'
+
 const storageKey = (projectId: string) => `grokforge.planInteraction.v1:${projectId}`
+
+function normalizeState(cur: PlanInteractionState, stepCount: number): PlanInteractionState {
+  const stepDone = [...cur.stepDone]
+  while (stepDone.length < stepCount) stepDone.push(false)
+  return {
+    status: cur.status,
+    stepDone: stepDone.slice(0, stepCount),
+    ...(cur.runPhase ? { runPhase: cur.runPhase } : {}),
+  }
+}
 
 export function readPlanInteractionMap(projectId: string | null | undefined): Record<string, PlanInteractionState> {
   if (!projectId || typeof localStorage === 'undefined') return {}
@@ -37,13 +63,8 @@ export function getPlanInteraction(
 ): PlanInteractionState {
   const map = readPlanInteractionMap(projectId)
   const cur = map[messageId]
-  if (cur && Array.isArray(cur.stepDone) && cur.stepDone.length === stepCount) {
-    return cur
-  }
   if (cur && Array.isArray(cur.stepDone)) {
-    const stepDone = [...cur.stepDone]
-    while (stepDone.length < stepCount) stepDone.push(false)
-    return { status: cur.status, stepDone: stepDone.slice(0, stepCount) }
+    return normalizeState(cur, stepCount)
   }
   return {
     status: 'pending',
@@ -61,6 +82,7 @@ export function patchPlanInteraction(
     return {
       status: patch.status ?? 'pending',
       stepDone: patch.stepDone ?? Array.from({ length: stepCount }, () => false),
+      ...(patch.runPhase ? { runPhase: patch.runPhase } : {}),
     }
   }
   const map = { ...readPlanInteractionMap(projectId) }
@@ -68,10 +90,68 @@ export function patchPlanInteraction(
   const next: PlanInteractionState = {
     status: patch.status ?? prev.status,
     stepDone: patch.stepDone ?? prev.stepDone,
+    runPhase: patch.runPhase !== undefined ? patch.runPhase : prev.runPhase,
+    planId: patch.planId !== undefined ? patch.planId : prev.planId,
+  }
+  if (next.runPhase === undefined) {
+    delete next.runPhase
+  }
+  if (next.planId === undefined) {
+    delete next.planId
   }
   map[messageId] = next
   writeMap(projectId, map)
   return next
+}
+
+export function setPlanRunPhase(
+  projectId: string | null | undefined,
+  messageId: string,
+  runPhase: PlanRunPhase | undefined,
+  stepCount: number,
+): PlanInteractionState {
+  return patchPlanInteraction(projectId, messageId, { runPhase }, stepCount)
+}
+
+export function derivePlanUiPhase(
+  state: PlanInteractionState,
+  options: {
+    globalPlanningTurn?: boolean
+    isExecutingThisPlan?: boolean
+  },
+): PlanUiPhase {
+  if (options.globalPlanningTurn) return 'planning'
+  if (state.status === 'cancelled') return 'cancelled'
+  if (state.status === 'superseded') return 'superseded'
+  if (state.runPhase === 'failed') return 'failed'
+  if (state.runPhase === 'done') return 'done'
+  if (state.runPhase === 'executing' || options.isExecutingThisPlan) return 'executing'
+  if (state.status === 'pending') return 'pending'
+  if (state.status === 'approved') return 'approved_idle'
+  return 'pending'
+}
+
+export function planUiPhaseLabel(phase: PlanUiPhase): string {
+  switch (phase) {
+    case 'planning':
+      return 'Planning'
+    case 'pending':
+      return 'Pending review'
+    case 'approved_idle':
+      return 'Ready to run'
+    case 'executing':
+      return 'Executing'
+    case 'done':
+      return 'Done'
+    case 'failed':
+      return 'Failed'
+    case 'cancelled':
+      return 'Cancelled'
+    case 'superseded':
+      return 'Superseded'
+    default:
+      return 'Plan'
+  }
 }
 
 export function markPendingPlansSuperseded(
@@ -106,4 +186,7 @@ export function supersedePendingPlansBeforeNewUserMessage(
     if (st.status === 'pending') ids.push(m.id)
   }
   markPendingPlansSuperseded(projectId, ids)
+  if (ids.length > 0 && typeof window !== 'undefined' && window.electron?.markStoredPlansSuperseded) {
+    void window.electron.markStoredPlansSuperseded({ projectId, threadMessageIds: ids })
+  }
 }
