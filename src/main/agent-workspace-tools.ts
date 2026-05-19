@@ -10,6 +10,8 @@ import type { AgentChatActiveContext, AgentChatToolName } from '../shared/agent-
 import { isPathUnderProjectChatStaging, toolPathLabelForAgent } from './chat-attachment-staging'
 import { AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE, AGENT_TOOL_MAX_OPS } from '../shared/agent-tool-contract'
 import { AGENT_CONTEXT_BUDGETS } from '../shared/agent-context-budget-contract'
+import { needsSourceLayoutRepair } from '../shared/agent-file-content-normalize'
+import { computeAgentContentHash } from './agent-content-hash'
 
 export const AGENT_TOOL_MAX_ITERATIONS = 8
 export const AGENT_TOOL_TOTAL_RESULT_CHARS = AGENT_CONTEXT_BUDGETS.toolTotalResultMaxChars
@@ -23,7 +25,7 @@ export const AGENT_RETRIEVAL_MAX_CHARS = AGENT_CONTEXT_BUDGETS.retrievedContextM
 const SECRET_BASENAMES = new Set(['.env', '.npmrc', '.pypirc', '.netrc'])
 const SECRET_EXTS = new Set(['.pem', '.key', '.p12', '.pfx', '.crt'])
 
-type ToolEnv = {
+export type ToolEnv = {
   projectId: string
   manifest: GrokProjectManifest
   activeContext: AgentChatActiveContext
@@ -100,7 +102,8 @@ export const AGENT_TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'read_file',
-      description: 'Read a capped line range from a text file under the workspace roots.',
+      description:
+        'Read a capped line range from a text file under the workspace roots. The JSON result includes contentHash (SHA-256 of the full file on disk) — copy it into expectedContentHash on write_file, search_replace, or propose_file_edits for existing files. Use rawContent (exact file text) as the source for edits — do not copy the line-numbered content field. For large files before editing, use startLine and maxLines to read the relevant section instead of guessing unseen content.',
       parameters: {
         type: 'object',
         properties: {
@@ -109,6 +112,34 @@ export const AGENT_TOOL_DEFINITIONS = [
           maxLines: { type: 'integer', minimum: 1, maximum: AGENT_READ_FILE_MAX_LINES },
         },
         required: ['path'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_replace',
+      description:
+        'Apply an exact single-match text replacement on an existing file and create a diff review proposal (does not write disk until the user applies). Prefer this over full write_file for localized edits. old_string must occur exactly once and match read_file text (spacing and line breaks). Pass expectedContentHash from the latest read_file contentHash for this path.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path or path relative to the active workspace root.' },
+          old_string: {
+            type: 'string',
+            description: 'Exact text to find in the current file (must match exactly once).',
+          },
+          new_string: {
+            type: 'string',
+            description: 'Replacement text for the single matched old_string.',
+          },
+          expectedContentHash: {
+            type: 'string',
+            description: 'SHA-256 hex of the full file from read_file contentHash before editing.',
+          },
+        },
+        required: ['path', 'old_string', 'new_string', 'expectedContentHash'],
         additionalProperties: false,
       },
     },
@@ -154,7 +185,7 @@ export const AGENT_TOOL_DEFINITIONS = [
     function: {
       name: 'propose_file_edits',
       description:
-        'Create a first-class GrokForge diff review proposal for workspace file changes. This does not write files; the user reviews and applies the proposal in the app. Use complete file replacement content for write_file and delete_file for single-file deletes.',
+        'Create a first-class GrokForge diff review proposal for workspace file changes. This does not write files; the user reviews and applies the proposal in the app. Each write_file must include complete file text, but prefer minimal edits from current file contents (read the file first). Preserve read_file indentation and line breaks for unchanged sections. Use delete_file for single-file deletes. For several new files in the same task, include all write_file operations in a single call.',
       parameters: {
         type: 'object',
         properties: {
@@ -176,7 +207,13 @@ export const AGENT_TOOL_DEFINITIONS = [
                     content: {
                       type: 'string',
                       maxLength: AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE,
-                      description: 'The complete replacement file content.',
+                      description:
+                        'Complete file text required by the protocol. Base this on read_file output and change only what the request needs; preserve indentation and line breaks for unchanged sections (do not minify). Use real line breaks (standard JSON escaping)—never the whole file on one line and not the literal two-character sequence backslash-n. One-line files make // comments swallow the rest of the source.',
+                    },
+                    expectedContentHash: {
+                      type: 'string',
+                      description:
+                        'For existing files: SHA-256 hex from read_file contentHash. Omit for new files.',
                     },
                   },
                   required: ['op', 'path', 'content'],
@@ -254,6 +291,23 @@ export function resolveAgentWorkspacePath(inputPath: string, env: ToolEnv): stri
     if (isPathWithinWorkspaceRoots(candidate, env.manifest.roots)) return candidate
   }
   return null
+}
+
+/** Parse contentHash from a successful read_file tool JSON payload. */
+export function parseReadFileToolContentHash(toolContent: string): string | null {
+  try {
+    const parsed = JSON.parse(toolContent) as { contentHash?: unknown }
+    return typeof parsed.contentHash === 'string' ? parsed.contentHash : null
+  } catch {
+    return null
+  }
+}
+
+/** Resolved absolute path for a successful read_file tool call (for same-turn read tracking). */
+export function resolveReadFileTargetPath(rawArgs: unknown, env: ToolEnv): string | null {
+  const parsed = ReadFileInputSchema.safeParse(rawArgs)
+  if (!parsed.success) return null
+  return resolveReadablePathForTools(parsed.data.path, env)
 }
 
 /** Workspace roots or chat-upload staging (per `projectId`) for read_file / attachment retrieval. */
@@ -376,13 +430,17 @@ export function runReadFileTool(env: ToolEnv, rawArgs: unknown): AgentWorkspaceT
       return { ok: false, displayTitle: 'Read file failed', content: 'File appears to be binary.' }
     }
     const text = readFileSync(checked.path, 'utf-8')
+    const contentHash = computeAgentContentHash(text)
     const lines = text.split(/\r?\n/)
     const startLine = parsed.data.startLine ?? 1
     const maxLines = parsed.data.maxLines ?? AGENT_READ_FILE_DEFAULT_LINES
     const startIdx = Math.max(0, startLine - 1)
     const selected = lines.slice(startIdx, startIdx + maxLines)
+    const rawSlice = selected.join('\n')
+    const rawTrimmed = trimText(rawSlice, AGENT_READ_FILE_MAX_CHARS)
     const numbered = selected.map((line, idx) => `${String(startLine + idx).padStart(5, ' ')} | ${line}`).join('\n')
-    const trimmed = trimText(numbered, AGENT_READ_FILE_MAX_CHARS)
+    const numberedTrimmed = trimText(numbered, AGENT_READ_FILE_MAX_CHARS)
+    const layoutNeedsRepair = needsSourceLayoutRepair(text)
     return {
       ok: true,
       displayTitle: 'Read file',
@@ -390,13 +448,25 @@ export function runReadFileTool(env: ToolEnv, rawArgs: unknown): AgentWorkspaceT
       content: jsonResult(
         {
           path: checked.path,
+          contentHash,
+          contentHashScope: 'full_file',
           startLine,
           lineCount: selected.length,
           totalLines: lines.length,
-          truncated: trimmed.truncated || startIdx + maxLines < lines.length,
-          content: trimmed.text,
+          truncated:
+            rawTrimmed.truncated ||
+            numberedTrimmed.truncated ||
+            startIdx + maxLines < lines.length,
+          ...(layoutNeedsRepair
+            ? {
+                formatWarning:
+                  'File layout looks crushed (one line and/or very long lines). Base edits on rawContent; use normal line breaks. GrokForge will try to repair layout on apply, but prefer search_replace or a well-formatted full rewrite.',
+              }
+            : {}),
+          rawContent: rawTrimmed.text,
+          content: numberedTrimmed.text,
         },
-        AGENT_READ_FILE_MAX_CHARS + 1000,
+        AGENT_READ_FILE_MAX_CHARS + 2000,
       ),
     }
   } catch (e) {
@@ -499,6 +569,16 @@ export function buildActiveContextBlock(
   if (activeContext.activeRootId) lines.push(`- Active root id: ${activeContext.activeRootId}`)
   if (activeContext.activeFilePath) lines.push(`- Active file: ${activeContext.activeFilePath}`)
   if (activeContext.selectedTreePath) lines.push(`- Selected tree path: ${activeContext.selectedTreePath}`)
+  if (activeContext.pinned?.length) {
+    lines.push('- Pinned context (persists for this project):')
+    for (const pin of activeContext.pinned.slice(0, 8)) {
+      const label = toolPathLabelForAgent(pin.path, manifest, projectId)
+      lines.push(`  - ${pin.type}: ${label}`)
+    }
+    lines.push(
+      '  Pinned paths bias retrieval and stay until unpinned; use list_directory / read_file to inspect folder contents.',
+    )
+  }
   if (activeContext.attachments?.length) {
     lines.push('- User-attached context:')
     for (const attachment of activeContext.attachments.slice(0, 12)) {
@@ -552,7 +632,46 @@ export function buildLexicalRetrievalContext(
 } {
   const index = getOrRefreshWorkspaceIndex(env.projectId, env.manifest)
   const attachmentDetails: string[] = []
-  const attachedFileCandidates: Array<{ path: string; score: number; bucket: 'attachment'; reasons: string[]; dirty: boolean }> = []
+  const attachedFileCandidates: Array<{
+    path: string
+    score: number
+    bucket: 'attachment' | 'pinned'
+    reasons: string[]
+    dirty: boolean
+  }> = []
+  for (const pin of env.activeContext.pinned ?? []) {
+    const resolved = resolveReadablePathForTools(pin.path, env)
+    const checked = assertToolPath(resolved, env)
+    if (!checked.ok) {
+      attachmentDetails.push(`pinned ${pin.type}: ${pin.path} rejected (${checked.error})`)
+      continue
+    }
+    try {
+      const st = statSync(checked.path)
+      if (pin.type === 'file' && !st.isFile()) {
+        attachmentDetails.push(`pinned file: ${pin.path} rejected (not a file)`)
+        continue
+      }
+      if (pin.type === 'folder' && !st.isDirectory()) {
+        attachmentDetails.push(`pinned folder: ${pin.path} rejected (not a folder)`)
+        continue
+      }
+      attachmentDetails.push(
+        `pinned ${pin.type}: ${toolPathLabelForAgent(checked.path, env.manifest, env.projectId)}`,
+      )
+      if (pin.type === 'file') {
+        attachedFileCandidates.push({
+          path: checked.path,
+          score: 280,
+          bucket: 'pinned',
+          reasons: ['pinned file'],
+          dirty: false,
+        })
+      }
+    } catch {
+      attachmentDetails.push(`pinned ${pin.type}: ${pin.path} rejected (unreadable)`)
+    }
+  }
   for (const attachment of env.activeContext.attachments ?? []) {
     const resolved = resolveReadablePathForTools(attachment.path, env)
     const checked = assertReadablePathForTools(resolved, env)
@@ -652,6 +771,12 @@ export function runAgentWorkspaceTool(
       return runReadFileTool(env, rawArgs)
     case 'search_workspace':
       return runSearchWorkspace(env, rawArgs)
+    case 'search_replace':
+      return {
+        ok: false,
+        displayTitle: 'Search replace unavailable here',
+        content: 'search_replace is handled by the agent runner.',
+      }
     case 'run_command':
       return { ok: false, displayTitle: 'Command tool unavailable here', content: 'run_command is handled by the agent runner.' }
     case 'propose_file_edits':

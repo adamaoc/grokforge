@@ -309,11 +309,11 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">80 stories</span>
-        <span class="pill">Done: 76</span>
-        <span class="pill">Closed: 2</span>
-        <span class="pill">Post-MVP: 2</span>
-        <span class="pill">Generated 2026-05-18</span>
+        <span class="pill">113 stories</span>
+        <span class="pill">Done: 91</span>
+        <span class="pill">Closed: 5</span>
+        <span class="pill">Post-MVP: 17</span>
+        <span class="pill">Generated 2026-05-19</span>
       </div>
       <div class="story-filters">
         <label>
@@ -5621,14 +5621,14 @@ primaryRootPath?: string</code></pre>
             <a class="story-link" href="069-plan-approve-auto-agent-turn.md">069-plan-approve-auto-agent-turn.md</a>
           </div>
           <h2>069 — Plan approve triggers agent execution (062 follow-up)</h2>
-<p><strong>Status:</strong> Done (v1: <strong>Approve and run</strong> always starts one fast-mode turn with a short synthetic user line; no settings toggle.)</p>
+<p><strong>Status:</strong> Done (v1: <strong>Approve and run</strong> starts one fast <code>chatMode</code> turn on <strong><code>models.execution</code></strong> with a short synthetic user line; no settings toggle.)</p>
 <p><strong>Depends on:</strong> <a href="062-agent-planning-and-multi-step-workflow.md">062 — Agent planning and multi-step workflow</a> (v1 with <strong>Option A</strong>: approve updates UI + persistence only; user sends the next message to execute).</p>
 <p><strong>Design skill:</strong> <code>.cursor/skills/styleguide-design/SKILL.md</code> for any new thread UI or confirmation flows.</p>
 <h3>Why this story exists</h3>
 <p>062 v1 deliberately avoids automatically starting an agent turn when the user approves a plan (clearer boundaries, less surprise, simpler cancellation). Many products auto-run execution after plan approval (<strong>Option B</strong>). This story adds that path once plan cards, persistence, and approvals are stable.</p>
 <h3>Goals</h3>
 <ul>
-<li>After <strong>Approve and run</strong>, start <strong>one</strong> agent turn: the thread already contains the structured <code>gf-plan</code>; a <strong>short synthetic user message</strong> is appended (visible + persisted) so the model executes in <strong>fast</strong> mode with <strong>default chat</strong> model routing.</li>
+<li>After <strong>Approve and run</strong>, start <strong>one</strong> agent turn: the thread already contains the structured <code>gf-plan</code>; a <strong>short synthetic user message</strong> is appended (visible + persisted) so the model executes in <strong>fast</strong> <code>chatMode</code> with <strong><code>models.execution</code></strong> routing (not default chat).</li>
 <li>Clear UX: loading state, stream id, cancel, and explicit copy that <strong>command</strong> and <strong>edit</strong> approvals still apply per tool policy.</li>
 <li>Do not bypass <code>run_command</code> approval, <code>propose_file_edits</code> review, or agent-writes mode settings.</li>
 </ul>
@@ -6387,10 +6387,10 @@ primaryRootPath?: string</code></pre>
 <p>Shipped <strong>2026-05-18</strong>. If you revise this story later, update the <a href="README.md">progress table</a> and run <strong><code>npm run stories:html</code></strong> at the repo root.</p>
         </div>
       </details>
-      <details id="story-018" data-status="post-mvp">
+      <details id="story-018" data-status="closed">
         <summary>
-          <span class="story-title"><span class="story-id">018</span><span class="story-name">018 — Hand-off to Grok Build / Grok Computer</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="story-title"><span class="story-id">018</span><span class="story-name">~~Handoff: Grok Build &amp; Grok Computer~~</span></span>
+          <span class="status status-closed">Closed</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -6399,7 +6399,9 @@ primaryRootPath?: string</code></pre>
           </div>
           <h2>018 — Hand-off to Grok Build / Grok Computer</h2>
 <blockquote><strong>Queue:</strong> Post-MVP — this file lives in <code>project_tasks/post-mvp/</code> so MVP work stays in the numbered root queue. See <code>project_tasks/README.md</code>.</blockquote>
+<p><strong>Status:</strong> Closed (2026-05-19). Out of scope — no Grok Build / Grok Computer handoff flows in GrokForge; revisit only if xAI ships stable public deep links worth a dedicated story.</p>
 <p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> for menu items, dialogs, and external-link affordances.</p>
+<p><strong>Harness program:</strong> <strong>Independent</strong> of <strong>102–114</strong> — no toe-stepping unless a later story adds “export plan to Grok Build” (<strong>109</strong> may link).</p>
 <h3>Summary</h3>
 <p>Add <strong>explicit hand-off</strong> flows from GrokForge to official xAI tools where useful: e.g. “Open in Grok Build” with current root path(s) or deep link scheme if documented; “Send to Grok Computer” with clipboard payload or URI. Exact mechanics depend on public APIs / URL schemes—<strong>stub with TODO + config</strong> if not stable.</p>
 <h3>Scope</h3>
@@ -6423,7 +6425,7 @@ primaryRootPath?: string</code></pre>
       </details>
       <details id="story-081" data-status="post-mvp">
         <summary>
-          <span class="story-title"><span class="story-id">081</span><span class="story-name">081 — Terminal dock: files pane vs bottom drawer</span></span>
+          <span class="story-title"><span class="story-id">081</span><span class="story-name">Terminal dock: files pane or bottom drawer</span></span>
           <span class="status status-post-mvp">Post-MVP</span>
         </summary>
         <div class="story-body">
@@ -6435,6 +6437,7 @@ primaryRootPath?: string</code></pre>
 <p><strong>Status:</strong> Post-MVP backlog.</p>
 <p><strong>Moved from:</strong> MVP story <strong>076</strong> (same scope; deferred past launch).</p>
 <p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> before changing terminal container, tabs, or resize handles (<code>@styleguide-design</code>).</p>
+<p><strong>Harness program:</strong> <strong>Independent</strong> of <strong>102–114</strong> (shell layout only). Safe to run in parallel with harness wave.</p>
 <h3>Why this story exists</h3>
 <p>The terminal today occupies a <strong>fixed relationship</strong> to the rest of the shell (see <code>terminalOpen</code> / layout in <code>App.tsx</code>). Users want <strong>flexibility</strong>: either dock the terminal <strong>inside the same region as the files/editor split</strong> (right column) or have it <strong>slide up from the bottom</strong> of the window (drawer / panel) to preserve editor height.</p>
 <h3>Goals</h3>
@@ -6480,6 +6483,1970 @@ primaryRootPath?: string</code></pre>
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When implemented: mark <strong>081</strong> done in this file, update <code>project_tasks/README.md</code> post-MVP row if status is tracked there, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-082" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">082</span><span class="story-name">Agent edits: require `read_file` before write</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/082-agent-edit-require-read-before-write.md">post-mvp/082-agent-edit-require-read-before-write.md</a>
+          </div>
+          <h2>082 — Agent edits: require <code>read_file</code> before <code>write_file</code></h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill:</strong> N/A (main/agent loop; renderer only if surfacing “file not read” errors in chat).</p>
+<h3>Why this story exists</h3>
+<p>V1 <code>propose_file_edits</code> / <code>write_file</code> uses <strong>full-file replacement</strong>. Models often propose edits <strong>without</strong> calling <code>read_file</code>, reconstructing content from memory and producing broken or whole-file rewrites. This is the highest-impact reliability fix after shipping <strong>060</strong>.</p>
+<h3>Goals</h3>
+<ol>
+<li>For <strong>existing</strong> files, the agent must <strong><code>read_file</code></strong> (same path, current turn) before <code>propose_file_edits</code> may include a <code>write_file</code> for that path.</li>
+<li><strong>New</strong> files (path not on disk) may skip read.</li>
+<li>Clear tool error when write is attempted without read: e.g. “Call <code>read_file</code> on this path before proposing changes.”</li>
+</ol>
+<h3>Scope</h3>
+<h4>Main (<code>agent-runner.ts</code>, <code>agent-edit-proposals.ts</code>)</h4>
+<ul>
+<li>Track <strong>paths read this turn</strong> (normalized absolute under roots) in the agent tool loop scratch state.</li>
+<li>On <code>read_file</code> success, record path.</li>
+<li>On <code>propose_file_edits</code> / fenced batch validation, reject <code>write_file</code> ops whose target exists on disk but was not read this turn.</li>
+<li>Optional: allow read in a <strong>previous</strong> turn only if we also pass content hash (see <strong>086</strong>); v1 = <strong>same turn only</strong>.</li>
+</ul>
+<h4>Prompts (<code>agent-context.ts</code>, <code>agent-runner.ts</code> final contract)</h4>
+<ul>
+<li>Add explicit rule: <strong>MUST</strong> <code>read_file</code> before modifying any existing file; never guess content.</li>
+</ul>
+<h4>Tests</h4>
+<ul>
+<li>Unit: proposal with write to existing file without prior read → rejected.</li>
+<li>Unit: read then write same path → allowed.</li>
+<li>Unit: write to new path without read → allowed.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Existing files cannot be proposed via <code>write_file</code> until <code>read_file</code> succeeded for that path in the same agent turn.</li>
+<li><input type="checkbox" disabled> Tool/proposal error messages are actionable for the model and visible in chat activity.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and targeted Vitest pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../060-agent-first-class-edit-proposals.md">060</a></strong> — proposal pipeline.</li>
+<li><strong><a href="083-agent-edit-prompting-minimal-change.md">083</a></strong> — complementary prompt guidance.</li>
+<li><strong><a href="086-agent-write-stale-content-hash.md">086</a></strong> — cross-turn staleness.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>082</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-083" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">083</span><span class="story-name">Agent edits: minimal-change prompting</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/083-agent-edit-prompting-minimal-change.md">post-mvp/083-agent-edit-prompting-minimal-change.md</a>
+          </div>
+          <h2>083 — Agent edits: minimal-change prompting</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill:</strong> N/A (prompts and tool descriptions in main/shared).</p>
+<h3>Why this story exists</h3>
+<p>Even with read-before-write (<strong>082</strong>), models still <strong>rewrite entire files</strong> because prompts and tool copy emphasize “complete replacement content.” Better instructions reduce destructive diffs and align behavior with user intent (surgical edits).</p>
+<h3>Goals</h3>
+<p>Update agent-facing text (system prompt, <code>propose_file_edits</code> / fence contract, <code>finalAnswerContract</code>) to require:</p>
+<ol>
+<li>Read the current file first (<code>read_file</code>).</li>
+<li>Make the <strong>smallest change</strong> that satisfies the request.</li>
+<li>Do <strong>not</strong> rewrite the whole file unless the change is truly global (rename structure, new file, deliberate full rewrite).</li>
+<li>Preserve imports, types, formatting, and structure not intentionally changed.</li>
+<li>For long files, use chunked <code>read_file</code> (<code>startLine</code> / <code>maxLines</code>) rather than inventing missing sections.</li>
+<li>Use <strong>exact paths</strong> from workspace roots or tool results—no guessed shortened paths.</li>
+</ol>
+<h3>Scope</h3>
+<ul>
+<li><a href="../src/main/agent-context.ts"><code>src/main/agent-context.ts</code></a> — “Agent file writes” section.</li>
+<li><a href="../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — tool loop + final response contract.</li>
+<li><a href="../src/main/agent-workspace-tools.ts"><code>src/main/agent-workspace-tools.ts</code></a> — <code>propose_file_edits</code> / <code>read_file</code> descriptions.</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Extend <strong><code>agent-context.test.ts</code></strong> or <strong>063</strong> evaluation fixtures with cases that expect minimal-edit language in built prompt (snapshot or substring).</li>
+<li>Manual: common “add a widget to admin page” request should more often produce smaller diffs after <strong>082</strong> + this story.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Prompt and tool descriptions include the minimal-change rules above.</li>
+<li><input type="checkbox" disabled> No regression to path/ignore/safety rules from <strong>060</strong>.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Known limitation (field report, 2026-05-18)</h3>
+<p>Prompt-only minimal-change guidance <strong>does not reliably prevent destructive proposals</strong>. Example after <strong>083</strong> shipped:</p>
+<ul>
+<li><strong>Project:</strong> 15MinDallas · <strong>File:</strong> <code>15-min-dallas-www/src/app/(admin)/admin/page.tsx</code></li>
+<li><strong>User ask:</strong> “add a few more widgets to the admin area” (incremental UI change).</li>
+<li><strong>Agent summary:</strong> claimed three new dashboard widgets (Drafts, Subscribers, Media Items).</li>
+<li><strong>Actual diff:</strong> removed ~lines 32–64 (sidebar nav, <code>&lt;main&gt;</code>, existing widget grid) and proposed <strong>one</strong> new line (<code>import Link from 'next/link';</code>) — would break the page.</li>
+</ul>
+<p><strong>Follow-up:</strong> detection and UX warnings → <strong><a href="084-agent-edit-pre-apply-safety-warnings.md">084</a></strong>. Structural edits → <strong><a href="085-agent-search-replace-tool.md">085</a></strong>.</p>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="082-agent-edit-require-read-before-write.md">082</a></strong> — enforcement.</li>
+<li><strong><a href="084-agent-edit-pre-apply-safety-warnings.md">084</a></strong> — catch catastrophic shrink before Apply.</li>
+<li><strong><a href="085-agent-search-replace-tool.md">085</a></strong> — structural alternative to full rewrite.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>083</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-084" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">084</span><span class="story-name">Agent edits: pre-apply safety warnings</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/084-agent-edit-pre-apply-safety-warnings.md">post-mvp/084-agent-edit-pre-apply-safety-warnings.md</a>
+          </div>
+          <h2>084 — Agent edits: pre-apply safety warnings in diff review</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> before changing diff review cards, proposal strip, or apply actions (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p>Users apply proposals that <strong>shrink files</strong>, collapse to <strong>one line</strong> (bad JSON escaping), or <strong>drop closing braces/tags</strong>. Cheap heuristics before Apply prevent “oops I broke everything” without blocking legitimate large refactors.</p>
+<p><strong>083</strong> added minimal-change <strong>prompting</strong> only; it did not stop bad proposals in production (see field report below). <strong>084</strong> is the first <strong>code-level</strong> guardrail so the diff review UI surfaces “this will probably break the file” before Apply.</p>
+<h4>Field report — 15MinDallas admin page (2026-05-18)</h4>
+<p>Observed in GrokForge after <strong>082</strong> + <strong>083</strong> (screenshot: user session, project <strong>15MinDallas</strong>):</p>
+<p>| | | |--|--| | <strong>Request</strong> | “let's add a few more widgets to the admin area … just add them in for testing” | | <strong>Path</strong> | <code>15-min-dallas-www/src/app/(admin)/admin/page.tsx</code> | | <strong>Agent chat claim</strong> | “Ready for review: added three new dashboard widgets (Drafts, Subscribers, Media Items) with fake stats.” | | <strong>Diff reality</strong> | <strong>Removed</strong> ~lines 32–64: <code>&lt;aside&gt;</code> sidebar (e.g. link to <code>/admin/media</code>), <code>&lt;main&gt;</code>, <code>&lt;h1&gt;</code>, and existing <code>grid</code> stat widgets (“Published”, “Total C”, “Page Vi…”). <strong>Added</strong> a single line: <code>import Link from 'next/link';</code> (no new widgets, no preserved JSX structure). | | <strong>User impact</strong> | Applying would delete the admin layout and leave a non-functional page; summary text <strong>contradicts</strong> the diff. |</p>
+<p><strong>Heuristics this case must trigger:</strong></p>
+<ol>
+<li><strong>Dramatic shrink</strong> — dozens of lines removed, net −80%+ line count.</li>
+<li><strong>Single-line / near-empty proposal</strong> — proposed file effectively one import vs multi-section TSX.</li>
+<li><strong>Intent mismatch (soft)</strong> — optional copy when user message matches “add” / “widget” but diff is mostly deletions (warning only, not a hard block).</li>
+</ol>
+<p>Use this scenario as a <strong>Vitest fixture</strong> (synthetic original + bad proposed content) and a <strong>manual QA checklist</strong> item.</p>
+<h3>Goals</h3>
+<p>When a pending proposal or diff session is shown, compute and surface warnings (non-blocking by default, strong visual for severe cases):</p>
+<p>| Heuristic | Example signal | |-----------|----------------| | Dramatic shrink | New line count ≪ original (e.g. &amp;lt; 50% lines or chars) | | Single-line blob | Very few <code>\n</code> in proposed content vs original | | Brace/tag balance | Rough count of <code>{</code> <code>}</code> <code>(</code> <code>)</code> or JSX closers dropped | | Stats line | “312 lines → 48 lines (−85%)” or “+120 lines” |</p>
+<p>Reuse <a href="../../src/shared/agent-file-content-normalize.ts"><code>normalizeAgentWriteFileContent</code></a> where relevant; offer <strong>“Normalize line breaks”</strong> when literal <code>\n</code> pattern detected (if not already applied).</p>
+<h3>Scope</h3>
+<h4>Shared</h4>
+<ul>
+<li>Pure functions in <code>src/shared/</code> for heuristics + unit tests (no <code>fs</code> in renderer).</li>
+</ul>
+<h4>Renderer</h4>
+<ul>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>ChatThread.tsx</code></a> — pending proposal card.</li>
+<li><a href="../../src/renderer/src/components/EditorPane.tsx"><code>EditorPane.tsx</code></a> / <a href="../../src/renderer/src/components/GroupedDiffView.tsx"><code>GroupedDiffView.tsx</code></a> — agent diff session header.</li>
+</ul>
+<h4>Optional main</h4>
+<ul>
+<li>IPC is not required if review already has original + modified strings in renderer state.</li>
+</ul>
+<h3>UX</h3>
+<ul>
+<li>Warnings use zinc/amber tokens; severe cases use alert pattern from styleguide.</li>
+<li>Apply remains enabled unless product chooses “confirm dialog” for extreme shrink (document decision in story PR).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> At least three heuristics implemented (shrink, newline density, simple balance or stats).</li>
+<li><input type="checkbox" disabled> Warnings visible in proposal review before Apply (chat pending strip <strong>and</strong> editor diff session header).</li>
+<li><input type="checkbox" disabled> Vitest coverage for heuristic helpers, including a <strong>15MinDallas-style</strong> fixture: large TSX original → single-import proposal flags severe shrink.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../046-agent-proposed-edits-diff-review.md">046</a></strong>, <strong><a href="../047-diff-apply-discard-and-conflict-safety.md">047</a></strong>.</li>
+<li><strong><a href="082-agent-edit-require-read-before-write.md">082</a></strong> — reduces bad input; this catches what slips through.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>084</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-085" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">085</span><span class="story-name">Agent edits: `search_replace` tool</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/085-agent-search-replace-tool.md">post-mvp/085-agent-search-replace-tool.md</a>
+          </div>
+          <h2>085 — Agent edits: <code>search_replace</code> tool</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill:</strong> N/A unless new review UI for patch ops; coordinate with <strong>087</strong>.</p>
+<h3>Why this story exists</h3>
+<p>Full-file <code>write_file</code> makes every edit look like “delete entire file, paste new file” and encourages model mistakes. A <strong><code>search_replace</code></strong> (exact snippet) tool is the standard first step toward patch-based agents (Cursor, Claude Code, etc.).</p>
+<h3>Goals</h3>
+<ol>
+<li>New tool: <code>search_replace</code> with <code>{ path, old_string, new_string }</code> (names TBD).</li>
+<li>Resolve path under roots + ignore + sensitive rules (same as <strong>060</strong>).</li>
+<li>Apply by reading disk, verifying <code>old_string</code> occurs <strong>exactly once</strong> (or define policy: zero → error, multiple → error with count).</li>
+<li>Emit <strong>proposal</strong> or apply path consistent with <strong>060</strong> (prefer: build synthetic <code>write_file</code> for diff review, or store patch ops in proposal payload—decide in implementation).</li>
+<li>Prompts: <strong>prefer</strong> <code>search_replace</code> for localized edits; reserve full <code>write_file</code> for new files or intentional full rewrites.</li>
+</ol>
+<h3>Scope</h3>
+<h4>Main</h4>
+<ul>
+<li><a href="../../src/main/agent-workspace-tools.ts"><code>agent-workspace-tools.ts</code></a> — tool definition + execution.</li>
+<li><a href="../../src/main/agent-edit-proposals.ts"><code>agent-edit-proposals.ts</code></a> — accept patch ops or expand to full content for diff.</li>
+<li><a href="../../src/main/agent-tools.ts"><code>agent-tools.ts</code></a> — batch apply if patches fold into existing batch.</li>
+</ul>
+<h4>Shared contract</h4>
+<ul>
+<li>Extend <a href="../../src/shared/agent-tool-schema.ts"><code>agent-tool-schema.ts</code></a> / contract with Zod discriminated union op.</li>
+</ul>
+<h4>Tests</h4>
+<ul>
+<li>Exact match, not found, ambiguous multiple matches, ignore path rejection.</li>
+</ul>
+<h3>Non-goals (v1 of this story)</h3>
+<ul>
+<li>Fuzzy match / ellipsis placeholders.</li>
+<li>Unified diff apply library (defer to a follow-up if needed).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Model can call <code>search_replace</code> in the agent tool loop.</li>
+<li><input type="checkbox" disabled> User sees a diff review before disk write (same as proposals today).</li>
+<li><input type="checkbox" disabled> Full <code>write_file</code> still works for new files and opt-in full rewrites.</li>
+<li><input type="checkbox" disabled> Vitest coverage for match semantics and path guards.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../060-agent-first-class-edit-proposals.md">060</a></strong> — proposal pipeline.</li>
+<li><strong><a href="082-agent-edit-require-read-before-write.md">082</a></strong> — read before edit.</li>
+<li><strong><a href="087-agent-diff-hunk-review-ux.md">087</a></strong> — better diff presentation.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>085</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-086" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">086</span><span class="story-name">Agent edits: stale content hash</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/086-agent-write-stale-content-hash.md">post-mvp/086-agent-write-stale-content-hash.md</a>
+          </div>
+          <h2>086 — Agent edits: stale file hash on write</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill:</strong> N/A (main + optional renderer message).</p>
+<h3>Why this story exists</h3>
+<p>Story <strong>047</strong> compares <strong>review-time</strong> <code>expectedOriginalContent</code> when the user applies. Models can still propose writes from a <strong>stale read</strong> earlier in the turn or from a previous message. Requiring a <strong>content hash</strong> (or hash of read result) on <code>write_file</code> / <code>search_replace</code> closes race windows and forces re-read after external edits.</p>
+<h3>Goals</h3>
+<ol>
+<li><code>read_file</code> tool result includes a stable <strong><code>contentHash</code></strong> (e.g. SHA-256 of normalized UTF-8) for the slice or full file read.</li>
+<li><code>write_file</code> / <code>search_replace</code> / <code>propose_file_edits</code> must include <strong><code>expectedContentHash</code></strong> (or per-op field) matching the hash from the read used to author the edit.</li>
+<li>On propose/apply: if disk hash ≠ expected → reject with “File changed since read; call <code>read_file</code> again.”</li>
+<li>Align with existing <strong>047</strong> <code>expectedOriginalContent</code> at apply time—avoid duplicate conflicting checks; document order of validation.</li>
+</ol>
+<h3>Scope</h3>
+<ul>
+<li>Main: hash helper in <code>src/shared/</code> or <code>src/main/</code>, wire through workspace tools and <code>agent-edit-proposals.ts</code>.</li>
+<li>Renderer: surface stale conflict in apply toast (may already exist for 047—extend messages).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Hash computed on read; required on write proposals for existing files.</li>
+<li><input type="checkbox" disabled checked> Mismatch blocks proposal or apply with clear error.</li>
+<li><input type="checkbox" disabled checked> Unit tests: unchanged file passes; modified file fails until re-read.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Implementation notes</h3>
+<ul>
+<li><code>read_file</code> JSON includes <code>contentHash</code> + <code>contentHashScope: full_file</code> (hash is always the full on-disk file, not the line slice).</li>
+<li>Turn registry stores path → hash; propose validation accepts <code>expectedContentHash</code> on the op or falls back to the same-turn read registry.</li>
+<li>Apply order in <code>agent-tools.ts</code>: <strong>086</strong> <code>expectedContentHash</code> first, then <strong>047</strong> <code>expectedOriginalContent</code>.</li>
+<li>Renderer <code>reviewPendingBatch</code> sets <code>expectedContentHash</code> via <code>compute-agent-content-hash</code> IPC at review open.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../047-diff-apply-discard-and-conflict-safety.md">047</a></strong>.</li>
+<li><strong><a href="082-agent-edit-require-read-before-write.md">082</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>Marked <strong>086</strong> done; <a href="../README.md"><code>README.md</code></a> post-MVP table updated; <strong><code>npm run stories:html</code></strong> run.</p>
+        </div>
+      </details>
+      <details id="story-087" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">087</span><span class="story-name">Agent diff review: hunk-focused UX</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/087-agent-diff-hunk-review-ux.md">post-mvp/087-agent-diff-hunk-review-ux.md</a>
+          </div>
+          <h2>087 — Agent diff review: hunk-focused UX</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p>Full-file Monaco diff for a 3-line change shows a <strong>wall of red/green</strong>, which feels like the agent deleted the project. Users need <strong>hunk-oriented</strong> review (like git) and optionally <strong>per-hunk</strong> accept/reject once <strong>085</strong> provides patch semantics.</p>
+<h3>Goals</h3>
+<ol>
+<li>Default diff view emphasizes <strong>changed regions</strong> (collapsed unchanged context, or scroll to first change).</li>
+<li>Show change summary: files touched, +/- line counts per file.</li>
+<li><strong>v1 stretch:</strong> per-hunk accept/reject if proposal model supports multiple ops; otherwise per-file only.</li>
+<li>Works for agent proposals and git diff sessions (<strong>048</strong>) where feasible.</li>
+</ol>
+<h3>Scope</h3>
+<h4>Renderer</h4>
+<ul>
+<li><a href="../../src/renderer/src/components/GroupedDiffView.tsx"><code>GroupedDiffView.tsx</code></a>, <a href="../../src/renderer/src/components/DiffEditorPane.tsx"><code>DiffEditorPane.tsx</code></a>.</li>
+<li>Monaco options: <code>hideUnchangedRegions</code>, diff algorithm tweaks, or custom hunk list UI above Monaco.</li>
+</ul>
+<h4>Dependencies</h4>
+<ul>
+<li>Easier after <strong>085</strong> (<code>search_replace</code>); full-file proposals can still use Monaco’s unchanged-region hiding.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Opening a small edit no longer feels like “entire file replaced” by default (unchanged regions collapsed or de-emphasized).</li>
+<li><input type="checkbox" disabled checked> Per-file +/- stats visible in diff header.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes; manual review on TSX file with localized change.</li>
+</ul>
+<h3>Implementation notes</h3>
+<ul>
+<li>Monaco <code>hideUnchangedRegions</code> + <code>revealFirstDiff</code> on mount in <code>DiffEditorPane</code>.</li>
+<li>Line +/- stats via <code>src/shared/diff-line-stats.ts</code>; session summary bar in <code>GroupedDiffView</code>; editor header uses same totals in <code>EditorPane</code>.</li>
+<li>Per-hunk accept/reject deferred (v1 stretch); apply remains per-file / apply-all.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../014-monaco-diff-and-multi-root-grouping.md">014</a></strong>, <strong><a href="../046-agent-proposed-edits-diff-review.md">046</a></strong>.</li>
+<li><strong><a href="085-agent-search-replace-tool.md">085</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>Marked <strong>087</strong> done; <a href="../README.md"><code>README.md</code></a> post-MVP table updated; <strong><code>npm run stories:html</code></strong> run.</p>
+        </div>
+      </details>
+      <details id="story-088" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">088</span><span class="story-name">Agent edits: regenerate proposal</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/088-agent-edit-regenerate-proposal.md">post-mvp/088-agent-edit-regenerate-proposal.md</a>
+          </div>
+          <h2>088 — Agent edits: regenerate proposal &amp; review affordances</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p>When a proposal is clearly wrong, users need a <strong>one-click recovery</strong>: re-read file from disk and ask the agent to try again—without manually retyping the task.</p>
+<h3>Goals</h3>
+<ol>
+<li><strong>“Re-read &amp; regenerate”</strong> (or “Ask agent to fix proposal”) on pending proposal / diff session:</li>
+</ol>
+<ul>
+<li>Re-read affected paths from disk into context.</li>
+<li>Send a structured follow-up user message (or internal agent turn) referencing the failed proposal.</li>
+</ul>
+<ol>
+<li>Optional: show <strong>model reasoning</strong> / tool activity snippet adjacent to diff when available from turn trace (<strong>061</strong>).</li>
+<li>Keep <strong>Discard</strong> and <strong>Review diff</strong> as primary actions; regeneration is secondary.</li>
+</ol>
+<h3>Scope</h3>
+<ul>
+<li>Renderer: <a href="../../src/renderer/src/components/ChatThread.tsx"><code>ChatThread.tsx</code></a>, diff chrome in <a href="../../src/renderer/src/components/EditorPane.tsx"><code>EditorPane.tsx</code></a>.</li>
+<li>Reuse <strong><code>agent-chat-start</code></strong> with a composed message; no new IPC required unless batching is cleaner.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Automatic regeneration without user click.</li>
+<li>Multi-model planner/executor split (see <strong>090</strong>).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> User can trigger regeneration from a bad proposal without leaving the workspace.</li>
+<li><input type="checkbox" disabled checked> New proposal replaces pending state; old proposal discarded explicitly.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Implementation notes</h3>
+<ul>
+<li><a href="../../src/shared/agent-regenerate-proposal.ts"><code>src/shared/agent-regenerate-proposal.ts</code></a> builds the follow-up user message (paths, safety summaries, rejected paths, rework instructions).</li>
+<li><strong>Ask agent to fix</strong> in the chat pending strip and in the diff review header (<code>regenerateLabel</code> / <code>onRegenerate</code> on diff session actions).</li>
+<li><a href="../../src/renderer/src/components/AgentProposalTraceSnippet.tsx"><code>AgentProposalTraceSnippet.tsx</code></a> shows the last ~6 tool steps from turn trace when reviewing an agent proposal.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../061-agent-debugging-telemetry-and-turn-replay.md">061</a></strong>.</li>
+<li><strong><a href="084-agent-edit-pre-apply-safety-warnings.md">084</a></strong> — warnings explain why user might regenerate.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>Marked <strong>088</strong> done; <a href="../README.md"><code>README.md</code></a> post-MVP table updated; <strong><code>npm run stories:html</code></strong> run.</p>
+        </div>
+      </details>
+      <details id="story-089" data-status="closed">
+        <summary>
+          <span class="story-title"><span class="story-id">089</span><span class="story-name">~~Agent edits: Safe vs Power mode~~</span></span>
+          <span class="status status-closed">Closed</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/089-agent-edit-safe-vs-power-mode.md">post-mvp/089-agent-edit-safe-vs-power-mode.md</a>
+          </div>
+          <h2>089 — Agent edits: Safe vs Power mode</h2>
+<p><strong>Status:</strong> Closed (2026-05-18). Product decision: no Safe vs Power edit-mode toggle; keep a single strict default (read-before-write, safety warnings, prefer <code>search_replace</code>) plus existing <strong>Agent file writes</strong> confirm vs auto-apply.</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> for Settings UI (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p>Power users sometimes want <strong>full-file rewrites</strong>; most sessions need <strong>safe defaults</strong> (read-before-write, prefer <code>search_replace</code>, stronger warnings). A persisted mode avoids one-size-fits-all prompting.</p>
+<h3>Goals</h3>
+<p>| Mode | Behavior (target) | |------|-------------------| | <strong>Safe</strong> (default) | Enforce <strong>082</strong>; prefer <strong>085</strong> <code>search_replace</code>; stricter <strong>084</strong> warnings; optional confirm on large shrink. | | <strong>Power</strong> | Allow full <code>write_file</code> without read gate for existing files (or softer warning only); full rewrites permitted. |</p>
+<p>Persist in renderer <code>localStorage</code> (e.g. <code>grokforge.agentEditMode.v1</code>) and pass to main on <code>agent-chat-start</code> so tool policy is consistent.</p>
+<h3>Scope</h3>
+<ul>
+<li><strong>Settings → Agent</strong> (or existing agent writes section): toggle + short copy.</li>
+<li>Main: read mode flag in agent runner env; branch validation rules.</li>
+<li>Document interaction with <strong><code>grokforge.agentWritesMode</code></strong> (manual / auto_apply).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Safe and Power modes persist across restarts.</li>
+<li><input type="checkbox" disabled> Safe mode enables read-before-write enforcement when <strong>082</strong> is implemented.</li>
+<li><input type="checkbox" disabled> Power mode documented in UI as higher risk.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="082-agent-edit-require-read-before-write.md">082</a></strong>, <strong><a href="085-agent-search-replace-tool.md">085</a></strong>, <strong><a href="084-agent-edit-pre-apply-safety-warnings.md">084</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>Closed without implementation. Related behavior ships via <strong>082</strong>, <strong>084</strong>, <strong>085</strong>, and Settings <strong>Agent file writes</strong> (<code>batch_confirm</code> / <code>auto_apply</code>) instead.</p>
+        </div>
+      </details>
+      <details id="story-090" data-status="closed">
+        <summary>
+          <span class="story-title"><span class="story-id">090</span><span class="story-name">~~Agent edits: architecture v2 (epic)~~</span></span>
+          <span class="status status-closed">Closed</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/090-agent-edit-architecture-v2.md">post-mvp/090-agent-edit-architecture-v2.md</a>
+          </div>
+          <h2>090 — Agent edits: architecture v2 (plan → execute, patches, transactions)</h2>
+<p><strong>Status:</strong> Closed (2026-05-18). Epic decomposed into shipped stories <strong>082–088</strong>, <strong>091–096</strong>, and follow-ups <strong>097</strong> / <strong>098</strong>; no umbrella “v2” implementation track.</p>
+<p><strong>Design skill:</strong> N/A for planning doc; per sub-feature as implemented.</p>
+<h3>Why this story exists</h3>
+<p>After quick wins (<strong>082–084</strong>) and <code>search_replace</code> (<strong>085</strong>), GrokForge can evolve toward <strong>Cursor-class</strong> reliability: explicit planning, unified diffs, multi-file atomic transactions, and optional planner vs executor models.</p>
+<h3>Themes (split into sub-stories as needed)</h3>
+<h4>A. Plan → approve → execute</h4>
+<ul>
+<li>Extend <strong>062</strong> plan mode: approved plan triggers bounded edit execution with checklist progress.</li>
+<li>User sees plan diff preview before any write.</li>
+</ul>
+<h4>B. Unified diff apply</h4>
+<ul>
+<li>Model emits unified diff; main applies via patch library with conflict markers.</li>
+<li>Fallback to <code>search_replace</code> / <code>write_file</code> on apply failure.</li>
+</ul>
+<h4>C. Structured edit ops</h4>
+<ul>
+<li><code>{ action: insert | replace | delete, range, content }</code> with LSP-style positions (harder; long-term).</li>
+</ul>
+<h4>D. Multi-file transaction</h4>
+<ul>
+<li>Single proposal ID; apply all or none; one undo snapshot for batch (<strong>agent-tools</strong> already batches—extend UX).</li>
+</ul>
+<h4>E. Model routing</h4>
+<ul>
+<li>Planner model (reasoning manifest slot) vs executor model (execution slot) for edit turns only.</li>
+</ul>
+<h4>F. Context</h4>
+<ul>
+<li>Smarter retrieval: only relevant slices + summaries (<strong>057</strong> follow-up).</li>
+</ul>
+<h3>Suggested implementation order</h3>
+<ol>
+<li><strong>085</strong> <code>search_replace</code></li>
+<li><strong>082</strong> + <strong>083</strong> + <strong>084</strong></li>
+<li><strong>086</strong> hashes</li>
+<li><strong>087</strong> + <strong>088</strong> review UX</li>
+<li>~~<strong>089</strong>~~ modes (closed — not shipping Safe/Power toggle)</li>
+<li>~~This epic~~ — themes A/D/F largely covered; <strong>B</strong> (unified diff) and <strong>C</strong> (LSP ops) deferred; track <strong>097</strong> / <strong>098</strong> separately</li>
+</ol>
+<h3>Acceptance criteria (epic closure)</h3>
+<p>Epic is <strong>done</strong> when at least <strong>two</strong> of A–F are shipped with tests and documented in <code>AGENTS.md</code>. Individual sub-deliverables should get their own story files if scope exceeds one PR.</p>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../062-agent-planning-and-multi-step-workflow.md">062</a></strong>, <strong><a href="../060-agent-first-class-edit-proposals.md">060</a></strong>, <strong><a href="../057-agent-retrieval-and-project-intelligence-v2.md">057</a></strong>.</li>
+<li>Post-MVP <strong>082–089</strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>Closed without a single epic PR. Delivered via child stories <strong>082–088</strong>, <strong>091–096</strong>.</p>
+<p><strong>Harness program (2026-05):</strong> continued in <strong>102–114</strong> — dual-model manifests, per-model harness profiles, agent profiles/toolsets, turn snapshots, context offload, evals, RPI plan files, subagents. See <strong><a href="111-harness-roadmap-and-retrospective-doc.md">111</a></strong>.</p>
+<p>Deferred beyond harness wave: unified diff apply (theme B), LSP-style edit ops (theme C).</p>
+        </div>
+      </details>
+      <details id="story-091" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">091</span><span class="story-name">Agent proactivity: explore before asking</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/091-agent-proactive-workspace-exploration.md">post-mvp/091-agent-proactive-workspace-exploration.md</a>
+          </div>
+          <h2>091 — Agent proactivity: explore workspace before asking</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill:</strong> N/A (prompts + agent loop); minor chat copy if surfacing “searched workspace” activity.</p>
+<h3>Why this story exists</h3>
+<p>Users report the agent (especially after <strong>voice</strong> handoff) replies with <strong>“tell me the exact file path”</strong> instead of using <code>search_workspace</code>, <code>list_directory</code>, or <code>read_file</code>. That feels like a chatbot, not a coding buddy. Voice realtime <strong>does not run the tool loop</strong> (<a href="../../src/main/voice-realtime.ts"><code>voice-realtime.ts</code></a>); proactivity must land in <strong>text agent</strong> prompts, handoff text, and tool-use bias.</p>
+<h3>Goals</h3>
+<h4>Text agent (<code>agent-context.ts</code>, <code>agent-runner.ts</code>)</h4>
+<ul>
+<li>Explicit system instructions:</li>
+<li>When the user names a page, feature, or area (“admin page”, “dashboard widget”), <strong>proactively</strong> <code>search_workspace</code> and/or <code>list_directory</code> + <code>read_file</code>—do <strong>not</strong> ask for a path unless search is ambiguous.</li>
+<li>Prefer <strong>acting with tools</strong> over clarifying questions; ask only when multiple equally likely targets exist.</li>
+<li>Encourage <strong>early</strong> <code>search_workspace</code> on edit/intent turns (coordinate with <strong>082</strong> read-before-write).</li>
+</ul>
+<h4>Voice path (<code>voice-realtime.ts</code>, handoff builders)</h4>
+<ul>
+<li>Voice instructions: do <strong>not</strong> tell the user to paste paths; explain that <strong>typed agent chat</strong> will locate files via tools.</li>
+<li><strong><code>buildVoiceAgentHandoffUserText</code></strong> (or successor): include user intent + nudge for the text agent to search roots before replying.</li>
+</ul>
+<h4>Optional loop tweak</h4>
+<ul>
+<li>If user message matches edit/feature intent and no tools ran yet, soft system nudge before final answer (evaluate cost/latency).</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Extend <strong>063</strong> evaluation cases: “update admin page” without path → expect <code>search_workspace</code> or <code>read_file</code> in trace, not path-only reply.</li>
+<li>Manual voice → Continue in agent chat → agent searches without path prompt.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Prompt + handoff text include proactive exploration rules above.</li>
+<li><input type="checkbox" disabled> At least one automated or fixture test documents expected tool-first behavior.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../077-voice-agent-chat-ui-polish.md">077</a></strong>, <strong><a href="../034-agent-tool-loop-and-workspace-intelligence.md">034</a></strong>.</li>
+<li><strong><a href="082-agent-edit-require-read-before-write.md">082</a></strong> — reads after find.</li>
+<li><strong><a href="093-agent-tool-activity-in-chat-thread.md">093</a></strong> — visibility when tools run.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>091</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-092" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">092</span><span class="story-name">Agent edits: failure self-correction</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/092-agent-edit-failure-self-correction.md">post-mvp/092-agent-edit-failure-self-correction.md</a>
+          </div>
+          <h2>092 — Agent edits: failure feedback and self-correction</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill:</strong> N/A (agent loop); optional toast copy in renderer.</p>
+<h3>Why this story exists</h3>
+<p>When a proposal is <strong>rejected</strong>, <strong>apply fails</strong>, or <strong>conflict</strong> occurs (<strong>047</strong>), the model often does not see structured feedback on the next turn. Users want the agent to <strong>read the error</strong> and propose a fixed edit without re-explaining the whole task.</p>
+<h3>Goals</h3>
+<ol>
+<li>On apply failure / conflict / discard-after-review, append a <strong>compact system or tool-result message</strong> to the thread (or in-memory turn context) with:</li>
+</ol>
+<ul>
+<li>failure reason</li>
+<li>paths affected</li>
+<li>hint to re-read file and retry</li>
+</ul>
+<ol>
+<li>Optional <strong>“Fix proposal”</strong> user action that sends a one-shot follow-up: “Previous edit failed: … Re-read and propose a corrected edit.”</li>
+<li>Wire into <strong><code>agent-chat-start</code></strong> so the next turn has failure context without user retyping.</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Autonomous multi-retry loops without user approval (see <strong>090</strong>).</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li>Main: <code>agent-tools.ts</code> result shaping; chat persistence of failure events (bounded).</li>
+<li>Renderer: <a href="../../src/renderer/src/components/ChatThread.tsx"><code>ChatThread.tsx</code></a> actions on failed apply.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Apply/conflict errors are visible to the agent on the subsequent turn (persisted or turn-scoped).</li>
+<li><input type="checkbox" disabled checked> User can trigger a “fix it” follow-up from the proposal/diff UI.</li>
+<li><input type="checkbox" disabled checked> Vitest for failure payload shape; manual apply-conflict → retry flow.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../047-diff-apply-discard-and-conflict-safety.md">047</a></strong>, <strong><a href="088-agent-edit-regenerate-proposal.md">088</a></strong>.</li>
+<li><strong><a href="091-agent-proactive-workspace-exploration.md">091</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>092</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-093" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">093</span><span class="story-name">Agent tool activity in chat thread</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/093-agent-tool-activity-in-chat-thread.md">post-mvp/093-agent-tool-activity-in-chat-thread.md</a>
+          </div>
+          <h2>093 — Agent transparency: tool activity in chat thread</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p>Story <strong>061</strong> ships a <strong>developer</strong> turn trace inspector (header/thread menu). Normal users—and <strong>plan mode</strong> users—benefit from seeing <strong>which tools ran</strong> (<code>search_workspace</code>, <code>read_file</code>, <code>propose_file_edits</code>) inline without opening a debug panel. This builds trust and teaches what the agent actually did.</p>
+<h3>Goals</h3>
+<ol>
+<li>Promote compact <strong>activity rows</strong> (existing <code>agent-chat-event</code> activity phase) into default thread UX—not hidden behind debug.</li>
+<li>Per turn: icon + label + status (running/done/error) + optional one-line detail (path, match count).</li>
+<li><strong>Plan mode:</strong> show tool use during planning vs execution phases distinctly (align <strong>062</strong> / <strong>065</strong>).</li>
+<li>Do not leak secrets, full file bodies, or API keys in activity text.</li>
+</ol>
+<h3>Scope</h3>
+<ul>
+<li>Renderer: <a href="../../src/renderer/src/components/ChatThread.tsx"><code>ChatThread.tsx</code></a>, activity components, plan banner.</li>
+<li>Optional: default-expand last turn’s tools; collapse older turns.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Replacing <strong>061</strong> trace export (keep for power users).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Typical agent turn shows tool steps in the chat transcript without opening trace inspector.</li>
+<li><input type="checkbox" disabled checked> Planning turns surface read/search activity when tools run.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes; manual check on search + propose flow.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../061-agent-debugging-telemetry-and-turn-replay.md">061</a></strong>, <strong><a href="../065-launch-agent-thread-context-and-model-visibility.md">065</a></strong>.</li>
+<li><strong><a href="091-agent-proactive-workspace-exploration.md">091</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>093</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-094" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">094</span><span class="story-name">Agent context pinning and memory</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/094-agent-context-pinning-and-memory.md">post-mvp/094-agent-context-pinning-and-memory.md</a>
+          </div>
+          <h2>094 — Agent context: file pinning and cross-turn memory</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> for pin UI (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p><strong>058</strong> added attachments and editor selection for the <strong>next</strong> message. Users want <strong>stronger continuity</strong>: files/folders that stay in context across turns, and lightweight <strong>memory</strong> of what the agent already read so it does not re-ask or forget decisions.</p>
+<h3>Goals</h3>
+<h4>Pinning (v1)</h4>
+<ul>
+<li><strong>Pin</strong> files or folders (beyond one-shot attachments) with a visible strip in composer or context header.</li>
+<li>Pinned paths included in <code>activeContext</code> / retrieval bias until unpinned (cap count, respect ignore rules).</li>
+<li>Persist pins per project in app storage (not user repo).</li>
+</ul>
+<h4>Memory (v1 — bounded)</h4>
+<ul>
+<li>Optional summary block per thread: “Files read this session”, “Decisions” (auto from tool trace, capped chars)—injected into system context on later turns.</li>
+<li>Not full RAG re-architecture; build on <strong>057</strong> index + trace metadata.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Unlimited chat history to model (stay within <strong>039</strong> budgets).</li>
+<li>Cross-project memory.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> User can pin/unpin at least N workspace paths per project.</li>
+<li><input type="checkbox" disabled> Pinned paths appear in agent context for subsequent turns until removed.</li>
+<li><input type="checkbox" disabled> Documented char/token budget impact in story PR notes.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../058-agent-context-attachments-and-selection-workflow.md">058</a></strong>, <strong><a href="../039-context-budget-and-retrieval-governance.md">039</a></strong>, <strong><a href="../057-agent-retrieval-and-project-intelligence-v2.md">057</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>094</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-095" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">095</span><span class="story-name">First project onboarding</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/095-first-project-onboarding.md">post-mvp/095-first-project-onboarding.md</a>
+          </div>
+          <h2>095 — First project onboarding and agent primer</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p>New users open a project and may not understand <strong>workspace roots</strong>, <strong>agent proposals vs apply</strong>, <strong>plan vs fast mode</strong>, or <strong>voice handoff</strong>. A short onboarding pass reduces “chatbot that breaks files” perception and sets expectations for diff review.</p>
+<h3>Goals</h3>
+<ol>
+<li><strong>First open</strong> of a workspace project (or first run ever): optional guided panel or modal—skippable, don’t block forever.</li>
+<li>Cover (brief copy + links):</li>
+</ol>
+<ul>
+<li>What a <strong>root</strong> is (multi-root differentiator).</li>
+<li>Agent <strong>proposes</strong> edits; user <strong>reviews diff</strong> before Apply.</li>
+<li><strong>Plan</strong> vs <strong>fast</strong> mode at high level.</li>
+<li>Voice → <strong>Continue in agent chat</strong> for file work.</li>
+</ul>
+<ol>
+<li>Persist <code>grokforge.onboarding.v1</code> (or per-project flag) so dismiss sticks.</li>
+<li>Optional: empty-state CTA in chat (“Try: describe a change in plain English”).</li>
+</ol>
+<h3>Scope</h3>
+<ul>
+<li>Renderer: <a href="../../src/renderer/src/components/welcome/ProjectWelcome.tsx"><code>ProjectWelcome.tsx</code></a> vs post-open shell—pick entry point.</li>
+<li>No main-process changes unless storing flag in app data preferred over <code>localStorage</code>.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> New users see onboarding once (or until dismissed) with roots + agent safety explained.</li>
+<li><input type="checkbox" disabled> Dismiss / “Don’t show again” works across restarts.</li>
+<li><input type="checkbox" disabled> Matches dark theme tokens and styleguide density.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../064-launch-welcome-empty-state-and-command-affordances.md">064</a></strong>, <strong><a href="../025-ui-controls-inventory-and-wiring.md">025</a></strong>.</li>
+<li>Agent reliability <strong>082–084</strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>095</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-096" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">096</span><span class="story-name">Applied edit history and revert</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/096-applied-edit-history-and-revert.md">post-mvp/096-applied-edit-history-and-revert.md</a>
+          </div>
+          <h2>096 — Applied edit history and per-file revert</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> if adding history UI (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p><strong>047</strong> / <strong><code>agent-undo-last-batch</code></strong> restore the <strong>last</strong> successful agent batch only. Users want <strong>lightweight history</strong>: see recent applied proposals and revert a specific file or batch without digging in git.</p>
+<h3>Goals</h3>
+<ol>
+<li>Persist a bounded log of applied batches (timestamp, paths, optional proposal summary)—app storage only.</li>
+<li>UI: “Recent agent writes” in Settings or sidebar with <strong>Revert</strong> per batch (reuse undo snapshot chain or store per-file before content).</li>
+<li>Coordinate with git: copy should say revert is GrokForge-local undo, not <code>git revert</code>.</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Full Time Machine / per-keystroke editor history.</li>
+<li>Replacing git as source of truth.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> User can view last N applied agent batches for current project.</li>
+<li><input type="checkbox" disabled> User can revert at least the most recent batch after undo window expires (if undo is one-deep, history enables older revert via stored snapshots).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../047-diff-apply-discard-and-conflict-safety.md">047</a></strong>, <strong><a href="../060-agent-first-class-edit-proposals.md">060</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>096</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-097" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">097</span><span class="story-name">Runner phase routing: planner vs executor intents</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/097-model-routing-planner-vs-executor.md">post-mvp/097-model-routing-planner-vs-executor.md</a>
+          </div>
+          <h2>097 — Runner phase routing: planner vs executor model intents</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (manifest + <code>model-router</code>; Settings copy for model slots recommended).</p>
+<p><strong>Depends on:</strong> <strong><a href="102-dual-model-manifest-and-harness-foundation.md">102</a></strong>, <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>, <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>.</p>
+<p><strong>Blocks:</strong> <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong> (UI should show resolved model + phase).</p>
+<h3>Why this story exists</h3>
+<p><strong>012</strong> maps product intents to manifest slots. <strong>069</strong> already starts approve-and-run with <code>modelIntent: 'execution'</code>. Gaps remain:</p>
+<ul>
+<li>Renderer <strong>model chip</strong> (<code>chat_default</code> / <code>planning</code>) can disagree with <strong>composer Plan mode</strong> + runner intent.</li>
+<li>Tool-loop <strong>rounds</strong> may all use the model id passed at turn start even when phase shifts (plan investigation vs edit execution).</li>
+<li>No single <strong>source of truth</strong> in main for: <code>chatMode</code> + trigger → <code>ModelIntent</code> → <code>modelId</code> → <code>harnessProfileKey</code>.</li>
+</ul>
+<p><strong>Dual-model strategy (</strong>102<strong>):</strong> planning turns should resolve to <strong><code>grok-4.3</code></strong>; execution-heavy turns to <strong><code>grok-code-fast-1</code></strong> — each with matching harness profile (<strong>103</strong>).</p>
+<h3>Goals</h3>
+<h4>1. <code>resolveAgentTurnRouting()</code> (shared)</h4>
+<p><code>src/shared/agent-turn-routing.ts</code> input:</p>
+<p>| Input | Source | | --- | --- | | <code>chatMode</code> | <code>fast</code> \| <code>plan</code> | | <code>modelIntentOverride</code> | renderer chip (optional) | | <code>isApprovedPlanAutoRun</code> | <strong>069</strong> synthetic execute | | <code>hasEditToolCallsThisTurn</code> | runner scratch (optional v1) |</p>
+<p>Output:</p>
+<pre><code>{
+  modelIntent: ModelIntent
+  modelId: string
+  harnessProfileKey: HarnessProfileKey
+  agentProfileId: AgentProfileId  // from 104
+}</code></pre>
+<p><strong>Rules (v1):</strong></p>
+<p>| Condition | <code>modelIntent</code> | Expected model slot | | --- | --- | --- | | <code>chatMode === 'plan'</code> | <code>planning</code> | <code>models.planning</code> → typically <code>grok-4.3</code> | | <code>isApprovedPlanAutoRun</code> | <code>execution</code> | <code>models.execution</code> → typically <code>grok-code-fast-1</code> | | <code>chatMode === 'fast'</code> default | <code>chat_default</code> | <code>models.default</code> | | Renderer forces <code>planning</code> chip on fast mode | <code>planning</code> | User override (document) |</p>
+<h4>2. Main owns resolution</h4>
+<ul>
+<li><strong><code>agent-chat-start</code> handler</strong> — Recompute routing in main from <code>activeContext</code>; do not trust renderer <code>model</code> string alone (accept as hint only during migration).</li>
+<li><strong>Each tool-loop round</strong> — Re-call resolver if phase flags change (minimal v1: fixed for whole turn except auto-run flag set at start).</li>
+</ul>
+<h4>3. Logging and UI</h4>
+<ul>
+<li>Emit <code>AgentChatEvent</code> <code>turn_meta</code> or extend <code>turn_start</code> with <code>{ modelIntent, modelId, harnessProfileKey, agentProfileId }</code>.</li>
+<li>Renderer (<strong>065</strong>): show “Planning · grok-4.3” vs “Executing · grok-code-fast-1” during <strong>098</strong> stepper.</li>
+</ul>
+<h4>4. Settings copy</h4>
+<ul>
+<li>Explain manifest slots: <strong>Planning model</strong> (deeper), <strong>Execution model</strong> (fast edits), <strong>Default chat</strong>, <strong>Voice</strong>, <strong>Reasoning</strong>.</li>
+<li>Note xAI retirement/redirect for fast id with link to <strong>102</strong> investigation notes.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Defining harness profile content (<strong>103</strong>).</li>
+<li>Filtering tools (<strong>104</strong>).</li>
+<li>New xAI SKUs or dynamic discovery.</li>
+<li>Subagent routing (<strong>112</strong>).</li>
+</ul>
+<h3>Key files</h3>
+<ul>
+<li><code>src/shared/agent-turn-routing.ts</code>, tests</li>
+<li><code>src/main/agent-runner.ts</code>, <code>src/main/main.ts</code> (IPC)</li>
+<li><code>src/renderer/src/components/ChatThread.tsx</code> — consume turn meta; simplify chip to override/advanced</li>
+<li><code>AGENTS.md</code></li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Unit: plan mode → <code>planning</code> + <code>grok_4_3</code> profile key (with default manifest fixture).</li>
+<li>Unit: auto-run → <code>execution</code> + <code>grok_code_fast</code> profile key.</li>
+<li>Unit: renderer override chip changes intent when sent.</li>
+<li>Manual: approve and run → network/log shows execution model, not planning.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Main process resolves <code>modelIntent</code> + <code>modelId</code> + profile keys per turn from documented rules.</li>
+<li><input type="checkbox" disabled> Approve-and-run always uses <code>execution</code> intent (regression for <strong>069</strong>).</li>
+<li><input type="checkbox" disabled> Plan mode uses <code>planning</code> intent for full turn unless documented override.</li>
+<li><input type="checkbox" disabled> Turn metadata visible in dev logs or UI.</li>
+<li><input type="checkbox" disabled> <code>AGENTS.md</code> documents mapping table.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../012-model-routing-service.md">012</a></strong>, <strong><a href="../062-agent-planning-and-multi-step-workflow.md">062</a></strong>, <strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong>.</li>
+<li><strong><a href="102-dual-model-manifest-and-harness-foundation.md">102</a></strong>, <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>, <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>.</li>
+<li>Closed epic <strong><a href="090-agent-edit-architecture-v2.md">090</a></strong> theme E — delivered here + <strong>103</strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>097</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-098" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">098</span><span class="story-name">Planning mode execute UX polish</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/098-planning-mode-execute-ux-polish.md">post-mvp/098-planning-mode-execute-ux-polish.md</a>
+          </div>
+          <h2>098 — Planning mode: explicit plan → approve → execute UX</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> (<code>@styleguide-design</code>).</p>
+<p><strong>Depends on:</strong> <strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong> (show real model per phase); <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong> (planner vs executor labels). <strong>Recommended after <a href="101-greenfield-plan-quality.md">101</a></strong> for richer plan card content.</p>
+<p><strong>Does not step on:</strong> <strong><a href="101-greenfield-plan-quality.md">101</a></strong> (prompts only) — this story is <strong>renderer UX</strong> only.</p>
+<h3>Why this story exists</h3>
+<p><strong>062</strong> + <strong>069</strong> shipped structured plans and <strong>Approve and run</strong>. Users still see one opaque chat stream. The harness <strong>works</strong> but the <strong>cockpit</strong> does not communicate RPI phases: Planning → Approved → Executing → Done.</p>
+<p>Reference: Cursor Plan Mode UX; <a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> prioritized backlog (RPI + <strong>098</strong>).</p>
+<h3>Goals</h3>
+<h4>1. Plan card hierarchy (<code>PlanModeCard.tsx</code>)</h4>
+<ul>
+<li>Scannable <strong>steps</strong> (title + one-line detail).</li>
+<li><strong>Files likely touched</strong> (from <code>gf-plan</code> if present; else “Unknown until execute”).</li>
+<li><strong>Risks / verification</strong> section when plan JSON includes them (<strong>101</strong> may add fields).</li>
+<li>Collapsed raw JSON behind “Details” disclosure.</li>
+</ul>
+<h4>2. Phase stepper / badges</h4>
+<p>States (persist per plan id in <code>plan-interaction-storage.ts</code> or extend):</p>
+<p>| State | When | UI | | --- | --- | --- | | <code>planning</code> | Plan mode turn in flight | Accent pulse on composer mode | | <code>pending</code> | Valid <code>gf-plan</code>, not approved | Approve / Cancel | | <code>approved</code> | User approved, before run | “Ready to run” | | <code>executing</code> | <strong>069</strong> auto-run stream active | Stepper + cancel | | <code>done</code> | Turn <code>done</code> without error | Checkmark | | <code>failed</code> | Turn error or missing plan toast (<strong>099</strong>) | Error styling |</p>
+<h4>3. Execution phase UX</h4>
+<ul>
+<li>Bind <strong>093</strong> tool activity under executing plan: “Step 2 of 5” optional if plan steps map to tool batches (best-effort).</li>
+<li>Show <strong>model + harness phase</strong> from <strong>097</strong> metadata: e.g. <code>Executing with grok-code-fast-1 (executor profile)</code>.</li>
+<li><strong>Approve and run</strong> disabled while <code>executing</code>; re-enable on <code>done</code> / <code>error</code>.</li>
+</ul>
+<h4>4. Copy alignment</h4>
+<ul>
+<li>Match <strong>069</strong> synthetic user line behavior (do not duplicate full plan in card).</li>
+<li>Remind: command/edit approvals still required.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Changing <code>gf-plan</code> schema (unless <strong>101</strong> adds fields — consume only).</li>
+<li>Runner routing logic (<strong>097</strong>).</li>
+<li>Autonomous multi-step loops without checkpoints.</li>
+<li>Plan files on disk (<strong>109</strong>).</li>
+</ul>
+<h3>Key files</h3>
+<ul>
+<li><code>src/renderer/src/components/PlanModeCard.tsx</code></li>
+<li><code>src/renderer/src/components/ChatThread.tsx</code></li>
+<li><code>src/renderer/src/lib/plan-interaction-storage.ts</code></li>
+<li><code>src/shared/agent-chat-contract.ts</code> (event types if needed)</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Manual script in PR: plan → approve → run → see executing → done.</li>
+<li>Optional component test for stepper state transitions with mocked events.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> User can distinguish plan vs execution phase without reading raw JSON.</li>
+<li><input type="checkbox" disabled> Executing state visible from approve-and-run until turn completes.</li>
+<li><input type="checkbox" disabled> Model/profile label shown during execute when <strong>097</strong> metadata present.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../062-agent-planning-and-multi-step-workflow.md">062</a></strong>, <strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong>, <strong><a href="093-agent-tool-activity-in-chat-thread.md">093</a></strong>, <strong><a href="099-plan-mode-final-contract-and-toast.md">099</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>098</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-099" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">099</span><span class="story-name">Plan mode: final contract + missing-plan toast</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/099-plan-mode-final-contract-and-toast.md">post-mvp/099-plan-mode-final-contract-and-toast.md</a>
+          </div>
+          <h2>099 — Plan mode: final-answer contract and missing-plan toast</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill:</strong> N/A (main agent loop + toast copy in renderer).</p>
+<h3>Why this story exists</h3>
+<p>Plan mode required a manual user hint (<code>gf-plan</code> fence) when the user said “create” or “build,” because the generic <strong>final response contract</strong> told the model to emit <code>grokforge-agent-tools</code> instead of <code>gf-plan</code>.</p>
+<h3>Goals</h3>
+<ol>
+<li>When <code>chatMode === 'plan'</code>, the final streaming contract requires <strong><code>gf-plan</code></strong> only and forbids edit proposals on that turn.</li>
+<li>When a Plan mode turn completes without a valid <code>gf-plan</code>, show an actionable toast.</li>
+<li>Increase <code>streamFinalAnswer</code> <code>max_tokens</code> so plan JSON is less likely to truncate.</li>
+</ol>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — <code>buildFinalAnswerContract</code></li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — pass <code>chatMode</code> into contract</li>
+<li><a href="../../src/main/agent-chat-model-transport.ts"><code>src/main/agent-chat-model-transport.ts</code></a> — <code>max_tokens: 4096</code> on final stream</li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — missing-plan toast on <code>done</code></li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> “Create a todo app, let’s plan” does not inject edit-fence final contract.</li>
+<li><input type="checkbox" disabled checked> Plan mode <code>done</code> without valid plan shows toast.</li>
+<li><input type="checkbox" disabled checked> Unit tests for plan vs fast contract strings.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../062-agent-planning-and-multi-step-workflow.md">062</a></strong>, <strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong></li>
+<li><strong><a href="101-greenfield-plan-quality.md">101</a></strong> — follow-up (prompts only)</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update this <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-100" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">100</span><span class="story-name">Proposal quality: auto-normalize + apply guard</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/100-proposal-quality-auto-normalize.md">post-mvp/100-proposal-quality-auto-normalize.md</a>
+          </div>
+          <h2>100 — Proposal quality: auto-normalize and apply guard</h2>
+<p><strong>Status:</strong> Done (2026-05-18).</p>
+<p><strong>Design skill:</strong> N/A (shared normalize + proposal card / apply UX).</p>
+<h3>Why this story exists</h3>
+<p>Execution proposals often arrived with crushed one-line HTML/CSS/JS. Safety warnings appeared but users could still apply unreadable diffs.</p>
+<h3>Goals</h3>
+<ol>
+<li>Reflow crushed <code>&lt;style&gt;</code> / <code>&lt;script&gt;</code> interiors in HTML without shredding multi-line files.</li>
+<li>Second normalize pass in <code>validateAgentEditProposal</code> when layout still needs repair.</li>
+<li>Confirm before Apply when severity is <strong>severe</strong> (collapsed / messy layout).</li>
+</ol>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-file-content-normalize.ts"><code>src/shared/agent-file-content-normalize.ts</code></a> — <code>reflowHtmlEmbeddedBlocks</code></li>
+<li><a href="../../src/main/agent-edit-proposals.ts"><code>src/main/agent-edit-proposals.ts</code></a> — double normalize when needed</li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — <code>confirmApplyDespiteSevereSafety</code></li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> HTML todo scaffold normalizes to lines under ~200 chars in tests.</li>
+<li><input type="checkbox" disabled checked> Apply all / diff Apply asks for confirmation on severe layout issues.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="084-agent-edit-pre-apply-safety-warnings.md">084</a></strong>, <strong><a href="083-agent-edit-prompting-minimal-change.md">083</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update this <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-101" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">101</span><span class="story-name">Greenfield plan quality (per-profile prompts)</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/101-greenfield-plan-quality.md">post-mvp/101-greenfield-plan-quality.md</a>
+          </div>
+          <h2>101 — Greenfield plan quality (per-profile prompts)</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (harness prompts in shared/main).</p>
+<p><strong>Depends on:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong> — empty-workspace rules live in <strong><code>grok_4_3</code></strong> planner profile, not a one-off string in <code>agent-context.ts</code>.</p>
+<p><strong>Does not step on:</strong> <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong> (UI stepper) — prompts only.</p>
+<h3>Why this story exists</h3>
+<p>Plan mode emits <code>gf-plan</code> (<strong>062</strong>, <strong>099</strong>), but <strong>empty workspace</strong> requests produce vague steps unless the user coaches the model. That is a <strong>harness instruction</strong> gap for the <strong>planning model + planner profile</strong>, not a missing SKU.</p>
+<p>With <strong>dual-model harnesses</strong>, greenfield quality is primarily <strong><code>grok-4.3</code> + <code>planner</code> profile</strong> responsibility.</p>
+<h3>Goals</h3>
+<h4>1. Empty-workspace detection</h4>
+<ul>
+<li>In <code>agent-runner</code> or <code>agent-context</code>, detect “no index entries / zero roots files / new project” heuristic (define explicitly in PR).</li>
+<li>Inject <strong>greenfield appendix</strong> into planner profile system prompt when true.</li>
+</ul>
+<h4>2. Appendix content (planner / 4.3 profile)</h4>
+<p>Require plans to address:</p>
+<ol>
+<li><strong>Project shape</strong> — multi-file layout vs single HTML file; when to choose each.</li>
+<li><strong>File list</strong> — concrete paths under workspace roots.</li>
+<li><strong>Verification</strong> — <code>run_command</code> steps user can approve (typecheck, test, open file).</li>
+<li><strong>Formatting</strong> — no crushed one-line HTML/CSS (<strong>100</strong> alignment).</li>
+<li><strong>Dependencies</strong> — package.json, install step if greenfield app.</li>
+</ol>
+<h4>3. Execute-from-plan handoff (fast / executor profile)</h4>
+<ul>
+<li><strong><code>grok_code_fast</code> executor profile</strong> appendix for <strong>069</strong> auto-run: respect approved plan step order; read files before edit (<strong>082</strong>); prefer <code>search_replace</code> (<strong>085</strong>).</li>
+</ul>
+<h4>4. Optional <code>gf-plan</code> schema v2</h4>
+<p>Only if prompts insufficient:</p>
+<pre><code>&quot;codeQuality&quot;: { &quot;lint&quot;: &quot;...&quot;, &quot;structure&quot;: &quot;...&quot; }</code></pre>
+<p>Update <code>src/shared/gf-plan-contract.ts</code> + <code>PlanModeCard</code> display (<strong>098</strong> consumes).</p>
+<h3>Non-goals</h3>
+<ul>
+<li>Plan phase stepper UI (<strong>098</strong>).</li>
+<li>Runner intent resolution (<strong>097</strong>).</li>
+<li>Plan persistence on disk (<strong>109</strong>).</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Extend <strong>108</strong> / <strong>063</strong>: empty manifest fixture → plan prompt contains greenfield marker.</li>
+<li>Manual: new project → “build a todo app” in Plan mode → plan lists multiple files + verify step without user mentioning <code>gf-plan</code>.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Empty-workspace plans include file paths and verification steps in smoke test.</li>
+<li><input type="checkbox" disabled> Rules live in harness profile source (<strong>103</strong>), not duplicated ad hoc.</li>
+<li><input type="checkbox" disabled> Execute turn prompt references plan discipline (profile-level).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="099-plan-mode-final-contract-and-toast.md">099</a></strong>, <strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong>, <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>, <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: mark <strong>Done</strong>, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-102" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">102</span><span class="story-name">Dual-model manifest + harness profile keys</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/102-dual-model-manifest-and-harness-foundation.md">post-mvp/102-dual-model-manifest-and-harness-foundation.md</a>
+          </div>
+          <h2>102 — Dual-model manifest defaults and harness foundation</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (defaults + manifest; optional Settings copy for model slots and harness profile hints).</p>
+<p><strong>Depends on:</strong> Nothing (first story in harness wave).</p>
+<p><strong>Blocks:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>, <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>, <strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>xAI <a href="https://docs.x.ai/developers/migration/may-15-retirement">retired <code>grok-code-fast-1</code> as the dedicated coding SKU</a> and recommends <strong><code>grok-4.3</code></strong> for agentic coding. GrokForge was built with <strong><code>grok-code-fast-1</code></strong> on <strong><code>chat_default</code></strong> and <strong><code>execution</code></strong>, and <strong><code>grok-4.3</code></strong> on <strong><code>planning</code></strong>.</p>
+<p><strong>Product decision (harness program):</strong> We <strong>keep both model ids</strong> in defaults and manifests on purpose — not to ignore retirement, but to run a <strong>dual-model harness experiment</strong>:</p>
+<p>| Manifest slot | Default model id | Harness role (see <strong>103</strong>) | | --- | --- | --- | | <code>models.default</code> (<code>chat_default</code>) | <code>grok-code-fast-1</code> | Fast chat + general tool loop | | <code>models.execution</code> | <code>grok-code-fast-1</code> | Edit-heavy / approve-and-run turns | | <code>models.planning</code> | <code>grok-4.3</code> | Plan mode investigation + <code>gf-plan</code> | | <code>models.reasoning</code> | <code>grok-4.20-reasoning</code> (unchanged unless audit says otherwise) | Deep reasoning when used | | <code>models.voice</code> | existing voice id | Voice realtime (<strong>013</strong>) |</p>
+<p>This lets us compare <strong>two full harness profiles</strong> (fast vs capable) under the same app shell — the core lesson from Cursor/OpenCode: *model + harness* is one unit.</p>
+<p>This story <strong>does not</strong> implement per-model prompts (<strong>103</strong>). It makes defaults, docs, and runtime <strong>model id → profile key</strong> wiring honest and testable.</p>
+<h3>Investigation checklist (required in PR notes)</h3>
+<ul>
+<li><input type="checkbox" disabled> Confirm current xAI behavior for <code>grok-code-fast-1</code>: hard error vs redirect to <code>grok-4.3</code>, pricing, reasoning defaults on redirect.</li>
+<li><input type="checkbox" disabled> Confirm <code>grok-4.3</code> tool-use and multi-turn behavior for our chat-completions transport.</li>
+<li><input type="checkbox" disabled> Audit repo references: <code>FALLBACK_MODELS</code>, <code>app-project-store.ts</code>, <code>example.grokproject.json</code>, tests, <code>AGENTS.md</code>, <code>docs/i-am-a-harness.md</code>.</li>
+<li><input type="checkbox" disabled> Document <strong>when to switch</strong> a project to all-<code>grok-4.3</code> (user choice in manifest / future Settings).</li>
+</ul>
+<h3>Goals</h3>
+<h4>1. Canonical dual-model defaults</h4>
+<ul>
+<li><strong><code>src/shared/model-router.ts</code></strong> — <code>FALLBACK_MODELS</code> explicitly documents the dual-model strategy (comment + values above).</li>
+<li><strong><code>src/main/app-project-store.ts</code></strong> — <code>defaultManifestForFirstRoot</code> / new projects use the same pairing.</li>
+<li><strong><code>example.grokproject.json</code></strong> (if present) — reflects recommended dual-model block.</li>
+</ul>
+<h4>2. Harness profile key resolution (stub for <strong>103</strong>)</h4>
+<p>Add a small shared helper, e.g. <code>resolveHarnessProfileKey(modelId: string): HarnessProfileKey</code>:</p>
+<ul>
+<li><code>'grok-code-fast-1'</code> → <code>'grok_code_fast'</code></li>
+<li><code>'grok-4.3'</code> → <code>'grok_4_3'</code></li>
+<li>Unknown ids → <code>'generic'</code> (single safe default profile until <strong>103</strong> adds more)</li>
+</ul>
+<p>Export types from <code>src/shared/agent-harness-profile-contract.ts</code> (new). <strong>103</strong> fills profile content; <strong>102</strong> only defines keys + resolver + tests.</p>
+<h4>3. Turn metadata for debugging</h4>
+<ul>
+<li>When starting an agent turn, include in trace/log (dev) or <code>AgentChatEvent</code> metadata: <code>{ modelId, harnessProfileKey, modelIntent }</code>.</li>
+<li>Renderer model chip (<strong>065</strong>) may show profile label in dev builds only (optional).</li>
+</ul>
+<h4>4. Contributor and user documentation</h4>
+<ul>
+<li><strong><code>AGENTS.md</code></strong> — “Model vs harness”; dual-model defaults; link to <strong><code>docs/i-am-a-harness.md</code></strong> and harness roadmap (<strong>111</strong>).</li>
+<li><strong><code>docs/i-am-a-harness.md</code></strong> — Update “Grok models for coding” table: we <strong>intentionally</strong> keep fast id for execution; retirement/redirect is documented, not hidden.</li>
+</ul>
+<h4>5. Existing projects</h4>
+<ul>
+<li><strong>No forced migration</strong> away from <code>grok-code-fast-1</code>.</li>
+<li>Optional: on project load, if manifest uses only retired ids and API errors, toast once with link to Settings/manifest docs (only if investigation proves hard failures).</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Per-model system prompts, tool descriptions, or contracts (<strong>103</strong>).</li>
+<li>Agent profiles / tool allowlists (<strong>104</strong>).</li>
+<li>Changing phase routing logic (<strong>097</strong>).</li>
+<li>Removing <code>grok-code-fast-1</code> from the codebase.</li>
+</ul>
+<h3>Architecture notes</h3>
+<pre><code>manifest.models.execution → getModelForIntent(..., 'execution') → modelId
+       → resolveHarnessProfileKey(modelId) → harnessProfileKey (102)
+       → getHarnessProfile(harnessProfileKey) (103)
+       → buildInitialMessages / tool schemas / final contract</code></pre>
+<p>Renderer may continue passing <code>model</code> on <code>agentChatStart</code>; main should <strong>re-resolve</strong> intent → model → profile for consistency when <strong>097</strong> lands.</p>
+<h3>Key files</h3>
+<p>| Area | Files | | --- | --- | | Defaults | <code>src/shared/model-router.ts</code>, <code>src/main/app-project-store.ts</code> | | Profile key | <code>src/shared/agent-harness-profile-contract.ts</code> (new), <code>*.test.ts</code> | | Logging | <code>src/main/agent-runner.ts</code>, <code>src/shared/agent-chat-contract.ts</code> (metadata fields if needed) | | Docs | <code>AGENTS.md</code>, <code>docs/i-am-a-harness.md</code> |</p>
+<h3>Testing</h3>
+<ul>
+<li>Unit: <code>resolveHarnessProfileKey</code> for known ids + unknown fallback.</li>
+<li>Unit: new project manifest matches dual-model table.</li>
+<li>Manual: create project → verify manifest in <code>userData</code>; run one fast chat and one plan turn; confirm logged <code>harnessProfileKey</code> differs when model id differs.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> PR notes document xAI redirect/error behavior for <code>grok-code-fast-1</code>.</li>
+<li><input type="checkbox" disabled> New projects default to <strong>fast on default/execution</strong>, <strong>4.3 on planning</strong> (unless investigation forces a doc-only warning).</li>
+<li><input type="checkbox" disabled> <code>resolveHarnessProfileKey</code> exists and is used at turn start (metadata/log).</li>
+<li><input type="checkbox" disabled> <code>AGENTS.md</code> and harness doc describe dual-model <strong>harness</strong> strategy (not “migrate everything to 4.3”).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong> — profile content.</li>
+<li><strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>, <strong><a href="../012-model-routing-service.md">012</a></strong>.</li>
+<li><strong><a href="111-harness-roadmap-and-retrospective-doc.md">111</a></strong> — program index.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>102</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-103" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">103</span><span class="story-name">Per-model harness profiles (`fast` vs `4.3`)</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/103-agent-harness-per-model-profiles.md">post-mvp/103-agent-harness-per-model-profiles.md</a>
+          </div>
+          <h2>103 — Per-model harness profiles (<code>grok-code-fast-1</code> vs <code>grok-4.3</code>)</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (main/shared agent loop; optional dev-only Settings preview of profile id).</p>
+<p><strong>Depends on:</strong> <strong><a href="102-dual-model-manifest-and-harness-foundation.md">102</a></strong> (<code>resolveHarnessProfileKey</code>).</p>
+<p><strong>Blocks:</strong> <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>, <strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>, <strong><a href="101-greenfield-plan-quality.md">101</a></strong>, <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>Today one generic system prompt and tool copy in <code>agent-context.ts</code> / <code>agent-runner.ts</code> is sent regardless of whether the turn uses <strong><code>grok-code-fast-1</code></strong> or <strong><code>grok-4.3</code></strong>. Cursor’s public writing is explicit: <strong>the harness must be tuned per model</strong> — tool names, instructions, reasoning-trace handling, and “act vs ask” bias.</p>
+<p><strong>102</strong> keeps both models in the manifest. <strong>103</strong> implements <strong>two (plus <code>generic</code>) full harness profiles</strong> so we can measure how much quality comes from the host vs the SKU.</p>
+<p>Reference: <a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> § Per-model harness tuning; <a href="../../docs/research/agentic-coding-harnesses.md"><code>docs/research/agentic-coding-harnesses.md</code></a> § multi-model support.</p>
+<h3>Goals</h3>
+<h4>1. Profile registry (shared)</h4>
+<p>Create <code>src/shared/agent-harness-profile.ts</code> (and contract/types) defining <code>AgentHarnessProfile</code>:</p>
+<p>| Field | Purpose | | --- | --- | | <code>key</code> | <code>'grok_code_fast' \| 'grok_4_3' \| 'generic'</code> | | <code>displayName</code> | Settings / dev UI | | <code>modelIds</code> | Aliases that map to this profile (includes <code>grok-code-fast-1</code>, <code>grok-4.3</code>) | | <code>systemPromptSections</code> | Ordered blocks merged by <code>buildAgentSystemPrompt({ profile, agentProfile, chatMode })</code> | | <code>toolDescriptionOverrides</code> | Partial map <code>toolName → description</code> merged into xAI tool defs | | <code>finalAnswerContractVariant</code> | Hooks for <code>buildFinalAnswerContract</code> (plan vs fast already exist; add profile-specific suffixes) | | <code>reasoningTracePolicy</code> | <code>'preserve' \| 'strip' \| 'provider_default'</code> — document choice per model after manual/API check | | <code>toolUseBias</code> | Short instruction block: e.g. fast = “call tools early”; 4.3 = “read before large edits” |</p>
+<p><code>getHarnessProfile(key)</code> returns immutable profile; unknown model → <code>generic</code>.</p>
+<h4>2. Wire profiles into the agent loop</h4>
+<ul>
+<li><strong><code>agent-context.ts</code></strong> — <code>buildInitialMessages</code> accepts <code>harnessProfileKey</code> (from <strong>102</strong> resolver) and merges profile sections <strong>before</strong> chatMode-specific plan/fast text.</li>
+<li><strong><code>agent-runner.ts</code></strong> — Resolve <code>modelId</code> from payload (or re-resolve via intent when <strong>097</strong> lands); compute profile key once per turn; pass through tool loop and final stream.</li>
+<li><strong><code>agent-workspace-tools.ts</code></strong> / tool registration — Apply <code>toolDescriptionOverrides</code> when building OpenAI/xAI function tools.</li>
+<li><strong><code>agent-final-answer-contract.ts</code></strong> — Optional <code>profileKey</code> parameter for variant strings (keep backward-compatible defaults).</li>
+</ul>
+<h4>3. Deliberate differences between the two profiles (v1)</h4>
+<p>Document in PR; tune in code. Suggested starting points (adjust after eval <strong>108</strong>):</p>
+<p><strong><code>grok_code_fast</code> (execution / default chat)</strong></p>
+<ul>
+<li>Shorter system prompt; stronger “use tools now, don’t over-explain”.</li>
+<li>Tool names/descriptions aligned with shell vocabulary (<code>search_workspace</code> described like ripgrep-style search).</li>
+<li>Final answer: concise; fewer plan-quality paragraphs.</li>
+<li>Reasoning: test preserve vs strip with xAI; default <code>preserve</code> until proven harmful.</li>
+</ul>
+<p><strong><code>grok_4_3</code> (planning)</strong></p>
+<ul>
+<li>Longer planning instructions; emphasize <code>gf-plan</code> quality, file list, risks, verification steps.</li>
+<li>Stronger read/search before answering; link to <strong>091</strong> proactivity rules.</li>
+<li>Final answer in plan mode: already governed by <strong>099</strong>; add 4.3-specific examples in contract appendix.</li>
+<li>Encourage structured steps and “don’t propose edits in plan mode” (belt + suspenders with <strong>104</strong>).</li>
+</ul>
+<h4>4. Dev observability</h4>
+<ul>
+<li>Log once per turn: <code>modelId</code>, <code>harnessProfileKey</code>, <code>agentProfile</code> (when <strong>104</strong> exists).</li>
+<li>Optional: <strong>Settings → Agent</strong> (dev section) show active profile for current manifest slots.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Agent profiles / tool allow-deny (<strong>104</strong>).</li>
+<li>Runner re-routing model mid-turn (<strong>097</strong>).</li>
+<li>Voice realtime profile (<strong>113</strong> — separate).</li>
+<li>Automatic A/B or Keep Rate metrics (future).</li>
+</ul>
+<h3>Key files</h3>
+<p>| File | Change | | --- | --- | | <code>src/shared/agent-harness-profile.ts</code> | Profile definitions | | <code>src/shared/agent-harness-profile.test.ts</code> | Snapshot key sections | | <code>src/main/agent-context.ts</code> | Profile-aware prompt build | | <code>src/main/agent-runner.ts</code> | Resolve + pass profile | | <code>src/main/agent-chat-model-transport.ts</code> | Reasoning trace policy hook if needed | | <code>src/shared/agent-final-answer-contract.ts</code> | Profile variant |</p>
+<h3>Testing</h3>
+<ul>
+<li>Unit: <code>getHarnessProfile('grok_code_fast')</code> vs <code>grok_4_3</code> produce different system prompt hashes / required substrings.</li>
+<li>Unit: tool description override applied for at least one tool.</li>
+<li>Unit: <code>buildFinalAnswerContract({ chatMode: 'plan', profileKey: 'grok_4_3' })</code> differs from fast profile.</li>
+<li>Extend <strong>063</strong> fixtures later in <strong>108</strong>; minimum one fixture here.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Two distinct harness profiles shipped for <code>grok-code-fast-1</code> and <code>grok-4.3</code>.</li>
+<li><input type="checkbox" disabled> Agent turn uses profile derived from resolved <code>modelId</code> (not hardcoded in one prompt file).</li>
+<li><input type="checkbox" disabled> PR documents reasoning-trace decision and tool-use bias per profile.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="102-dual-model-manifest-and-harness-foundation.md">102</a></strong>, <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>, <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>103</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-104" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">104</span><span class="story-name">Agent profiles and toolsets</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/104-agent-profiles-and-toolsets.md">post-mvp/104-agent-profiles-and-toolsets.md</a>
+          </div>
+          <h2>104 — Agent profiles and toolsets (permission envelopes)</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (main agent loop); optional renderer badge “Planner” / “Executor” on activity rows (<strong>098</strong> may consume).</p>
+<p><strong>Depends on:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong> (profiles tune copy; this story tunes <strong>capabilities</strong>).</p>
+<p><strong>Blocks:</strong> <strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>, <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong> (UI can show profile phase).</p>
+<h3>Why this story exists</h3>
+<p>Plan vs fast mode today is enforced mainly by <strong>prompts</strong> and <strong><code>buildFinalAnswerContract</code></strong> (<strong>099</strong>). OpenCode’s lesson: <strong>agent profiles</strong> bundle prompt + <strong>which tools exist</strong> + <strong>permission rules</strong> — e.g. <code>plan</code> agent <strong>denies</strong> <code>edit</code> tools at the registry, not “please don’t edit” in text.</p>
+<p>Without this, models can still call <code>propose_file_edits</code> during plan investigation turns, wasting tokens and breaking user trust.</p>
+<p>Reference: <a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> § Implementation reference — agent profiles; OpenCode <code>Agent.Info</code> in research doc.</p>
+<h3>Goals</h3>
+<h4>1. <code>AgentProfile</code> type (shared)</h4>
+<p><code>src/shared/agent-profile.ts</code>:</p>
+<pre><code>type AgentProfileId = 'default' | 'planner' | 'executor' | 'explorer'
+
+type AgentProfile = {
+  id: AgentProfileId
+  allowedTools: AgentToolName[]  // or toolset ids
+  deniedTools: AgentToolName[]
+  maxToolRounds?: number
+  canProposeEdits: boolean
+  canRunCommand: boolean
+}</code></pre>
+<p>Map <strong>product phase</strong> → profile:</p>
+<p>| User-visible phase | <code>chatMode</code> / trigger | <code>AgentProfileId</code> | | --- | --- | --- | | Normal chat | <code>fast</code>, default | <code>default</code> | | Plan investigation | <code>plan</code> | <code>planner</code> | | Approve and run / execute line | <code>fast</code> + synthetic execute (<strong>069</strong>) | <code>executor</code> | | Optional: read-only exploration sub-turn | future | <code>explorer</code> |</p>
+<h4>2. Toolset registry</h4>
+<p><code>src/shared/agent-toolset.ts</code> — named bundles:</p>
+<p>| Toolset | Tools | | --- | --- | | <code>read_only</code> | <code>workspace_index</code>, <code>list_directory</code>, <code>read_file</code>, <code>search_workspace</code> | | <code>edit</code> | <code>propose_file_edits</code> (includes search_replace path) | | <code>command</code> | <code>run_command</code> | | <code>full</code> | union for default/executor |</p>
+<p><code>planner</code> profile = <code>read_only</code> only (no <code>edit</code>, no <code>command</code> in v1 plan turns).</p>
+<p><code>executor</code> profile = <code>read_only</code> + <code>edit</code> + <code>command</code> (approvals unchanged).</p>
+<h4>3. Runner integration</h4>
+<ul>
+<li><strong><code>agent-runner.ts</code></strong> — At turn start, compute <code>agentProfileId</code> from <code>activeContext.chatMode</code>, <code>isApprovedPlanAutoRun</code>, etc.</li>
+<li>When building xAI tools array, <strong>filter</strong> tools not in profile (do not send schema to model).</li>
+<li>If model somehow emits disallowed tool (provider glitch), return structured error tool result: <code>Tool not available in planner profile</code>.</li>
+<li><strong><code>buildFinalAnswerContract</code></strong> — receives <code>agentProfileId</code>; planner forbids edit fence (align <strong>099</strong>).</li>
+</ul>
+<h4>4. Cross-profile + per-model harness</h4>
+<p>Matrix per turn:</p>
+<pre><code>resolvedModelId → harnessProfileKey (103)
+agentProfileId (104)
+chatMode (062)
+→ buildInitialMessages({ harnessProfile, agentProfile, chatMode })
+→ filterTools(agentProfile)</code></pre>
+<h4>5. Future: manifest overrides (optional v1)</h4>
+<ul>
+<li>Defer manifest <code>agentProfiles</code> JSON unless trivial.</li>
+<li>Document extension point in <code>AGENTS.md</code>.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Subagent child sessions (<strong>112</strong>).</li>
+<li>Wildcard path permissions like OpenCode <code>permission/next</code> (<strong>110</strong> partial overlap — defer path rules).</li>
+<li>Replacing <code>run_command</code> human approval (<strong>059</strong>).</li>
+</ul>
+<h3>Key files</h3>
+<ul>
+<li><code>src/shared/agent-profile.ts</code>, <code>agent-toolset.ts</code>, tests</li>
+<li><code>src/main/agent-runner.ts</code> — profile resolution + tool filter</li>
+<li><code>src/shared/agent-tool-schema.ts</code> — ensure tool names are enumerable for filtering</li>
+<li><code>src/shared/agent-final-answer-contract.ts</code> — planner variant</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Unit: planner profile tool list excludes <code>propose_file_edits</code> and <code>run_command</code>.</li>
+<li>Unit: executor profile includes edit tools.</li>
+<li>Integration-style: simulated tool call name not in profile → error result shape.</li>
+<li>Manual: Plan mode → model should not receive edit tool defs in API payload (inspect dev log).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Plan mode turns do not expose <code>propose_file_edits</code> / <code>run_command</code> in the tools array sent to xAI.</li>
+<li><input type="checkbox" disabled> Approve-and-run execute turns use <code>executor</code> profile with edit + command tools.</li>
+<li><input type="checkbox" disabled> Fast chat uses <code>default</code> profile with full toolset (subject to existing approvals).</li>
+<li><input type="checkbox" disabled> Documented matrix in PR + <code>AGENTS.md</code>.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../062-agent-planning-and-multi-step-workflow.md">062</a></strong>, <strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong>, <strong><a href="099-plan-mode-final-contract-and-toast.md">099</a></strong>.</li>
+<li><strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>, <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>104</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-105" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">105</span><span class="story-name">Agent turn snapshots</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/105-agent-turn-snapshots.md">post-mvp/105-agent-turn-snapshots.md</a>
+          </div>
+          <h2>105 — Agent turn snapshots (stable provider rounds)</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A.</p>
+<p><strong>Depends on:</strong> <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong> recommended (snapshot includes filtered tool list).</p>
+<p><strong>Blocks:</strong> <strong><a href="107-agent-context-offload-large-tool-results.md">107</a></strong> (compression should not mutate active snapshot).</p>
+<h3>Why this story exists</h3>
+<p><code>agent-runner.ts</code> rebuilds messages, tools, and context on each tool-loop iteration. Mid-turn changes (pins updated, profile drift, tool list mutation) can cause <strong>subtle bugs</strong> and non-reproducible traces — Pi’s harness explicitly <strong>snapshots</strong> session state before each provider call.</p>
+<p>Reference: <a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> § Turn snapshots (Pi); research doc Pi section.</p>
+<h3>Goals</h3>
+<h4>1. <code>AgentTurnSnapshot</code> type (shared)</h4>
+<p><code>src/shared/agent-turn-snapshot.ts</code>:</p>
+<p>| Field | Frozen at round start | | --- | --- | | <code>snapshotId</code> | UUID | | <code>turnId</code> / <code>streamId</code> | correlation | | <code>createdAt</code> | ISO | | <code>modelId</code> | string | | <code>modelIntent</code> | <code>ModelIntent</code> | | <code>harnessProfileKey</code> | from <strong>103</strong> | | <code>agentProfileId</code> | from <strong>104</strong> | | <code>chatMode</code> | <code>fast</code> \| <code>plan</code> | | <code>systemMessages</code> | serialized system content | | <code>messagesForProvider</code> | user/assistant/tool messages for this round | | <code>toolDefinitions</code> | exact JSON schemas sent to xAI | | <code>activeContext</code> | copy of turn UI context | | <code>contextBudgetReport</code> | optional snapshot from <strong>039</strong> |</p>
+<h4>2. Runner behavior</h4>
+<ul>
+<li>Before <strong>each</strong> xAI request in a turn (initial + after tool results), <code>buildTurnSnapshot()</code> → immutable object.</li>
+<li>Tool loop mutates <strong>live</strong> state for next round only via <code>buildTurnSnapshot()</code> again — never patch previous snapshot.</li>
+<li>On cancel: mark snapshot <code>cancelled</code> in trace (<strong>061</strong>).</li>
+</ul>
+<h4>3. Debug / replay hooks</h4>
+<ul>
+<li><strong>061</strong> telemetry: persist snapshot metadata (not necessarily full message bodies) under <code>userData/.../agent-traces/</code> capped.</li>
+<li>Dev-only IPC or log line: <code>lastSnapshotId</code> on error.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Persisting full snapshots for crash recovery (<strong>110</strong>).</li>
+<li>Subagent snapshots (<strong>112</strong>).</li>
+</ul>
+<h3>Key files</h3>
+<ul>
+<li><code>src/shared/agent-turn-snapshot.ts</code></li>
+<li><code>src/main/agent-runner.ts</code></li>
+<li><code>src/main/agent-chat-model-transport.ts</code> — accept snapshot-derived payload only</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Unit: two consecutive snapshots in one turn — second includes tool results; first unchanged.</li>
+<li>Unit: changing pin between rounds does not alter snapshot[0].messagesForProvider.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Each provider call in a tool loop uses an explicit <code>AgentTurnSnapshot</code>.</li>
+<li><input type="checkbox" disabled> Snapshot includes model id, harness profile key, agent profile id, and filtered tool list.</li>
+<li><input type="checkbox" disabled> Trace metadata written in dev or when debug flag set.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../061-agent-debugging-telemetry-and-turn-replay.md">061</a></strong>, <strong><a href="107-agent-context-offload-large-tool-results.md">107</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>105</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-106" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">106</span><span class="story-name">Unified tool execution context</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/106-agent-tool-execution-context.md">post-mvp/106-agent-tool-execution-context.md</a>
+          </div>
+          <h2>106 — Unified agent tool execution context</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A.</p>
+<p><strong>Depends on:</strong> <strong><a href="105-agent-turn-snapshots.md">105</a></strong> (snapshot id passed into context).</p>
+<p><strong>Blocks:</strong> <strong><a href="110-agent-interrupted-tool-boundaries.md">110</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>Tool handlers today receive disparate arguments (<code>manifest</code>, <code>roots</code>, <code>signal</code>, etc.). OpenCode/Hermes pass a rich <strong><code>ToolContext</code></strong>: session id, abort, toolCallId, agent name, permission callback, progress metadata.</p>
+<p>A unified context improves <strong>cancel</strong>, <strong>UI progress</strong>, and future <strong>permissions-as-data</strong> without rewriting every tool again.</p>
+<h3>Goals</h3>
+<h4>1. <code>AgentToolExecutionContext</code> (shared)</h4>
+<p><code>src/shared/agent-tool-execution-context.ts</code>:</p>
+<p>| Field | Use | | --- | --- | | <code>projectId</code> | app project uuid | | <code>turnId</code> / <code>streamId</code> | cancel correlation | | <code>snapshotId</code> | <strong>105</strong> | | <code>toolCallId</code> | xAI tool call id | | <code>agentProfileId</code> | <strong>104</strong> | | <code>harnessProfileKey</code> | <strong>103</strong> | | <code>abortSignal</code> | <code>AbortController</code> from runner | | <code>manifest</code> | <code>GrokProjectManifest</code> | | <code>roots</code> | resolved roots | | <code>emitProgress</code> | callback → <code>AgentChatEvent</code> activity row (<strong>093</strong>) | | <code>recordPathRead</code> | turn read registry (<strong>082</strong>) | | <code>askCommandApproval</code> | bridge to <strong>059</strong> |</p>
+<h4>2. Refactor tool entrypoints</h4>
+<ul>
+<li><strong><code>agent-workspace-tools.ts</code></strong> — <code>executeWorkspaceTool(ctx, name, args)</code>.</li>
+<li><strong><code>run-command.ts</code></strong> / agent wrapper — use same ctx for policy + approval.</li>
+<li><strong><code>agent-edit-proposals.ts</code></strong> — proposal creation reads ctx for profile + hash registry.</li>
+</ul>
+<p>Keep public IPC unchanged; internal only.</p>
+<h4>3. Progress metadata</h4>
+<ul>
+<li>Long <code>read_file</code> / <code>search_workspace</code> may call <code>emitProgress({ phase, detail })</code> without spamming (throttle 500ms).</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>New user-facing UI beyond existing activity list.</li>
+<li>Plugin/tool loading from disk (OpenCode-style).</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Unit: mock ctx; verify abort propagates to <code>read_file</code> cancellation.</li>
+<li>Unit: <code>recordPathRead</code> invoked once per successful read path.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> All v1 agent tools invoked through a single context type.</li>
+<li><input type="checkbox" disabled> Cancel mid-tool aborts in-flight workspace read/search.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="093-agent-tool-activity-in-chat-thread.md">093</a></strong>, <strong><a href="../059-agent-command-tool-approvals.md">059</a></strong>, <strong><a href="105-agent-turn-snapshots.md">105</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>106</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-107" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">107</span><span class="story-name">Context offload for large tool results</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/107-agent-context-offload-large-tool-results.md">post-mvp/107-agent-context-offload-large-tool-results.md</a>
+          </div>
+          <h2>107 — Context offload for large tool results</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (optional renderer “context compressed” chip later).</p>
+<p><strong>Depends on:</strong> <strong><a href="105-agent-turn-snapshots.md">105</a></strong>, <strong><a href="../039-context-budget-and-retrieval-governance.md">039</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>Long agent turns suffer <strong>context rot</strong>: huge <code>read_file</code> or <code>search_workspace</code> payloads fill the window; quality drops even with <strong>039</strong> budgets. LangChain Deep Agents offload to filesystem and replace with <strong>pointer + preview</strong>.</p>
+<p>GrokForge already has root-scoped <code>read_file</code>; the gap is <strong>automatic</strong> offload + stable paths in the message history.</p>
+<p>Reference: <a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> § Context Management for Deep Agents.</p>
+<h3>Goals</h3>
+<h4>1. Offload policy (shared)</h4>
+<p><code>src/shared/agent-context-offload.ts</code>:</p>
+<p>| Rule | Value (tunable) | | --- | --- | | Trigger | Tool result UTF-8 size &gt; <strong>N</strong> chars (e.g. 12_000) OR &gt; <strong>M</strong> tokens estimate | | Storage | <code>userData/workspace-projects/&lt;projectId&gt;/agent-offload/&lt;turnId&gt;/&lt;toolCallId&gt;.txt</code> | | Pointer message | Short tool result: path, line count, sha256, preview first <strong>K</strong> lines | | Retrieval | Agent must <code>read_file</code> the offload path (under app data alias or explicit <code>offload://</code> virtual path — <strong>prefer real path in tool result with clear label</strong>) |</p>
+<p><strong>Security:</strong> Offload dir is <strong>not</strong> under user workspace roots; only main process reads/writes. Do not expose arbitrary path write to model.</p>
+<h4>2. Runner integration</h4>
+<ul>
+<li>After tool execution in <strong><code>agent-runner.ts</code></strong>, post-process result before appending to messages.</li>
+<li>Replace bloated content in provider history; keep full blob on disk for <strong>061</strong> replay.</li>
+<li>Respect <strong>105</strong> snapshot: offload decision recorded in snapshot metadata.</li>
+</ul>
+<h4>3. Budget interaction</h4>
+<ul>
+<li>Offloaded content does not count toward <strong>039</strong> <code>toolResults</code> budget as full text — counts as pointer size only.</li>
+<li>Pins (<strong>094</strong>) unaffected.</li>
+</ul>
+<h4>4. Optional summarization (v1 minimal)</h4>
+<ul>
+<li>Defer LLM summarization of old turns to follow-up.</li>
+<li>v1: offload only, no summarize.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Offloading user chat messages.</li>
+<li>Cross-project offload GC (best-effort delete offload files older than 7 days in same story or <strong>110</strong>).</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Unit: 50k char tool result → pointer &lt; 2k chars; file exists on disk.</li>
+<li>Unit: needle test — agent given pointer can <code>read_file</code> offload path via main-only handler or re-injected read.</li>
+<li>Eval (<strong>108</strong>): fixture “large search result → follow-up question about match line”.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Tool results above threshold are offloaded automatically with pointer in thread.</li>
+<li><input type="checkbox" disabled> Context budget report shows reduced tool-result weight after offload.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../039-context-budget-and-retrieval-governance.md">039</a></strong>, <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>107</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-108" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">108</span><span class="story-name">Harness eval: per-model regressions</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/108-harness-eval-suite-per-model-regressions.md">post-mvp/108-harness-eval-suite-per-model-regressions.md</a>
+          </div>
+          <h2>108 — Harness eval suite: per-model and per-profile regressions</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A.</p>
+<p><strong>Depends on:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong> (minimum); <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong> for profile-matrix cases.</p>
+<h3>Why this story exists</h3>
+<p><strong>063</strong> added deterministic agent-loop evaluation fixtures. Harness changes (prompts, tool filters, profiles) need <strong>regression gates</strong> before merge — Cursor’s “living harness” depends on measurement.</p>
+<p>We must catch: “4.3 profile accidentally got fast profile prompt”, “planner still received edit tools”, “plan mode missing <code>gf-plan</code>”.</p>
+<h3>Goals</h3>
+<h4>1. Fixture matrix</h4>
+<p>Extend <code>src/main/agent-runner-evaluation.test.ts</code> (and shared fixtures) with cases tagged:</p>
+<p>| Tag | Example assertion | | --- | --- | | <code>profile:grok_code_fast</code> | System prompt contains fast-specific marker string | | <code>profile:grok_4_3</code> | Plan-quality instruction present | | <code>agent:planner</code> | Tool defs exclude <code>propose_file_edits</code> | | <code>agent:executor</code> | Includes edit tools | | <code>contract:plan</code> | Final contract requires <code>gf-plan</code> | | <code>behavior:proactive</code> | User says “admin page” → expect search tool in plan (mock transport) |</p>
+<h4>2. Mock transport enhancements</h4>
+<ul>
+<li>Record <code>tools[]</code> names sent per request.</li>
+<li>Record <code>model</code> id per request.</li>
+<li>Allow tests to run same user message under two profile keys and assert diff.</li>
+</ul>
+<h4>3. CI policy</h4>
+<ul>
+<li>Document in <code>AGENTS.md</code>: changing <code>agent-harness-profile.ts</code> or <code>agent-profile.ts</code> requires updating fixtures.</li>
+<li>Optional: <code>npm run test:agent-eval</code> script alias if suite grows.</li>
+</ul>
+<h4>4. Manual benchmark sheet (docs)</h4>
+<p>Add <code>docs/harness-eval-checklist.md</code> with 10 manual smoke flows (dual-model):</p>
+<ol>
+<li>Fast chat: small edit with read-before-write.</li>
+<li>Plan empty workspace → <code>gf-plan</code> without user fence hint.</li>
+<li>Approve and run → execution model + executor profile.</li>
+<li>… (complete in implementation PR)</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Live API integration tests (stay mocked).</li>
+<li>Online A/B (<strong>063</strong> non-goals).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> At least <strong>6</strong> new unit tests covering profile + agent profile dimensions.</li>
+<li><input type="checkbox" disabled> CI runs them via <code>npm run test</code>.</li>
+<li><input type="checkbox" disabled> <code>docs/harness-eval-checklist.md</code> exists with dual-model scenarios.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../063-agent-evaluation-suite-and-smartness-regressions.md">063</a></strong>, <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>, <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>108</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-109" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">109</span><span class="story-name">RPI plan artifacts on disk</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/109-rpi-plan-artifacts-on-disk.md">post-mvp/109-rpi-plan-artifacts-on-disk.md</a>
+          </div>
+          <h2>109 — RPI plan artifacts on disk (structured handoff)</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (optional renderer “Open plan folder” link).</p>
+<p><strong>Depends on:</strong> <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>, <strong><a href="../062-agent-planning-and-multi-step-workflow.md">062</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>Plans today live as <strong><code>gf-plan</code> JSON inside chat markdown</strong> (<strong>062</strong>). Martin Richards / Cursor patterns use <strong>durable artifacts</strong>: <code>spec.md</code>, <code>plan.json</code>, living files the human and agent annotate. This reduces <strong>handoff context loss</strong> between plan → execute (<strong>069</strong>) and supports backflow (“implementation found gap → update plan file”).</p>
+<p>Reference: <a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> § Martin Richards RPI; Reddit handoff loss.</p>
+<h3>Goals</h3>
+<h4>1. Storage layout (app data, not user repo)</h4>
+<p><code>userData/workspace-projects/&lt;projectId&gt;/plans/&lt;planId&gt;/</code>:</p>
+<p>| File | Content | | --- | --- | | <code>plan.json</code> | Parsed <code>GfPlan</code> schema from <strong>062</strong> + metadata (<code>createdAt</code>, <code>status</code>, <code>supersededBy</code>) | | <code>plan.md</code> | Human-readable render for external tools | | <code>threadMessageId</code> | link to chat anchor |</p>
+<p>Do <strong>not</strong> write <code>.grokproject.json</code> into user workspace unless user opts in (future).</p>
+<h4>2. Lifecycle</h4>
+<ul>
+<li>On valid <code>gf-plan</code> parse in assistant message → upsert <code>plan.json</code>.</li>
+<li>On approve (<strong>062</strong> / <strong>069</strong>) → set <code>status: approved</code>.</li>
+<li>On supersede → mark old plan <code>superseded</code>.</li>
+<li><strong>Approve and run</strong> synthetic message may reference <code>planId</code> instead of duplicating full JSON (bounded handoff).</li>
+</ul>
+<h4>3. Execute turn context</h4>
+<ul>
+<li><strong><code>agent-runner.ts</code></strong> — When <code>approvedPlanId</code> present, inject compact pointer: “Approved plan: <code>plans/&lt;id&gt;/plan.json</code> — read via tool if needed” plus first N chars summary.</li>
+<li>Optional main-only <code>read_plan</code> tool or reuse <code>read_file</code> on app-data path with guard.</li>
+</ul>
+<h4>4. Backflow (v1 light)</h4>
+<ul>
+<li>User message “revise plan” creates new plan version file; old remains for audit.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Full <code>spec:research</code> → <code>spec.md</code> pipeline (optional stretch).</li>
+<li>Grok Build handoff (<strong>018</strong>).</li>
+</ul>
+<h3>Testing</h3>
+<ul>
+<li>Unit: parse fence → writes <code>plan.json</code> with expected steps.</li>
+<li>Unit: approve updates status.</li>
+<li>Manual: approve and run → execute turn references plan id; agent can open plan file.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Valid plans persisted under app data with stable id.</li>
+<li><input type="checkbox" disabled> Execute turn handoff uses plan id + summary, not full JSON dump in synthetic user line.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong>, <strong><a href="101-greenfield-plan-quality.md">101</a></strong>, <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>109</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-110" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">110</span><span class="story-name">Interrupted tool boundaries + turn receipts</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/110-agent-interrupted-tool-boundaries.md">post-mvp/110-agent-interrupted-tool-boundaries.md</a>
+          </div>
+          <h2>110 — Interrupted tool boundaries and turn receipts</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> if surfacing interrupted state in chat (<code>@styleguide-design</code>).</p>
+<p><strong>Depends on:</strong> <strong><a href="106-agent-tool-execution-context.md">106</a></strong>, <strong><a href="105-agent-turn-snapshots.md">105</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>If the app crashes or the user force-quits during <code>run_command</code> or a long <code>read_file</code>, the thread has no <strong>durable boundary</strong> — Pi/T3 harnesses mark tool runs <code>interrupted</code> and recover from session log, not mid-flight provider streams.</p>
+<h3>Goals</h3>
+<h4>1. Turn receipt (shared)</h4>
+<p>Append to <code>chat/thread.jsonl</code> or sidecar <code>turn-receipts.jsonl</code>:</p>
+<pre><code>{
+  &quot;streamId&quot;: &quot;...&quot;,
+  &quot;status&quot;: &quot;completed&quot; | &quot;cancelled&quot; | &quot;error&quot; | &quot;interrupted&quot;,
+  &quot;endedAt&quot;: &quot;...&quot;,
+  &quot;modelId&quot;: &quot;...&quot;,
+  &quot;harnessProfileKey&quot;: &quot;...&quot;,
+  &quot;agentProfileId&quot;: &quot;...&quot;,
+  &quot;toolCallsStarted&quot;: 3,
+  &quot;toolCallsCompleted&quot;: 2
+}</code></pre>
+<p>On startup, scan last receipt — if <code>interrupted</code>, inject system message next turn: “Previous turn ended abruptly; re-verify workspace state.”</p>
+<h4>2. Per-tool status</h4>
+<p>In tool activity (<strong>093</strong>) metadata: <code>running</code> → <code>completed</code> | <code>failed</code> | <code>interrupted</code>.</p>
+<h4>3. Crash mid-tool</h4>
+<ul>
+<li>Main process <code>will-quit</code> / <code>before-quit</code>: flush receipt as <code>interrupted</code> if turn in flight.</li>
+<li>No attempt to resume xAI stream (explicit non-goal).</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Auto-retry tools without user action.</li>
+<li>Subagent recovery (<strong>112</strong>).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Cancelled and crashed turns persist distinguishable receipt status.</li>
+<li><input type="checkbox" disabled> Next turn after interrupted receipt includes harness recovery hint in context (bounded chars).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../061-agent-debugging-telemetry-and-turn-replay.md">061</a></strong>, <strong><a href="106-agent-tool-execution-context.md">106</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>110</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-111" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">111</span><span class="story-name">Harness roadmap + retrospective doc</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/111-harness-roadmap-and-retrospective-doc.md">post-mvp/111-harness-roadmap-and-retrospective-doc.md</a>
+          </div>
+          <h2>111 — Harness roadmap and retrospective documentation</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (docs only).</p>
+<p><strong>Depends on:</strong> None (can start early; update as stories ship).</p>
+<h3>Why this story exists</h3>
+<p>Harness learnings are spread across <a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a>, research notes, chat retrospectives, and <strong>082–100</strong> story files. Contributors need a single <strong>program index</strong>: what works, what failed because the harness was wrong, implementation order, and dual-model strategy.</p>
+<h3>Goals</h3>
+<h4>1. <code>docs/harness-roadmap.md</code> (new)</h4>
+<p>Sections:</p>
+<ol>
+<li><strong>Agent = model + harness</strong> (one paragraph + link to <code>i-am-a-harness.md</code>).</li>
+<li><strong>Dual-model strategy</strong> — <code>grok-code-fast-1</code> + <code>grok-4.3</code> on purpose; table mapping manifest slots → profile keys (<strong>102</strong> / <strong>103</strong>).</li>
+<li><strong>What already works</strong> — bullet list (tool loop, edit trust, plan contract, etc.) with story ids.</li>
+<li><strong>Harness debt retrospective</strong> — condensed “symptom → harness cause → fix story” table (from product research).</li>
+<li><strong>Implementation waves</strong> — ordered list <strong>102 → 103 → 104 → 097 → 101 → 098 → 105–110 → 112–114</strong> with one-line scope each.</li>
+<li><strong>Out of scope / closed</strong> — <strong>090</strong>, <strong>089</strong>, fenced protocol deprecation (<strong>114</strong>).</li>
+<li><strong>Evaluation</strong> — link <strong>108</strong>, <strong>063</strong>, <code>docs/harness-eval-checklist.md</code>.</li>
+</ol>
+<h4>2. Cross-links</h4>
+<ul>
+<li><code>AGENTS.md</code> agent chat section → harness roadmap.</li>
+<li><code>docs/i-am-a-harness.md</code> → “Program status” link at top.</li>
+<li><code>.cursor/rules/grokforge-overview.mdc</code> one-line pointer (optional, minimal).</li>
+</ul>
+<h4>3. <code>project_tasks/README.md</code> harness wave</h4>
+<p>Ensure post-MVP table and <strong>Suggested backlog order</strong> reflect new ids (<strong>103–114</strong>) — coordinate with this story’s PR or do in same PR.</p>
+<h3>Non-goals</h3>
+<ul>
+<li>Changing application code.</li>
+<li>Replacing <code>i-am-a-harness.md</code> (roadmap is the <strong>index</strong>, harness doc stays the <strong>textbook</strong>).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> <code>docs/harness-roadmap.md</code> exists and matches shipped/post-MVP story ids.</li>
+<li><input type="checkbox" disabled> <code>AGENTS.md</code> links to roadmap from agent section.</li>
+<li><input type="checkbox" disabled> <code>npm run stories:html</code> still passes (if README touched).</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li>All <strong>102–114</strong>; especially <strong><a href="102-dual-model-manifest-and-harness-foundation.md">102</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>111</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-112" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">112</span><span class="story-name">Subagents as child sessions</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/112-agent-subagents-child-sessions.md">post-mvp/112-agent-subagents-child-sessions.md</a>
+          </div>
+          <h2>112 — Subagents as isolated child sessions</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> for child session UI in thread (<code>@styleguide-design</code>).</p>
+<p><strong>Depends on:</strong> <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>, <strong><a href="105-agent-turn-snapshots.md">105</a></strong>, <strong><a href="106-agent-tool-execution-context.md">106</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>Reddit/Hermes/OpenCode patterns: <strong>research sub-runs</strong> with cheaper or read-only profiles keep the main thread clean and reduce context rot. GrokForge has <strong>no</strong> first-class subagent — only one flat tool loop.</p>
+<p>This is <strong>phase 2</strong> of the harness program (after profiles + snapshots).</p>
+<h3>Goals</h3>
+<h4>1. Child session storage</h4>
+<p><code>userData/workspace-projects/&lt;projectId&gt;/agent-sessions/&lt;childSessionId&gt;.jsonl</code></p>
+<ul>
+<li>Parent <code>streamId</code> / <code>turnId</code> reference.</li>
+<li>Child uses <code>explorer</code> or <code>planner</code> profile with <strong>read_only</strong> toolset only.</li>
+<li>Child model: <code>models.planning</code> or configurable <code>models.reasoning</code> (<strong>097</strong> may define <code>research</code> intent later).</li>
+</ul>
+<h4>2. <code>spawn_subagent</code> tool (main, optional v1)</h4>
+<p>Input: <code>{ task: string, profile?: 'explorer' }</code></p>
+<ul>
+<li>Runs bounded tool loop (max <strong>5</strong> rounds) in child session.</li>
+<li>Returns <strong>structured artifact</strong> JSON: <code>{ summary, filesRead[], searchHits[] }</code> — not raw transcript dump.</li>
+</ul>
+<h4>3. Parent integration</h4>
+<ul>
+<li>Parent turn appends compact child artifact to context (budgeted).</li>
+<li>UI: collapsible “Subagent: explored codebase” block in thread (<strong>093</strong> style).</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Parallel subagents (v2).</li>
+<li>Voice subagents (<strong>113</strong>).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Child session persisted and inspectable in dev.</li>
+<li><input type="checkbox" disabled> Parent receives bounded structured result &lt; 4k chars default.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and targeted tests pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>, <strong><a href="107-agent-context-offload-large-tool-results.md">107</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>112</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-113" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">113</span><span class="story-name">Voice realtime harness alignment</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/113-voice-realtime-harness-profile-alignment.md">post-mvp/113-voice-realtime-harness-profile-alignment.md</a>
+          </div>
+          <h2>113 — Voice realtime harness profile alignment</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (voice instructions in main); optional copy in <code>VoiceControls</code> / handoff.</p>
+<p><strong>Depends on:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>Voice uses <strong><code>voice-realtime.ts</code></strong> with its own instructions — <strong>not</strong> the text agent harness. Users experience a <strong>split brain</strong>: voice cannot call tools; handoff must compensate (<strong>077</strong>, <strong>091</strong>).</p>
+<p>Minimum fix: voice session instructions and handoff text <strong>align</strong> with the active <strong>harness profile</strong> philosophy (proactive, no path begging, clear handoff to text agent).</p>
+<p>Stretch (explicit non-goal for v1 of this story): voice driving <code>agent-chat-start</code> directly.</p>
+<h3>Goals</h3>
+<h4>1. Voice instructions from profile</h4>
+<ul>
+<li>Map <code>getModelForIntent(manifest, 'voice')</code> → <code>resolveHarnessProfileKey</code> → voice-specific appendix in <code>voice-realtime.ts</code> (may differ from text profiles).</li>
+<li>Shared constants in <code>src/shared/agent-harness-profile.ts</code> for cross-surface rules (explore before ask, handoff honesty).</li>
+</ul>
+<h4>2. Handoff payload</h4>
+<ul>
+<li><strong><code>buildVoiceAgentHandoffUserText</code></strong> includes: user intent, voice model/profile id, “text agent will use tools”.</li>
+<li>Thread summary hydration (<strong>077</strong>) capped; document limits.</li>
+</ul>
+<h4>3. Documentation</h4>
+<ul>
+<li><code>AGENTS.md</code> voice section: voice = I/O layer; text agent = tool harness.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Full tool loop inside WebSocket realtime.</li>
+<li>Dual voice models experiment (unless manifest already supports).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Voice session update uses profile-derived instruction block.</li>
+<li><input type="checkbox" disabled> Handoff text consistent with <strong>091</strong> rules.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../013-voice-full-duplex-pipeline.md">013</a></strong>, <strong><a href="../077-voice-agent-chat-ui-polish.md">077</a></strong>, <strong><a href="091-agent-proactive-workspace-exploration.md">091</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>113</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-114" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">114</span><span class="story-name">Deprecate fenced `grokforge-agent-tools` protocol</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/114-deprecate-fenced-agent-tools-protocol.md">post-mvp/114-deprecate-fenced-agent-tools-protocol.md</a>
+          </div>
+          <h2>114 — Deprecate fenced <code>grokforge-agent-tools</code> write protocol</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (renderer may remove parser UI).</p>
+<p><strong>Depends on:</strong> <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong> (prove tool path covers former fence cases).</p>
+<h3>Why this story exists</h3>
+<p><strong>060</strong> made <code>propose_file_edits</code> primary but kept <strong>fenced JSON</strong> at end of assistant messages for compatibility. Two write paths duplicate validation (<strong>082</strong>, <strong>086</strong>, <strong>100</strong>) and confuse the harness.</p>
+<h3>Goals</h3>
+<h4>1. Telemetry / detection (v1)</h4>
+<ul>
+<li>Log when fence parser activates (dev counter).</li>
+<li>If zero usage in manual testing for N weeks, proceed to removal.</li>
+</ul>
+<h4>2. Removal (v2 in same story or follow-up PR)</h4>
+<ul>
+<li>Remove fence parsing from <code>ChatThread</code> / main proposal path.</li>
+<li>Remove fence instructions from harness profiles (<strong>103</strong>) and <code>buildFinalAnswerContract</code> fast mode.</li>
+<li>Keep migration note in <code>AGENTS.md</code> for one release.</li>
+</ul>
+<h4>3. Tests</h4>
+<ul>
+<li>Delete fence-specific tests; ensure <code>propose_file_edits</code> tests cover write flows.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Removing user-authored fences in old persisted threads (ignore gracefully).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Documented deprecation notice in changelog/docs.</li>
+<li><input type="checkbox" disabled> No new turns can apply writes via fence (after removal phase).</li>
+<li><input type="checkbox" disabled> <code>npm run test</code> pass without fence fixtures.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="../060-agent-first-class-edit-proposals.md">060</a></strong>, <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>114</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
     </section>

@@ -1,4 +1,5 @@
 import type { AgentToolBatchPayload } from './agent-tool-contract'
+import type { AgentContextPin } from './agent-context-pins-contract'
 
 /**
  * Agent chat IPC contract (no Node imports). Main implementation: `src/main/agent-runner.ts`.
@@ -38,12 +39,14 @@ export type AgentChatActiveContext = {
   selectedTreePath?: string | null
   openTabs: Array<{ path: string; dirty: boolean }>
   attachments?: AgentChatAttachment[]
+  /** Persisted per-project pins (also in app storage); biases retrieval and active context. */
+  pinned?: AgentContextPin[]
   editorSelection?: AgentChatEditorSelection | null
   chatMode: 'fast' | 'plan'
 }
 
 export type AgentChatThreadMessage = {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
 }
 
@@ -72,6 +75,7 @@ export type AgentChatToolName =
   | 'list_directory'
   | 'read_file'
   | 'search_workspace'
+  | 'search_replace'
   | 'run_command'
   | 'propose_file_edits'
 
@@ -117,6 +121,16 @@ export type AgentEditProposalPayload = {
   batch: AgentToolBatchPayload
   rejected: AgentEditProposalRejectedFile[]
 }
+
+export type ValidateAgentEditBatchPayload = {
+  streamId: string
+  batch: AgentToolBatchPayload
+  activeContext: AgentChatActiveContext
+}
+
+export type ValidateAgentEditBatchResult =
+  | { ok: true; proposal: AgentEditProposalPayload }
+  | { ok: false; error: string; proposal?: AgentEditProposalPayload }
 
 export type AgentChatEventPayload =
   | { streamId: string; phase: 'turn_started' }

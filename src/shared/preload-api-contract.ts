@@ -30,6 +30,8 @@ import type {
   AgentChatStartPayload,
   AgentChatStartResult,
   RefreshProjectIntelligenceResult,
+  ValidateAgentEditBatchPayload,
+  ValidateAgentEditBatchResult,
 } from './agent-chat-contract'
 import type {
   ExportSanitizedAgentTurnTraceResult,
@@ -37,6 +39,15 @@ import type {
   ReplayAgentRetrievalPreviewResult,
 } from './agent-turn-trace-contract'
 import type { AgentToolBatchPayload, AgentToolBatchResult, AgentUndoLastBatchResult } from './agent-tool-contract'
+import type {
+  GetAgentWriteHistoryResult,
+  RevertAgentWriteBatchResult,
+} from './agent-write-history-contract'
+import type {
+  GetProjectContextPinsResult,
+  SetProjectContextPinsResult,
+  AgentContextPin,
+} from './agent-context-pins-contract'
 import type { AppInfoPayload } from './app-info-contract'
 import type {
   DeleteProjectResult,
@@ -87,6 +98,11 @@ export type ElectronAPI = {
   workspaceFsMutate(payload: WorkspaceFsMutateRequest): Promise<WorkspaceFsMutateResult>
   agentToolBatch(payload: AgentToolBatchPayload): Promise<AgentToolBatchResult>
   agentUndoLastBatch(): Promise<AgentUndoLastBatchResult>
+  getAgentWriteHistory(args: { projectId: string }): Promise<GetAgentWriteHistoryResult>
+  revertAgentWriteBatch(args: {
+    projectId: string
+    batchId: string
+  }): Promise<RevertAgentWriteBatchResult>
   listRoots(): Promise<Root[]>
   addWorkspaceRoot(): Promise<AddWorkspaceRootResult | null>
   voiceSessionStart(payload?: VoiceSessionStartPayload): Promise<VoiceSessionStartResult>
@@ -101,6 +117,8 @@ export type ElectronAPI = {
   agentChatCapabilities(): Promise<AgentChatCapabilitiesResult>
   refreshProjectIntelligence(): Promise<RefreshProjectIntelligenceResult>
   agentChatStart(payload: AgentChatStartPayload): Promise<AgentChatStartResult>
+  validateAgentEditBatch(payload: ValidateAgentEditBatchPayload): Promise<ValidateAgentEditBatchResult>
+  computeAgentContentHash(content: string): Promise<string | null>
   agentChatCancel(streamId: string): Promise<{ ok: boolean }>
   agentCommandApprovalRespond(payload: AgentCommandApprovalResponse): Promise<AgentCommandApprovalRespondResult>
   getLastAgentTurnTrace(): Promise<GetLastAgentTurnTraceResult>
@@ -112,6 +130,11 @@ export type ElectronAPI = {
   appendChatMessage(payload: PersistedChatLineV1): Promise<AppendChatMessageResult>
   appendChatMessageForProject(args: { projectId: string; payload: PersistedChatLineV1 }): Promise<AppendChatMessageResult>
   clearChatThread(): Promise<ClearChatThreadResult>
+  getProjectContextPins(args: { projectId: string }): Promise<GetProjectContextPinsResult>
+  setProjectContextPins(args: {
+    projectId: string
+    pins: AgentContextPin[]
+  }): Promise<SetProjectContextPinsResult>
   stageChatAttachment(payload: StageChatAttachmentPayload): Promise<StageChatAttachmentResult>
   gitStatus(payload: { rootId: string }): Promise<GitStatusSummary>
   gitDiffSession(payload: { rootId: string }): Promise<GitDiffSessionResult>

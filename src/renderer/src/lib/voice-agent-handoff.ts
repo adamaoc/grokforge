@@ -2,14 +2,15 @@ import type { ChatMessage } from '@/types'
 import { AGENT_CHAT_MAX_USER_TEXT_CHARS } from '@/types'
 
 const HANDOFF_PREFIX = [
-  'Continue from our mixed voice/text conversation. Use workspace tools (read_file, list_directory, search_workspace, propose_file_edits, etc.) to implement what we discussed.',
+  'Continue from our mixed voice/text conversation. Use workspace tools to implement what we discussed.',
+  'Before asking for file paths: run `search_workspace` and/or `list_directory` under the workspace roots, then `read_file` on the best match. Use `propose_file_edits` for disk changes after you have read any existing files you modify.',
   '',
   'Recent thread:',
 ].join('\n')
 
 const HANDOFF_SUFFIX = [
   '',
-  'If a file was mentioned by name but not as an absolute path, locate it under the active workspace roots.',
+  'If a feature, page, or file was mentioned by name but not as an absolute path, locate it with search/list tools under the active workspace roots—do not ask the user for a path unless search is ambiguous.',
 ].join('\n')
 
 /** Build user text for `agent-chat-start` after voice → agent handoff. */

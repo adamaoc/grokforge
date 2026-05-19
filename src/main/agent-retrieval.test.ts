@@ -164,6 +164,23 @@ describe('rankRetrievalCandidates', () => {
     expect(result.candidates.some((c) => c.path.endsWith('SettingsPage.tsx') && c.bucket === 'attachment')).toBe(true)
   })
 
+  it('boosts pinned files above unrelated lexical matches', () => {
+    const pinnedFile = resolve(rootPath, 'package.json')
+    const result = rankRetrievalCandidates({
+      manifest: manifest(),
+      index: index(),
+      activeContext: {
+        openTabs: [],
+        chatMode: 'fast',
+        pinned: [{ type: 'file', path: pinnedFile }],
+      },
+      userText: 'Update settings copy',
+    })
+
+    expect(result.candidates[0]?.path).toBe(pinnedFile)
+    expect(result.candidates[0]?.bucket).toBe('pinned')
+  })
+
   it('represents stale index metadata', () => {
     const result = rankRetrievalCandidates({
       manifest: manifest(),

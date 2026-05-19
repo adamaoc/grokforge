@@ -6,6 +6,8 @@ This document is for humans and for Cursor agents. Read it before making structu
 
 **GrokForge** is an Electron desktop app (voice-first, multi-root coding agent UX) built with **electron-vite**, **React 19**, **TypeScript**, **Tailwind CSS**, **Monaco Editor**, and **Zod** for the workspace manifest. The product vision (from `package.json`): a Grok-native agent surface with multi-root workspaces and native voice.
 
+**Agent vs harness:** xAI **Grok** models provide intelligence; **this app is the harness** — tools, context, orchestration, review gates, and UI that turn a model into a coding agent. Read **[`docs/i-am-a-harness.md`](docs/i-am-a-harness.md)** before large agent-loop or prompt/tool changes (model vs harness, per-model tuning, context patterns, and a GrokForge-specific design checklist).
+
 Early-stage note: core agent backends and many filesystem features are **stubbed or TODO**; Grok Voice uses a main-process WebSocket to xAI realtime with renderer mic/playback via IPC (`voice-realtime.ts`, story **013**).
 
 ## Repository layout
@@ -77,11 +79,17 @@ GrokForge resolves **which xAI model id** to use through `getModelForIntent()` i
 
 ### Agent chat tool loop (`agent-chat-*`, story **034**)
 
-The normal text chat path now goes through **`agent-chat-start`** instead of the renderer assembling raw chat-completion messages. The main-process runner (`src/main/agent-runner.ts`) builds the system prompt, adds active UI context, runs lexical retrieval, exposes xAI Chat Completions function tools, executes allowed tool calls, and streams only the final assistant text back to the renderer.
+The normal text chat path now goes through **`agent-chat-start`** instead of the renderer assembling raw chat-completion messages. The main-process runner (`src/main/agent-runner.ts`) builds the system prompt, adds active UI context, runs lexical retrieval, exposes xAI Chat Completions function tools, executes allowed tool calls, and streams only the final assistant text back to the renderer. Harness design context (tools, context, per-model tuning, prioritized patterns): **[`docs/i-am-a-harness.md`](docs/i-am-a-harness.md)**.
+
+**Default model ids (dual-model harness):** new projects use **`grok-code-fast-1`** for `chat_default` / `execution` and **`grok-4.3`** for `planning` on purpose — per-model harness profiles (**[103](project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**), not a single generic prompt. See **[102](project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md)** and **[111](project_tasks/post-mvp/111-harness-roadmap-and-retrospective-doc.md)**.
 
 **V1 tools:** **`workspace_index`**, **`list_directory`**, **`read_file`**, **`search_workspace`**, **`run_command`**, and **`propose_file_edits`**. Read/search tool execution lives in **`src/main/agent-workspace-tools.ts`** and is root-scoped, ignore-aware, capped, cancellable, and excludes likely secret files such as `.env`, private keys, and credential-looking names. **`run_command`** is a guarded one-shot request with policy checks and explicit user approval; it is not a PTY and does not write into human terminal sessions. **`propose_file_edits`** creates a first-class pending diff review; the fenced **`grokforge-agent-tools`** block remains only as a compatibility fallback.
 
 **IPC/events:** preload exposes **`agentChatCapabilities`**, **`agentChatStart`**, **`agentChatCancel`**, and **`onAgentChatEvent`**. Events include turn start, compact activity rows, final chunks, done, error, and cancelled. `ChatThread` sends `activeRootId`, active file path, open tab dirty flags, and chat mode (`fast` / `plan`) with each turn.
+
+**Plan approve → execute (story **069**):** **Approve and run** starts one agent turn in **fast** `chatMode` but routes the model via **`models.execution`** (`getModelForIntent(..., 'execution')`). Multiple `propose_file_edits` calls in the same turn are **merged** in main (`mergeAgentEditProposals` in `src/shared/agent-edit-proposal-merge.ts`) before each `edit_proposal` event so the renderer shows one combined diff review. Auto-apply mode applies the merged batch once when the turn completes.
+
+**Plan mode final answer (story **099**):** Before streaming the final reply, main appends `buildFinalAnswerContract` from `src/shared/agent-final-answer-contract.ts`. When `chatMode === 'plan'`, that contract requires **`gf-plan`** and forbids edit-fence / `propose_file_edits` on the same turn (so “create/build” user text no longer triggers the fast-mode edit contract). The renderer toasts if the turn ends without a valid plan.
 
 **Project intelligence storage:** compact workspace index metadata is stored under app data only: **`userData/workspace-projects/<projectId>/index/workspace-index.json`** via **`src/main/agent-index-store.ts`**. It refreshes on project open, `workspace_index({ refresh: true })`, and debounced app-driven filesystem mutations.
 
@@ -156,7 +164,10 @@ When implementing those features, prefer **incremental PR-sized changes** and pr
 
 ## Project tasks and design skill
 
-- **Backlog / stories:** `project_tasks/` — numbered markdown files in implementation order; see `project_tasks/README.md` for the index. Post-MVP specs live under `project_tasks/post-mvp/` (e.g. stories **018**, **081**).
+- **Harness concepts & patterns:** [`docs/i-am-a-harness.md`](docs/i-am-a-harness.md) — agent vs model, research notes, GrokForge synthesis checklist. **When adjusting the agent loop:** read the [implementation reference](docs/i-am-a-harness.md#implementation-reference-opencode-hermes-pi-t3) section first.
+- **Harness codebase comparison (OpenCode, Hermes, Pi, T3):** [`docs/research/agentic-coding-harnesses.md`](docs/research/agentic-coding-harnesses.md) — full inspection report (2026-05-19).
+- **Backlog / stories:** `project_tasks/` — numbered markdown files in implementation order; see `project_tasks/README.md` for the index. Post-MVP specs live under `project_tasks/post-mvp/` (e.g. harness wave **102–114**, **081** terminal dock).
+- **Story status bookkeeping:** Cursor project skill **`.cursor/skills/update-project-tasks/SKILL.md`** (invoke as `@update-project-tasks`). When a story ships or status changes, update the story file + `project_tasks/README.md` + run **`npm run stories:html`** — see the skill for exact status strings.
 - **UI and design consistency:** Cursor project skill **`.cursor/skills/styleguide-design/SKILL.md`** (invoke as `@styleguide-design` in Cursor). Every `project_tasks` story references it where renderer or UX is involved; follow it for tokens, component size/reuse, and shadcn usage.
 
 ## Git and Cursor

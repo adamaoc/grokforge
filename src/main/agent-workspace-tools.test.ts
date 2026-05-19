@@ -2,12 +2,14 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { computeAgentContentHash } from './agent-content-hash'
 import type { GrokProjectManifest } from './manifest'
 import {
   AGENT_TOOL_DEFINITIONS,
   AGENT_SEARCH_MAX_RESULTS,
   isLikelySensitivePath,
   runAgentWorkspaceTool,
+  parseReadFileToolContentHash,
   runReadFileTool,
 } from './agent-workspace-tools'
 
@@ -91,7 +93,11 @@ describe('agent workspace read/search tools', () => {
     expect(res.ok).toBe(true)
     expect(res.content).toContain('2 | two')
     expect(res.content).toContain('3 | three')
+    expect(res.content).toContain('"rawContent": "two\\nthree"')
     expect(res.content).toContain('"truncated": true')
+    const hash = parseReadFileToolContentHash(res.content)
+    expect(hash).toBe(computeAgentContentHash(['one', 'two', 'three', 'four'].join('\n')))
+    expect(res.content).toContain('"contentHashScope": "full_file"')
   })
 
   it('searches workspace text with ignore and result caps', () => {

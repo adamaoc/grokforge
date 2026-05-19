@@ -1,6 +1,12 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { DiffFileEntry, DiffFileStatus, DiffSession, GrokProjectManifest, Root } from '@/types'
 import { DIFF_FILE_STATUS_LABELS } from '@/types'
+import {
+  computeDiffLineStatsForFile,
+  diffStatsLabelForStatus,
+  formatDiffSessionSummary,
+  summarizeDiffSessionStats,
+} from '../../../shared/diff-line-stats'
 import { RootTypeDot } from '@/components/grokforge/RootTypeDot'
 import { DiffEditorPane } from '@/components/DiffEditorPane'
 import { getLanguageFromPath } from '@/lib/getLanguageFromPath'
@@ -8,14 +14,42 @@ import { cn } from '@/lib/utils'
 
 function DiffLegend() {
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-6 border-b border-zinc-800/90 px-1 py-2 text-[11px] text-zinc-500">
+    <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1 border-b border-zinc-800/90 px-1 py-2 text-[11px] text-zinc-500">
       <span>
         <span className="font-mono text-gf-accent">+</span> added
       </span>
       <span>
         <span className="font-mono text-red-400">-</span> removed
       </span>
+      <span className="text-zinc-600">Unchanged regions collapsed · scroll to hunks</span>
     </div>
+  )
+}
+
+function DiffLineStatsBadge({ file }: { file: DiffFileEntry }) {
+  const stats = useMemo(() => computeDiffLineStatsForFile(file), [file])
+  const label = diffStatsLabelForStatus(file.status, stats)
+  if (label === '0 changes') {
+    return (
+      <span className="shrink-0 font-mono text-[10px] text-zinc-500" title="No line changes detected">
+        0 Δ
+      </span>
+    )
+  }
+  return (
+    <span className="shrink-0 font-mono text-[10px] tabular-nums" title="Line changes (approx.)">
+      {file.status === 'deleted' ? (
+        <span className="text-red-400">{label}</span>
+      ) : file.status === 'created' ? (
+        <span className="text-gf-accent">{label}</span>
+      ) : (
+        <>
+          {stats.additions > 0 ? <span className="text-gf-accent">+{stats.additions}</span> : null}
+          {stats.additions > 0 && stats.deletions > 0 ? <span className="text-zinc-600"> </span> : null}
+          {stats.deletions > 0 ? <span className="text-red-400">-{stats.deletions}</span> : null}
+        </>
+      )}
+    </span>
   )
 }
 
@@ -108,8 +142,21 @@ function DiffFilePanel({
           {file.status === 'renamed' && file.oldPath ? (
             <div className="mt-0.5 truncate font-mono text-[10px] text-zinc-500">Renamed from {oldPathLabel}</div>
           ) : null}
+          {file.editSafety && file.editSafety.severity !== 'ok' ? (
+            <div
+              className={cn(
+                'mt-1 text-[10px] leading-snug',
+                file.editSafety.severity === 'severe' ? 'text-red-300' : 'text-amber-300',
+              )}
+            >
+              {file.editSafety.issues[0]?.message ?? file.editSafety.statsLine}
+            </div>
+          ) : null}
         </div>
-        <StatusPill status={file.status} />
+        <div className="flex shrink-0 items-center gap-2">
+          <DiffLineStatsBadge file={file} />
+          <StatusPill status={file.status} />
+        </div>
       </div>
       <div className="min-h-0 flex-1 p-2">
         <DiffEditorPane original={file.original} modified={file.modified} language={language} status={file.status} />
@@ -140,6 +187,8 @@ export function GroupedDiffView({ session, project }: { session: DiffSession; pr
   const groups = groupFiles(session.files)
   const rootTypeById = new Map(project.roots.map((root) => [root.id, root.type]))
   const singleFile = session.files.length === 1
+  const sessionStats = useMemo(() => summarizeDiffSessionStats(session.files), [session.files])
+  const sessionSummary = formatDiffSessionSummary(session.files.length, sessionStats)
 
   if (session.files.length === 0) {
     return (
@@ -167,6 +216,10 @@ export function GroupedDiffView({ session, project }: { session: DiffSession; pr
         </div>
       ) : null}
       <DiffLegend />
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-2 text-xs">
+        <span className="font-medium text-zinc-300">Change summary</span>
+        <span className="font-mono text-[11px] tabular-nums text-zinc-400">{sessionSummary}</span>
+      </div>
       <div
         className={cn(
           'custom-scrollbar min-h-0 flex-1 overflow-y-auto',

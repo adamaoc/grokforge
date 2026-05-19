@@ -15,6 +15,8 @@ export interface FileTreeProps {
   workspaceFsEpoch?: number
   onWorkspaceFsMutation?: (event: WorkspaceFsMutationEvent, refreshPaths: string[]) => void
   onAddPathToChat?: (payload: FileTreeAddPathToChatPayload) => void
+  isPathPinnedForAgent?: (path: string) => boolean
+  onTogglePinForAgent?: (path: string, isDirectory: boolean) => void
 }
 
 export type MenuTarget = { path: string; isDirectory: boolean }

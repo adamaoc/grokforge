@@ -25,6 +25,19 @@ describe('extractAgentToolBatchFromAssistantText', () => {
     expect(extractAgentToolBatchFromAssistantText('no tools here')).toBeNull()
   })
 
+  it('normalizes literal backslash-n sequences in write_file content', () => {
+    const batch = {
+      version: AGENT_TOOL_PROTOCOL_VERSION,
+      operations: [{ op: 'write_file' as const, path: '/tmp/a.md', content: '# Hello\\n\\n## Section\\nBody.' }],
+    }
+    const md = `Here.\n\n\`\`\`${AGENT_TOOL_FENCE_INFO}\n${JSON.stringify(batch)}\n\`\`\``
+    const parsed = extractAgentToolBatchFromAssistantText(md)
+    expect(parsed?.operations[0]?.op).toBe('write_file')
+    if (parsed?.operations[0]?.op === 'write_file') {
+      expect(parsed.operations[0].content).toBe('# Hello\n\n## Section\nBody.')
+    }
+  })
+
   it('parses delete_file operations', () => {
     const md = `\`\`\`${AGENT_TOOL_FENCE_INFO}\n${JSON.stringify({
       version: AGENT_TOOL_PROTOCOL_VERSION,

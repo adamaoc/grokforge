@@ -1,6 +1,6 @@
 # 069 — Plan approve triggers agent execution (062 follow-up)
 
-**Status:** Done (v1: **Approve and run** always starts one fast-mode turn with a short synthetic user line; no settings toggle.)
+**Status:** Done (v1: **Approve and run** starts one fast `chatMode` turn on **`models.execution`** with a short synthetic user line; no settings toggle.)
 
 **Depends on:** [062 — Agent planning and multi-step workflow](062-agent-planning-and-multi-step-workflow.md) (v1 with **Option A**: approve updates UI + persistence only; user sends the next message to execute).
 
@@ -12,7 +12,7 @@
 
 ## Goals
 
-- After **Approve and run**, start **one** agent turn: the thread already contains the structured `gf-plan`; a **short synthetic user message** is appended (visible + persisted) so the model executes in **fast** mode with **default chat** model routing.
+- After **Approve and run**, start **one** agent turn: the thread already contains the structured `gf-plan`; a **short synthetic user message** is appended (visible + persisted) so the model executes in **fast** `chatMode` with **`models.execution`** routing (not default chat).
 - Clear UX: loading state, stream id, cancel, and explicit copy that **command** and **edit** approvals still apply per tool policy.
 - Do not bypass `run_command` approval, `propose_file_edits` review, or agent-writes mode settings.
 

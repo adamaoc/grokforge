@@ -101,6 +101,34 @@ function transportReadThenAnswer(absReadPath: string, finalText: string): AgentC
   }
 }
 
+function transportSearchThenAnswer(query: string, finalText: string): AgentChatModelTransport {
+  let samples = 0
+  return {
+    async sampleChatCompletion() {
+      samples += 1
+      if (samples === 1) {
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc_search',
+              type: 'function',
+              function: {
+                name: 'search_workspace',
+                arguments: JSON.stringify({ query }),
+              },
+            },
+          ],
+        }
+      }
+      return { content: '', toolCalls: [] }
+    },
+    async streamFinalAnswer(_model, _messages, _signal, emitChunk) {
+      emitChunk(finalText)
+    },
+  }
+}
+
 function transportAlwaysToolRead(path: string): AgentChatModelTransport {
   let n = 0
   return {
@@ -175,6 +203,48 @@ describe('agent runner evaluation harness', () => {
     ).toBe(true)
     const chunks = payloads.filter((p) => p.phase === 'final_chunk').map((p) => p.delta)
     expect(chunks.join('')).toContain('All good.')
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it('runs search_workspace for feature-named edit requests without a path', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-'))
+    mkdirSync(join(root, 'src', 'admin'), { recursive: true })
+    writeFileSync(join(root, 'src', 'admin', 'page.tsx'), 'export function AdminPage() { return null }\n', 'utf8')
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(
+      setAgentChatModelTransportForTesting(
+        transportSearchThenAnswer('admin', 'Updated admin page styling in src/admin/page.tsx.'),
+      ),
+    )
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId: 'eval-proj-admin',
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-stream-admin'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation(basePayload(streamId, 'Update the admin page styling'))
+
+    const searchDone = payloads.some(
+      (p) => p.phase === 'activity' && p.activity.tool === 'search_workspace' && p.activity.status === 'done',
+    )
+    expect(searchDone).toBe(true)
+    const doneIdx = payloads.findIndex((p) => p.phase === 'done')
+    const searchIdx = payloads.findIndex(
+      (p) => p.phase === 'activity' && p.activity.tool === 'search_workspace',
+    )
+    expect(searchIdx).toBeGreaterThanOrEqual(0)
+    expect(doneIdx).toBeGreaterThan(searchIdx)
+    const finalText = payloads
+      .filter((p) => p.phase === 'final_chunk')
+      .map((p) => p.delta)
+      .join('')
+    expect(finalText).toContain('admin')
+    expect(/provide (the )?(exact )?file path/i.test(finalText)).toBe(false)
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 

@@ -22,6 +22,8 @@ import type {
   RefreshProjectIntelligenceResult,
   AgentChatStartPayload,
   AgentChatStartResult,
+  ValidateAgentEditBatchPayload,
+  ValidateAgentEditBatchResult,
 } from '../shared/agent-chat-contract'
 import type {
   ExportSanitizedAgentTurnTraceResult,
@@ -34,6 +36,11 @@ import type {
   LoadChatThreadResult,
   PersistedChatLineV1,
 } from '../main/chat-store'
+import type {
+  GetProjectContextPinsResult,
+  SetProjectContextPinsResult,
+  AgentContextPin,
+} from '../shared/agent-context-pins-contract'
 import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../main/voice-realtime'
 import type { VoiceSessionStartPayload } from '../shared/voice-session-contract'
 import type { GitDiffSessionResult, GitStatusSummary } from '../main/git'
@@ -71,6 +78,10 @@ import type {
   XaiKeyStatusPayload,
 } from '../shared/xai-key-settings-contract'
 import type { AgentToolBatchPayload, AgentToolBatchResult, AgentUndoLastBatchResult } from '../shared/agent-tool-contract'
+import type {
+  GetAgentWriteHistoryResult,
+  RevertAgentWriteBatchResult,
+} from '../shared/agent-write-history-contract'
 import type { WorkspaceFsMutateRequest, WorkspaceFsMutateResult } from '../shared/workspace-fs-mutation-contract'
 import type { AppInfoPayload } from '../shared/app-info-contract'
 import type { StageChatAttachmentPayload, StageChatAttachmentResult } from '../shared/chat-attachment-contract'
@@ -117,6 +128,13 @@ export const electronAPI = {
     ipcRenderer.invoke('agent-tool-batch', payload),
   agentUndoLastBatch: (): Promise<AgentUndoLastBatchResult> =>
     ipcRenderer.invoke('agent-undo-last-batch'),
+  getAgentWriteHistory: (args: { projectId: string }): Promise<GetAgentWriteHistoryResult> =>
+    ipcRenderer.invoke('get-agent-write-history', args),
+  revertAgentWriteBatch: (args: {
+    projectId: string
+    batchId: string
+  }): Promise<RevertAgentWriteBatchResult> =>
+    ipcRenderer.invoke('revert-agent-write-batch', args),
   listRoots: (): Promise<Root[]> => ipcRenderer.invoke('list-roots'),
   addWorkspaceRoot: (): Promise<AddWorkspaceRootResult | null> =>
     ipcRenderer.invoke('add-workspace-root'),
@@ -148,6 +166,10 @@ export const electronAPI = {
     ipcRenderer.invoke('refresh-project-intelligence'),
   agentChatStart: (payload: AgentChatStartPayload): Promise<AgentChatStartResult> =>
     ipcRenderer.invoke('agent-chat-start', payload),
+  validateAgentEditBatch: (payload: ValidateAgentEditBatchPayload): Promise<ValidateAgentEditBatchResult> =>
+    ipcRenderer.invoke('validate-agent-edit-batch', payload),
+  computeAgentContentHash: (content: string): Promise<string | null> =>
+    ipcRenderer.invoke('compute-agent-content-hash', content),
   agentChatCancel: (streamId: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('agent-chat-cancel', streamId),
   agentCommandApprovalRespond: (
@@ -182,6 +204,12 @@ export const electronAPI = {
     payload: PersistedChatLineV1
   }): Promise<AppendChatMessageResult> => ipcRenderer.invoke('append-chat-message-for-project', args),
   clearChatThread: (): Promise<ClearChatThreadResult> => ipcRenderer.invoke('clear-chat-thread'),
+  getProjectContextPins: (args: { projectId: string }): Promise<GetProjectContextPinsResult> =>
+    ipcRenderer.invoke('get-project-context-pins', args),
+  setProjectContextPins: (args: {
+    projectId: string
+    pins: AgentContextPin[]
+  }): Promise<SetProjectContextPinsResult> => ipcRenderer.invoke('set-project-context-pins', args),
   stageChatAttachment: (payload: StageChatAttachmentPayload): Promise<StageChatAttachmentResult> =>
     ipcRenderer.invoke('stage-chat-attachment', payload),
   gitStatus: (payload: { rootId: string }): Promise<GitStatusSummary> =>

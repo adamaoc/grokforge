@@ -1,0 +1,93 @@
+import type { AgentEditProposalPayload } from './agent-chat-contract'
+import {
+  AGENT_TOOL_MAX_OPS,
+  AGENT_TOOL_PROTOCOL_VERSION,
+  type AgentToolOperation,
+} from './agent-tool-contract'
+
+const TURN_MAX_OPS_REASON = 'Turn exceeded max operations per proposal'
+
+/** Path key for merging operations (no Node imports). */
+export function agentEditProposalPathKey(path: string): string {
+  const trimmed = path.trim().replace(/\\/g, '/')
+  if (!trimmed) return ''
+  const isWin = /^[A-Za-z]:\//.test(trimmed)
+  const parts = trimmed.split('/').filter((p) => p && p !== '.')
+  const stack: string[] = []
+  for (const p of parts) {
+    if (p === '..') {
+      if (stack.length) stack.pop()
+      continue
+    }
+    stack.push(p)
+  }
+  const joined = stack.join('/')
+  if (isWin) {
+    const drive = trimmed.slice(0, 2).toUpperCase()
+    return joined ? `${drive}/${joined}` : drive
+  }
+  return trimmed.startsWith('/') ? (joined ? `/${joined}` : '/') : joined
+}
+
+function dedupeRejected(
+  rejected: AgentEditProposalPayload['rejected'],
+): AgentEditProposalPayload['rejected'] {
+  const seen = new Set<string>()
+  const out: AgentEditProposalPayload['rejected'] = []
+  for (const item of rejected) {
+    const key = `${item.path}\0${item.reason}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(item)
+  }
+  return out
+}
+
+/**
+ * Merge edit proposals from multiple tool calls in the same agent turn.
+ * Later operations for the same path win.
+ */
+export function mergeAgentEditProposals(
+  accumulated: AgentEditProposalPayload | null,
+  incoming: AgentEditProposalPayload,
+): AgentEditProposalPayload {
+  if (!accumulated) {
+    return capProposalOperations(incoming)
+  }
+
+  const opByKey = new Map<string, AgentToolOperation>()
+  for (const op of accumulated.batch.operations) {
+    opByKey.set(agentEditProposalPathKey(op.path), op)
+  }
+  for (const op of incoming.batch.operations) {
+    opByKey.set(agentEditProposalPathKey(op.path), op)
+  }
+
+  const rejected = dedupeRejected([...accumulated.rejected, ...incoming.rejected])
+  const operations = [...opByKey.values()]
+
+  return capProposalOperations({
+    batch: { version: AGENT_TOOL_PROTOCOL_VERSION, operations },
+    rejected,
+  })
+}
+
+function capProposalOperations(proposal: AgentEditProposalPayload): AgentEditProposalPayload {
+  const { operations } = proposal.batch
+  if (operations.length <= AGENT_TOOL_MAX_OPS) return proposal
+
+  const kept = operations.slice(0, AGENT_TOOL_MAX_OPS)
+  const overflow = operations.slice(AGENT_TOOL_MAX_OPS)
+  const rejected = dedupeRejected([
+    ...proposal.rejected,
+    ...overflow.map((op) => ({
+      path: op.path,
+      reason: TURN_MAX_OPS_REASON,
+    })),
+  ])
+
+  return {
+    batch: { version: AGENT_TOOL_PROTOCOL_VERSION, operations: kept },
+    rejected,
+  }
+}

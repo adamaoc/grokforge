@@ -22,7 +22,19 @@ import { invalidateRepoIgnoreCheckerCache } from './repo-ignore'
 import { mergeDiscoveredAgentInstructions } from './agent-instructions-discover'
 import { applyWorkspaceFsMutate } from './workspace-fs-mutate'
 import { isPathWithinWorkspaceRoots as pathIsWithinWorkspaceRoots } from './workspace-path-guard'
-import { applyAgentToolWriteBatch, undoLastAgentWriteBatch } from './agent-tools'
+import {
+  applyAgentToolWriteBatch,
+  clearLastUndoBatch,
+  peekLastUndoSnapshots,
+  undoLastAgentWriteBatch,
+} from './agent-tools'
+import {
+  appendAgentWriteHistory,
+  getAgentWriteHistory,
+  removeLatestAgentWriteHistoryEntry,
+  revertAgentWriteBatch,
+} from './agent-write-history-store'
+import { computeAgentContentHash } from './agent-content-hash'
 import {
   buildAgentContextPreview,
   buildChatSystemPrompt,
@@ -39,7 +51,17 @@ import {
   loadChatThread,
   parseIncomingPersistPayload,
 } from './chat-store'
+import {
+  loadProjectContextPins,
+  saveProjectContextPins,
+} from './agent-context-pins-store'
+import { clearThreadMemory } from './agent-thread-memory-store'
+import {
+  AgentContextPinSchema,
+  AGENT_CONTEXT_MAX_PINS_PER_PROJECT,
+} from '../shared/agent-context-pins-contract'
 import { StageChatAttachmentPayloadSchema } from '../shared/chat-attachment-contract'
+import { parseAllowedExternalOpenUrl } from '../shared/external-open-url'
 import { VoiceSessionStartPayloadSchema } from '../shared/voice-session-contract'
 import { stageChatAttachment } from './chat-attachment-staging'
 import { getGitDiffSessionForRoot, getGitStatusForRoot, type GitDiffSessionResult, type GitStatusSummary } from './git'
@@ -282,18 +304,15 @@ ipcMain.handle(
     if (typeof raw !== 'string' || !raw.trim()) {
       return { ok: false, error: 'Invalid URL' }
     }
-    const trimmed = raw.trim()
-    let parsed: URL
-    try {
-      parsed = new URL(trimmed)
-    } catch {
-      return { ok: false, error: 'Invalid URL' }
-    }
-    if (parsed.protocol !== 'https:') {
-      return { ok: false, error: 'Only https:// links can be opened from chat' }
+    const parsed = parseAllowedExternalOpenUrl(typeof raw === 'string' ? raw : '')
+    if (!parsed) {
+      return {
+        ok: false,
+        error: 'Only https:// links and local http:// (localhost) links can be opened',
+      }
     }
     try {
-      await shell.openExternal(trimmed)
+      await shell.openExternal(parsed.href)
       return { ok: true }
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to open link'
@@ -542,6 +561,11 @@ ipcMain.handle('read-file', async (_, filePath: unknown) => {
   }
 })
 
+ipcMain.handle('compute-agent-content-hash', (_, content: unknown) => {
+  if (typeof content !== 'string') return null
+  return computeAgentContentHash(content)
+})
+
 ipcMain.handle('write-file', async (_, filePath: unknown, content: unknown) => {
   if (typeof filePath !== 'string' || !filePath.trim()) return false
   if (typeof content !== 'string') return false
@@ -577,6 +601,16 @@ ipcMain.handle('agent-tool-batch', async (_, raw: unknown) => {
   if (result.ok && result.applied.length > 0) {
     invalidateRepoIgnoreCheckerCache()
     scheduleWorkspaceIndexRefresh()
+    if (currentProjectId) {
+      const undoSnapshots = peekLastUndoSnapshots()
+      if (undoSnapshots?.length) {
+        const entry = appendAgentWriteHistory(currentProjectId, {
+          applied: result.applied,
+          undoSnapshots,
+        })
+        return { ...result, batchId: entry.batchId }
+      }
+    }
   }
   return result
 })
@@ -585,8 +619,61 @@ ipcMain.handle('agent-undo-last-batch', async () => {
   if (!currentProject) {
     return { ok: false, error: 'No project loaded' } as const
   }
-  const result = undoLastAgentWriteBatch(currentProject)
+  let result
+  if (currentProjectId) {
+    const latest = removeLatestAgentWriteHistoryEntry(currentProjectId)
+    if (latest) {
+      const undoable = latest.snapshots
+        .filter((s) => s.snapshotAvailable)
+        .map((s) => ({ path: s.path, content: s.beforeContent }))
+      result = undoLastAgentWriteBatch(currentProject, undoable.length > 0 ? undoable : null)
+      clearLastUndoBatch()
+    } else {
+      result = undoLastAgentWriteBatch(currentProject)
+    }
+  } else {
+    result = undoLastAgentWriteBatch(currentProject)
+  }
   if (result.ok && result.restoredPaths.length > 0) {
+    invalidateRepoIgnoreCheckerCache()
+    scheduleWorkspaceIndexRefresh()
+  }
+  return result
+})
+
+ipcMain.handle('get-agent-write-history', (_, raw: unknown) => {
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  const projectId =
+    typeof (raw as { projectId?: unknown }).projectId === 'string'
+      ? (raw as { projectId: string }).projectId.trim()
+      : ''
+  if (!projectId || !isStoredProjectPresent(projectId)) {
+    return { ok: false as const, error: 'Unknown project' }
+  }
+  return getAgentWriteHistory(projectId)
+})
+
+ipcMain.handle('revert-agent-write-batch', (_, raw: unknown) => {
+  if (!currentProject) {
+    return { ok: false as const, error: 'No project loaded' }
+  }
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  const o = raw as { projectId?: unknown; batchId?: unknown }
+  const projectId = typeof o.projectId === 'string' && o.projectId.trim() ? o.projectId.trim() : ''
+  const batchId = typeof o.batchId === 'string' && o.batchId.trim() ? o.batchId.trim() : ''
+  if (!projectId || !isStoredProjectPresent(projectId)) {
+    return { ok: false as const, error: 'Unknown project' }
+  }
+  if (!batchId) {
+    return { ok: false as const, error: 'Missing batch id' }
+  }
+  const result = revertAgentWriteBatch(projectId, batchId, currentProject)
+  if (result.ok && result.restoredPaths.length > 0) {
+    clearLastUndoBatch()
     invalidateRepoIgnoreCheckerCache()
     scheduleWorkspaceIndexRefresh()
   }
@@ -787,7 +874,49 @@ ipcMain.handle('clear-chat-thread', (): ReturnType<typeof clearChatThread> => {
   if (!currentProjectId) {
     return { ok: false, error: 'No project loaded' }
   }
+  clearThreadMemory(currentProjectId)
   return clearChatThread(currentProjectId)
+})
+
+ipcMain.handle('get-project-context-pins', (_, raw: unknown) => {
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  const projectId =
+    typeof (raw as { projectId?: unknown }).projectId === 'string'
+      ? (raw as { projectId: string }).projectId.trim()
+      : ''
+  if (!projectId || !isStoredProjectPresent(projectId)) {
+    return { ok: false as const, error: 'Unknown project' }
+  }
+  return loadProjectContextPins(projectId)
+})
+
+ipcMain.handle('set-project-context-pins', (_, raw: unknown) => {
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false as const, error: 'Invalid payload' }
+  }
+  const o = raw as { projectId?: unknown; pins?: unknown }
+  const projectId = typeof o.projectId === 'string' && o.projectId.trim() ? o.projectId.trim() : ''
+  if (!projectId || !isStoredProjectPresent(projectId)) {
+    return { ok: false as const, error: 'Unknown project' }
+  }
+  if (!Array.isArray(o.pins) || o.pins.length > AGENT_CONTEXT_MAX_PINS_PER_PROJECT) {
+    return { ok: false as const, error: 'Invalid pins list' }
+  }
+  const pins = []
+  for (const item of o.pins) {
+    const parsed = AgentContextPinSchema.safeParse(item)
+    if (!parsed.success) {
+      return { ok: false as const, error: 'Invalid pin entry' }
+    }
+    pins.push(parsed.data)
+  }
+  const stored = loadStoredProject(projectId)
+  if (!stored) {
+    return { ok: false as const, error: 'Unknown project' }
+  }
+  return saveProjectContextPins(projectId, stored.manifest, pins)
 })
 
 ipcMain.handle('stage-chat-attachment', (_, raw: unknown) => {

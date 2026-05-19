@@ -27,7 +27,7 @@ export type ChatTurnContextRootV1 = {
  */
 export type ChatTurnContextV1 = {
   source: 'text' | 'voice'
-  modelIntent: 'chat_default' | 'planning' | 'voice'
+  modelIntent: 'chat_default' | 'planning' | 'execution' | 'voice'
   chatMode?: 'fast' | 'plan'
   activeRootId: string | null
   activeRootLabel: string | null
@@ -91,7 +91,14 @@ function validateTurnContext(raw: unknown): ChatTurnContextV1 | undefined {
   const source = raw.source
   if (source !== 'text' && source !== 'voice') return undefined
   const modelIntent = raw.modelIntent
-  if (modelIntent !== 'chat_default' && modelIntent !== 'planning' && modelIntent !== 'voice') return undefined
+  if (
+    modelIntent !== 'chat_default' &&
+    modelIntent !== 'planning' &&
+    modelIntent !== 'execution' &&
+    modelIntent !== 'voice'
+  ) {
+    return undefined
+  }
   if (source === 'text' && modelIntent === 'voice') return undefined
   if (source === 'voice' && modelIntent !== 'voice') return undefined
   const chatMode = raw.chatMode

@@ -48,6 +48,7 @@ function buildSessionUpdatePayload(manifest: GrokProjectManifest, opts?: { threa
       '',
       '## Voice adapter note',
       'Realtime voice does not run the full typed agent tool loop. For file inspection, edits, or multi-step implementation, offer to continue in **typed agent chat**; the user can tap **Continue in agent chat** in the voice bar to hand off the thread to tools.',
+      'Do **not** ask the user to paste absolute file paths for implementation work. After handoff, typed agent chat will locate files with `search_workspace`, `list_directory`, and `read_file` under the workspace roots.',
       summaryBlock,
     ].join('\n')
     if (warnings.length > 0) {

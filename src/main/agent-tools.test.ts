@@ -3,6 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { applyAgentToolWriteBatch, undoLastAgentWriteBatch } from './agent-tools'
+import { computeAgentContentHash } from './agent-content-hash'
+import { AGENT_EDIT_STALE_HASH_REASON } from '../shared/agent-content-hash'
 import type { GrokProjectManifest } from './manifest'
 
 function testManifest(rootAbs: string): GrokProjectManifest {
@@ -107,6 +109,32 @@ describe('applyAgentToolWriteBatch', () => {
     const undo = undoLastAgentWriteBatch(manifest)
     expect(undo.ok).toBe(true)
     expect(readFileSync(file, 'utf-8')).toBe('old')
+  })
+
+  it('skips a reviewed write when expectedContentHash no longer matches disk', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gf-agent-'))
+    const manifest = testManifest(dir)
+    const file = join(dir, 'existing.txt')
+    writeFileSync(file, 'reviewed', 'utf-8')
+    writeFileSync(file, 'changed elsewhere', 'utf-8')
+
+    const res = applyAgentToolWriteBatch(manifest, {
+      version: 1,
+      operations: [
+        {
+          op: 'write_file',
+          path: file,
+          content: 'proposed',
+          expectedContentHash: computeAgentContentHash('reviewed'),
+        },
+      ],
+    })
+
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.applied).toHaveLength(0)
+    expect(res.conflicts).toEqual([{ path: file, reason: AGENT_EDIT_STALE_HASH_REASON }])
+    expect(readFileSync(file, 'utf-8')).toBe('changed elsewhere')
   })
 
   it('skips a reviewed write when existing content changed after review', () => {

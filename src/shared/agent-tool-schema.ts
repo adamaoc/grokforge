@@ -5,18 +5,27 @@ import {
   AGENT_TOOL_MAX_OPS,
   AGENT_TOOL_PROTOCOL_VERSION,
 } from './agent-tool-contract'
+import { normalizeAgentWriteFileContent } from './agent-file-content-normalize'
+import { AGENT_CONTENT_HASH_HEX_LEN } from './agent-content-hash'
+
+const expectedContentHashSchema = z
+  .string()
+  .length(AGENT_CONTENT_HASH_HEX_LEN)
+  .regex(/^[a-f0-9]{64}$/i)
 
 const WriteOpSchema = z.object({
   op: z.literal('write_file'),
   path: z.string().min(1).max(4096),
   content: z.string().max(AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE),
   expectedOriginalContent: z.string().max(AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE).nullable().optional(),
+  expectedContentHash: expectedContentHashSchema.optional(),
 })
 
 const DeleteOpSchema = z.object({
   op: z.literal('delete_file'),
   path: z.string().min(1).max(4096),
   expectedOriginalContent: z.string().max(AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE).nullable().optional(),
+  expectedContentHash: expectedContentHashSchema.optional(),
 })
 
 export const AgentToolBatchPayloadSchema = z.object({
@@ -63,5 +72,10 @@ export function extractAgentToolBatchFromAssistantText(text: string): ParsedAgen
     return null
   }
   const parsed = AgentToolBatchPayloadSchema.safeParse(json)
-  return parsed.success ? parsed.data : null
+  if (!parsed.success) return null
+  const data = parsed.data
+  const operations = data.operations.map((op) =>
+    op.op === 'write_file' ? { ...op, content: normalizeAgentWriteFileContent(op.content) } : op,
+  )
+  return { ...data, operations }
 }

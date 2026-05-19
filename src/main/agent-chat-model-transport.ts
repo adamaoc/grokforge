@@ -95,6 +95,7 @@ export function createHttpAgentChatModelTransport(): AgentChatModelTransport {
           model,
           messages,
           stream: true,
+          max_tokens: 4096,
         },
         signal,
       )

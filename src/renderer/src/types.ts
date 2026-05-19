@@ -81,6 +81,11 @@ import type {
   XaiKeyStatusPayload,
 } from '../../shared/xai-key-settings-contract'
 import type { AgentToolBatchResult, AgentUndoLastBatchResult } from '../../shared/agent-tool-contract'
+import type {
+  AgentWriteHistoryListEntry,
+  GetAgentWriteHistoryResult,
+  RevertAgentWriteBatchResult,
+} from '../../shared/agent-write-history-contract'
 import {
   DIFF_FILE_STATUS_LABELS,
   type DiffFileEntry,
@@ -95,6 +100,12 @@ import type {
 } from '../../shared/workspace-fs-mutation-contract'
 import { XAI_API_KEY_MAX_LEN } from '../../shared/xai-key-settings-contract'
 import type { AppInfoPayload } from '../../shared/app-info-contract'
+import type {
+  AgentContextPin,
+  GetProjectContextPinsResult,
+  SetProjectContextPinsResult,
+} from '../../shared/agent-context-pins-contract'
+import { AGENT_CONTEXT_MAX_PINS_PER_PROJECT } from '../../shared/agent-context-pins-contract'
 import type {
   AgentChatActiveContext,
   AgentChatAttachment,
@@ -171,6 +182,9 @@ export type {
   XaiKeyStatusPayload,
   AgentToolBatchResult,
   AgentUndoLastBatchResult,
+  AgentWriteHistoryListEntry,
+  GetAgentWriteHistoryResult,
+  RevertAgentWriteBatchResult,
   DiffFileEntry,
   DiffFileStatus,
   DiffSession,
@@ -179,6 +193,9 @@ export type {
   WorkspaceFsMutateResult,
   WorkspaceFsMutationEvent,
   AppInfoPayload,
+  AgentContextPin,
+  GetProjectContextPinsResult,
+  SetProjectContextPinsResult,
   AgentChatActiveContext,
   AgentChatAttachment,
   AgentChatActivityPayload,
@@ -219,6 +236,7 @@ export {
   AGENT_CHAT_SELECTION_MAX_CHARS,
   AGENT_CHAT_MAX_ATTACHMENTS,
   AGENT_CHAT_MAX_USER_TEXT_CHARS,
+  AGENT_CONTEXT_MAX_PINS_PER_PROJECT,
   getModelForIntent,
   MODEL_INTENT_MANIFEST_KEYS,
   RECENT_PROJECTS_MAX,
@@ -252,6 +270,8 @@ export interface ChatMessage {
   model?: string
   /** Captured at send time for agent / voice turns (story 065). */
   turnContext?: ChatTurnContextV1
+  /** Tool steps for this assistant turn (story 093; session-only, not persisted to thread.jsonl). */
+  toolActivities?: AgentChatActivityPayload[]
 }
 
 export interface OpenFile {

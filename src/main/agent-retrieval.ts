@@ -5,6 +5,7 @@ import type { AgentChatActiveContext } from '../shared/agent-chat-contract'
 
 export type RetrievalScoreBucket =
   | 'attachment'
+  | 'pinned'
   | 'exact_path'
   | 'active'
   | 'symbol'
@@ -39,13 +40,14 @@ const INDEX_STALE_MS = 15 * 60 * 1000
 const MAX_TERMS = 24
 const BUCKET_PRIORITY: Record<RetrievalScoreBucket, number> = {
   attachment: 8,
-  exact_path: 7,
-  active: 6,
-  symbol: 5,
-  test: 4,
-  docs: 3,
-  config: 3,
-  package: 3,
+  pinned: 7,
+  exact_path: 6,
+  active: 5,
+  symbol: 4,
+  test: 3,
+  docs: 2,
+  config: 2,
+  package: 2,
   lexical: 1,
 }
 
@@ -146,6 +148,10 @@ export function rankRetrievalCandidates(options: {
     ...attachment,
     path: resolveActivePath(attachment.path, manifest),
   }))
+  const pins = (activeContext.pinned ?? []).map((pin) => ({
+    ...pin,
+    path: resolveActivePath(pin.path, manifest),
+  }))
 
   const add = (path: string, score: number, bucket: RetrievalScoreBucket, reason: string, dirty = false) => {
     const existing = candidateMap.get(path)
@@ -167,6 +173,16 @@ export function rankRetrievalCandidates(options: {
       if (attachment.type === 'folder' && pathIsUnder(file.path, attachment.path)) {
         const directBoost = file.path.split(/[\\/]/).length - attachment.path.split(/[\\/]/).length <= 2 ? 150 : 80
         add(file.path, directBoost, 'attachment', 'inside attached folder')
+      }
+    }
+
+    for (const pin of pins) {
+      if (pin.type === 'file' && file.path === pin.path) {
+        add(file.path, 280, 'pinned', 'pinned file')
+      }
+      if (pin.type === 'folder' && pathIsUnder(file.path, pin.path)) {
+        const directBoost = file.path.split(/[\\/]/).length - pin.path.split(/[\\/]/).length <= 2 ? 160 : 90
+        add(file.path, directBoost, 'pinned', 'inside pinned folder')
       }
     }
 

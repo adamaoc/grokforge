@@ -1,4 +1,6 @@
-import { DiffEditor } from '@monaco-editor/react'
+import { useCallback } from 'react'
+import { DiffEditor, type DiffOnMount } from '@monaco-editor/react'
+import type { editor } from 'monaco-editor'
 
 interface DiffEditorPaneProps {
   original: string
@@ -15,6 +17,14 @@ interface DiffEditorPaneProps {
 export function DiffEditorPane({ original, modified, language = 'typescript', status = 'modified' }: DiffEditorPaneProps) {
   const originalText = original.length > 0 ? original : status === 'created' ? '// New file' : ''
   const modifiedText = modified.length > 0 ? modified : status === 'deleted' ? '// File will be deleted' : ''
+
+  const handleMount: DiffOnMount = useCallback((diffEditor) => {
+    queueMicrotask(() => {
+      const candidate = diffEditor as editor.IStandaloneDiffEditor & { revealFirstDiff?: () => void }
+      candidate.revealFirstDiff?.()
+    })
+  }, [])
+
   return (
     <div className="h-full min-h-[12rem] w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950">
       <DiffEditor
@@ -23,6 +33,7 @@ export function DiffEditorPane({ original, modified, language = 'typescript', st
         modified={modifiedText}
         language={language}
         theme="vs-dark"
+        onMount={handleMount}
         options={{
           readOnly: true,
           renderSideBySide: true,
@@ -32,8 +43,14 @@ export function DiffEditorPane({ original, modified, language = 'typescript', st
           lineHeight: 1.55,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
-          renderOverviewRuler: false,
+          renderOverviewRuler: true,
           padding: { top: 8, bottom: 8 },
+          hideUnchangedRegions: {
+            enabled: true,
+            contextLineCount: 3,
+            minimumLineCount: 3,
+            revealLineCount: 4,
+          },
         }}
       />
     </div>

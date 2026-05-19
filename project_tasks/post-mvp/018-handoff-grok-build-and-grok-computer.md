@@ -2,7 +2,11 @@
 
 > **Queue:** Post-MVP — this file lives in `project_tasks/post-mvp/` so MVP work stays in the numbered root queue. See `project_tasks/README.md`.
 
+**Status:** Closed (2026-05-19). Out of scope — no Grok Build / Grok Computer handoff flows in GrokForge; revisit only if xAI ships stable public deep links worth a dedicated story.
+
 **Design skill (required):** Read `.cursor/skills/styleguide-design/SKILL.md` for menu items, dialogs, and external-link affordances.
+
+**Harness program:** **Independent** of **102–114** — no toe-stepping unless a later story adds “export plan to Grok Build” (**109** may link).
 
 ## Summary
 

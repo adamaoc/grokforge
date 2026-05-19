@@ -24,6 +24,8 @@ export type AgentToolWriteOp = {
    * - null: file must still be missing
    */
   expectedOriginalContent?: string | null
+  /** SHA-256 hex of full file UTF-8 at read/review time (story 086). */
+  expectedContentHash?: string
 }
 
 export type AgentToolDeleteOp = {
@@ -31,6 +33,8 @@ export type AgentToolDeleteOp = {
   path: string
   /** Optional reviewed-original precondition. Undefined means legacy/direct apply. */
   expectedOriginalContent?: string | null
+  /** SHA-256 hex of full file UTF-8 at read/review time (story 086). */
+  expectedContentHash?: string
 }
 
 export type AgentToolOperation = AgentToolWriteOp | AgentToolDeleteOp
@@ -62,6 +66,8 @@ export type AgentToolBatchResult =
       applied: AgentToolBatchAppliedFile[]
       skipped: AgentToolBatchSkippedFile[]
       conflicts?: AgentToolBatchConflictFile[]
+      /** Set when the batch was appended to per-project write history (story 096). */
+      batchId?: string
     }
   | { ok: false; error: string }
 

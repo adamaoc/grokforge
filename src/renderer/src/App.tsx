@@ -20,6 +20,12 @@ import { SearchPanel } from '@/components/SearchPanel'
 import { TerminalPanel } from '@/components/TerminalPanel'
 import { BuildChannelIndicator } from '@/components/BuildChannelIndicator'
 import { ProjectWelcome } from '@/components/ProjectWelcome'
+import { AgentOnboardingDialog } from '@/components/AgentOnboardingDialog'
+import {
+  dismissOnboardingGlobally,
+  markProjectOnboardingSeen,
+  shouldShowProjectOnboarding,
+} from '@/lib/onboarding-storage'
 import { SettingsPage } from '@/components/SettingsPage'
 import { isMacElectron } from '@/lib/electron-chrome'
 import { AgentChatActivityProvider } from '@/context/AgentChatActivityProvider'
@@ -58,7 +64,9 @@ import { Input } from '@/components/ui/input'
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable'
 import { reconcilePathsForMutation } from '@/lib/workspace-fs-mutation-state'
 import { basenamePath } from '@/lib/workspace-paths'
-import { isPathUnderWorkspaceRoots } from '@/lib/workspace-path-check'
+import { isPathUnderWorkspaceRoots, normalizeFsPath } from '@/lib/workspace-path-check'
+import type { AgentContextPin } from '@/types'
+import { AGENT_CONTEXT_MAX_PINS_PER_PROJECT } from '@/types'
 import { workspaceGlobalShortcutTargetAllowsShortcut } from '@/lib/workspace-global-shortcuts'
 import { EditorContextBubble } from '@/components/EditorContextBubble'
 
@@ -67,6 +75,10 @@ type DiffSessionActions = {
   onPrimary: () => void
   secondaryLabel?: string
   onSecondary?: () => void
+  regenerateLabel?: string
+  onRegenerate?: () => void
+  fixFailedEditLabel?: string
+  onFixFailedEdit?: () => void
   primaryDisabled?: boolean
 }
 
@@ -196,6 +208,10 @@ interface ProjectWorkspaceShellProps {
   onRegisterVoiceHandoff: (execute: (() => Promise<void>) | null) => void
   onStopVoiceForHandoff: () => Promise<void>
   onVoiceContinueInAgentChat: () => void
+  /** ChatThread registers clearing pending agent proposals when the diff UI closes. */
+  onRegisterClearPendingAgentProposal: (clear: (() => void) | null) => void
+  /** Refresh diff header actions after apply failure while review is open (092). */
+  onUpdateDiffSessionActions?: (actions: DiffSessionActions) => void
 }
 
 function ProjectWorkspaceShell({
@@ -237,6 +253,8 @@ function ProjectWorkspaceShell({
   onRegisterVoiceHandoff,
   onStopVoiceForHandoff,
   onVoiceContinueInAgentChat,
+  onRegisterClearPendingAgentProposal,
+  onUpdateDiffSessionActions,
 }: ProjectWorkspaceShellProps) {
   const outerLayout = useDefaultLayout({
     id: 'grokforge-shell-outer-v4',
@@ -264,7 +282,96 @@ function ProjectWorkspaceShell({
   const [editorPaneCollapsed, setEditorPaneCollapsed] = useState(false)
   const [terminalRunningCount, setTerminalRunningCount] = useState(0)
   const [chatAttachments, setChatAttachments] = useState<AgentChatAttachment[]>([])
+  const [pinnedContext, setPinnedContext] = useState<AgentContextPin[]>([])
   const [editorSelection, setEditorSelection] = useState<AgentChatEditorSelection | null>(null)
+  const [onboardingOpen, setOnboardingOpen] = useState(false)
+
+  useEffect(() => {
+    if (!workspaceProjectId) {
+      setOnboardingOpen(false)
+      return
+    }
+    setOnboardingOpen(shouldShowProjectOnboarding(workspaceProjectId))
+  }, [workspaceProjectId])
+
+  const closeOnboardingForProject = useCallback(() => {
+    if (workspaceProjectId) markProjectOnboardingSeen(workspaceProjectId)
+    setOnboardingOpen(false)
+  }, [workspaceProjectId])
+
+  const handleOnboardingDontShowAgain = useCallback(() => {
+    dismissOnboardingGlobally()
+    closeOnboardingForProject()
+  }, [closeOnboardingForProject])
+
+  useEffect(() => {
+    const pid = workspaceProjectId
+    if (!pid || !window.electron?.getProjectContextPins) {
+      setPinnedContext([])
+      return
+    }
+    let cancelled = false
+    void window.electron.getProjectContextPins({ projectId: pid }).then((res) => {
+      if (!cancelled && res.ok) setPinnedContext(res.pins)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [workspaceProjectId])
+
+  const persistPinnedContext = useCallback(
+    async (pins: AgentContextPin[]) => {
+      const pid = workspaceProjectId
+      if (!pid || !window.electron?.setProjectContextPins) return
+      const res = await window.electron.setProjectContextPins({ projectId: pid, pins })
+      if (res.ok) {
+        setPinnedContext(res.pins)
+      } else {
+        toast.error(res.error ?? 'Could not save pinned context')
+      }
+    },
+    [workspaceProjectId],
+  )
+
+  const pinPathKey = useCallback((path: string) => normalizeFsPath(path).toLowerCase(), [])
+
+  const isPathPinnedForAgent = useCallback(
+    (path: string) => pinnedContext.some((pin) => pinPathKey(pin.path) === pinPathKey(path)),
+    [pinnedContext, pinPathKey],
+  )
+
+  const handleTogglePinForAgent = useCallback(
+    (path: string, isDirectory: boolean) => {
+      if (!isPathUnderWorkspaceRoots(path, project.roots)) {
+        toast.error('Only workspace paths can be pinned.')
+        return
+      }
+      const key = pinPathKey(path)
+      if (pinnedContext.some((pin) => pinPathKey(pin.path) === key)) {
+        void persistPinnedContext(pinnedContext.filter((pin) => pinPathKey(pin.path) !== key))
+        toast.message('Unpinned for agent')
+        return
+      }
+      if (pinnedContext.length >= AGENT_CONTEXT_MAX_PINS_PER_PROJECT) {
+        toast.error(`At most ${AGENT_CONTEXT_MAX_PINS_PER_PROJECT} pinned paths per project.`)
+        return
+      }
+      void persistPinnedContext([
+        ...pinnedContext,
+        { type: isDirectory ? 'folder' : 'file', path },
+      ])
+      toast.success('Pinned for agent')
+    },
+    [pinnedContext, persistPinnedContext, pinPathKey, project.roots],
+  )
+
+  const handleRemovePinned = useCallback(
+    (pin: AgentContextPin) => {
+      const key = pinPathKey(pin.path)
+      void persistPinnedContext(pinnedContext.filter((item) => pinPathKey(item.path) !== key))
+    },
+    [pinnedContext, persistPinnedContext, pinPathKey],
+  )
 
   const syncSidebarCollapsed = useCallback(() => {
     const next = sidebarPanelRef.current?.isCollapsed() ?? false
@@ -286,6 +393,14 @@ function ProjectWorkspaceShell({
     setEditorPaneCollapsed(editorPanelRef.current?.isCollapsed() ?? false)
   }, [])
 
+  const ensureEditorPaneExpanded = useCallback(() => {
+    const api = editorPanelRef.current
+    if (api?.isCollapsed()) {
+      api.expand()
+    }
+    requestAnimationFrame(() => syncEditorPaneCollapsed())
+  }, [syncEditorPaneCollapsed])
+
   const handleToggleEditorPane = useCallback(() => {
     const api = editorPanelRef.current
     if (!api) return
@@ -305,13 +420,33 @@ function ProjectWorkspaceShell({
   }, [syncEditorPaneCollapsed])
 
   const openSearchWorkspace = useCallback(() => {
-    const api = editorPanelRef.current
-    if (api?.isCollapsed()) {
-      api.expand()
-    }
+    ensureEditorPaneExpanded()
     setSearchPanelOpen(true)
-    requestAnimationFrame(() => syncEditorPaneCollapsed())
-  }, [setSearchPanelOpen, syncEditorPaneCollapsed])
+  }, [ensureEditorPaneExpanded, setSearchPanelOpen])
+
+  const openFileWithEditorPane = useCallback(
+    (path: string) => {
+      ensureEditorPaneExpanded()
+      onFileOpen(path)
+    },
+    [ensureEditorPaneExpanded, onFileOpen],
+  )
+
+  const openDiffSessionWithEditorPane = useCallback(
+    (session: DiffSession, actions?: DiffSessionActions | null) => {
+      ensureEditorPaneExpanded()
+      onOpenDiffSession(session, actions)
+    },
+    [ensureEditorPaneExpanded, onOpenDiffSession],
+  )
+
+  const openSearchResultWithEditorPane = useCallback(
+    (path: string, line: number) => {
+      ensureEditorPaneExpanded()
+      onSearchResultOpen(path, line)
+    },
+    [ensureEditorPaneExpanded, onSearchResultOpen],
+  )
 
   const focusChatComposer = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -423,7 +558,7 @@ function ProjectWorkspaceShell({
             openFiles={openFiles}
             dirtyFiles={dirtyFiles}
             onRootChange={setActiveRoot}
-            onFileOpen={onFileOpen}
+            onFileOpen={openFileWithEditorPane}
             onReturnToDashboard={onReturnToDashboard}
             onAddRoot={onAddRoot}
             onOpenSettings={onOpenSettings}
@@ -433,15 +568,13 @@ function ProjectWorkspaceShell({
             workspaceFsChange={workspaceFsChange}
             onWorkspaceFsMutation={onWorkspaceFsMutation}
             onAddPathToChat={handleAddPathToChat}
-            onOpenDiffSession={onOpenDiffSession}
+            isPathPinnedForAgent={isPathPinnedForAgent}
+            onTogglePinForAgent={handleTogglePinForAgent}
+            onOpenDiffSession={openDiffSessionWithEditorPane}
           />
         </ResizablePanel>
 
-        <ResizableHandle
-          withHandle
-          aria-label="Resize sidebar"
-          title="Resize sidebar"
-        />
+        <ResizableHandle aria-label="Resize sidebar" title="Resize sidebar" />
 
         <ResizablePanel id="main" defaultSize="83%" minSize="55%" className="flex min-h-0 min-w-0 flex-col">
           <ProjectHeader
@@ -491,6 +624,8 @@ function ProjectWorkspaceShell({
                           activeFilePath={activeFile}
                           openTabs={openFiles.map((path) => ({ path, dirty: Boolean(dirtyFiles[path]) }))}
                           attachments={chatAttachments}
+                          pinnedContext={pinnedContext}
+                          onRemovePinned={handleRemovePinned}
                           editorSelection={editorSelection}
                           onRemoveAttachment={(attachment) =>
                             setChatAttachments((prev) =>
@@ -500,13 +635,15 @@ function ProjectWorkspaceShell({
                           onClearAttachments={() => setChatAttachments([])}
                           onAddChatAttachments={mergeChatAttachments}
                           onAgentDiskFilesChanged={onAgentDiskFilesChanged}
-                          onOpenFileInEditor={onFileOpen}
-                          onOpenDiffSession={onOpenDiffSession}
+                          onOpenFileInEditor={openFileWithEditorPane}
+                          onOpenDiffSession={openDiffSessionWithEditorPane}
                           onCloseDiffSession={onCloseDiffSession}
                           reserveContextBubbleInset={editorPaneCollapsed}
                           voiceThreadSummaryRef={voiceThreadSummaryRef}
                           onRegisterVoiceHandoff={onRegisterVoiceHandoff}
                           onStopVoiceForHandoff={onStopVoiceForHandoff}
+                          onRegisterClearPendingAgentProposal={onRegisterClearPendingAgentProposal}
+                          onUpdateDiffSessionActions={onUpdateDiffSessionActions}
                         />
                       </div>
                     </ResizablePanel>
@@ -556,7 +693,7 @@ function ProjectWorkspaceShell({
                         project={project}
                         open={searchPanelOpen}
                         onClose={() => setSearchPanelOpen(false)}
-                        onOpenResult={onSearchResultOpen}
+                        onOpenResult={openSearchResultWithEditorPane}
                       />
                     </ResizablePanel>
                   </ResizablePanelGroup>
@@ -578,7 +715,6 @@ function ProjectWorkspaceShell({
               </ResizablePanel>
 
               <ResizableHandle
-                withHandle
                 aria-label="Resize terminal panel"
                 title="Resize terminal panel"
                 className={terminalOpen ? 'h-px w-full' : 'hidden'}
@@ -599,7 +735,7 @@ function ProjectWorkspaceShell({
                   activeRoot={activeRoot}
                   open={terminalOpen}
                   onClose={() => setTerminalOpen(false)}
-                  onOpenFileLink={onSearchResultOpen}
+                  onOpenFileLink={openSearchResultWithEditorPane}
                   onRunningSessionsChange={setTerminalRunningCount}
                 />
               </ResizablePanel>
@@ -616,6 +752,18 @@ function ProjectWorkspaceShell({
           />
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      <AgentOnboardingDialog
+        open={onboardingOpen}
+        projectName={project.name}
+        rootCount={project.roots.length}
+        onOpenChange={(open) => {
+          if (!open) closeOnboardingForProject()
+          else setOnboardingOpen(true)
+        }}
+        onGotIt={closeOnboardingForProject}
+        onDontShowAgain={handleOnboardingDontShowAgain}
+      />
     </div>
   )
 }
@@ -630,6 +778,13 @@ export default function App() {
   const [isLoadingProject, setIsLoadingProject] = useState(false)
   const [diffSession, setDiffSession] = useState<DiffSession | null>(null)
   const [diffSessionActions, setDiffSessionActions] = useState<DiffSessionActions | null>(null)
+  const diffSessionRef = useRef<DiffSession | null>(null)
+  diffSessionRef.current = diffSession
+  const updateDiffSessionActionsIfOpen = useCallback((actions: DiffSessionActions) => {
+    if (diffSessionRef.current?.source === 'agent-proposal') {
+      setDiffSessionActions(actions)
+    }
+  }, [])
   const [searchPanelOpen, setSearchPanelOpen] = useState(false)
   const [jumpToLineRequest, setJumpToLineRequest] = useState<{ path: string; line: number } | null>(null)
   const [terminalOpen, setTerminalOpen] = useState(false)
@@ -653,8 +808,12 @@ export default function App() {
 
   const voiceThreadSummaryRef = useRef('')
   const voiceHandoffExecutorRef = useRef<(() => Promise<void>) | null>(null)
+  const clearPendingAgentProposalRef = useRef<(() => void) | null>(null)
   const registerVoiceHandoff = useCallback((fn: (() => Promise<void>) | null) => {
     voiceHandoffExecutorRef.current = fn
+  }, [])
+  const registerClearPendingAgentProposal = useCallback((clear: (() => void) | null) => {
+    clearPendingAgentProposalRef.current = clear
   }, [])
 
   const handleVoiceContinueInAgentChat = useCallback(() => {
@@ -682,9 +841,11 @@ export default function App() {
   }, [])
 
   const closeDiffSession = useCallback(() => {
+    const shouldClearPending = diffSession?.source === 'agent-proposal'
     setDiffSession(null)
     setDiffSessionActions(null)
-  }, [])
+    if (shouldClearPending) clearPendingAgentProposalRef.current?.()
+  }, [diffSession])
 
   const openDiffSession = useCallback((session: DiffSession, actions?: DiffSessionActions | null) => {
     setDiffSession(session)
@@ -979,7 +1140,9 @@ export default function App() {
             onBack={() => setSettingsOpen(false)}
             macTitleBarInset={isMacElectron()}
             project={project}
+            workspaceProjectId={workspaceProjectId}
             onProjectSaved={setProject}
+            onAgentDiskFilesChanged={handleAgentDiskFilesChanged}
           />
           {projectSwitchGuardAlert}
         </>
@@ -1037,6 +1200,8 @@ export default function App() {
             onRegisterVoiceHandoff={registerVoiceHandoff}
             onStopVoiceForHandoff={() => voiceSession.stop()}
             onVoiceContinueInAgentChat={handleVoiceContinueInAgentChat}
+            onRegisterClearPendingAgentProposal={registerClearPendingAgentProposal}
+            onUpdateDiffSessionActions={updateDiffSessionActionsIfOpen}
           />
           {projectSwitchGuardAlert}
           <Dialog

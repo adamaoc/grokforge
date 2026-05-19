@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import type { GrokProjectManifest } from './manifest'
 import { shouldIgnoreFsEntry } from './ignore-globs'
@@ -11,11 +11,23 @@ import type {
   AgentToolBatchSkippedFile,
   AgentUndoLastBatchResult,
 } from '../shared/agent-tool-contract'
+import { AGENT_EDIT_STALE_HASH_REASON } from '../shared/agent-content-hash'
+import { normalizeAgentWriteFileContent } from '../shared/agent-file-content-normalize'
 import { AgentToolBatchPayloadSchema } from '../shared/agent-tool-schema'
+import { computeAgentContentHash } from './agent-content-hash'
+import { restoreSnapshots, type UndoSnapshot } from './agent-write-history-store'
 
-type UndoSnapshot = { path: string; content: string | null }
+export type { UndoSnapshot }
 
 let lastUndoBatch: { snapshots: UndoSnapshot[] } | null = null
+
+export function peekLastUndoSnapshots(): UndoSnapshot[] | null {
+  return lastUndoBatch?.snapshots ?? null
+}
+
+export function clearLastUndoBatch(): void {
+  lastUndoBatch = null
+}
 
 function readSnapshotForPath(path: string): UndoSnapshot {
   const resolved = resolve(path)
@@ -54,8 +66,16 @@ export function applyAgentToolWriteBatch(manifest: GrokProjectManifest, raw: unk
       skipped.push({ path: op.path, reason: 'Path matches manifest ignore rules' })
       continue
     }
+    const current = readSnapshotForPath(resolved)
+    if (op.expectedContentHash !== undefined) {
+      const diskHash =
+        current.content === null ? null : computeAgentContentHash(current.content)
+      if (diskHash !== op.expectedContentHash) {
+        conflicts.push({ path: resolved, reason: AGENT_EDIT_STALE_HASH_REASON })
+        continue
+      }
+    }
     if ('expectedOriginalContent' in op) {
-      const current = readSnapshotForPath(resolved)
       if (op.expectedOriginalContent === null && current.content !== null) {
         conflicts.push({ path: resolved, reason: 'File was created since review' })
         continue
@@ -97,7 +117,7 @@ export function applyAgentToolWriteBatch(manifest: GrokProjectManifest, raw: unk
     const created = !existsSync(resolved)
     try {
       mkdirSync(dirname(resolved), { recursive: true })
-      writeFileSync(resolved, op.content, 'utf-8')
+      writeFileSync(resolved, normalizeAgentWriteFileContent(op.content), 'utf-8')
       applied.push({ path: resolved, created })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Write failed'
@@ -116,28 +136,24 @@ export function applyAgentToolWriteBatch(manifest: GrokProjectManifest, raw: unk
   return { ok: true, applied, skipped, conflicts }
 }
 
-export function undoLastAgentWriteBatch(manifest: GrokProjectManifest): AgentUndoLastBatchResult {
-  const batch = lastUndoBatch
-  if (!batch) {
+export function undoLastAgentWriteBatch(
+  manifest: GrokProjectManifest,
+  snapshots?: UndoSnapshot[] | null,
+): AgentUndoLastBatchResult {
+  const batchSnapshots = snapshots ?? lastUndoBatch?.snapshots
+  if (!batchSnapshots?.length) {
     return { ok: false, error: 'Nothing to undo' }
   }
-  const roots = manifest.roots
-  const restoredPaths: string[] = []
-  for (const snap of batch.snapshots) {
-    if (!isPathWithinWorkspaceRoots(snap.path, roots)) continue
-    try {
-      if (snap.content === null) {
-        if (existsSync(snap.path)) {
-          unlinkSync(snap.path)
-          restoredPaths.push(snap.path)
-        }
-      } else {
-        writeFileSync(snap.path, snap.content, 'utf-8')
-        restoredPaths.push(snap.path)
-      }
-    } catch {
-      // best-effort; continue
-    }
+  const restoredPaths = restoreSnapshots(
+    manifest,
+    batchSnapshots.map((s) => ({
+      path: s.path,
+      beforeContent: s.content,
+      snapshotAvailable: true,
+    })),
+  )
+  if (restoredPaths.length === 0) {
+    return { ok: false, error: 'Nothing to undo' }
   }
   lastUndoBatch = null
   return { ok: true, restoredPaths }
