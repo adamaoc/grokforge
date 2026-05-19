@@ -115,11 +115,17 @@ import type {
   AgentChatEditorSelection,
   AgentEditProposalRejectedFile,
   AgentChatEventPayload,
+  AgentChatTextModelIntent,
+  AgentChatTurnRouting,
   RefreshProjectIntelligenceResult,
   AgentChatStartPayload,
   AgentChatStartResult,
   AgentChatThreadMessage,
 } from '../../shared/agent-chat-contract'
+export type { AgentSubagentEventPayload } from '../../shared/agent-subagent-contract'
+import type { HarnessProfileKey } from '../../shared/agent-harness-profile-contract'
+import { resolveHarnessProfileKey } from '../../shared/agent-harness-profile-contract'
+import { getHarnessProfile } from '../../shared/agent-harness-profile'
 import {
   AGENT_CHAT_SELECTION_MAX_CHARS,
   AGENT_CHAT_MAX_ATTACHMENTS,
@@ -134,6 +140,7 @@ import type {
 import { AGENT_TURN_TRACE_MAX_FILES, AGENT_TURN_TRACE_SCHEMA_VERSION } from '../../shared/agent-turn-trace-contract'
 import type { GfPlanV1 } from '../../shared/gf-plan-contract'
 import { GF_PLAN_FENCE, GfPlanV1Schema } from '../../shared/gf-plan-contract'
+import type { AgentSubagentEventPayload } from '../../shared/agent-subagent-contract'
 
 export type {
   AddWorkspaceRootResult,
@@ -204,6 +211,9 @@ export type {
   AgentChatEditorSelection,
   AgentEditProposalRejectedFile,
   AgentChatEventPayload,
+  AgentChatTextModelIntent,
+  AgentChatTurnRouting,
+  HarnessProfileKey,
   RefreshProjectIntelligenceResult,
   AgentChatStartPayload,
   AgentChatStartResult,
@@ -238,6 +248,8 @@ export {
   AGENT_CHAT_MAX_USER_TEXT_CHARS,
   AGENT_CONTEXT_MAX_PINS_PER_PROJECT,
   getModelForIntent,
+  getHarnessProfile,
+  resolveHarnessProfileKey,
   MODEL_INTENT_MANIFEST_KEYS,
   RECENT_PROJECTS_MAX,
   RECENT_PROJECT_DISPLAY_NAME_MAX_LEN,
@@ -272,6 +284,8 @@ export interface ChatMessage {
   turnContext?: ChatTurnContextV1
   /** Tool steps for this assistant turn (story 093; session-only, not persisted to thread.jsonl). */
   toolActivities?: AgentChatActivityPayload[]
+  /** Child subagent exploration block (story 112; session-only). */
+  subagentActivity?: AgentSubagentEventPayload
 }
 
 export interface OpenFile {

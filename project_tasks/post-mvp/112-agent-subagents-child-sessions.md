@@ -1,6 +1,6 @@
 # 112 — Subagents as isolated child sessions
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill (required):** Read `.cursor/skills/styleguide-design/SKILL.md` for child session UI in thread (`@styleguide-design`).
 
@@ -41,9 +41,9 @@ Input: `{ task: string, profile?: 'explorer' }`
 
 ## Acceptance criteria
 
-- [ ] Child session persisted and inspectable in dev.
-- [ ] Parent receives bounded structured result < 4k chars default.
-- [ ] `npm run typecheck` and targeted tests pass.
+- [x] Child session persisted and inspectable in dev.
+- [x] Parent receives bounded structured result < 4k chars default.
+- [x] `npm run typecheck` and targeted tests pass.
 
 ## Related stories
 
@@ -51,4 +51,4 @@ Input: `{ task: string, profile?: 'explorer' }`
 
 ## Completion bookkeeping
 
-When implemented: mark **112** done, update [`README.md`](../README.md) post-MVP table, run **`npm run stories:html`**.
+Marked **112** done; synced [`README.md`](../README.md) post-MVP table; ran **`npm run stories:html`**.

@@ -1,5 +1,9 @@
 import type { AgentToolBatchPayload } from './agent-tool-contract'
 import type { AgentContextPin } from './agent-context-pins-contract'
+import type { AgentProfileId } from './agent-profile'
+import type { HarnessProfileKey } from './agent-harness-profile-contract'
+import type { ModelIntent } from './model-router'
+import type { AgentSubagentEventPayload } from './agent-subagent-contract'
 
 /**
  * Agent chat IPC contract (no Node imports). Main implementation: `src/main/agent-runner.ts`.
@@ -50,9 +54,28 @@ export type AgentChatThreadMessage = {
   content: string
 }
 
+/** Text agent-chat intents (subset of {@link ModelIntent}). */
+export type AgentChatTextModelIntent = Extract<ModelIntent, 'chat_default' | 'planning' | 'execution'>
+
+export type AgentChatTurnRouting = {
+  modelIntent: AgentChatTextModelIntent
+  modelId: string
+  harnessProfileKey: HarnessProfileKey
+  agentProfileId: AgentProfileId
+}
+
 export type AgentChatStartPayload = {
   streamId: string
+  /** Renderer hint only; main uses {@link AgentChatTurnRouting.modelId} for xAI (story 097). */
   model: string
+  /** Composer chip override; main resolves canonical intent when omitted. */
+  modelIntent?: AgentChatTextModelIntent
+  /** Story 069 approve-and-run; main forces execution intent + executor profile. */
+  isApprovedPlanAutoRun?: boolean
+  /** Story 109 — durable plan artifact id for execute handoff. */
+  approvedPlanId?: string
+  /** Story 109 — assistant message id that produced the plan. */
+  approvedPlanMessageId?: string
   userText: string
   threadSnapshot: AgentChatThreadMessage[]
   activeContext: AgentChatActiveContext
@@ -78,6 +101,7 @@ export type AgentChatToolName =
   | 'search_replace'
   | 'run_command'
   | 'propose_file_edits'
+  | 'spawn_subagent'
 
 export type AgentCommandApprovalRisk = 'safe' | 'soft_risk' | 'network_or_install'
 
@@ -109,7 +133,9 @@ export type AgentChatActivityPayload = {
   tool?: AgentChatToolName | 'retrieval'
   title: string
   detail?: string
-  status: 'running' | 'done' | 'error'
+  status: 'running' | 'done' | 'error' | 'interrupted'
+  /** Story 112 — nest activity under a child subagent session. */
+  childSessionId?: string
 }
 
 export type AgentEditProposalRejectedFile = {
@@ -122,22 +148,17 @@ export type AgentEditProposalPayload = {
   rejected: AgentEditProposalRejectedFile[]
 }
 
-export type ValidateAgentEditBatchPayload = {
-  streamId: string
-  batch: AgentToolBatchPayload
-  activeContext: AgentChatActiveContext
-}
-
-export type ValidateAgentEditBatchResult =
-  | { ok: true; proposal: AgentEditProposalPayload }
-  | { ok: false; error: string; proposal?: AgentEditProposalPayload }
-
 export type AgentChatEventPayload =
-  | { streamId: string; phase: 'turn_started' }
+  | { streamId: string; phase: 'turn_started'; routing: AgentChatTurnRouting }
   | { streamId: string; phase: 'activity'; activity: AgentChatActivityPayload }
   | { streamId: string; phase: 'command_approval_required'; request: AgentCommandApprovalRequest }
   | { streamId: string; phase: 'edit_proposal'; proposal: AgentEditProposalPayload }
-  | { streamId: string; phase: 'activity_clear_running'; reason: 'done' | 'cancelled' | 'error' }
+  | {
+      streamId: string
+      phase: 'activity_clear_running'
+      reason: 'done' | 'cancelled' | 'error' | 'interrupted'
+    }
+  | { streamId: string; phase: 'subagent'; subagent: AgentSubagentEventPayload }
   | { streamId: string; phase: 'final_chunk'; delta: string }
   | { streamId: string; phase: 'done' }
   | { streamId: string; phase: 'error'; error: string }

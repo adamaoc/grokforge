@@ -310,9 +310,8 @@
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
         <span class="pill">113 stories</span>
-        <span class="pill">Done: 91</span>
-        <span class="pill">Closed: 5</span>
-        <span class="pill">Post-MVP: 17</span>
+        <span class="pill">Done: 107</span>
+        <span class="pill">Closed: 6</span>
         <span class="pill">Generated 2026-05-19</span>
       </div>
       <div class="story-filters">
@@ -6423,10 +6422,10 @@ primaryRootPath?: string</code></pre>
 <p>When this story ships: update its <strong>Status</strong> line, the tables in <a href="../README.md"><code>../README.md</code></a>, and run <strong><code>npm run stories:html</code></strong> at the repo root so <a href="../stories.html"><code>../stories.html</code></a> stays in sync.</p>
         </div>
       </details>
-      <details id="story-081" data-status="post-mvp">
+      <details id="story-081" data-status="closed">
         <summary>
-          <span class="story-title"><span class="story-id">081</span><span class="story-name">Terminal dock: files pane or bottom drawer</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="story-title"><span class="story-id">081</span><span class="story-name">~~Terminal dock: files pane or bottom drawer~~</span></span>
+          <span class="status status-closed">Closed</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -6434,7 +6433,7 @@ primaryRootPath?: string</code></pre>
             <a class="story-link" href="post-mvp/081-terminal-dock-files-pane-or-bottom-drawer.md">post-mvp/081-terminal-dock-files-pane-or-bottom-drawer.md</a>
           </div>
           <h2>081 — Terminal dock: files pane vs bottom drawer</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Closed — not pursuing alternate terminal dock modes (right-column vs bottom drawer); current fixed shell layout is sufficient.</p>
 <p><strong>Moved from:</strong> MVP story <strong>076</strong> (same scope; deferred past launch).</p>
 <p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> before changing terminal container, tabs, or resize handles (<code>@styleguide-design</code>).</p>
 <p><strong>Harness program:</strong> <strong>Independent</strong> of <strong>102–114</strong> (shell layout only). Safe to run in parallel with harness wave.</p>
@@ -6987,7 +6986,7 @@ primaryRootPath?: string</code></pre>
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>Closed without a single epic PR. Delivered via child stories <strong>082–088</strong>, <strong>091–096</strong>.</p>
-<p><strong>Harness program (2026-05):</strong> continued in <strong>102–114</strong> — dual-model manifests, per-model harness profiles, agent profiles/toolsets, turn snapshots, context offload, evals, RPI plan files, subagents. See <strong><a href="111-harness-roadmap-and-retrospective-doc.md">111</a></strong>.</p>
+<p><strong>Harness program (2026-05):</strong> continued in <strong>102–114</strong> — dual-model manifests, per-model harness profiles, agent profiles/toolsets, turn snapshots, context offload, evals, RPI plan files, subagents. See <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>.</p>
 <p>Deferred beyond harness wave: unified diff apply (theme B), LSP-style edit ops (theme C).</p>
         </div>
       </details>
@@ -7281,10 +7280,10 @@ primaryRootPath?: string</code></pre>
 <p>When implemented: mark <strong>096</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-097" data-status="post-mvp">
+      <details id="story-097" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">097</span><span class="story-name">Runner phase routing: planner vs executor intents</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -7292,7 +7291,7 @@ primaryRootPath?: string</code></pre>
             <a class="story-link" href="post-mvp/097-model-routing-planner-vs-executor.md">post-mvp/097-model-routing-planner-vs-executor.md</a>
           </div>
           <h2>097 — Runner phase routing: planner vs executor model intents</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (manifest + <code>model-router</code>; Settings copy for model slots recommended).</p>
 <p><strong>Depends on:</strong> <strong><a href="102-dual-model-manifest-and-harness-foundation.md">102</a></strong>, <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>, <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>.</p>
 <p><strong>Blocks:</strong> <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong> (UI should show resolved model + phase).</p>
@@ -7315,8 +7314,12 @@ primaryRootPath?: string</code></pre>
   harnessProfileKey: HarnessProfileKey
   agentProfileId: AgentProfileId  // from 104
 }</code></pre>
-<p><strong>Rules (v1):</strong></p>
-<p>| Condition | <code>modelIntent</code> | Expected model slot | | --- | --- | --- | | <code>chatMode === 'plan'</code> | <code>planning</code> | <code>models.planning</code> → typically <code>grok-4.3</code> | | <code>isApprovedPlanAutoRun</code> | <code>execution</code> | <code>models.execution</code> → typically <code>grok-code-fast-1</code> | | <code>chatMode === 'fast'</code> default | <code>chat_default</code> | <code>models.default</code> | | Renderer forces <code>planning</code> chip on fast mode | <code>planning</code> | User override (document) |</p>
+<p><strong>Rules (v1 — two axes):</strong></p>
+<p><strong>Model intent</strong> (<code>resolveAgentChatModelIntent</code>):</p>
+<p>| Priority | Condition | <code>modelIntent</code> | | --- | --- | --- | | 1 | <code>isApprovedPlanAutoRun</code> | <code>execution</code> | | 2 | Renderer <code>modelIntent</code> chip (fast or plan) | as sent | | 3 | <code>chatMode === 'plan'</code> (no chip) | <code>planning</code> | | 4 | else | <code>chat_default</code> |</p>
+<p><strong>Agent profile</strong> (<code>resolveAgentProfileId</code>):</p>
+<p>| Condition | <code>agentProfileId</code> | | --- | --- | | <code>chatMode === 'plan'</code> | <code>planner</code> | | <code>isApprovedPlanAutoRun</code> or <code>modelIntent === 'execution'</code> (fast) | <code>executor</code> | | else | <code>default</code> |</p>
+<p>Plan mode + Fast chip → planner profile + <code>models.default</code>. UI stepper: <strong>098</strong>.</p>
 <h4>2. Main owns resolution</h4>
 <ul>
 <li><strong><code>agent-chat-start</code> handler</strong> — Recompute routing in main from <code>activeContext</code>; do not trust renderer <code>model</code> string alone (accept as hint only during migration).</li>
@@ -7355,12 +7358,12 @@ primaryRootPath?: string</code></pre>
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Main process resolves <code>modelIntent</code> + <code>modelId</code> + profile keys per turn from documented rules.</li>
-<li><input type="checkbox" disabled> Approve-and-run always uses <code>execution</code> intent (regression for <strong>069</strong>).</li>
-<li><input type="checkbox" disabled> Plan mode uses <code>planning</code> intent for full turn unless documented override.</li>
-<li><input type="checkbox" disabled> Turn metadata visible in dev logs or UI.</li>
-<li><input type="checkbox" disabled> <code>AGENTS.md</code> documents mapping table.</li>
-<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+<li><input type="checkbox" disabled checked> Main process resolves <code>modelIntent</code> + <code>modelId</code> + profile keys per turn from documented rules.</li>
+<li><input type="checkbox" disabled checked> Approve-and-run always uses <code>execution</code> intent (regression for <strong>069</strong>).</li>
+<li><input type="checkbox" disabled checked> Plan mode defaults to <code>planning</code> intent; chip override honored in plan mode.</li>
+<li><input type="checkbox" disabled checked> Turn metadata visible in dev logs (<code>turn_started.routing</code>).</li>
+<li><input type="checkbox" disabled checked> <code>AGENTS.md</code> documents mapping table.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
 </ul>
 <h3>Related stories</h3>
 <ul>
@@ -7372,10 +7375,10 @@ primaryRootPath?: string</code></pre>
 <p>When implemented: mark <strong>097</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-098" data-status="post-mvp">
+      <details id="story-098" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">098</span><span class="story-name">Planning mode execute UX polish</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -7383,7 +7386,7 @@ primaryRootPath?: string</code></pre>
             <a class="story-link" href="post-mvp/098-planning-mode-execute-ux-polish.md">post-mvp/098-planning-mode-execute-ux-polish.md</a>
           </div>
           <h2>098 — Planning mode: explicit plan → approve → execute UX</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> (<code>@styleguide-design</code>).</p>
 <p><strong>Depends on:</strong> <strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong> (show real model per phase); <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong> (planner vs executor labels). <strong>Recommended after <a href="101-greenfield-plan-quality.md">101</a></strong> for richer plan card content.</p>
 <p><strong>Does not step on:</strong> <strong><a href="101-greenfield-plan-quality.md">101</a></strong> (prompts only) — this story is <strong>renderer UX</strong> only.</p>
@@ -7433,10 +7436,10 @@ primaryRootPath?: string</code></pre>
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> User can distinguish plan vs execution phase without reading raw JSON.</li>
-<li><input type="checkbox" disabled> Executing state visible from approve-and-run until turn completes.</li>
-<li><input type="checkbox" disabled> Model/profile label shown during execute when <strong>097</strong> metadata present.</li>
-<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+<li><input type="checkbox" disabled checked> User can distinguish plan vs execution phase without reading raw JSON.</li>
+<li><input type="checkbox" disabled checked> Executing state visible from approve-and-run until turn completes.</li>
+<li><input type="checkbox" disabled checked> Model/profile label shown during execute when <strong>097</strong> metadata present.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes.</li>
 </ul>
 <h3>Related stories</h3>
 <ul>
@@ -7531,10 +7534,10 @@ primaryRootPath?: string</code></pre>
 <p>When shipped: update this <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-101" data-status="post-mvp">
+      <details id="story-101" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">101</span><span class="story-name">Greenfield plan quality (per-profile prompts)</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -7542,7 +7545,7 @@ primaryRootPath?: string</code></pre>
             <a class="story-link" href="post-mvp/101-greenfield-plan-quality.md">post-mvp/101-greenfield-plan-quality.md</a>
           </div>
           <h2>101 — Greenfield plan quality (per-profile prompts)</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (harness prompts in shared/main).</p>
 <p><strong>Depends on:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong> — empty-workspace rules live in <strong><code>grok_4_3</code></strong> planner profile, not a one-off string in <code>agent-context.ts</code>.</p>
 <p><strong>Does not step on:</strong> <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong> (UI stepper) — prompts only.</p>
@@ -7598,10 +7601,10 @@ primaryRootPath?: string</code></pre>
 <p>When shipped: mark <strong>Done</strong>, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-102" data-status="post-mvp">
+      <details id="story-102" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">102</span><span class="story-name">Dual-model manifest + harness profile keys</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -7609,7 +7612,7 @@ primaryRootPath?: string</code></pre>
             <a class="story-link" href="post-mvp/102-dual-model-manifest-and-harness-foundation.md">post-mvp/102-dual-model-manifest-and-harness-foundation.md</a>
           </div>
           <h2>102 — Dual-model manifest defaults and harness foundation</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (defaults + manifest; optional Settings copy for model slots and harness profile hints).</p>
 <p><strong>Depends on:</strong> Nothing (first story in harness wave).</p>
 <p><strong>Blocks:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>, <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>, <strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>.</p>
@@ -7689,16 +7692,16 @@ primaryRootPath?: string</code></pre>
 <ul>
 <li><strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong> — profile content.</li>
 <li><strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>, <strong><a href="../012-model-routing-service.md">012</a></strong>.</li>
-<li><strong><a href="111-harness-roadmap-and-retrospective-doc.md">111</a></strong> — program index.</li>
+<li><strong><a href="111-harness-roadmap-and-retrospective-doc.md">111</a></strong> — program index → <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>.</li>
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When implemented: mark <strong>102</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-103" data-status="post-mvp">
+      <details id="story-103" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">103</span><span class="story-name">Per-model harness profiles (`fast` vs `4.3`)</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -7706,7 +7709,7 @@ primaryRootPath?: string</code></pre>
             <a class="story-link" href="post-mvp/103-agent-harness-per-model-profiles.md">post-mvp/103-agent-harness-per-model-profiles.md</a>
           </div>
           <h2>103 — Per-model harness profiles (<code>grok-code-fast-1</code> vs <code>grok-4.3</code>)</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (main/shared agent loop; optional dev-only Settings preview of profile id).</p>
 <p><strong>Depends on:</strong> <strong><a href="102-dual-model-manifest-and-harness-foundation.md">102</a></strong> (<code>resolveHarnessProfileKey</code>).</p>
 <p><strong>Blocks:</strong> <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>, <strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>, <strong><a href="101-greenfield-plan-quality.md">101</a></strong>, <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong>.</p>
@@ -7778,10 +7781,10 @@ primaryRootPath?: string</code></pre>
 <p>When implemented: mark <strong>103</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-104" data-status="post-mvp">
+      <details id="story-104" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">104</span><span class="story-name">Agent profiles and toolsets</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -7789,7 +7792,7 @@ primaryRootPath?: string</code></pre>
             <a class="story-link" href="post-mvp/104-agent-profiles-and-toolsets.md">post-mvp/104-agent-profiles-and-toolsets.md</a>
           </div>
           <h2>104 — Agent profiles and toolsets (permission envelopes)</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (main agent loop); optional renderer badge “Planner” / “Executor” on activity rows (<strong>098</strong> may consume).</p>
 <p><strong>Depends on:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong> (profiles tune copy; this story tunes <strong>capabilities</strong>).</p>
 <p><strong>Blocks:</strong> <strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>, <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong> (UI can show profile phase).</p>
@@ -7873,10 +7876,10 @@ chatMode (062)
 <p>When implemented: mark <strong>104</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-105" data-status="post-mvp">
+      <details id="story-105" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">105</span><span class="story-name">Agent turn snapshots</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -7884,7 +7887,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/105-agent-turn-snapshots.md">post-mvp/105-agent-turn-snapshots.md</a>
           </div>
           <h2>105 — Agent turn snapshots (stable provider rounds)</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A.</p>
 <p><strong>Depends on:</strong> <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong> recommended (snapshot includes filtered tool list).</p>
 <p><strong>Blocks:</strong> <strong><a href="107-agent-context-offload-large-tool-results.md">107</a></strong> (compression should not mutate active snapshot).</p>
@@ -7937,10 +7940,10 @@ chatMode (062)
 <p>When implemented: mark <strong>105</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-106" data-status="post-mvp">
+      <details id="story-106" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">106</span><span class="story-name">Unified tool execution context</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -7948,7 +7951,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/106-agent-tool-execution-context.md">post-mvp/106-agent-tool-execution-context.md</a>
           </div>
           <h2>106 — Unified agent tool execution context</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A.</p>
 <p><strong>Depends on:</strong> <strong><a href="105-agent-turn-snapshots.md">105</a></strong> (snapshot id passed into context).</p>
 <p><strong>Blocks:</strong> <strong><a href="110-agent-interrupted-tool-boundaries.md">110</a></strong>.</p>
@@ -7994,10 +7997,10 @@ chatMode (062)
 <p>When implemented: mark <strong>106</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-107" data-status="post-mvp">
+      <details id="story-107" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">107</span><span class="story-name">Context offload for large tool results</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8005,7 +8008,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/107-agent-context-offload-large-tool-results.md">post-mvp/107-agent-context-offload-large-tool-results.md</a>
           </div>
           <h2>107 — Context offload for large tool results</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (optional renderer “context compressed” chip later).</p>
 <p><strong>Depends on:</strong> <strong><a href="105-agent-turn-snapshots.md">105</a></strong>, <strong><a href="../039-context-budget-and-retrieval-governance.md">039</a></strong>.</p>
 <h3>Why this story exists</h3>
@@ -8058,10 +8061,10 @@ chatMode (062)
 <p>When implemented: mark <strong>107</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-108" data-status="post-mvp">
+      <details id="story-108" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">108</span><span class="story-name">Harness eval: per-model regressions</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8069,7 +8072,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/108-harness-eval-suite-per-model-regressions.md">post-mvp/108-harness-eval-suite-per-model-regressions.md</a>
           </div>
           <h2>108 — Harness eval suite: per-model and per-profile regressions</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A.</p>
 <p><strong>Depends on:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong> (minimum); <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong> for profile-matrix cases.</p>
 <h3>Why this story exists</h3>
@@ -8118,10 +8121,10 @@ chatMode (062)
 <p>When implemented: mark <strong>108</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-109" data-status="post-mvp">
+      <details id="story-109" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">109</span><span class="story-name">RPI plan artifacts on disk</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8129,7 +8132,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/109-rpi-plan-artifacts-on-disk.md">post-mvp/109-rpi-plan-artifacts-on-disk.md</a>
           </div>
           <h2>109 — RPI plan artifacts on disk (structured handoff)</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (optional renderer “Open plan folder” link).</p>
 <p><strong>Depends on:</strong> <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>, <strong><a href="../062-agent-planning-and-multi-step-workflow.md">062</a></strong>.</p>
 <h3>Why this story exists</h3>
@@ -8159,7 +8162,7 @@ chatMode (062)
 <h3>Non-goals</h3>
 <ul>
 <li>Full <code>spec:research</code> → <code>spec.md</code> pipeline (optional stretch).</li>
-<li>Grok Build handoff (<strong>018</strong>).</li>
+<li>Grok Build handoff (story <strong>018</strong> closed).</li>
 </ul>
 <h3>Testing</h3>
 <ul>
@@ -8169,9 +8172,9 @@ chatMode (062)
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Valid plans persisted under app data with stable id.</li>
-<li><input type="checkbox" disabled> Execute turn handoff uses plan id + summary, not full JSON dump in synthetic user line.</li>
-<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+<li><input type="checkbox" disabled checked> Valid plans persisted under app data with stable id.</li>
+<li><input type="checkbox" disabled checked> Execute turn handoff uses plan id + summary, not full JSON dump in synthetic user line.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
 </ul>
 <h3>Related stories</h3>
 <ul>
@@ -8181,10 +8184,10 @@ chatMode (062)
 <p>When implemented: mark <strong>109</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-110" data-status="post-mvp">
+      <details id="story-110" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">110</span><span class="story-name">Interrupted tool boundaries + turn receipts</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8192,7 +8195,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/110-agent-interrupted-tool-boundaries.md">post-mvp/110-agent-interrupted-tool-boundaries.md</a>
           </div>
           <h2>110 — Interrupted tool boundaries and turn receipts</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> if surfacing interrupted state in chat (<code>@styleguide-design</code>).</p>
 <p><strong>Depends on:</strong> <strong><a href="106-agent-tool-execution-context.md">106</a></strong>, <strong><a href="105-agent-turn-snapshots.md">105</a></strong>.</p>
 <h3>Why this story exists</h3>
@@ -8225,9 +8228,9 @@ chatMode (062)
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Cancelled and crashed turns persist distinguishable receipt status.</li>
-<li><input type="checkbox" disabled> Next turn after interrupted receipt includes harness recovery hint in context (bounded chars).</li>
-<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+<li><input type="checkbox" disabled checked> Cancelled and crashed turns persist distinguishable receipt status.</li>
+<li><input type="checkbox" disabled checked> Next turn after interrupted receipt includes harness recovery hint in context (bounded chars).</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
 </ul>
 <h3>Related stories</h3>
 <ul>
@@ -8237,10 +8240,10 @@ chatMode (062)
 <p>When implemented: mark <strong>110</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-111" data-status="post-mvp">
+      <details id="story-111" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">111</span><span class="story-name">Harness roadmap + retrospective doc</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8248,7 +8251,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/111-harness-roadmap-and-retrospective-doc.md">post-mvp/111-harness-roadmap-and-retrospective-doc.md</a>
           </div>
           <h2>111 — Harness roadmap and retrospective documentation</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (docs only).</p>
 <p><strong>Depends on:</strong> None (can start early; update as stories ship).</p>
 <h3>Why this story exists</h3>
@@ -8280,9 +8283,9 @@ chatMode (062)
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> <code>docs/harness-roadmap.md</code> exists and matches shipped/post-MVP story ids.</li>
-<li><input type="checkbox" disabled> <code>AGENTS.md</code> links to roadmap from agent section.</li>
-<li><input type="checkbox" disabled> <code>npm run stories:html</code> still passes (if README touched).</li>
+<li><input type="checkbox" disabled checked> <code>docs/harness-roadmap.md</code> exists and matches shipped/post-MVP story ids.</li>
+<li><input type="checkbox" disabled checked> <code>AGENTS.md</code> links to roadmap from agent section.</li>
+<li><input type="checkbox" disabled checked> <code>npm run stories:html</code> still passes (if README touched).</li>
 </ul>
 <h3>Related stories</h3>
 <ul>
@@ -8292,10 +8295,10 @@ chatMode (062)
 <p>When implemented: mark <strong>111</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-112" data-status="post-mvp">
+      <details id="story-112" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">112</span><span class="story-name">Subagents as child sessions</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8303,7 +8306,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/112-agent-subagents-child-sessions.md">post-mvp/112-agent-subagents-child-sessions.md</a>
           </div>
           <h2>112 — Subagents as isolated child sessions</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill (required):</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> for child session UI in thread (<code>@styleguide-design</code>).</p>
 <p><strong>Depends on:</strong> <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong>, <strong><a href="105-agent-turn-snapshots.md">105</a></strong>, <strong><a href="106-agent-tool-execution-context.md">106</a></strong>.</p>
 <h3>Why this story exists</h3>
@@ -8335,22 +8338,22 @@ chatMode (062)
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Child session persisted and inspectable in dev.</li>
-<li><input type="checkbox" disabled> Parent receives bounded structured result &lt; 4k chars default.</li>
-<li><input type="checkbox" disabled> <code>npm run typecheck</code> and targeted tests pass.</li>
+<li><input type="checkbox" disabled checked> Child session persisted and inspectable in dev.</li>
+<li><input type="checkbox" disabled checked> Parent receives bounded structured result &lt; 4k chars default.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and targeted tests pass.</li>
 </ul>
 <h3>Related stories</h3>
 <ul>
 <li><strong><a href="097-model-routing-planner-vs-executor.md">097</a></strong>, <strong><a href="107-agent-context-offload-large-tool-results.md">107</a></strong>.</li>
 </ul>
 <h3>Completion bookkeeping</h3>
-<p>When implemented: mark <strong>112</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+<p>Marked <strong>112</strong> done; synced <a href="../README.md"><code>README.md</code></a> post-MVP table; ran <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-113" data-status="post-mvp">
+      <details id="story-113" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">113</span><span class="story-name">Voice realtime harness alignment</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8358,7 +8361,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/113-voice-realtime-harness-profile-alignment.md">post-mvp/113-voice-realtime-harness-profile-alignment.md</a>
           </div>
           <h2>113 — Voice realtime harness profile alignment</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (voice instructions in main); optional copy in <code>VoiceControls</code> / handoff.</p>
 <p><strong>Depends on:</strong> <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>.</p>
 <h3>Why this story exists</h3>
@@ -8373,7 +8376,7 @@ chatMode (062)
 </ul>
 <h4>2. Handoff payload</h4>
 <ul>
-<li><strong><code>buildVoiceAgentHandoffUserText</code></strong> includes: user intent, voice model/profile id, “text agent will use tools”.</li>
+<li><strong><code>buildVoiceHandoffUserText</code></strong> includes: user intent, voice model/profile id, “text agent will use tools”.</li>
 <li>Thread summary hydration (<strong>077</strong>) capped; document limits.</li>
 </ul>
 <h4>3. Documentation</h4>
@@ -8387,22 +8390,22 @@ chatMode (062)
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Voice session update uses profile-derived instruction block.</li>
-<li><input type="checkbox" disabled> Handoff text consistent with <strong>091</strong> rules.</li>
-<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes.</li>
+<li><input type="checkbox" disabled checked> Voice session update uses profile-derived instruction block.</li>
+<li><input type="checkbox" disabled checked> Handoff text consistent with <strong>091</strong> rules.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes.</li>
 </ul>
 <h3>Related stories</h3>
 <ul>
 <li><strong><a href="../013-voice-full-duplex-pipeline.md">013</a></strong>, <strong><a href="../077-voice-agent-chat-ui-polish.md">077</a></strong>, <strong><a href="091-agent-proactive-workspace-exploration.md">091</a></strong>.</li>
 </ul>
 <h3>Completion bookkeeping</h3>
-<p>When implemented: mark <strong>113</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+<p>Marked <strong>113</strong> done; synced <a href="../README.md"><code>README.md</code></a> post-MVP table; ran <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-114" data-status="post-mvp">
+      <details id="story-114" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">114</span><span class="story-name">Deprecate fenced `grokforge-agent-tools` protocol</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8410,7 +8413,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/114-deprecate-fenced-agent-tools-protocol.md">post-mvp/114-deprecate-fenced-agent-tools-protocol.md</a>
           </div>
           <h2>114 — Deprecate fenced <code>grokforge-agent-tools</code> write protocol</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
 <p><strong>Design skill:</strong> N/A (renderer may remove parser UI).</p>
 <p><strong>Depends on:</strong> <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong> (prove tool path covers former fence cases).</p>
 <h3>Why this story exists</h3>
@@ -8421,6 +8424,7 @@ chatMode (062)
 <li>Log when fence parser activates (dev counter).</li>
 <li>If zero usage in manual testing for N weeks, proceed to removal.</li>
 </ul>
+<p><strong>Shipped:</strong> Skipped separate telemetry phase; removed apply path directly after <strong>108</strong> coverage.</p>
 <h4>2. Removal (v2 in same story or follow-up PR)</h4>
 <ul>
 <li>Remove fence parsing from <code>ChatThread</code> / main proposal path.</li>
@@ -8437,9 +8441,9 @@ chatMode (062)
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Documented deprecation notice in changelog/docs.</li>
-<li><input type="checkbox" disabled> No new turns can apply writes via fence (after removal phase).</li>
-<li><input type="checkbox" disabled> <code>npm run test</code> pass without fence fixtures.</li>
+<li><input type="checkbox" disabled checked> Documented deprecation notice in changelog/docs.</li>
+<li><input type="checkbox" disabled checked> No new turns can apply writes via fence (after removal phase).</li>
+<li><input type="checkbox" disabled checked> <code>npm run test</code> pass without fence fixtures.</li>
 </ul>
 <h3>Related stories</h3>
 <ul>

@@ -1,6 +1,6 @@
 # 104 — Agent profiles and toolsets (permission envelopes)
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (main agent loop); optional renderer badge “Planner” / “Executor” on activity rows (**098** may consume).
 

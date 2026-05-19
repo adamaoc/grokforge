@@ -146,7 +146,7 @@ export function replayRetrievalPreviewFromLatestTrace(
   try {
     const active = t.activeContext as AgentChatActiveContext
     const retrieval = buildLexicalRetrievalContext(
-      { projectId, manifest, activeContext: active, signal: ac.signal },
+      { projectId, manifest, activeContext: active, abortSignal: ac.signal },
       t.userText,
     )
     return {

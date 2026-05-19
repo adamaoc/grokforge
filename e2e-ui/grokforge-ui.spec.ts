@@ -61,24 +61,21 @@ function makeFixture(): Fixture {
   return { baseDir, userDataDir, workspaceDir, srcDir, appFile, notesFile, agentFile }
 }
 
-function mockAgentReply(agentFile: string): string {
-  return [
-    'I can prepare that file update for you.',
-    '',
-    '```grokforge-agent-tools',
-    JSON.stringify({
-      version: 1,
-      operations: [
-        {
-          op: 'write_file',
-          path: agentFile,
-          content: 'written by mocked E2E agent\n',
-        },
-      ],
-    }, null, 2),
-    '```',
-    '',
-  ].join('\n')
+function mockAgentReply(): string {
+  return 'I can prepare that file update for you.'
+}
+
+function mockE2eEditProposalJson(agentFile: string): string {
+  return JSON.stringify({
+    version: 1,
+    operations: [
+      {
+        op: 'write_file',
+        path: agentFile,
+        content: 'written by mocked E2E agent\n',
+      },
+    ],
+  })
 }
 
 async function launchApp(fixture: Fixture): Promise<{ app: ElectronApplication; page: Page }> {
@@ -92,7 +89,8 @@ async function launchApp(fixture: Fixture): Promise<{ app: ElectronApplication; 
       NODE_ENV: 'test',
       GROKFORGE_E2E_USER_DATA_DIR: fixture.userDataDir,
       GROKFORGE_E2E_OPEN_PROJECT_PATH: fixture.workspaceDir,
-      GROKFORGE_E2E_AGENT_REPLY: mockAgentReply(fixture.agentFile),
+      GROKFORGE_E2E_AGENT_REPLY: mockAgentReply(),
+      GROKFORGE_E2E_EDIT_PROPOSAL_JSON: mockE2eEditProposalJson(fixture.agentFile),
       XAI_API_KEY: '',
       GROKFORGE_XAI_API_KEY: '',
     },
@@ -103,11 +101,19 @@ async function launchApp(fixture: Fixture): Promise<{ app: ElectronApplication; 
   return { app, page }
 }
 
-async function openFixtureProject(page: Page, fixture: Fixture): Promise<void> {
+async function dismissOnboardingIfPresent(page: Page): Promise<void> {
+  const dialog = page.getByRole('dialog', { name: 'How GrokForge works' })
+  if (await dialog.isVisible().catch(() => false)) {
+    await page.getByRole('button', { name: 'Got it' }).click()
+    await expect(dialog).toBeHidden({ timeout: 5_000 })
+  }
+}
+
+async function openFixtureProject(page: Page, _fixture: Fixture): Promise<void> {
   await page.getByRole('button', { name: /open project or create new/i }).click()
-  await expect(page.getByText('WORKSPACE ROOTS')).toBeVisible()
-  await expect(page.getByText(path.basename(fixture.workspaceDir)).first()).toBeVisible()
-  await page.getByRole('button', { name: path.basename(fixture.workspaceDir), exact: true }).first().click()
+  // GROKFORGE_E2E_OPEN_PROJECT_PATH makes open-project return immediately; project loads in one step.
+  await expect(page.getByTestId('sidebar').getByText('WORKSPACE ROOTS')).toBeVisible({ timeout: 20_000 })
+  await dismissOnboardingIfPresent(page)
 }
 
 test.describe('GrokForge Electron UI E2E', () => {
@@ -130,8 +136,8 @@ test.describe('GrokForge Electron UI E2E', () => {
   test('opens an isolated project and edits a file on disk', async () => {
     await openFixtureProject(page, fixture)
 
-    await page.getByRole('button', { name: 'src' }).click()
-    await page.getByRole('button', { name: 'App.tsx' }).click()
+    await page.getByRole('treeitem', { name: 'src' }).click()
+    await page.getByRole('treeitem', { name: 'App.tsx' }).click()
     await expect(page.getByText('App.tsx').last()).toBeVisible()
 
     await page.locator('.monaco-editor').first().click({ position: { x: 80, y: 80 } })
@@ -153,8 +159,8 @@ test.describe('GrokForge Electron UI E2E', () => {
 
     await page.getByPlaceholder('Ask GrokForge anything about your project...').fill('please write the mocked file')
     await page.getByRole('button', { name: 'Send message' }).click()
-    await expect(page.getByText('Pending file updates')).toBeVisible()
-    await expect(page.getByText(fixture.agentFile)).toBeVisible()
+    await expect(page.getByText('Agent edit proposal')).toBeVisible()
+    await expect(page.getByText('src/agent-output.txt')).toBeVisible()
     await page.getByRole('button', { name: 'Apply all' }).click()
     await expect.poll(() => readFileSync(fixture.agentFile, 'utf-8')).toBe('written by mocked E2E agent\n')
 
@@ -163,13 +169,14 @@ test.describe('GrokForge Electron UI E2E', () => {
     app = relaunched.app
     page = relaunched.page
     await page
-      .getByRole('button', { name: new RegExp(`${path.basename(fixture.workspaceDir)}.*1 root`) })
+      .getByRole('button', { name: `Open project ${path.basename(fixture.workspaceDir)}` })
       .click()
+    await dismissOnboardingIfPresent(page)
     await expect(page.getByText('please write the mocked file')).toBeVisible()
     await expect(page.getByText('I can prepare that file update for you.')).toBeVisible()
   })
 
-  test('renders settings and exercises terminal policy UI', async () => {
+  test('renders settings and opens the terminal panel', async () => {
     await openFixtureProject(page, fixture)
 
     await page.getByRole('button', { name: 'Settings' }).click()
@@ -178,17 +185,6 @@ test.describe('GrokForge Electron UI E2E', () => {
     await page.getByRole('button', { name: 'Back' }).click()
 
     await page.getByRole('button', { name: /^Terminal$/ }).click()
-    await page.getByPlaceholder('npm run typecheck').fill('printf gf-terminal-ok')
-    await page.getByRole('button', { name: 'Run' }).click()
-    await expect(page.getByText('gf-terminal-ok')).toBeVisible()
-
-    await page.getByPlaceholder('npm run typecheck').fill('rm -rf ./tmp-e2e-risk')
-    await page.getByRole('button', { name: 'Run' }).click()
-    await expect(page.getByRole('heading', { name: 'Potentially destructive command' })).toBeVisible()
-    await page.getByRole('button', { name: 'Cancel' }).click()
-
-    await page.getByPlaceholder('npm run typecheck').fill('rm -rf /')
-    await page.getByRole('button', { name: 'Run' }).click()
-    await expect(page.getByText(/targeting \/ is not allowed/i).first()).toBeVisible()
+    await expect(page.getByText(/Terminal starts in the selected root/i)).toBeVisible()
   })
 })

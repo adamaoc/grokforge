@@ -1,6 +1,6 @@
 # 102 — Dual-model manifest defaults and harness foundation
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (defaults + manifest; optional Settings copy for model slots and harness profile hints).
 
@@ -111,7 +111,7 @@ Renderer may continue passing `model` on `agentChatStart`; main should **re-reso
 
 - **[103](103-agent-harness-per-model-profiles.md)** — profile content.
 - **[097](097-model-routing-planner-vs-executor.md)**, **[012](../012-model-routing-service.md)**.
-- **[111](111-harness-roadmap-and-retrospective-doc.md)** — program index.
+- **[111](111-harness-roadmap-and-retrospective-doc.md)** — program index → [`docs/harness-roadmap.md`](../../docs/harness-roadmap.md).
 
 ## Completion bookkeeping
 

@@ -5,8 +5,8 @@ import { isPathWithinWorkspaceRoots } from './workspace-path-guard'
 import {
   isLikelySensitivePath,
   resolveAgentWorkspacePath,
-  type ToolEnv,
 } from './agent-workspace-tools'
+import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
 import { applySearchReplace } from '../shared/agent-search-replace'
 import { AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE } from '../shared/agent-tool-contract'
 import { AGENT_CONTENT_HASH_HEX_LEN, AGENT_EDIT_STALE_HASH_REASON } from '../shared/agent-content-hash'
@@ -31,14 +31,14 @@ export type SearchReplaceToWriteResult =
 
 export function resolveSearchReplaceToWriteBatch(
   args: SearchReplaceToolArgs,
-  env: Pick<ToolEnv, 'manifest' | 'activeContext' | 'projectId' | 'signal'>,
+  ctx: AgentToolExecutionContext,
 ): SearchReplaceToWriteResult {
-  const resolved = resolveAgentWorkspacePath(args.path, env)
+  const resolved = resolveAgentWorkspacePath(args.path, ctx)
   if (!resolved) {
     return { ok: false, error: 'Path could not be resolved under workspace roots.' }
   }
-  const roots = env.manifest.roots
-  const ignore = env.manifest.ignore ?? []
+  const roots = ctx.manifest.roots
+  const ignore = ctx.manifest.ignore ?? []
   if (!isPathWithinWorkspaceRoots(resolved, roots)) {
     return { ok: false, error: 'Path outside workspace roots' }
   }

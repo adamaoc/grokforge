@@ -1,6 +1,6 @@
 # 105 — Agent turn snapshots (stable provider rounds)
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A.
 

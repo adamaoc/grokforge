@@ -5,7 +5,6 @@ import {
   AGENT_TOOL_MAX_OPS,
   AGENT_TOOL_PROTOCOL_VERSION,
 } from './agent-tool-contract'
-import { normalizeAgentWriteFileContent } from './agent-file-content-normalize'
 import { AGENT_CONTENT_HASH_HEX_LEN } from './agent-content-hash'
 
 const expectedContentHashSchema = z
@@ -37,11 +36,6 @@ export type ParsedAgentToolBatch = z.infer<typeof AgentToolBatchPayloadSchema>
 
 const escapedFenceInfo = AGENT_TOOL_FENCE_INFO.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-const FENCE_RE = new RegExp(
-  '```\\s*' + escapedFenceInfo + '\\s*\\n([\\s\\S]*?)```',
-  'm',
-)
-
 /** Full fenced blocks (possibly multiple); used for chat display only — persisted text stays unchanged. */
 const FENCE_STRIP_RE = new RegExp('```\\s*' + escapedFenceInfo + '\\s*\\n[\\s\\S]*?```', 'gm')
 
@@ -52,30 +46,11 @@ const FENCE_STRIP_RE = new RegExp('```\\s*' + escapedFenceInfo + '\\s*\\n[\\s\\S
 const FENCE_INCOMPLETE_TAIL_RE = new RegExp('(?:^|\\n)```\\s*' + escapedFenceInfo + '\\s*\\n[\\s\\S]*$')
 
 /**
- * Removes machine-readable agent tool fences from assistant markdown for display, copy, and read-aloud.
- * Does not mutate stored thread content (apply/parse still use the full string).
+ * Removes legacy grokforge-agent-tools fences from assistant markdown for display, copy, and read-aloud.
+ * Does not mutate stored thread content. New turns must use `propose_file_edits`; fences are not applied.
  */
 export function stripAgentToolFenceFromAssistantDisplay(text: string): string {
   let out = text.replace(FENCE_STRIP_RE, '')
   out = out.replace(FENCE_INCOMPLETE_TAIL_RE, '')
   return out.replace(/\n{3,}/g, '\n\n').trimEnd()
-}
-
-/** Extract and validate agent tool JSON from assistant markdown (fenced block). */
-export function extractAgentToolBatchFromAssistantText(text: string): ParsedAgentToolBatch | null {
-  const m = text.match(FENCE_RE)
-  if (!m?.[1]) return null
-  let json: unknown
-  try {
-    json = JSON.parse(m[1].trim())
-  } catch {
-    return null
-  }
-  const parsed = AgentToolBatchPayloadSchema.safeParse(json)
-  if (!parsed.success) return null
-  const data = parsed.data
-  const operations = data.operations.map((op) =>
-    op.op === 'write_file' ? { ...op, content: normalizeAgentWriteFileContent(op.content) } : op,
-  )
-  return { ...data, operations }
 }

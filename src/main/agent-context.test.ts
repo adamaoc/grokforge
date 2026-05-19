@@ -82,6 +82,20 @@ describe('buildChatSystemPrompt', () => {
     expect(systemPrompt).toContain('Truthfulness')
   })
 
+  it('appends harness profile sections when harnessProfileKey is set', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gf-sys-harness-'))
+    mkdirSync(dir, { recursive: true })
+    const manifest = testManifest({
+      roots: [{ id: 'r1', path: dir, type: 'code', label: 'App' }],
+      context: { alwaysInclude: [] },
+    })
+    const base = buildChatSystemPrompt(manifest).systemPrompt
+    const withProfile = buildChatSystemPrompt(manifest, { harnessProfileKey: 'grok_4_3' }).systemPrompt
+    expect(withProfile).toContain(base.slice(0, 200))
+    expect(withProfile).toContain('Harness profile (capable planning)')
+    expect(withProfile).toContain('Tool-use bias (capable)')
+  })
+
   it('includes proactive workspace exploration rules', () => {
     const dir = mkdtempSync(join(tmpdir(), 'gf-sys-explore-'))
     mkdirSync(dir, { recursive: true })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GrokProjectManifest } from './manifest'
-import { getModelForIntent, MODEL_INTENT_MANIFEST_KEYS } from './model-router'
+import { DUAL_MODEL_FALLBACKS, getModelForIntent, MODEL_INTENT_MANIFEST_KEYS } from './model-router'
 
 function baseManifest(overrides: Partial<GrokProjectManifest['models']> = {}): GrokProjectManifest {
   return {
@@ -38,8 +38,14 @@ describe('getModelForIntent', () => {
 
   it('uses fallback when a manifest entry is blank', () => {
     const m = baseManifest({ default: '  ', planning: '' })
-    expect(getModelForIntent(m, 'chat_default')).toBe('grok-code-fast-1')
-    expect(getModelForIntent(m, 'planning')).toBe('grok-4.3')
+    expect(getModelForIntent(m, 'chat_default')).toBe(DUAL_MODEL_FALLBACKS.chat_default)
+    expect(getModelForIntent(m, 'planning')).toBe(DUAL_MODEL_FALLBACKS.planning)
+  })
+
+  it('exposes dual-model fallbacks for harness defaults', () => {
+    expect(DUAL_MODEL_FALLBACKS.chat_default).toBe('grok-code-fast-1')
+    expect(DUAL_MODEL_FALLBACKS.execution).toBe('grok-code-fast-1')
+    expect(DUAL_MODEL_FALLBACKS.planning).toBe('grok-4.3')
   })
 
   it('exposes a bijection between intents and manifest model keys', () => {

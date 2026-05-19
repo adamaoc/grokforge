@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import type { GrokProjectManifest } from './manifest'
 import { validateManifest } from './manifest'
 import { discoverAgentInstructionRelativePaths } from './agent-instructions-discover'
+import { DUAL_MODEL_FALLBACKS } from '../shared/model-router'
 
 const DIR_NAME = 'workspace-projects'
 const PROJECT_JSON = 'project.json'
@@ -83,11 +84,11 @@ export function defaultManifestForFirstRoot(rootAbs: string, displayName: string
     ],
     ignore: defaultIgnore,
     models: {
-      default: 'grok-code-fast-1',
-      planning: 'grok-4.3',
-      execution: 'grok-code-fast-1',
-      reasoning: 'grok-4.20-reasoning',
-      voice: 'grok-voice-think-fast-1.0',
+      default: DUAL_MODEL_FALLBACKS.chat_default,
+      planning: DUAL_MODEL_FALLBACKS.planning,
+      execution: DUAL_MODEL_FALLBACKS.execution,
+      reasoning: DUAL_MODEL_FALLBACKS.reasoning,
+      voice: DUAL_MODEL_FALLBACKS.voice,
     },
     voice: {
       enabled: true,

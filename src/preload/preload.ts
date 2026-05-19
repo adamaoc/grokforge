@@ -22,8 +22,6 @@ import type {
   RefreshProjectIntelligenceResult,
   AgentChatStartPayload,
   AgentChatStartResult,
-  ValidateAgentEditBatchPayload,
-  ValidateAgentEditBatchResult,
 } from '../shared/agent-chat-contract'
 import type {
   ExportSanitizedAgentTurnTraceResult,
@@ -36,6 +34,14 @@ import type {
   LoadChatThreadResult,
   PersistedChatLineV1,
 } from '../main/chat-store'
+import type {
+  GetStoredPlanForMessageArgs,
+  GetStoredPlanForMessageResult,
+  MarkStoredPlansSupersededArgs,
+  MarkStoredPlansSupersededResult,
+  SetStoredPlanStatusArgs,
+  SetStoredPlanStatusResult,
+} from '../shared/agent-plan-artifact'
 import type {
   GetProjectContextPinsResult,
   SetProjectContextPinsResult,
@@ -166,8 +172,6 @@ export const electronAPI = {
     ipcRenderer.invoke('refresh-project-intelligence'),
   agentChatStart: (payload: AgentChatStartPayload): Promise<AgentChatStartResult> =>
     ipcRenderer.invoke('agent-chat-start', payload),
-  validateAgentEditBatch: (payload: ValidateAgentEditBatchPayload): Promise<ValidateAgentEditBatchResult> =>
-    ipcRenderer.invoke('validate-agent-edit-batch', payload),
   computeAgentContentHash: (content: string): Promise<string | null> =>
     ipcRenderer.invoke('compute-agent-content-hash', content),
   agentChatCancel: (streamId: string): Promise<{ ok: boolean }> =>
@@ -203,6 +207,14 @@ export const electronAPI = {
     projectId: string
     payload: PersistedChatLineV1
   }): Promise<AppendChatMessageResult> => ipcRenderer.invoke('append-chat-message-for-project', args),
+  setStoredPlanStatus: (args: SetStoredPlanStatusArgs): Promise<SetStoredPlanStatusResult> =>
+    ipcRenderer.invoke('set-stored-plan-status', args),
+  getStoredPlanForMessage: (args: GetStoredPlanForMessageArgs): Promise<GetStoredPlanForMessageResult> =>
+    ipcRenderer.invoke('get-stored-plan-for-message', args),
+  markStoredPlansSuperseded: (
+    args: MarkStoredPlansSupersededArgs,
+  ): Promise<MarkStoredPlansSupersededResult> =>
+    ipcRenderer.invoke('mark-stored-plans-superseded', args),
   clearChatThread: (): Promise<ClearChatThreadResult> => ipcRenderer.invoke('clear-chat-thread'),
   getProjectContextPins: (args: { projectId: string }): Promise<GetProjectContextPinsResult> =>
     ipcRenderer.invoke('get-project-context-pins', args),

@@ -1,6 +1,6 @@
 # 106 — Unified agent tool execution context
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A.
 

@@ -1,0 +1,221 @@
+import type { AgentModelToolCall } from '../shared/agent-model-message'
+import type {
+  AgentChatEventPayload,
+  AgentChatToolName,
+  AgentEditProposalPayload,
+} from '../shared/agent-chat-contract'
+import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
+import { mergeAgentEditProposals } from '../shared/agent-edit-proposal-merge'
+import type { AgentProfile } from '../shared/agent-profile'
+import { isToolAllowedForProfile } from '../shared/agent-profile'
+import type { GrokProjectManifest } from './manifest'
+import { validateAgentEditProposal } from './agent-edit-proposals'
+import { executeRunCommandTool, parseRunCommandToolArgs } from './agent-run-command-tool'
+import {
+  resolveSearchReplaceToWriteBatch,
+  SearchReplaceToolArgsSchema,
+} from './agent-search-replace-tool'
+import {
+  AGENT_TOOL_TOTAL_RESULT_CHARS,
+  executeWorkspaceTool,
+  type AgentWorkspaceToolResult,
+} from './agent-workspace-tools'
+import { runSubagentSession } from './agent-subagent-runner'
+import { SpawnSubagentArgsSchema } from '../shared/agent-subagent-contract'
+
+export type AgentToolCallOutcome = {
+  ok: boolean
+  toolContent: string
+  doneTitle: string
+  detail?: string
+  editProposalCreated?: boolean
+  turnProposalAccum?: AgentEditProposalPayload | null
+  totalToolCharsAdded: number
+}
+
+export type AgentToolExecutorTurnState = {
+  totalToolChars: number
+  editProposalCreated: boolean
+  turnProposalAccum: AgentEditProposalPayload | null
+  agentProfile: AgentProfile
+  manifest: GrokProjectManifest
+}
+
+function isAllowedToolName(name: string): name is AgentChatToolName {
+  return (
+    name === 'workspace_index' ||
+    name === 'list_directory' ||
+    name === 'read_file' ||
+    name === 'search_workspace' ||
+    name === 'search_replace' ||
+    name === 'run_command' ||
+    name === 'propose_file_edits' ||
+    name === 'spawn_subagent'
+  )
+}
+
+function parseToolArgs(raw: string): unknown {
+  if (!raw.trim()) return {}
+  try {
+    return JSON.parse(raw) as unknown
+  } catch {
+    return { __invalidJson: raw }
+  }
+}
+
+export async function executeAgentToolCall(
+  ctx: AgentToolExecutionContext,
+  call: AgentModelToolCall,
+  state: AgentToolExecutorTurnState,
+  options: {
+    emit: (payload: AgentChatEventPayload) => void
+    approvalRequestId: string
+    waitForCommandApproval?: (requestId: string, streamId: string, signal: AbortSignal) => Promise<boolean>
+  },
+): Promise<AgentToolCallOutcome> {
+  const name = call.function.name
+  let toolContent: string
+  let doneTitle: string
+  let detail: string | undefined
+  let ok = false
+  let totalToolCharsAdded = 0
+  let editProposalCreated = state.editProposalCreated
+  let turnProposalAccum = state.turnProposalAccum
+
+  if (!isAllowedToolName(name)) {
+    toolContent = JSON.stringify({ ok: false, error: `Unknown tool: ${name}` })
+    doneTitle = 'Tool failed'
+  } else if (name === 'spawn_subagent' && ctx.sessionDepth === 'child') {
+    toolContent = JSON.stringify({ ok: false, error: 'spawn_subagent is not available inside a child session.' })
+    doneTitle = 'Subagent not allowed'
+    detail = 'Nested subagents are disabled in v1.'
+  } else if (name === 'spawn_subagent') {
+    const parsedArgs = SpawnSubagentArgsSchema.safeParse(parseToolArgs(call.function.arguments))
+    if (!parsedArgs.success) {
+      toolContent = JSON.stringify({ ok: false, error: parsedArgs.error.message })
+      doneTitle = 'Subagent request failed'
+    } else {
+      const sub = await runSubagentSession({
+        projectId: ctx.projectId,
+        parentStreamId: ctx.streamId,
+        manifest: state.manifest,
+        activeContext: ctx.activeContext,
+        args: parsedArgs.data,
+        abortSignal: ctx.abortSignal,
+        emit: options.emit,
+        waitForCommandApproval:
+          options.waitForCommandApproval ?? (async () => false),
+      })
+      ok = sub.ok
+      doneTitle = sub.displayTitle
+      detail = sub.displayDetail
+      toolContent = sub.toolContent
+      totalToolCharsAdded = Math.min(toolContent.length, AGENT_TOOL_TOTAL_RESULT_CHARS)
+    }
+  } else if (!isToolAllowedForProfile(name, state.agentProfile)) {
+    toolContent = JSON.stringify({
+      ok: false,
+      error: `Tool "${name}" is not available in the ${state.agentProfile.id} profile.`,
+    })
+    doneTitle = 'Tool not available'
+    detail = `${state.agentProfile.displayName} profile`
+  } else if (state.totalToolChars >= AGENT_TOOL_TOTAL_RESULT_CHARS) {
+    toolContent = JSON.stringify({ ok: false, error: 'Total tool result budget reached.' })
+    doneTitle = 'Tool budget reached'
+  } else if (name === 'search_replace' || name === 'propose_file_edits') {
+    const rawToolArgs = parseToolArgs(call.function.arguments)
+    const searchReplaceParsed =
+      name === 'search_replace' ? SearchReplaceToolArgsSchema.safeParse(rawToolArgs) : null
+    if (name === 'search_replace' && searchReplaceParsed && !searchReplaceParsed.success) {
+      doneTitle = 'Search replace failed'
+      detail = searchReplaceParsed.error.message
+      toolContent = JSON.stringify({ ok: false, error: searchReplaceParsed.error.message })
+    } else {
+      const writeBatch =
+        name === 'search_replace' && searchReplaceParsed?.success
+          ? resolveSearchReplaceToWriteBatch(searchReplaceParsed.data, ctx)
+          : null
+      if (name === 'search_replace' && writeBatch && !writeBatch.ok) {
+        doneTitle = 'Search replace failed'
+        detail = writeBatch.error
+        toolContent = JSON.stringify({ ok: false, error: writeBatch.error })
+      } else {
+        if (name === 'search_replace' && writeBatch && writeBatch.ok) {
+          ctx.recordPathRead(writeBatch.path, writeBatch.contentHash)
+        }
+        const proposalResult = validateAgentEditProposal(
+          name === 'search_replace' && writeBatch && 'batch' in writeBatch ? writeBatch.batch : rawToolArgs,
+          ctx,
+        )
+        if (!proposalResult.ok) {
+          doneTitle = name === 'search_replace' ? 'Search replace failed' : 'Edit proposal failed'
+          detail = proposalResult.error
+          toolContent = JSON.stringify({
+            ok: false,
+            error: proposalResult.error,
+            rejected: proposalResult.proposal?.rejected ?? [],
+          })
+        } else {
+          ok = true
+          editProposalCreated = true
+          turnProposalAccum = mergeAgentEditProposals(turnProposalAccum, proposalResult.proposal)
+          options.emit({ streamId: ctx.streamId, phase: 'edit_proposal', proposal: turnProposalAccum })
+          const count = turnProposalAccum.batch.operations.length
+          const rejected = turnProposalAccum.rejected.length
+          doneTitle =
+            name === 'search_replace' ? 'Prepared search_replace proposal' : 'Prepared edit proposal'
+          detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${rejected} rejected` : ''}`
+          toolContent = JSON.stringify({
+            ok: true,
+            proposalCreated: true,
+            operations: count,
+            rejected: turnProposalAccum.rejected,
+            message:
+              'The proposal is now available in GrokForge for user diff review. Do not repeat the full JSON in the final answer.',
+          })
+        }
+      }
+    }
+  } else if (name === 'run_command') {
+    const parsedArgs = parseRunCommandToolArgs(parseToolArgs(call.function.arguments))
+    if (!parsedArgs.success) {
+      toolContent = JSON.stringify({ ok: false, error: parsedArgs.error.message })
+      doneTitle = 'Command request failed'
+    } else {
+      const cmdResult = await executeRunCommandTool(ctx, parsedArgs.data, {
+        requestId: options.approvalRequestId,
+        manifest: state.manifest,
+      })
+      ok = cmdResult.ok
+      doneTitle = cmdResult.displayTitle
+      detail = cmdResult.displayDetail
+      toolContent = cmdResult.content
+    }
+  } else {
+    const toolArgs = parseToolArgs(call.function.arguments)
+    const result: AgentWorkspaceToolResult = executeWorkspaceTool(ctx, name, toolArgs)
+    ok = result.ok
+    doneTitle = result.displayTitle
+    detail = result.displayDetail
+    const remaining = Math.max(0, AGENT_TOOL_TOTAL_RESULT_CHARS - state.totalToolChars)
+    toolContent = result.content.length > remaining
+      ? `${result.content.slice(0, remaining)}\n[...total tool result budget reached...]`
+      : result.content
+    totalToolCharsAdded = toolContent.length
+  }
+
+  if (totalToolCharsAdded === 0 && toolContent) {
+    const remaining = Math.max(0, AGENT_TOOL_TOTAL_RESULT_CHARS - state.totalToolChars)
+    totalToolCharsAdded = Math.min(toolContent.length, remaining)
+  }
+
+  return {
+    ok,
+    toolContent,
+    doneTitle,
+    detail,
+    editProposalCreated,
+    turnProposalAccum,
+    totalToolCharsAdded,
+  }
+}

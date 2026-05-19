@@ -1,6 +1,6 @@
 # 113 — Voice realtime harness profile alignment
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (voice instructions in main); optional copy in `VoiceControls` / handoff.
 
@@ -23,7 +23,7 @@ Stretch (explicit non-goal for v1 of this story): voice driving `agent-chat-star
 
 ### 2. Handoff payload
 
-- **`buildVoiceAgentHandoffUserText`** includes: user intent, voice model/profile id, “text agent will use tools”.
+- **`buildVoiceHandoffUserText`** includes: user intent, voice model/profile id, “text agent will use tools”.
 - Thread summary hydration (**077**) capped; document limits.
 
 ### 3. Documentation
@@ -37,9 +37,9 @@ Stretch (explicit non-goal for v1 of this story): voice driving `agent-chat-star
 
 ## Acceptance criteria
 
-- [ ] Voice session update uses profile-derived instruction block.
-- [ ] Handoff text consistent with **091** rules.
-- [ ] `npm run typecheck` passes.
+- [x] Voice session update uses profile-derived instruction block.
+- [x] Handoff text consistent with **091** rules.
+- [x] `npm run typecheck` passes.
 
 ## Related stories
 
@@ -47,4 +47,4 @@ Stretch (explicit non-goal for v1 of this story): voice driving `agent-chat-star
 
 ## Completion bookkeeping
 
-When implemented: mark **113** done, update [`README.md`](../README.md) post-MVP table, run **`npm run stories:html`**.
+Marked **113** done; synced [`README.md`](../README.md) post-MVP table; ran **`npm run stories:html`**.

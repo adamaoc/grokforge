@@ -1,6 +1,6 @@
 # 109 — RPI plan artifacts on disk (structured handoff)
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (optional renderer “Open plan folder” link).
 
@@ -55,9 +55,9 @@ Do **not** write `.grokproject.json` into user workspace unless user opts in (fu
 
 ## Acceptance criteria
 
-- [ ] Valid plans persisted under app data with stable id.
-- [ ] Execute turn handoff uses plan id + summary, not full JSON dump in synthetic user line.
-- [ ] `npm run typecheck` and `npm run test` pass.
+- [x] Valid plans persisted under app data with stable id.
+- [x] Execute turn handoff uses plan id + summary, not full JSON dump in synthetic user line.
+- [x] `npm run typecheck` and `npm run test` pass.
 
 ## Related stories
 

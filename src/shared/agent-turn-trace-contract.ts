@@ -32,6 +32,25 @@ const RetrievalTraceSchema = z.object({
   contextBodyChars: z.number(),
 })
 
+const ProviderRoundTraceSchema = z.object({
+  snapshotId: z.string().uuid(),
+  roundIndex: z.number().int().nonnegative(),
+  roundKind: z.enum(['tool_sample', 'final_stream']),
+  modelId: z.string().min(1),
+  modelIntent: z.enum(['chat_default', 'planning', 'execution']).optional(),
+  harnessProfileKey: z.enum(['grok_code_fast', 'grok_4_3', 'generic']).optional(),
+  agentProfileId: z.enum(['default', 'planner', 'executor', 'explorer']).optional(),
+  toolNames: z.array(z.string()),
+  messageCounts: z.object({
+    system: z.number().int().nonnegative(),
+    user: z.number().int().nonnegative(),
+    assistant: z.number().int().nonnegative(),
+    tool: z.number().int().nonnegative(),
+  }),
+  totalChars: z.number().int().nonnegative(),
+  outcome: z.enum(['completed', 'cancelled']).optional(),
+})
+
 const ToolStepTraceSchema = z.object({
   iteration: z.number().int().nonnegative(),
   toolCallId: z.string(),
@@ -41,6 +60,9 @@ const ToolStepTraceSchema = z.object({
   truncatedInLoop: z.boolean(),
   displayTitle: z.string().optional(),
   errorSnippet: z.string().max(2000).optional(),
+  offloaded: z.boolean().optional(),
+  originalResultChars: z.number().int().nonnegative().optional(),
+  offloadRelPath: z.string().max(512).optional(),
 })
 
 export const AgentTurnTraceV1Schema = z.object({
@@ -49,6 +71,10 @@ export const AgentTurnTraceV1Schema = z.object({
   projectId: z.string().min(1),
   streamId: z.string().min(1),
   model: z.string().min(1),
+  modelIntent: z.enum(['chat_default', 'planning', 'execution']).optional(),
+  canonicalModelId: z.string().min(1).optional(),
+  harnessProfileKey: z.enum(['grok_code_fast', 'grok_4_3', 'generic']).optional(),
+  agentProfileId: z.enum(['default', 'planner', 'executor', 'explorer']).optional(),
   chatMode: z.enum(['fast', 'plan']),
   userText: z.string(),
   startedAt: z.string(),
@@ -69,6 +95,7 @@ export const AgentTurnTraceV1Schema = z.object({
   totalToolCharsAccumulated: z.number().int().nonnegative(),
   assistantStreamChars: z.number().int().nonnegative(),
   maxToolIterationsHit: z.boolean().optional(),
+  providerRounds: z.array(ProviderRoundTraceSchema).max(32).optional(),
 })
 
 export type AgentTurnTraceV1 = z.infer<typeof AgentTurnTraceV1Schema>

@@ -6,9 +6,11 @@ import { buildChatSystemPrompt, recordAgentRetrievalDebug, type AgentRetrievalDe
 import {
   createHttpAgentChatModelTransport,
   type AgentChatModelTransport,
-  type AgentModelChatMessage,
   type AgentModelToolCall,
 } from './agent-chat-model-transport'
+import type { AgentModelChatMessage } from '../shared/agent-model-message'
+import { providerRequestFromSnapshot } from '../shared/agent-turn-snapshot'
+import { buildTurnSnapshot } from './agent-turn-snapshot-builder'
 import { getXaiApiKey } from './grok-stream'
 import { hasConfiguredXaiApiKey } from './xai-key-store'
 import { AGENT_TOOL_FENCE_INFO } from '../shared/agent-tool-contract'
@@ -17,33 +19,37 @@ import { GF_PLAN_FENCE } from '../shared/gf-plan-contract'
 import { shouldIgnoreFsEntry } from './ignore-globs'
 import { isPathWithinWorkspaceRoots } from './workspace-path-guard'
 import { validateAgentEditProposal } from './agent-edit-proposals'
+import { buildAgentToolExecutionContext } from './agent-tool-execution-context-builder'
+import { executeAgentToolCall } from './agent-tool-executor'
+import { pruneStaleAgentOffloads } from './agent-offload-store'
+import { buildApprovedPlanSystemInjection } from '../shared/agent-plan-artifact'
+import { loadPlanArtifact, planJsonPath } from './agent-plan-store'
 import {
-  resolveSearchReplaceToWriteBatch,
-  SearchReplaceToolArgsSchema,
-} from './agent-search-replace-tool'
-import {
-  clearAgentTurnReads,
-  getAgentTurnReadHashes,
-  getAgentTurnReads,
-  recordAgentTurnRead,
-} from './agent-turn-read-registry'
-import { runCommandInRootForAgent } from './run-command'
-import { evaluateAgentCommandRisk } from './run-command-policy'
+  beginTurnReceipt,
+  clearTurnReceiptState,
+  consumeTurnRecoveryHint,
+  finalizeTurnReceipt,
+  finalizeTurnReceiptIfPending,
+  flushActiveAgentTurnReceiptsAsInterrupted,
+  trackTurnReceiptActivity,
+} from './agent-turn-receipt-lifecycle'
+import { applyToolResultOffload } from './agent-tool-result-offload'
+import { clearAgentTurnReads, getAgentTurnReadHashes, getAgentTurnReads } from './agent-turn-read-registry'
 import {
   AGENT_TOOL_MAX_ITERATIONS,
-  AGENT_TOOL_TOTAL_RESULT_CHARS,
   buildActiveContextBlock,
+  buildAgentToolDefinitions,
+  filterToolDefinitionsForProfile,
   buildLexicalRetrievalContext,
   isLikelySensitivePath,
-  resolveReadFileTargetPath,
-  parseReadFileToolContentHash,
-  runAgentWorkspaceTool,
 } from './agent-workspace-tools'
 import { sanitizeAttachmentsForTurn } from './chat-attachment-staging'
 import {
   applyRetrievalToScratch,
   createTurnTraceScratch,
   finalizeTurnTrace,
+  markLastProviderRoundCancelled,
+  pushProviderRound,
   pushToolStep,
   setRetrievalContextBodyChars,
   setRetrievalDetailLines,
@@ -63,9 +69,8 @@ import type {
   AgentChatStartResult,
   AgentChatToolName,
   AgentEditProposalPayload,
-  ValidateAgentEditBatchResult,
 } from '../shared/agent-chat-contract'
-import { mergeAgentEditProposals } from '../shared/agent-edit-proposal-merge'
+import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
 import { buildFinalAnswerContract } from '../shared/agent-final-answer-contract'
 import type {
   ExportSanitizedAgentTurnTraceResult,
@@ -90,16 +95,36 @@ import {
 import { AGENT_CONTEXT_BUDGETS } from '../shared/agent-context-budget-contract'
 import { formatThreadMemoryBlock } from '../shared/agent-thread-memory'
 import { appendTraceToThreadMemory, loadThreadMemory } from './agent-thread-memory-store'
+import { resolveAgentTurnRouting } from '../shared/agent-turn-routing'
+import type { AgentProfileId } from '../shared/agent-profile'
+import { getAgentProfile, type AgentProfile } from '../shared/agent-profile'
+import type { HarnessProfileKey } from '../shared/agent-harness-profile-contract'
 import {
-  RUN_COMMAND_DEFAULT_TIMEOUT_MS,
-  RUN_COMMAND_MAX_TIMEOUT_MS,
-  RUN_COMMAND_MIN_TIMEOUT_MS,
-} from '../shared/run-command-contract'
-
+  AGENT_TOOL_LOOP_SHARED,
+  buildAgentToolLoopProfileSections,
+  getHarnessProfile,
+  type AgentHarnessProfile,
+  type HarnessPromptTurnContext,
+} from '../shared/agent-harness-profile'
+import { loadWorkspaceIndex, type StoredWorkspaceIndex } from './agent-index-store'
+import {
+  isGreenfieldWorkspace,
+  type GreenfieldIndexSnapshot,
+} from '../shared/workspace-greenfield'
 const AGENT_TURN_TIMEOUT_MS = 300_000
 const MAX_MODEL_LEN = 128
 const ABORT_USER = 'gf:agent-user-cancel'
 const ABORT_TIMEOUT = 'gf:agent-timeout'
+const ABORT_QUIT = 'gf:agent-quit'
+
+export function flushActiveAgentTurnReceiptsAsInterruptedForApp(): void {
+  flushActiveAgentTurnReceiptsAsInterrupted({
+    emit,
+    abortTurn: (streamId) => {
+      activeTurns.get(streamId)?.abort(ABORT_QUIT)
+    },
+  })
+}
 
 const ActiveContextSchema = z.object({
   activeRootId: z.string().nullable().optional(),
@@ -143,22 +168,13 @@ const ThreadMessageSchema = z.object({
 const StartPayloadSchema = z.object({
   streamId: z.string().min(1).max(AGENT_CHAT_MAX_STREAM_ID_LEN),
   model: z.string().min(1).max(MAX_MODEL_LEN),
+  modelIntent: z.enum(['chat_default', 'planning', 'execution']).optional(),
+  isApprovedPlanAutoRun: z.boolean().optional(),
+  approvedPlanId: z.string().uuid().optional(),
+  approvedPlanMessageId: z.string().min(1).max(256).optional(),
   userText: z.string().min(1).max(AGENT_CHAT_MAX_USER_TEXT_CHARS),
   threadSnapshot: z.array(ThreadMessageSchema).max(AGENT_CHAT_MAX_THREAD_MESSAGES),
   activeContext: ActiveContextSchema,
-})
-
-const ValidateAgentEditBatchSchema = z.object({
-  streamId: z.string().min(1).max(AGENT_CHAT_MAX_STREAM_ID_LEN),
-  batch: AgentToolBatchPayloadSchema,
-  activeContext: ActiveContextSchema,
-})
-
-const RunCommandToolArgsSchema = z.object({
-  rootId: z.string().min(1).max(256),
-  command: z.string().min(1).max(8000),
-  timeoutMs: z.number().int().min(RUN_COMMAND_MIN_TIMEOUT_MS).max(RUN_COMMAND_MAX_TIMEOUT_MS).optional(),
-  purpose: z.string().min(1).max(500),
 })
 
 export type CurrentProjectSnapshot = {
@@ -223,6 +239,86 @@ function getE2eMockReply(): string | null {
   return raw && raw.trim() ? raw : null
 }
 
+function getE2eMockEditProposalJson(): string | null {
+  const raw = process.env['GROKFORGE_E2E_EDIT_PROPOSAL_JSON']
+  return raw && raw.trim() ? raw : null
+}
+
+function emitE2eMockEditProposalIfConfigured(
+  streamId: string,
+  projectId: string,
+  manifest: GrokProjectManifest,
+  activeContext: AgentChatStartPayload['activeContext'],
+): void {
+  const raw = getE2eMockEditProposalJson()
+  if (!raw) return
+  let batch: z.infer<typeof AgentToolBatchPayloadSchema>
+  try {
+    batch = AgentToolBatchPayloadSchema.parse(JSON.parse(raw))
+  } catch (err) {
+    console.warn('[GrokForge agent-runner] E2E mock edit proposal JSON invalid', err)
+    return
+  }
+  const sanitized = sanitizeActiveContext(manifest, projectId, activeContext)
+  const batchCtx: AgentToolExecutionContext = {
+    projectId,
+    streamId,
+    snapshotId: '00000000-0000-4000-8000-000000000000',
+    toolCallId: 'e2e-mock-edit',
+    activityId: 'e2e-mock-edit',
+    agentProfileId: 'default',
+    harnessProfileKey: 'grok_code_fast',
+    sessionDepth: 'parent',
+    abortSignal: new AbortController().signal,
+    manifest,
+    roots: manifest.roots,
+    activeContext: sanitized,
+    readPathsThisTurn: getAgentTurnReads(streamId),
+    readHashesThisTurn: getAgentTurnReadHashes(streamId),
+    emitProgress: () => {},
+    recordPathRead: () => {},
+    askCommandApproval: async () => false,
+  }
+  const result = validateAgentEditProposal(batch, batchCtx)
+  if (result.ok) {
+    clearAgentTurnReads(streamId)
+    emit({ streamId, phase: 'edit_proposal', proposal: result.proposal })
+  } else {
+    console.warn('[GrokForge agent-runner] E2E mock edit proposal rejected', result.error)
+  }
+}
+
+function isDevMode(): boolean {
+  return process.env.NODE_ENV === 'development'
+}
+
+function logTurnRoutingIfDev(
+  payload: AgentChatStartPayload,
+  routing: ReturnType<typeof resolveAgentTurnRouting>,
+  harnessProfile: Readonly<AgentHarnessProfile>,
+  agentProfile: Readonly<AgentProfile>,
+  allowedToolNames: readonly string[],
+): void {
+  if (!isDevMode()) return
+  const rendererModel = payload.model.trim()
+  const meta = {
+    ...routing,
+    harnessProfileDisplayName: harnessProfile.displayName,
+    agentProfileDisplayName: agentProfile.displayName,
+    reasoningTracePolicy: harnessProfile.reasoningTracePolicy,
+    allowedTools: allowedToolNames,
+  }
+  if (rendererModel !== routing.modelId) {
+    console.debug('[GrokForge agent-runner] renderer model hint differs from canonical API model', {
+      rendererModel,
+      canonicalModelId: routing.modelId,
+      ...meta,
+    })
+  } else {
+    console.debug('[GrokForge agent-runner] turn routing (canonical API model)', meta)
+  }
+}
+
 export function setAgentChatTargetWindow(win: BrowserWindow | null): void {
   targetWindow = win
 }
@@ -239,37 +335,47 @@ function emitActivity(
   streamId: string,
   activity: Omit<AgentChatEventPayload & { phase: 'activity' }, 'streamId' | 'phase'>['activity'],
 ): void {
+  trackTurnReceiptActivity(streamId, activity.status)
   emit({ streamId, phase: 'activity', activity })
 }
 
-function parseToolArgs(raw: string): unknown {
-  if (!raw.trim()) return {}
-  try {
-    return JSON.parse(raw) as unknown
-  } catch {
-    return { __invalidJson: raw }
-  }
-}
-
-async function sampleChatCompletion(
-  model: string,
-  messages: AgentModelChatMessage[],
+async function providerSampleFromSnapshot(
+  snapshot: ReturnType<typeof buildTurnSnapshot>,
   signal: AbortSignal,
 ): Promise<{ content: string; toolCalls: AgentModelToolCall[] }> {
-  return activeAgentChatModelTransport.sampleChatCompletion(model, messages, signal)
+  return activeAgentChatModelTransport.sampleChatCompletion(providerRequestFromSnapshot(snapshot), signal)
 }
 
-async function streamFinalAnswer(
+async function providerStreamFromSnapshot(
   streamId: string,
-  model: string,
-  messages: AgentModelChatMessage[],
+  snapshot: ReturnType<typeof buildTurnSnapshot>,
   signal: AbortSignal,
   onFinalChunk?: (delta: string) => void,
 ): Promise<void> {
-  await activeAgentChatModelTransport.streamFinalAnswer(model, messages, signal, (delta) => {
-    onFinalChunk?.(delta)
-    emit({ streamId, phase: 'final_chunk', delta })
-  })
+  await activeAgentChatModelTransport.streamFinalAnswer(
+    providerRequestFromSnapshot(snapshot),
+    signal,
+    (delta) => {
+      onFinalChunk?.(delta)
+      emit({ streamId, phase: 'final_chunk', delta })
+    },
+  )
+}
+
+function toGreenfieldIndexSnapshot(index: StoredWorkspaceIndex): GreenfieldIndexSnapshot {
+  return {
+    intelligence: {
+      stats: { fileCountScanned: index.intelligence.stats.fileCountScanned },
+      files: index.intelligence.files.map((f) => ({
+        relativePath: f.relativePath,
+        basename: f.basename,
+      })),
+      packages: index.intelligence.packages.map((p) => ({
+        path: p.path,
+        name: p.name,
+      })),
+    },
+  }
 }
 
 function buildInitialMessages(
@@ -277,8 +383,14 @@ function buildInitialMessages(
   projectId: string,
   payload: AgentChatStartPayload,
   retrievedContext: string,
+  harnessProfileKey: HarnessProfileKey,
+  harnessCtx: HarnessPromptTurnContext,
 ): AgentModelChatMessage[] {
-  const { systemPrompt } = buildChatSystemPrompt(manifest)
+  const profile = getHarnessProfile(harnessProfileKey)
+  const { systemPrompt } = buildChatSystemPrompt(manifest, {
+    harnessProfileKey,
+    harnessPromptTurnContext: harnessCtx,
+  })
   const activeContext = buildActiveContextBlock(payload.activeContext, manifest, projectId)
   const threadMemory = formatThreadMemoryBlock(loadThreadMemory(projectId))
   const memoryBlock =
@@ -310,10 +422,20 @@ function buildInitialMessages(
           '## Plan mode (structured plan output)',
           `The user enabled **Plan mode** for this turn. After any necessary read/search tool calls, your final answer must include **exactly one** fenced JSON block with the markdown language tag \`${GF_PLAN_FENCE}\` (not \`${AGENT_TOOL_FENCE_INFO}\`).`,
           'The fence body must be one JSON object with: `schemaVersion` 1, `summary` (string), `filesLikelyTouched` (string array), `risksUnknowns` (string array), `steps` (array of { `id`, `title` } with at least one step), `verification` (string).',
-          'You may put readable prose before or after the fence. The JSON must parse as-is. Do not put file-write payloads inside this JSON; use `propose_file_edits` or the grokforge-agent-tools fence for edits as usual.',
-          'For an empty or nearly empty workspace, `list_directory` once (plus retrieval if needed) is enough — then stop calling tools and emit the `gf-plan` fence in your final answer. Do not loop on more discovery tools.',
+          'You may put readable prose before or after the fence. The JSON must parse as-is. Do not put file-write payloads inside this JSON; use `propose_file_edits` for edits after the user approves the plan.',
         ].join('\n')
       : ''
+  const recoveryBlock = consumeTurnRecoveryHint(projectId) ?? ''
+  let approvedPlanBlock = ''
+  if (payload.isApprovedPlanAutoRun && payload.approvedPlanId) {
+    const artifact = loadPlanArtifact(projectId, payload.approvedPlanId)
+    if (artifact) {
+      approvedPlanBlock = buildApprovedPlanSystemInjection(
+        artifact,
+        planJsonPath(projectId, payload.approvedPlanId),
+      )
+    }
+  }
   return [
     {
       role: 'system',
@@ -321,15 +443,11 @@ function buildInitialMessages(
         systemPrompt,
         '',
         '## Agent tool loop',
-        'You may use the provided read/search tools to inspect this workspace before answering. Use tools when exact file contents or paths matter. You may request one-shot commands with run_command for tests, typecheck, git inspection, or diagnostics, but GrokForge will always ask the user before running model-requested commands. Do not claim a command ran unless the tool result says it ran. During tool planning, prefer tool calls over drafting the full answer; GrokForge will ask for the final response after tool use finishes.',
-        'When the user names a feature or area without a path, use `search_workspace` and/or `list_directory` first—do not ask for an absolute path unless search is ambiguous.',
-        'Prefer tool use over clarifying questions. On edit/fix/implement intents, run discovery tools early before proposing file changes.',
-        'For localized edits on existing files, prefer `search_replace` with an exact old_string that appears once, or `propose_file_edits` with minimal full-file content. Both create a GrokForge diff review without writing disk until the user applies. Use full `write_file` only for new files or intentional whole-file rewrites. Use the fenced grokforge-agent-tools block only as a compatibility fallback when tools are unavailable.',
-        'For any **existing** file you modify, you MUST call `read_file` on that path earlier in this same turn before `propose_file_edits` or a write fence. New files do not require a prior read.',
-        'Copy `contentHash` from `read_file` into `expectedContentHash` on `search_replace`, `propose_file_edits`, and fenced `write_file` ops for existing files. Re-read if the file may have changed on disk.',
-        'Each `write_file` must contain complete file text with **real line breaks** (never one semicolon-separated line for the whole file). Base proposals on `read_file` `rawContent` (not the line-numbered `content` field): preserve indentation and line breaks for unchanged sections. Use `startLine` / `maxLines` when reading large files before editing.',
-        'When creating **multiple new files** in one task (e.g. bootstrap), prefer **one** `propose_file_edits` call with several `write_file` operations (up to 32), not separate calls per file.',
+        ...AGENT_TOOL_LOOP_SHARED,
+        ...buildAgentToolLoopProfileSections(profile, harnessCtx),
         planModeBlock,
+        approvedPlanBlock,
+        recoveryBlock,
         dynamicContext,
       ]
         .filter(Boolean)
@@ -344,10 +462,21 @@ function finalAnswerContract(
   userText: string,
   editProposalCreated: boolean,
   chatMode: 'fast' | 'plan',
+  harnessProfileKey: HarnessProfileKey,
+  agentProfileId: AgentProfileId,
+  harnessCtx: HarnessPromptTurnContext,
 ): AgentModelChatMessage {
   return {
     role: 'system',
-    content: buildFinalAnswerContract({ userText, editProposalCreated, chatMode }),
+    content: buildFinalAnswerContract({
+      userText,
+      editProposalCreated,
+      chatMode,
+      profileKey: harnessProfileKey,
+      agentProfileId,
+      executeFromApprovedPlan: harnessCtx.executeFromApprovedPlan,
+      greenfieldWorkspace: harnessCtx.greenfieldWorkspace,
+    }),
   }
 }
 
@@ -359,7 +488,8 @@ function isAllowedToolName(name: string): name is AgentChatToolName {
     name === 'search_workspace' ||
     name === 'search_replace' ||
     name === 'run_command' ||
-    name === 'propose_file_edits'
+    name === 'propose_file_edits' ||
+    name === 'spawn_subagent'
   )
 }
 
@@ -424,7 +554,22 @@ async function runAgentTurn(
     throw new Error('No project loaded')
   }
 
-  emit({ streamId: payload.streamId, phase: 'turn_started' })
+  const routing = resolveAgentTurnRouting(manifest, payload)
+  const harnessProfile = getHarnessProfile(routing.harnessProfileKey)
+  const agentProfile = getAgentProfile(routing.agentProfileId)
+  const turnToolDefinitions = filterToolDefinitionsForProfile(
+    buildAgentToolDefinitions(harnessProfile.toolDescriptionOverrides),
+    agentProfile,
+  )
+  logTurnRoutingIfDev(
+    payload,
+    routing,
+    harnessProfile,
+    agentProfile,
+    turnToolDefinitions.map((d) => d.function.name),
+  )
+  emit({ streamId: payload.streamId, phase: 'turn_started', routing })
+  beginTurnReceipt(projectId, payload.streamId, routing)
   clearAgentTurnReads(payload.streamId)
   const safePayload: AgentChatStartPayload = {
     ...payload,
@@ -466,7 +611,14 @@ async function runAgentTurn(
       emit({ streamId: payload.streamId, phase: 'final_chunk', delta: chunk })
       await new Promise((resolve) => setTimeout(resolve, 5))
     }
+    emitE2eMockEditProposalIfConfigured(
+      payload.streamId,
+      projectId,
+      manifest,
+      safePayload.activeContext,
+    )
     emit({ streamId: payload.streamId, phase: 'activity_clear_running', reason: 'done' })
+    finalizeTurnReceipt(payload.streamId, 'completed')
     emit({ streamId: payload.streamId, phase: 'done' })
     return
   }
@@ -479,7 +631,7 @@ async function runAgentTurn(
     status: 'running',
   })
   const retrieval = buildLexicalRetrievalContext(
-    { projectId, manifest, activeContext: safePayload.activeContext, signal: ac.signal },
+    { projectId, manifest, activeContext: safePayload.activeContext, abortSignal: ac.signal },
     safePayload.userText,
   )
   const retrievalSnap: AgentRetrievalDebugSnapshot = {
@@ -515,7 +667,26 @@ async function runAgentTurn(
     status: 'done',
   })
 
-  const messages = buildInitialMessages(manifest, projectId, safePayload, retrieval.context)
+  const storedIndex = loadWorkspaceIndex(projectId)
+  const greenfield = isGreenfieldWorkspace({
+    index: storedIndex ? toGreenfieldIndexSnapshot(storedIndex) : null,
+    retrievalMatchCount: retrieval.retrieved.length,
+  })
+  const harnessCtx: HarnessPromptTurnContext = {
+    greenfieldWorkspace: safePayload.activeContext.chatMode === 'plan' && greenfield,
+    executeFromApprovedPlan: safePayload.isApprovedPlanAutoRun === true,
+  }
+
+  const messages = buildInitialMessages(
+    manifest,
+    projectId,
+    safePayload,
+    retrieval.context,
+    routing.harnessProfileKey,
+    harnessCtx,
+  )
+  pruneStaleAgentOffloads(projectId)
+
   let totalToolChars = 0
   let editProposalCreated = false
   let turnProposalAccum: AgentEditProposalPayload | null = null
@@ -527,10 +698,29 @@ async function runAgentTurn(
     : undefined
 
   const isPlanMode = safePayload.activeContext.chatMode === 'plan'
-  const maxToolIterations = isPlanMode
-    ? Math.min(AGENT_TOOL_MAX_ITERATIONS, 3)
-    : AGENT_TOOL_MAX_ITERATIONS
+  const maxToolIterations =
+    agentProfile.maxToolRounds !== undefined
+      ? Math.min(AGENT_TOOL_MAX_ITERATIONS, agentProfile.maxToolRounds)
+      : AGENT_TOOL_MAX_ITERATIONS
   let toolRoundCount = 0
+  let providerRoundIndex = 0
+
+  const snapshotForProviderRound = (roundKind: 'tool_sample' | 'final_stream') => {
+    const snapshot = buildTurnSnapshot({
+      roundIndex: providerRoundIndex,
+      roundKind,
+      streamId: payload.streamId,
+      traceId: scratch?.traceId,
+      routing,
+      chatMode: safePayload.activeContext.chatMode,
+      messages,
+      toolDefinitions: turnToolDefinitions,
+      activeContext: safePayload.activeContext,
+    })
+    providerRoundIndex += 1
+    if (scratch) pushProviderRound(scratch, snapshot, 'completed')
+    return snapshot
+  }
 
   const completeTurnWithFinalStream = async (extraUserHint?: string): Promise<void> => {
     if (isPlanMode) {
@@ -548,6 +738,9 @@ async function runAgentTurn(
         safePayload.userText,
         editProposalCreated,
         safePayload.activeContext.chatMode,
+        routing.harnessProfileKey,
+        routing.agentProfileId,
+        harnessCtx,
       ),
     )
     messages.push({
@@ -555,14 +748,17 @@ async function runAgentTurn(
       content:
         'Now provide the final answer to the user from the gathered context. Stream the final answer; do not request more tools.',
     })
-    await streamFinalAnswer(payload.streamId, payload.model, messages, ac.signal, onFinalChunk)
+    const finalSnapshot = snapshotForProviderRound('final_stream')
+    await providerStreamFromSnapshot(payload.streamId, finalSnapshot, ac.signal, onFinalChunk)
     emit({ streamId: payload.streamId, phase: 'activity_clear_running', reason: 'done' })
+    finalizeTurnReceipt(payload.streamId, 'completed')
     emit({ streamId: payload.streamId, phase: 'done' })
   }
 
   for (let i = 0; i < maxToolIterations; i += 1) {
     if (ac.signal.aborted) throw ac.signal.reason
-    const sampled = await sampleChatCompletion(payload.model, messages, ac.signal)
+    const sampleSnapshot = snapshotForProviderRound('tool_sample')
+    const sampled = await providerSampleFromSnapshot(sampleSnapshot, ac.signal)
     if (sampled.toolCalls.length === 0) {
       await completeTurnWithFinalStream()
       return
@@ -579,240 +775,90 @@ async function runAgentTurn(
     for (const call of sampled.toolCalls) {
       const name = call.function.name
       const id = activityId()
+      const toolName = isAllowedToolName(name) ? name : undefined
       emitActivity(payload.streamId, {
         id,
-        tool: isAllowedToolName(name) ? name : undefined,
-        title: isAllowedToolName(name) ? `Using ${name}` : `Unknown tool: ${name}`,
+        tool: toolName,
+        title: toolName ? `Using ${toolName}` : `Unknown tool: ${name}`,
         status: 'running',
       })
 
-      let toolContent: string
-      let doneTitle: string
-      let detail: string | undefined
-      let ok = false
-      if (!isAllowedToolName(name)) {
-        toolContent = JSON.stringify({ ok: false, error: `Unknown tool: ${name}` })
-        doneTitle = 'Tool failed'
-      } else if (totalToolChars >= AGENT_TOOL_TOTAL_RESULT_CHARS) {
-        toolContent = JSON.stringify({ ok: false, error: 'Total tool result budget reached.' })
-        doneTitle = 'Tool budget reached'
-      } else if (name === 'search_replace' || name === 'propose_file_edits') {
-        const rawToolArgs = parseToolArgs(call.function.arguments)
-        const searchReplaceParsed =
-          name === 'search_replace' ? SearchReplaceToolArgsSchema.safeParse(rawToolArgs) : null
-        if (name === 'search_replace' && searchReplaceParsed && !searchReplaceParsed.success) {
-          doneTitle = 'Search replace failed'
-          detail = searchReplaceParsed.error.message
-          toolContent = JSON.stringify({ ok: false, error: searchReplaceParsed.error.message })
-        } else {
-          const writeBatch =
-            name === 'search_replace' && searchReplaceParsed?.success
-              ? (() => {
-                  const built = resolveSearchReplaceToWriteBatch(searchReplaceParsed.data, {
-                    projectId,
-                    manifest,
-                    activeContext: safePayload.activeContext,
-                    signal: ac.signal,
-                  })
-                  if (!built.ok) return built
-                  recordAgentTurnRead(payload.streamId, built.path, built.contentHash)
-                  return built
-                })()
-              : null
-          if (name === 'search_replace' && writeBatch && !writeBatch.ok) {
-            doneTitle = 'Search replace failed'
-            detail = writeBatch.error
-            toolContent = JSON.stringify({ ok: false, error: writeBatch.error })
-          } else {
-            const proposalResult = validateAgentEditProposal(
-              name === 'search_replace' && writeBatch && 'batch' in writeBatch ? writeBatch.batch : rawToolArgs,
-              {
-                projectId,
-                manifest,
-                activeContext: safePayload.activeContext,
-                signal: ac.signal,
-                readPathsThisTurn: getAgentTurnReads(payload.streamId),
-                readHashesThisTurn: getAgentTurnReadHashes(payload.streamId),
-              },
-            )
-            if (!proposalResult.ok) {
-              doneTitle = name === 'search_replace' ? 'Search replace failed' : 'Edit proposal failed'
-              detail = proposalResult.error
-              toolContent = JSON.stringify({
-                ok: false,
-                error: proposalResult.error,
-                rejected: proposalResult.proposal?.rejected ?? [],
-              })
-            } else {
-              ok = true
-              editProposalCreated = true
-              turnProposalAccum = mergeAgentEditProposals(turnProposalAccum, proposalResult.proposal)
-              emit({ streamId: payload.streamId, phase: 'edit_proposal', proposal: turnProposalAccum })
-              const count = turnProposalAccum.batch.operations.length
-              const rejected = turnProposalAccum.rejected.length
-              doneTitle =
-                name === 'search_replace' ? 'Prepared search_replace proposal' : 'Prepared edit proposal'
-              detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${rejected} rejected` : ''}`
-              toolContent = JSON.stringify({
-                ok: true,
-                proposalCreated: true,
-                operations: count,
-                rejected: turnProposalAccum.rejected,
-                message:
-                  'The proposal is now available in GrokForge for user diff review. Do not repeat the full JSON in the final answer.',
-              })
-            }
-          }
-        }
-      } else if (name === 'run_command') {
-        const parsedArgs = RunCommandToolArgsSchema.safeParse(parseToolArgs(call.function.arguments))
-        if (!parsedArgs.success) {
-          toolContent = JSON.stringify({ ok: false, error: parsedArgs.error.message })
-          doneTitle = 'Command request failed'
-        } else {
-          const args = parsedArgs.data
-          const root = manifest.roots.find((r) => r.id === args.rootId)
-          const timeoutMs = args.timeoutMs ?? RUN_COMMAND_DEFAULT_TIMEOUT_MS
-          if (!root) {
-            toolContent = JSON.stringify({ ok: false, error: 'Unknown workspace root.' })
-            doneTitle = 'Command request failed'
-          } else {
-            const risk = evaluateAgentCommandRisk(args.command)
-            if (risk.kind === 'blocked') {
-              toolContent = JSON.stringify({ ok: false, blocked: true, error: risk.reason })
-              doneTitle = 'Command blocked'
-              detail = risk.reason
-            } else {
-              const requestId = activityId()
-              emitActivity(payload.streamId, {
-                id,
-                tool: 'run_command',
-                title: 'Command awaiting approval',
-                detail: args.command,
-                status: 'running',
-              })
-              emit({
-                streamId: payload.streamId,
-                phase: 'command_approval_required',
-                request: {
-                  requestId,
-                  streamId: payload.streamId,
-                  rootId: root.id,
-                  rootLabel: root.label,
-                  rootPath: root.path,
-                  command: args.command,
-                  timeoutMs,
-                  purpose: args.purpose,
-                  risk: risk.kind,
-                  policyReason: risk.reason,
-                },
-              })
-              const approved = await waitForCommandApproval(requestId, payload.streamId, ac.signal)
-              if (!approved) {
-                toolContent = JSON.stringify({
-                  ok: false,
-                  rejected: true,
-                  error: 'User rejected the command. Continue without claiming it ran.',
-                  command: args.command,
-                })
-                doneTitle = 'Command rejected'
-                detail = args.command
-              } else {
-                emitActivity(payload.streamId, {
-                  id,
-                  tool: 'run_command',
-                  title: 'Running approved command',
-                  detail: args.command,
-                  status: 'running',
-                })
-                const result = await runCommandInRootForAgent(manifest, {
-                  rootId: args.rootId,
-                  command: args.command,
-                  timeoutMs,
-                  acknowledgedDestructive: true,
-                })
-                ok = result.ok
-                if (result.ok) {
-                  doneTitle = 'Command finished'
-                  detail = [
-                    `exit ${result.exitCode ?? '?'}`,
-                    result.signal ? `signal ${result.signal}` : '',
-                    result.truncated ? 'output truncated' : '',
-                    result.timedOut ? 'timed out' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')
-                  toolContent = JSON.stringify({
-                    ok: true,
-                    command: args.command,
-                    rootId: args.rootId,
-                    exitCode: result.exitCode,
-                    signal: result.signal,
-                    truncated: result.truncated,
-                    timedOut: Boolean(result.timedOut),
-                    output: result.output,
-                  })
-                } else {
-                  doneTitle = 'Command failed'
-                  detail = result.error
-                  toolContent = JSON.stringify({
-                    ok: false,
-                    command: args.command,
-                    error: result.error,
-                    code: result.code,
-                    output: result.output,
-                  })
-                }
-              }
-            }
-          }
-        }
-      } else {
-        const toolEnv = {
-          projectId,
+      const toolCtx = buildAgentToolExecutionContext({
+        projectId,
+        streamId: payload.streamId,
+        snapshotId: sampleSnapshot.snapshotId,
+        toolCallId: call.id,
+        activityId: id,
+        toolName,
+        routing,
+        activeContext: safePayload.activeContext,
+        manifest,
+        sessionDepth: 'parent',
+        abortSignal: ac.signal,
+        emit,
+        waitForCommandApproval,
+      })
+
+      const outcome = await executeAgentToolCall(
+        toolCtx,
+        call,
+        {
+          totalToolChars,
+          editProposalCreated,
+          turnProposalAccum,
+          agentProfile,
           manifest,
-          activeContext: safePayload.activeContext,
-          signal: ac.signal,
-        }
-        const toolArgs = parseToolArgs(call.function.arguments)
-        const result = runAgentWorkspaceTool(name, toolArgs, toolEnv)
-        ok = result.ok
-        doneTitle = result.displayTitle
-        detail = result.displayDetail
-        const remaining = Math.max(0, AGENT_TOOL_TOTAL_RESULT_CHARS - totalToolChars)
-        toolContent = result.content.length > remaining
-          ? `${result.content.slice(0, remaining)}\n[...total tool result budget reached...]`
-          : result.content
-        totalToolChars += toolContent.length
-        if (name === 'read_file' && ok) {
-          const readTarget = resolveReadFileTargetPath(toolArgs, toolEnv)
-          const readHash = parseReadFileToolContentHash(result.content)
-          if (readTarget && readHash) recordAgentTurnRead(payload.streamId, readTarget, readHash)
-        }
-      }
+        },
+        { emit, approvalRequestId: activityId(), waitForCommandApproval },
+      )
+
+      const { doneTitle, detail, ok } = outcome
+      if (outcome.editProposalCreated !== undefined) editProposalCreated = outcome.editProposalCreated
+      if (outcome.turnProposalAccum !== undefined) turnProposalAccum = outcome.turnProposalAccum
+
+      const offload = applyToolResultOffload({
+        projectId,
+        streamId: payload.streamId,
+        toolCallId: call.id,
+        toolContent: outcome.toolContent,
+      })
+      const providerToolContent = offload.providerContent
+      totalToolChars += offload.providerChars
+
       const truncatedInLoop =
-        toolContent.includes('[...total tool result budget reached...]') ||
-        toolContent.includes('[...truncated...]')
+        providerToolContent.includes('[...total tool result budget reached...]') ||
+        providerToolContent.includes('[...truncated...]')
       if (scratch) {
         pushToolStep(scratch, {
           iteration: i,
           toolCallId: call.id,
           name,
           ok,
-          resultChars: toolContent.length,
+          resultChars: offload.providerChars,
           truncatedInLoop,
           displayTitle: doneTitle,
-          errorSnippet: ok ? undefined : (detail?.slice(0, 500) ?? toolContent.slice(0, 500)),
+          errorSnippet: ok ? undefined : (detail?.slice(0, 500) ?? providerToolContent.slice(0, 500)),
+          ...(offload.offloaded
+            ? {
+                offloaded: true,
+                originalResultChars: offload.originalChars,
+                offloadRelPath: offload.offloadRelPath,
+              }
+            : {}),
         })
       }
       emitActivity(payload.streamId, {
         id,
         tool: isAllowedToolName(name) ? name : undefined,
         title: doneTitle,
-        detail,
+        detail: offload.offloaded
+          ? [detail, `Context offloaded (${offload.originalChars.toLocaleString()} chars → pointer)`]
+              .filter(Boolean)
+              .join(' · ')
+          : detail,
         status: ok ? 'done' : 'error',
       })
-      messages.push({ role: 'tool', tool_call_id: call.id, content: toolContent })
+      messages.push({ role: 'tool', tool_call_id: call.id, content: providerToolContent })
     }
     if (scratch) {
       scratch.editProposalCreated = editProposalCreated
@@ -840,10 +886,12 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
 
   const snap = getCurrentProject()
   let scratch: TurnTraceScratch | null = null
+  let turnRouting: ReturnType<typeof resolveAgentTurnRouting> | null = null
   if (snap.projectId && snap.manifest) {
     try {
+      turnRouting = resolveAgentTurnRouting(snap.manifest, payload)
       const { systemPrompt } = buildChatSystemPrompt(snap.manifest)
-      scratch = createTurnTraceScratch(snap.projectId, payload, systemPrompt.length)
+      scratch = createTurnTraceScratch(snap.projectId, payload, systemPrompt.length, turnRouting)
     } catch {
       scratch = null
     }
@@ -875,6 +923,14 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
     }
 
     if (ac.signal.aborted || e === ABORT_USER || e === ABORT_TIMEOUT) {
+      if (ac.signal.reason === ABORT_QUIT) {
+        return
+      }
+      if (ac.signal.reason === ABORT_USER) {
+        finalizeTurnReceipt(payload.streamId, 'cancelled')
+      } else {
+        finalizeTurnReceipt(payload.streamId, 'error')
+      }
       emit({
         streamId: payload.streamId,
         phase: 'activity_clear_running',
@@ -888,14 +944,25 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
       return
     }
     const msg = traceError ?? (e instanceof Error ? e.message : 'Agent turn failed')
+    finalizeTurnReceipt(payload.streamId, 'error')
     emit({ streamId: payload.streamId, phase: 'activity_clear_running', reason: 'error' })
     emit({ streamId: payload.streamId, phase: 'error', error: msg })
   } finally {
     clearTimeout(timeout)
+    if (traceOutcome === 'completed') {
+      finalizeTurnReceiptIfPending(payload.streamId, 'completed')
+    }
     activeTurns.delete(payload.streamId)
+    clearTurnReceiptState(payload.streamId)
     setImmediate(() => clearAgentTurnReads(payload.streamId))
     if (scratch) {
       try {
+        if (traceOutcome === 'cancelled') {
+          markLastProviderRoundCancelled(scratch)
+        }
+        if (isDevMode() && scratch.lastSnapshotId && traceOutcome !== 'completed') {
+          console.info(`[GrokForge] agent turn ${traceOutcome}; lastSnapshotId=${scratch.lastSnapshotId}`)
+        }
         const finalizedTrace = finalizeTurnTrace(scratch, traceOutcome, { errorMessage: traceError })
         writeAgentTurnTrace(scratch.projectId, finalizedTrace)
         appendTraceToThreadMemory(scratch.projectId, finalizedTrace)
@@ -974,24 +1041,4 @@ export function registerAgentChatIpc(options: { getCurrentProject: () => Current
     return replayRetrievalPreviewFromLatestTrace(snap.projectId, snap.manifest)
   })
 
-  ipcMain.handle('validate-agent-edit-batch', (_, raw: unknown): ValidateAgentEditBatchResult => {
-    const parsed = ValidateAgentEditBatchSchema.safeParse(raw)
-    if (!parsed.success) return { ok: false, error: parsed.error.message }
-    const snap = getCurrentProject()
-    if (!snap.projectId || !snap.manifest) return { ok: false, error: 'No project loaded.' }
-    const activeContext = sanitizeActiveContext(snap.manifest, snap.projectId, parsed.data.activeContext)
-    const result = validateAgentEditProposal(parsed.data.batch, {
-      projectId: snap.projectId,
-      manifest: snap.manifest,
-      activeContext,
-      signal: new AbortController().signal,
-      readPathsThisTurn: getAgentTurnReads(parsed.data.streamId),
-      readHashesThisTurn: getAgentTurnReadHashes(parsed.data.streamId),
-    })
-    if (result.ok) {
-      clearAgentTurnReads(parsed.data.streamId)
-      return { ok: true, proposal: result.proposal }
-    }
-    return { ok: false, error: result.error, proposal: result.proposal }
-  })
 }

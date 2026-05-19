@@ -7,6 +7,11 @@ import { isPathWithinWorkspaceRoots } from './workspace-path-guard'
 import { getOrRefreshWorkspaceIndex, refreshWorkspaceIndex } from './agent-index-store'
 import { rankRetrievalCandidates } from './agent-retrieval'
 import type { AgentChatActiveContext, AgentChatToolName } from '../shared/agent-chat-contract'
+import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
+import type { AgentProfile } from '../shared/agent-profile'
+import { isToolAllowedForProfile } from '../shared/agent-profile'
+import { isPathUnderProjectAgentOffload } from './agent-offload-store'
+import { isPathUnderProjectAgentPlans } from './agent-plan-store'
 import { isPathUnderProjectChatStaging, toolPathLabelForAgent } from './chat-attachment-staging'
 import { AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE, AGENT_TOOL_MAX_OPS } from '../shared/agent-tool-contract'
 import { AGENT_CONTEXT_BUDGETS } from '../shared/agent-context-budget-contract'
@@ -25,12 +30,13 @@ export const AGENT_RETRIEVAL_MAX_CHARS = AGENT_CONTEXT_BUDGETS.retrievedContextM
 const SECRET_BASENAMES = new Set(['.env', '.npmrc', '.pypirc', '.netrc'])
 const SECRET_EXTS = new Set(['.pem', '.key', '.p12', '.pfx', '.crt'])
 
-export type ToolEnv = {
-  projectId: string
-  manifest: GrokProjectManifest
-  activeContext: AgentChatActiveContext
-  signal: AbortSignal
-}
+/** @deprecated Use {@link AgentToolExecutionContext} from shared. */
+export type ToolEnv = AgentToolExecutionContext
+
+export type AgentToolPathEnv = Pick<
+  AgentToolExecutionContext,
+  'projectId' | 'manifest' | 'activeContext'
+>
 
 export type AgentWorkspaceToolResult = {
   ok: boolean
@@ -242,6 +248,67 @@ export const AGENT_TOOL_DEFINITIONS = [
   },
 ] as const
 
+export const AGENT_SPAWN_SUBAGENT_DEFINITION = {
+  type: 'function',
+  function: {
+    name: 'spawn_subagent',
+    description:
+      'Run a read-only explorer subagent in an isolated child session. Use for broad codebase discovery before edits. Returns a compact JSON summary (not the full transcript).',
+    parameters: {
+      type: 'object',
+      properties: {
+        task: { type: 'string', description: 'What the explorer should investigate.' },
+        profile: { type: 'string', enum: ['explorer'], description: 'Child profile (v1: explorer only).' },
+        modelIntent: {
+          type: 'string',
+          enum: ['planning', 'reasoning'],
+          description: 'Model slot for the child session (default planning).',
+        },
+      },
+      required: ['task'],
+      additionalProperties: false,
+    },
+  },
+} as const
+
+export type AgentToolDefinition = {
+  type: 'function'
+  function: {
+    name: string
+    description: string
+    parameters: Record<string, unknown>
+  }
+}
+
+/** Clone base tool defs and apply per-harness profile description overrides (story 103). */
+export function buildAgentToolDefinitions(
+  overrides?: Partial<Record<AgentChatToolName, string>>,
+): AgentToolDefinition[] {
+  return [...AGENT_TOOL_DEFINITIONS, AGENT_SPAWN_SUBAGENT_DEFINITION].map((def) => {
+    const name = def.function.name as AgentChatToolName
+    const description = overrides?.[name] ?? def.function.description
+    return {
+      type: 'function' as const,
+      function: {
+        name: def.function.name,
+        description,
+        parameters: def.function.parameters as Record<string, unknown>,
+      },
+    }
+  })
+}
+
+/** Restrict xAI tool schemas to the active agent profile allowlist (story 104). */
+export function filterToolDefinitionsForProfile(
+  defs: readonly AgentToolDefinition[],
+  profile: Readonly<AgentProfile>,
+): AgentToolDefinition[] {
+  return defs.filter((def) => {
+    const name = def.function.name as AgentChatToolName
+    return isToolAllowedForProfile(name, profile)
+  })
+}
+
 function toPosixPath(p: string): string {
   return p.split(/[\\/]/).join('/')
 }
@@ -271,12 +338,12 @@ function fileHeadHasNul(absPath: string, size: number): boolean {
   }
 }
 
-function activeRoot(env: ToolEnv) {
+function activeRoot(env: AgentToolPathEnv) {
   const id = env.activeContext.activeRootId
   return env.manifest.roots.find((r) => r.id === id) ?? env.manifest.roots[0]
 }
 
-export function resolveAgentWorkspacePath(inputPath: string, env: ToolEnv): string | null {
+export function resolveAgentWorkspacePath(inputPath: string, env: AgentToolPathEnv): string | null {
   const raw = inputPath.trim()
   if (!raw) return null
   const candidates: string[] = []
@@ -304,24 +371,26 @@ export function parseReadFileToolContentHash(toolContent: string): string | null
 }
 
 /** Resolved absolute path for a successful read_file tool call (for same-turn read tracking). */
-export function resolveReadFileTargetPath(rawArgs: unknown, env: ToolEnv): string | null {
+export function resolveReadFileTargetPath(rawArgs: unknown, env: AgentToolPathEnv): string | null {
   const parsed = ReadFileInputSchema.safeParse(rawArgs)
   if (!parsed.success) return null
   return resolveReadablePathForTools(parsed.data.path, env)
 }
 
 /** Workspace roots or chat-upload staging (per `projectId`) for read_file / attachment retrieval. */
-function resolveReadablePathForTools(inputPath: string, env: ToolEnv): string | null {
+function resolveReadablePathForTools(inputPath: string, env: AgentToolPathEnv): string | null {
   const ws = resolveAgentWorkspacePath(inputPath, env)
   if (ws) return ws
   const raw = inputPath.trim()
   if (!isAbsolute(raw)) return null
   const abs = resolve(raw)
   if (isPathUnderProjectChatStaging(abs, env.projectId)) return abs
+  if (isPathUnderProjectAgentOffload(abs, env.projectId)) return abs
+  if (isPathUnderProjectAgentPlans(abs, env.projectId)) return abs
   return null
 }
 
-function assertReadablePathForTools(absPath: string | null, env: ToolEnv): { ok: true; path: string } | { ok: false; error: string } {
+function assertReadablePathForTools(absPath: string | null, env: AgentToolPathEnv): { ok: true; path: string } | { ok: false; error: string } {
   if (!absPath) return { ok: false, error: 'Path is outside workspace roots.' }
   if (isPathUnderProjectChatStaging(absPath, env.projectId)) {
     try {
@@ -332,10 +401,28 @@ function assertReadablePathForTools(absPath: string | null, env: ToolEnv): { ok:
       return { ok: false, error: 'Could not read file.' }
     }
   }
+  if (isPathUnderProjectAgentOffload(absPath, env.projectId)) {
+    try {
+      const st = statSync(absPath)
+      if (!st.isFile()) return { ok: false, error: 'Path is not a file.' }
+      return { ok: true, path: absPath }
+    } catch {
+      return { ok: false, error: 'Could not read offloaded file.' }
+    }
+  }
+  if (isPathUnderProjectAgentPlans(absPath, env.projectId)) {
+    try {
+      const st = statSync(absPath)
+      if (!st.isFile()) return { ok: false, error: 'Path is not a file.' }
+      return { ok: true, path: absPath }
+    } catch {
+      return { ok: false, error: 'Could not read plan artifact.' }
+    }
+  }
   return assertToolPath(absPath, env)
 }
 
-function assertToolPath(absPath: string | null, env: ToolEnv): { ok: true; path: string } | { ok: false; error: string } {
+function assertToolPath(absPath: string | null, env: AgentToolPathEnv): { ok: true; path: string } | { ok: false; error: string } {
   if (!absPath) return { ok: false, error: 'Path is outside workspace roots.' }
   if (!isPathWithinWorkspaceRoots(absPath, env.manifest.roots)) {
     return { ok: false, error: 'Path is outside workspace roots.' }
@@ -363,7 +450,7 @@ function jsonResult(value: unknown, maxChars: number = AGENT_READ_FILE_MAX_CHARS
   return trimText(JSON.stringify(value, null, 2), maxChars).text
 }
 
-function runWorkspaceIndex(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolResult {
+function runWorkspaceIndex(env: AgentToolExecutionContext, rawArgs: unknown): AgentWorkspaceToolResult {
   const parsed = WorkspaceIndexInputSchema.safeParse(rawArgs)
   if (!parsed.success) {
     return { ok: false, displayTitle: 'Workspace index failed', content: parsed.error.message }
@@ -379,7 +466,7 @@ function runWorkspaceIndex(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolRe
   }
 }
 
-function runListDirectory(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolResult {
+function runListDirectory(env: AgentToolExecutionContext, rawArgs: unknown): AgentWorkspaceToolResult {
   const parsed = PathInputSchema.safeParse(rawArgs)
   if (!parsed.success) return { ok: false, displayTitle: 'List directory failed', content: parsed.error.message }
   const checked = assertToolPath(resolveAgentWorkspacePath(parsed.data.path, env), env)
@@ -412,22 +499,35 @@ function runListDirectory(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolRes
   }
 }
 
-export function runReadFileTool(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolResult {
+function readFileContentForAgent(
+  pathEnv: AgentToolPathEnv,
+  rawArgs: unknown,
+  options?: { abortSignal?: AbortSignal; onReadSuccess?: (path: string, contentHash: string) => void },
+): AgentWorkspaceToolResult {
   const parsed = ReadFileInputSchema.safeParse(rawArgs)
   if (!parsed.success) return { ok: false, displayTitle: 'Read file failed', content: parsed.error.message }
-  const checked = assertReadablePathForTools(resolveReadablePathForTools(parsed.data.path, env), env)
+  if (options?.abortSignal?.aborted) {
+    return { ok: false, displayTitle: 'Tool cancelled', content: 'Cancelled.' }
+  }
+  const checked = assertReadablePathForTools(resolveReadablePathForTools(parsed.data.path, pathEnv), pathEnv)
   if (!checked.ok) return { ok: false, displayTitle: 'Read file failed', content: checked.error }
   try {
     const st = statSync(checked.path)
     if (!st.isFile()) return { ok: false, displayTitle: 'Read file failed', content: 'Path is not a file.' }
-    const maxFileBytes = isPathUnderProjectChatStaging(checked.path, env.projectId)
-      ? 4 * 1024 * 1024
-      : AGENT_SEARCH_MAX_FILE_BYTES
+    const maxFileBytes =
+      isPathUnderProjectChatStaging(checked.path, pathEnv.projectId) ||
+      isPathUnderProjectAgentOffload(checked.path, pathEnv.projectId) ||
+      isPathUnderProjectAgentPlans(checked.path, pathEnv.projectId)
+        ? 4 * 1024 * 1024
+        : AGENT_SEARCH_MAX_FILE_BYTES
     if (st.size > maxFileBytes) {
       return { ok: false, displayTitle: 'Read file failed', content: 'File is too large for automatic agent reads.' }
     }
     if (fileHeadHasNul(checked.path, st.size)) {
       return { ok: false, displayTitle: 'Read file failed', content: 'File appears to be binary.' }
+    }
+    if (options?.abortSignal?.aborted) {
+      return { ok: false, displayTitle: 'Tool cancelled', content: 'Cancelled.' }
     }
     const text = readFileSync(checked.path, 'utf-8')
     const contentHash = computeAgentContentHash(text)
@@ -441,10 +541,11 @@ export function runReadFileTool(env: ToolEnv, rawArgs: unknown): AgentWorkspaceT
     const numbered = selected.map((line, idx) => `${String(startLine + idx).padStart(5, ' ')} | ${line}`).join('\n')
     const numberedTrimmed = trimText(numbered, AGENT_READ_FILE_MAX_CHARS)
     const layoutNeedsRepair = needsSourceLayoutRepair(text)
+    options?.onReadSuccess?.(checked.path, contentHash)
     return {
       ok: true,
       displayTitle: 'Read file',
-      displayDetail: toolPathLabelForAgent(checked.path, env.manifest, env.projectId),
+      displayDetail: toolPathLabelForAgent(checked.path, pathEnv.manifest, pathEnv.projectId),
       content: jsonResult(
         {
           path: checked.path,
@@ -475,6 +576,13 @@ export function runReadFileTool(env: ToolEnv, rawArgs: unknown): AgentWorkspaceT
   }
 }
 
+export function runReadFileTool(ctx: AgentToolExecutionContext, rawArgs: unknown): AgentWorkspaceToolResult {
+  return readFileContentForAgent(ctx, rawArgs, {
+    abortSignal: ctx.abortSignal,
+    onReadSuccess: (path, contentHash) => ctx.recordPathRead(path, contentHash),
+  })
+}
+
 function buildMatcher(query: string, caseSensitive?: boolean, regex?: boolean): (line: string) => boolean {
   if (regex) {
     const re = new RegExp(query, caseSensitive ? 'g' : 'gi')
@@ -487,7 +595,7 @@ function buildMatcher(query: string, caseSensitive?: boolean, regex?: boolean): 
   return (line) => (caseSensitive ? line : line.toLowerCase()).includes(needle)
 }
 
-function runSearchWorkspace(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolResult {
+function runSearchWorkspace(ctx: AgentToolExecutionContext, rawArgs: unknown): AgentWorkspaceToolResult {
   const parsed = SearchWorkspaceInputSchema.safeParse(rawArgs)
   if (!parsed.success) return { ok: false, displayTitle: 'Search failed', content: parsed.error.message }
   let matcher: (line: string) => boolean
@@ -501,11 +609,11 @@ function runSearchWorkspace(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolR
   let filesScanned = 0
   let truncated = false
   const visited = new Set<string>()
-  const ignore = env.manifest.ignore ?? []
+  const ignore = ctx.manifest.ignore ?? []
 
   const scanFile = (path: string) => {
-    if (results.length >= AGENT_SEARCH_MAX_RESULTS || env.signal.aborted) return
-    if (shouldIgnoreFsEntry(path, env.manifest.roots, ignore) || isLikelySensitivePath(path)) return
+    if (results.length >= AGENT_SEARCH_MAX_RESULTS || ctx.abortSignal.aborted) return
+    if (shouldIgnoreFsEntry(path, ctx.manifest.roots, ignore) || isLikelySensitivePath(path)) return
     let st
     try {
       st = statSync(path)
@@ -515,6 +623,9 @@ function runSearchWorkspace(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolR
     if (!st.isFile() || st.size > AGENT_SEARCH_MAX_FILE_BYTES) return
     if (fileHeadHasNul(path, st.size)) return
     filesScanned += 1
+    if (filesScanned % 25 === 0) {
+      ctx.emitProgress({ detail: `${filesScanned} files scanned` })
+    }
     const text = readFileSync(path, 'utf-8')
     const lines = text.split(/\r?\n/)
     for (let i = 0; i < lines.length; i += 1) {
@@ -528,13 +639,13 @@ function runSearchWorkspace(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolR
     }
   }
 
-  for (const root of env.manifest.roots) {
+  for (const root of ctx.manifest.roots) {
     const stack = [resolve(root.path)]
-    while (stack.length > 0 && results.length < AGENT_SEARCH_MAX_RESULTS && !env.signal.aborted) {
+    while (stack.length > 0 && results.length < AGENT_SEARCH_MAX_RESULTS && !ctx.abortSignal.aborted) {
       const dir = stack.pop()
       if (!dir || visited.has(dir)) continue
       visited.add(dir)
-      if (shouldIgnoreFsEntry(dir, env.manifest.roots, ignore)) continue
+      if (shouldIgnoreFsEntry(dir, ctx.manifest.roots, ignore)) continue
       let entries
       try {
         entries = readdirSync(dir, { withFileTypes: true })
@@ -542,9 +653,9 @@ function runSearchWorkspace(env: ToolEnv, rawArgs: unknown): AgentWorkspaceToolR
         continue
       }
       for (const ent of entries) {
-        if (env.signal.aborted || results.length >= AGENT_SEARCH_MAX_RESULTS) break
+        if (ctx.abortSignal.aborted || results.length >= AGENT_SEARCH_MAX_RESULTS) break
         const full = resolve(join(dir, ent.name))
-        if (shouldIgnoreFsEntry(full, env.manifest.roots, ignore) || isLikelySensitivePath(full)) continue
+        if (shouldIgnoreFsEntry(full, ctx.manifest.roots, ignore) || isLikelySensitivePath(full)) continue
         if (ent.isDirectory()) stack.push(full)
         else if (ent.isFile()) scanFile(full)
       }
@@ -618,8 +729,10 @@ export function buildActiveContextBlock(
   return `${text.slice(0, AGENT_CONTEXT_BUDGETS.activeContextMaxChars)}\n[...active UI context truncated...]`
 }
 
+export type LexicalRetrievalEnv = AgentToolPathEnv & Pick<AgentToolExecutionContext, 'abortSignal'>
+
 export function buildLexicalRetrievalContext(
-  env: ToolEnv,
+  env: LexicalRetrievalEnv,
   userText: string,
 ): {
   context: string
@@ -725,7 +838,7 @@ export function buildLexicalRetrievalContext(
   const details: string[] = [...attachmentDetails]
   const retrieved: RetrievedContextDebugItem[] = []
   for (const item of picked) {
-    const read = runReadFileTool(env, { path: item.path, maxLines: 120 })
+    const read = readFileContentForAgent(env, { path: item.path, maxLines: 120 }, { abortSignal: env.abortSignal })
     if (!read.ok) continue
     const reason = item.reasons.slice(0, 4).join(', ')
     details.push(
@@ -756,21 +869,21 @@ export function buildLexicalRetrievalContext(
   }
 }
 
-export function runAgentWorkspaceTool(
+export function executeWorkspaceTool(
+  ctx: AgentToolExecutionContext,
   name: AgentChatToolName,
   rawArgs: unknown,
-  env: ToolEnv,
 ): AgentWorkspaceToolResult {
-  if (env.signal.aborted) return { ok: false, displayTitle: 'Tool cancelled', content: 'Cancelled.' }
+  if (ctx.abortSignal.aborted) return { ok: false, displayTitle: 'Tool cancelled', content: 'Cancelled.' }
   switch (name) {
     case 'workspace_index':
-      return runWorkspaceIndex(env, rawArgs)
+      return runWorkspaceIndex(ctx, rawArgs)
     case 'list_directory':
-      return runListDirectory(env, rawArgs)
+      return runListDirectory(ctx, rawArgs)
     case 'read_file':
-      return runReadFileTool(env, rawArgs)
+      return runReadFileTool(ctx, rawArgs)
     case 'search_workspace':
-      return runSearchWorkspace(env, rawArgs)
+      return runSearchWorkspace(ctx, rawArgs)
     case 'search_replace':
       return {
         ok: false,
@@ -784,4 +897,13 @@ export function runAgentWorkspaceTool(
     default:
       return { ok: false, displayTitle: 'Unknown tool', content: `Unknown tool: ${String(name)}` }
   }
+}
+
+/** @deprecated Use {@link executeWorkspaceTool} */
+export function runAgentWorkspaceTool(
+  name: AgentChatToolName,
+  rawArgs: unknown,
+  ctx: AgentToolExecutionContext,
+): AgentWorkspaceToolResult {
+  return executeWorkspaceTool(ctx, name, rawArgs)
 }

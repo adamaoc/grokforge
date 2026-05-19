@@ -2,16 +2,18 @@ import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from
 import { basename, extname, isAbsolute, relative, resolve } from 'node:path'
 import type { GrokProjectManifest } from './manifest'
 import { shouldIgnoreFsEntry } from './ignore-globs'
-import {
-  AGENT_TOOL_FENCE_INFO,
-  AGENT_TOOL_MAX_OPS,
-  AGENT_TOOL_PROTOCOL_VERSION,
-} from '../shared/agent-tool-contract'
+import { AGENT_TOOL_MAX_OPS } from '../shared/agent-tool-contract'
 import {
   AGENT_CONTEXT_BUDGETS,
   AGENT_CONTEXT_LAYER_POLICIES,
   type AgentContextLayerPolicy,
 } from '../shared/agent-context-budget-contract'
+import type { HarnessProfileKey } from '../shared/agent-harness-profile-contract'
+import {
+  appendHarnessProfileToSystemPrompt,
+  getHarnessProfile,
+  type HarnessPromptTurnContext,
+} from '../shared/agent-harness-profile'
 
 /** Max UTF-8 bytes read for `customInstructionsFile` and each `alwaysInclude` entry (tail discarded). */
 export const CONTEXT_FILE_MAX_BYTES = 64 * 1024
@@ -142,7 +144,11 @@ export type GetChatSystemPromptResult =
  */
 export function buildChatSystemPrompt(
   manifest: GrokProjectManifest,
-  options?: { maxChars?: number },
+  options?: {
+    maxChars?: number
+    harnessProfileKey?: HarnessProfileKey
+    harnessPromptTurnContext?: HarnessPromptTurnContext
+  },
 ): { systemPrompt: string; warnings: string[] } {
   const maxChars = options?.maxChars ?? CHAT_SYSTEM_PROMPT_CHAR_BUDGET
   const preview = buildAgentContextPreview(manifest)
@@ -238,7 +244,7 @@ export function buildChatSystemPrompt(
   lines.push('')
   lines.push('## Agent file writes (GrokForge)')
   lines.push(
-    'Filesystem writes are applied only from a **machine-readable** block you append at the **end** of your reply when you intend disk changes.',
+    'Filesystem writes are applied only through the **`propose_file_edits`** tool (or **`search_replace`** for small localized edits). The user reviews a diff and applies when ready — nothing is written to disk from prose or normal markdown code fences.',
   )
   lines.push('')
   lines.push('Rules:')
@@ -283,46 +289,27 @@ export function buildChatSystemPrompt(
   lines.push('- Use `delete_file` only for deleting a single existing file under a workspace root. Do not use it for folders.')
   lines.push('- For file moves/renames, emit one `write_file` for the new absolute path and one `delete_file` for the old absolute path.')
   lines.push(
-    '- When creating several **new** files in one task, prefer one `propose_file_edits` (or one fenced batch) with multiple `write_file` operations instead of one file per tool call.',
-  )
-  lines.push('- If the user asks you to create, edit, move, rename, or delete files, your final reply must include this machine-readable block. Do not only show code in a normal markdown fence.')
-  lines.push(
-    '- **Truthfulness:** Do not tell the user that files were already written, saved, applied, replaced, merged, or patched on disk unless this same reply includes the closing machine-readable `' +
-      AGENT_TOOL_FENCE_INFO +
-      '` fenced JSON block (when not using tools) or you successfully invoked the `propose_file_edits` tool in this turn. Normal markdown code fences are not applied by GrokForge.',
+    '- When creating several **new** files in one task, prefer one `propose_file_edits` call with multiple `write_file` operations instead of one file per tool call.',
   )
   lines.push(
-    '- If you are not ready to emit those operations yet, use present or future tense (what you will do next, what you still need to read) instead of implying the filesystem work is finished.',
+    '- If the user asks you to create, edit, move, rename, or delete files, call `propose_file_edits` (after `read_file` as needed). Do not only show code in a normal markdown fence.',
   )
-  lines.push('')
-  lines.push('Format: a single fenced block using the info string exactly `' + AGENT_TOOL_FENCE_INFO + '` (three backticks, newline, JSON, closing backticks).')
-  lines.push('')
-  lines.push('JSON shape (version ' + String(AGENT_TOOL_PROTOCOL_VERSION) + '):')
-  lines.push(fence)
   lines.push(
-    JSON.stringify(
-      {
-        version: AGENT_TOOL_PROTOCOL_VERSION,
-        operations: [
-          {
-            op: 'write_file',
-            path: '/example/under/a/workspace/root/src/main.ts',
-            content: '// full file contents',
-          },
-          {
-            op: 'delete_file',
-            path: '/example/under/a/workspace/root/src/old.ts',
-          },
-        ],
-      },
-      null,
-      2,
-    ),
+    '- **Truthfulness:** Do not tell the user that files were already written, saved, applied, replaced, merged, or patched on disk unless you successfully invoked `propose_file_edits` (or `search_replace`) in this turn.',
   )
-  lines.push(fence)
-  lines.push(`At most ${String(AGENT_TOOL_MAX_OPS)} operations per block. Omit the block entirely when you are only explaining and not persisting changes.`)
+  lines.push(
+    '- If you are not ready to propose edits yet, use present or future tense (what you will do next, what you still need to read) instead of implying the filesystem work is finished.',
+  )
+  lines.push(`At most ${String(AGENT_TOOL_MAX_OPS)} operations per \`propose_file_edits\` batch.`)
 
   let systemPrompt = lines.join('\n')
+  if (options?.harnessProfileKey) {
+    systemPrompt = appendHarnessProfileToSystemPrompt(
+      systemPrompt,
+      getHarnessProfile(options.harnessProfileKey),
+      options.harnessPromptTurnContext,
+    )
+  }
   if (systemPrompt.length > maxChars) {
     systemPrompt =
       systemPrompt.slice(0, maxChars) +

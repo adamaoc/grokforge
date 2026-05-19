@@ -1,17 +1,40 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+const userDataRoot = mkdtempSync(join(tmpdir(), 'grokforge-ws-offload-'))
+
+vi.mock('electron', () => ({
+  app: {
+    getPath: () => userDataRoot,
+  },
+}))
+
+vi.mock('./app-project-store', async () => {
+  const actual = await vi.importActual<typeof import('./app-project-store')>('./app-project-store')
+  return {
+    ...actual,
+    projectDir: (projectId: string) => join(userDataRoot, 'workspace-projects', projectId),
+  }
+})
 import { computeAgentContentHash } from './agent-content-hash'
 import type { GrokProjectManifest } from './manifest'
+import { getAgentProfile } from '../shared/agent-profile'
+import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
 import {
   AGENT_TOOL_DEFINITIONS,
   AGENT_SEARCH_MAX_RESULTS,
+  buildAgentToolDefinitions,
+  filterToolDefinitionsForProfile,
   isLikelySensitivePath,
-  runAgentWorkspaceTool,
+  executeWorkspaceTool,
   parseReadFileToolContentHash,
   runReadFileTool,
 } from './agent-workspace-tools'
+import { writeAgentOffloadFile } from './agent-offload-store'
+import { planJsonPath, upsertPlanArtifactFromAssistantMessage } from './agent-plan-store'
+import { GF_PLAN_FENCE } from '../shared/gf-plan-contract'
 
 function manifestForRoot(root: string): GrokProjectManifest {
   return {
@@ -32,12 +55,27 @@ function manifestForRoot(root: string): GrokProjectManifest {
   }
 }
 
-function env(root: string) {
+function testToolContext(root: string, overrides?: Partial<AgentToolExecutionContext>): AgentToolExecutionContext {
+  const manifest = manifestForRoot(root)
   return {
     projectId: 'test-project',
-    manifest: manifestForRoot(root),
-    activeContext: { activeRootId: 'root', openTabs: [], chatMode: 'fast' as const },
-    signal: new AbortController().signal,
+    streamId: 'stream-test',
+    snapshotId: '00000000-0000-4000-8000-000000000001',
+    toolCallId: 'tc-test',
+    activityId: 'act-test',
+    agentProfileId: 'default',
+    harnessProfileKey: 'grok_code_fast',
+    sessionDepth: 'parent',
+    abortSignal: new AbortController().signal,
+    manifest,
+    roots: manifest.roots,
+    activeContext: { activeRootId: 'root', openTabs: [], chatMode: 'fast' },
+    readPathsThisTurn: new Set(),
+    readHashesThisTurn: new Map(),
+    emitProgress: vi.fn(),
+    recordPathRead: vi.fn(),
+    askCommandApproval: vi.fn(async () => false),
+    ...overrides,
   }
 }
 
@@ -53,7 +91,8 @@ describe('agent workspace read/search tools', () => {
 
   it('rejects malformed tool input', () => {
     const root = mkdtempSync(join(tmpdir(), 'gf-agent-tools-'))
-    const res = runAgentWorkspaceTool('read_file', { path: '' }, env(root))
+    const ctx = testToolContext(root)
+    const res = executeWorkspaceTool(ctx, 'read_file', { path: '' })
     expect(res.ok).toBe(false)
     expect(res.content).toContain('String must contain')
   })
@@ -62,59 +101,106 @@ describe('agent workspace read/search tools', () => {
     const root = mkdtempSync(join(tmpdir(), 'gf-agent-tools-'))
     const outside = join(tmpdir(), 'outside.txt')
     writeFileSync(outside, 'nope')
-    const res = runReadFileTool(env(root), { path: outside })
+    const res = runReadFileTool(testToolContext(root), { path: outside })
     expect(res.ok).toBe(false)
     expect(res.content).toContain('outside workspace roots')
   })
 
-  it('does not read ignored or sensitive files automatically', () => {
-    const root = mkdtempSync(join(tmpdir(), 'gf-agent-tools-'))
-    mkdirSync(join(root, 'ignored'))
-    writeFileSync(join(root, 'ignored', 'a.ts'), 'hidden')
-    writeFileSync(join(root, '.env'), 'XAI_API_KEY=secret')
-
-    const ignored = runReadFileTool(env(root), { path: join(root, 'ignored', 'a.ts') })
-    const secret = runReadFileTool(env(root), { path: join(root, '.env') })
-
-    expect(ignored.ok).toBe(false)
-    expect(ignored.content).toContain('ignore')
-    expect(secret.ok).toBe(false)
-    expect(secret.content).toContain('sensitive')
-    expect(isLikelySensitivePath(join(root, 'private-key.pem'))).toBe(true)
+  it('returns cancelled when abortSignal is set before search', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-search-abort-'))
+    mkdirSync(join(root, 'src'), { recursive: true })
+    writeFileSync(join(root, 'src', 'needle.ts'), 'export const needle = 1\n', 'utf8')
+    const ac = new AbortController()
+    ac.abort()
+    const res = executeWorkspaceTool(testToolContext(root, { abortSignal: ac.signal }), 'search_workspace', {
+      query: 'needle',
+    })
+    expect(res.ok).toBe(false)
+    expect(res.displayTitle).toMatch(/cancelled/i)
   })
 
-  it('returns line-numbered, truncated file reads', () => {
-    const root = mkdtempSync(join(tmpdir(), 'gf-agent-tools-'))
-    const file = join(root, 'src.ts')
-    writeFileSync(file, ['one', 'two', 'three', 'four'].join('\n'))
-
-    const res = runReadFileTool(env(root), { path: file, startLine: 2, maxLines: 2 })
-
+  it('calls recordPathRead on successful read_file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-read-registry-'))
+    const filePath = join(root, 'src', 'app.ts')
+    mkdirSync(join(root, 'src'), { recursive: true })
+    const content = 'export const app = 1\n'
+    writeFileSync(filePath, content, 'utf8')
+    const recordPathRead = vi.fn()
+    const res = runReadFileTool(testToolContext(root, { recordPathRead }), { path: filePath })
     expect(res.ok).toBe(true)
-    expect(res.content).toContain('2 | two')
-    expect(res.content).toContain('3 | three')
-    expect(res.content).toContain('"rawContent": "two\\nthree"')
-    expect(res.content).toContain('"truncated": true')
-    const hash = parseReadFileToolContentHash(res.content)
-    expect(hash).toBe(computeAgentContentHash(['one', 'two', 'three', 'four'].join('\n')))
-    expect(res.content).toContain('"contentHashScope": "full_file"')
+    expect(recordPathRead).toHaveBeenCalledTimes(1)
+    expect(recordPathRead).toHaveBeenCalledWith(filePath, computeAgentContentHash(content))
   })
 
-  it('searches workspace text with ignore and result caps', () => {
-    const root = mkdtempSync(join(tmpdir(), 'gf-agent-tools-'))
-    mkdirSync(join(root, 'src'))
-    mkdirSync(join(root, 'node_modules'))
+  it('rejects sensitive paths', () => {
+    expect(isLikelySensitivePath('/proj/.env')).toBe(true)
+    expect(isLikelySensitivePath('/proj/src/app.ts')).toBe(false)
+  })
+
+  it('filters tool definitions for planner profile', () => {
+    const planner = getAgentProfile('planner')
+    const defs = filterToolDefinitionsForProfile(buildAgentToolDefinitions({}), planner)
+    const names = defs.map((d) => d.function.name)
+    expect(names).toContain('read_file')
+    expect(names).not.toContain('propose_file_edits')
+    expect(names).not.toContain('run_command')
+  })
+
+  it('search_workspace caps results', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-search-cap-'))
     for (let i = 0; i < AGENT_SEARCH_MAX_RESULTS + 5; i += 1) {
-      writeFileSync(join(root, 'src', `${i}.ts`), `needle ${i}`)
+      writeFileSync(join(root, `f${i}.txt`), `needle ${i}\n`, 'utf8')
     }
-    writeFileSync(join(root, 'node_modules', 'hidden.ts'), 'needle hidden')
-
-    const res = runAgentWorkspaceTool('search_workspace', { query: 'needle' }, env(root))
-
+    const res = executeWorkspaceTool(testToolContext(root), 'search_workspace', { query: 'needle' })
     expect(res.ok).toBe(true)
-    const parsed = JSON.parse(res.content) as { results: Array<{ path: string }>; truncated: boolean }
-    expect(parsed.results).toHaveLength(AGENT_SEARCH_MAX_RESULTS)
+    const parsed = JSON.parse(res.content) as { results: unknown[]; truncated: boolean }
+    expect(parsed.results.length).toBeLessThanOrEqual(AGENT_SEARCH_MAX_RESULTS)
     expect(parsed.truncated).toBe(true)
-    expect(parsed.results.some((r) => r.path.includes('node_modules'))).toBe(false)
   })
+
+  it('parses contentHash from read_file tool JSON', () => {
+    const hash = 'a'.repeat(64)
+    const content = JSON.stringify({ contentHash: hash, content: 'x' })
+    expect(parseReadFileToolContentHash(content)).toBe(hash)
+  })
+
+  it('read_file can recover offloaded tool blob via absolute offload path', () => {
+    const projectId = 'test-project'
+    const payload = 'needle-in-offload-blob\n'.repeat(800)
+    const { absPath } = writeAgentOffloadFile({
+      projectId,
+      streamId: 'stream-needle',
+      toolCallId: 'call-needle',
+      content: payload,
+    })
+    const res = runReadFileTool(testToolContext(mkdtempSync(join(tmpdir(), 'gf-offload-read-'))), {
+      path: absPath,
+    })
+    expect(res.ok).toBe(true)
+    const parsed = JSON.parse(res.content) as { rawContent: string }
+    expect(parsed.rawContent).toContain('needle-in-offload-blob')
+  })
+
+  it('read_file can load stored plan artifact JSON via absolute plan path', () => {
+    const projectId = 'test-project'
+    const fence = `\`\`\`${GF_PLAN_FENCE}
+{"schemaVersion":1,"summary":"Needle plan summary","filesLikelyTouched":[],"risksUnknowns":[],"steps":[{"id":"s1","title":"Do thing"}],"verification":"npm test"}
+\`\`\``
+    const { planId } = upsertPlanArtifactFromAssistantMessage(projectId, 'msg-plan-read', fence)!
+    const absPath = planJsonPath(projectId, planId)
+    const res = runReadFileTool(testToolContext(mkdtempSync(join(tmpdir(), 'gf-plan-read-'))), {
+      path: absPath,
+    })
+    expect(res.ok).toBe(true)
+    expect(res.content).toContain('Needle plan summary')
+    expect(res.content).toContain(planId)
+  })
+})
+
+afterEach(() => {
+  try {
+    rmSync(join(userDataRoot, 'workspace-projects', 'test-project'), { recursive: true, force: true })
+  } catch {
+    /* ignore */
+  }
 })

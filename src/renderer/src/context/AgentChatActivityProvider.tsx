@@ -10,6 +10,8 @@ import {
 } from 'react'
 import type { AgentChatEventPayload, ChatTurnContextV1, PersistedChatLineV1 } from '@/types'
 import { CHAT_STORE_SCHEMA_VERSION } from '@/types'
+import { parseGfPlanFromAssistantContent } from '../../../shared/gf-plan-contract'
+import { patchPlanInteraction } from '@/lib/plan-interaction-storage'
 import {
   clearAgentChatUnread,
   markAgentChatUnread,
@@ -126,7 +128,21 @@ export function AgentChatActivityProvider({
       ...(session.turnContext ? { turnContext: session.turnContext } : {}),
     }
     const res = await appendForProject({ projectId: session.projectId, payload: record })
-    if (!res.ok) console.error('[AgentChatActivity] appendChatMessageForProject failed', res.error)
+    if (!res.ok) {
+      console.error('[AgentChatActivity] appendChatMessageForProject failed', res.error)
+      return
+    }
+    if (res.planId) {
+      const parsedPlan = parseGfPlanFromAssistantContent(trimmed)
+      if (parsedPlan) {
+        patchPlanInteraction(
+          session.projectId,
+          session.assistantId,
+          { planId: res.planId },
+          parsedPlan.steps.length,
+        )
+      }
+    }
   }, [])
 
   const endSession = useCallback(

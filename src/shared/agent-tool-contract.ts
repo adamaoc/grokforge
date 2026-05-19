@@ -2,7 +2,7 @@
  * Agent tool batch IPC contract (no Node imports). Main implementation: `src/main/agent-tools.ts`.
  */
 
-/** Fenced code block info string so the renderer can extract machine-readable writes from assistant text. */
+/** Legacy fenced-block language tag — display stripping only; writes use `propose_file_edits`. */
 export const AGENT_TOOL_FENCE_INFO = 'grokforge-agent-tools'
 
 /** Current protocol version embedded in JSON. */

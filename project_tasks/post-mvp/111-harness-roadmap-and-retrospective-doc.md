@@ -1,6 +1,6 @@
 # 111 — Harness roadmap and retrospective documentation
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A (docs only).
 
@@ -41,9 +41,9 @@ Ensure post-MVP table and **Suggested backlog order** reflect new ids (**103–1
 
 ## Acceptance criteria
 
-- [ ] `docs/harness-roadmap.md` exists and matches shipped/post-MVP story ids.
-- [ ] `AGENTS.md` links to roadmap from agent section.
-- [ ] `npm run stories:html` still passes (if README touched).
+- [x] `docs/harness-roadmap.md` exists and matches shipped/post-MVP story ids.
+- [x] `AGENTS.md` links to roadmap from agent section.
+- [x] `npm run stories:html` still passes (if README touched).
 
 ## Related stories
 

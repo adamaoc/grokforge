@@ -1,6 +1,6 @@
 # 108 — Harness eval suite: per-model and per-profile regressions
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-19).
 
 **Design skill:** N/A.
 
