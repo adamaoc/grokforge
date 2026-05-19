@@ -6,6 +6,8 @@
 
 **Design skill (required):** Read `.cursor/skills/styleguide-design/SKILL.md` before changing terminal container, tabs, or resize handles (`@styleguide-design`).
 
+**Harness program:** **Independent** of **102–114** (shell layout only). Safe to run in parallel with harness wave.
+
 ## Why this story exists
 
 The terminal today occupies a **fixed relationship** to the rest of the shell (see `terminalOpen` / layout in `App.tsx`). Users want **flexibility**: either dock the terminal **inside the same region as the files/editor split** (right column) or have it **slide up from the bottom** of the window (drawer / panel) to preserve editor height.

@@ -31,6 +31,7 @@ export function ChatLiveContextStrip({
   project,
   activeRoot,
   activeFilePath,
+  pinnedCount = 0,
   conversationMode,
   chatModelIntent,
   displayThreadModel,
@@ -38,8 +39,9 @@ export function ChatLiveContextStrip({
   project: GrokProjectManifest
   activeRoot: Root | null
   activeFilePath: string | null | undefined
+  pinnedCount?: number
   conversationMode: 'normal' | 'plan'
-  chatModelIntent: 'chat_default' | 'planning'
+  chatModelIntent: 'chat_default' | 'planning' | 'execution'
   displayThreadModel: string
 }) {
   const chatMode: 'fast' | 'plan' = conversationMode === 'plan' ? 'plan' : 'fast'
@@ -78,6 +80,15 @@ export function ChatLiveContextStrip({
             <span className="shrink-0 text-zinc-600">File</span>
             <span className="min-w-0 truncate font-mono text-[10px] text-zinc-400" title={activeFilePath}>
               {compactFileLabel(activeFilePath)}
+            </span>
+          </>
+        ) : null}
+        {pinnedCount > 0 ? (
+          <>
+            <span className="text-zinc-600">·</span>
+            <span className="shrink-0 text-zinc-600">Pinned</span>
+            <span className="text-zinc-400">
+              {pinnedCount} path{pinnedCount === 1 ? '' : 's'}
             </span>
           </>
         ) : null}

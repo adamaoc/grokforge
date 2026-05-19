@@ -1,3 +1,4 @@
+import { Pin } from 'lucide-react'
 import { ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from '@/components/ui/context-menu'
 import type { MenuTarget, NameModalState } from './file-tree-types'
 
@@ -11,7 +12,10 @@ interface FileTreeContextMenuProps {
   target: MenuTarget
   parentDir: string
   canAddToChat: boolean
+  canPinForAgent: boolean
+  isPinnedForAgent: boolean
   onAddToChat: (target: MenuTarget) => void
+  onTogglePinForAgent: (target: MenuTarget) => void
   onReveal: (target: MenuTarget) => void
   onCopyPath: (target: MenuTarget) => void
   onCopyRelativePath: (target: MenuTarget) => void
@@ -23,7 +27,10 @@ export function FileTreeContextMenu({
   target,
   parentDir,
   canAddToChat,
+  canPinForAgent,
+  isPinnedForAgent,
   onAddToChat,
+  onTogglePinForAgent,
   onReveal,
   onCopyPath,
   onCopyRelativePath,
@@ -37,6 +44,15 @@ export function FileTreeContextMenu({
       {canAddToChat ? (
         <>
           <ContextMenuItem onSelect={() => onAddToChat(target)}>Add to chat</ContextMenuItem>
+          <ContextMenuSeparator />
+        </>
+      ) : null}
+      {canPinForAgent ? (
+        <>
+          <ContextMenuItem onSelect={() => onTogglePinForAgent(target)} className="gap-2">
+            <Pin size={14} className="text-gf-accent" aria-hidden />
+            {isPinnedForAgent ? 'Unpin for agent' : 'Pin for agent'}
+          </ContextMenuItem>
           <ContextMenuSeparator />
         </>
       ) : null}

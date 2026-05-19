@@ -29,10 +29,18 @@ function statusClass(status) {
   return status.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown'
 }
 
-function parseStatuses(markdown) {
+function parseMvpProgressStatuses(markdown) {
   const statuses = new Map()
+  let inProgress = false
 
   for (const line of markdown.split(/\r?\n/)) {
+    if (line.startsWith('## Progress')) {
+      inProgress = true
+      continue
+    }
+    if (inProgress && line.startsWith('## ')) break
+    if (!inProgress) continue
+
     const match = line.match(/^\|\s*(\d{3})\s*\|\s*([^|]+?)\s*\|\s*(.+?)\s*\|$/)
     if (!match) continue
 
@@ -46,8 +54,6 @@ function parseStatuses(markdown) {
     else if (/^not started\b/i.test(statusRaw)) status = 'Not started'
     else continue
 
-    if (!['Done', 'Closed', 'Not started'].includes(status)) continue
-
     statuses.set(id, {
       title: title.trim().replace(/\s+/g, ' '),
       status,
@@ -55,6 +61,58 @@ function parseStatuses(markdown) {
   }
 
   return statuses
+}
+
+function parsePostMvpTableStatuses(markdown) {
+  const statuses = new Map()
+  let inPostMvp = false
+
+  for (const line of markdown.split(/\r?\n/)) {
+    if (line.startsWith('## Post-MVP backlog')) {
+      inPostMvp = true
+      continue
+    }
+    if (inPostMvp && line.startsWith('## ')) break
+    if (!inPostMvp) continue
+
+    const match = line.match(/^\|\s*(\d{3})\s*\|\s*([^|]+?)\s*\|\s*.+\s*\|$/)
+    if (!match) continue
+
+    const [, id, titleCol] = match
+    if (id === '---') continue
+
+    const done = /\(done\)/i.test(titleCol)
+    const closed = /\(closed\)/i.test(titleCol)
+    const title = titleCol
+      .replace(/\*\*/g, '')
+      .replace(/\s*\(done\)\s*$/i, '')
+      .replace(/\s*\(closed\)\s*$/i, '')
+      .trim()
+      .replace(/\s+/g, ' ')
+
+    let status = 'Post-MVP'
+    if (done) status = 'Done'
+    else if (closed) status = 'Closed'
+
+    statuses.set(id, {
+      title,
+      status,
+    })
+  }
+
+  return statuses
+}
+
+function statusFromStoryFile(markdown) {
+  const match = markdown.match(/^\*\*Status:\*\*\s*(.+)$/m)
+  if (!match) return null
+
+  const raw = match[1].trim()
+  if (/^done\b/i.test(raw)) return 'Done'
+  if (/^closed\b/i.test(raw)) return 'Closed'
+  if (/^not started\b/i.test(raw)) return 'Not started'
+  if (/post-mvp backlog/i.test(raw)) return 'Post-MVP'
+  return null
 }
 
 function getStoryFiles(directory) {
@@ -175,7 +233,8 @@ function renderMarkdown(markdown) {
   return output.join('\n')
 }
 
-const statuses = parseStatuses(readme)
+const mvpStatuses = parseMvpProgressStatuses(readme)
+const postMvpStatuses = parsePostMvpTableStatuses(readme)
 const storyPaths = [
   ...getStoryFiles(tasksDir),
   ...getStoryFiles(join(tasksDir, 'post-mvp')),
@@ -185,15 +244,24 @@ const stories = storyPaths.map((filePath) => {
   const markdown = readFileSync(filePath, 'utf8')
   const file = relative(tasksDir, filePath)
   const id = basename(filePath).slice(0, 3)
-  const statusRecord = statuses.get(id)
-  const title = statusRecord?.title ?? headingFromMarkdown(markdown, basename(filePath, '.md'))
-  const status = statusRecord?.status ?? 'Post-MVP'
   const postMvp = file.startsWith('post-mvp/')
+  const readmeRecord = mvpStatuses.get(id) ?? postMvpStatuses.get(id)
+  const fileStatus = statusFromStoryFile(markdown)
+  const title = readmeRecord?.title ?? headingFromMarkdown(markdown, basename(filePath, '.md'))
+  const status =
+    readmeRecord?.status ??
+    fileStatus ??
+    (postMvp ? 'Post-MVP' : 'Not started')
+  // README post-MVP rows only tag (done)/(closed); story file wins if README row is still generic backlog.
+  const resolvedStatus =
+    postMvp && readmeRecord?.status === 'Post-MVP' && fileStatus === 'Closed'
+      ? 'Closed'
+      : status
 
   return {
     id,
     title,
-    status,
+    status: resolvedStatus,
     postMvp,
     file,
     body: renderMarkdown(markdown),

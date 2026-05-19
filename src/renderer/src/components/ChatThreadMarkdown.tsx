@@ -6,12 +6,21 @@ import remarkBreaks from 'remark-breaks'
 import rehypeSanitize from 'rehype-sanitize'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { isAllowedExternalOpenUrl } from '../../../shared/external-open-url'
 
 export type ChatMarkdownRole = 'assistant' | 'user'
 
 const remarkPlugins = [remarkGfm, remarkBreaks] as const
 
-async function openHttpsInBrowser(href: string): Promise<void> {
+function isClickableExternalHref(href: string): boolean {
+  try {
+    return isAllowedExternalOpenUrl(new URL(href))
+  } catch {
+    return false
+  }
+}
+
+async function openExternalHrefInBrowser(href: string): Promise<void> {
   const el = window.electron
   if (!el?.openExternalUrl) {
     toast.error('Opening links requires the GrokForge desktop app.')
@@ -27,7 +36,7 @@ const mdRootClass =
 function markdownComponents(role: ChatMarkdownRole): Components {
   return {
     a({ href, children, className, ...rest }) {
-      if (href && /^https:\/\//i.test(href)) {
+      if (href && isClickableExternalHref(href)) {
         return (
           <a
             {...rest}
@@ -35,7 +44,7 @@ function markdownComponents(role: ChatMarkdownRole): Components {
             className={cn(className)}
             onClick={(e) => {
               e.preventDefault()
-              void openHttpsInBrowser(href)
+              void openExternalHrefInBrowser(href)
             }}
           >
             {children}

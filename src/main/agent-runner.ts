@@ -11,11 +11,22 @@ import {
 } from './agent-chat-model-transport'
 import { getXaiApiKey } from './grok-stream'
 import { hasConfiguredXaiApiKey } from './xai-key-store'
-import { AGENT_TOOL_FENCE_INFO, AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
+import { AGENT_TOOL_FENCE_INFO } from '../shared/agent-tool-contract'
+import { AgentToolBatchPayloadSchema } from '../shared/agent-tool-schema'
 import { GF_PLAN_FENCE } from '../shared/gf-plan-contract'
 import { shouldIgnoreFsEntry } from './ignore-globs'
 import { isPathWithinWorkspaceRoots } from './workspace-path-guard'
 import { validateAgentEditProposal } from './agent-edit-proposals'
+import {
+  resolveSearchReplaceToWriteBatch,
+  SearchReplaceToolArgsSchema,
+} from './agent-search-replace-tool'
+import {
+  clearAgentTurnReads,
+  getAgentTurnReadHashes,
+  getAgentTurnReads,
+  recordAgentTurnRead,
+} from './agent-turn-read-registry'
 import { runCommandInRootForAgent } from './run-command'
 import { evaluateAgentCommandRisk } from './run-command-policy'
 import {
@@ -24,6 +35,8 @@ import {
   buildActiveContextBlock,
   buildLexicalRetrievalContext,
   isLikelySensitivePath,
+  resolveReadFileTargetPath,
+  parseReadFileToolContentHash,
   runAgentWorkspaceTool,
 } from './agent-workspace-tools'
 import { sanitizeAttachmentsForTurn } from './chat-attachment-staging'
@@ -49,7 +62,11 @@ import type {
   AgentChatStartPayload,
   AgentChatStartResult,
   AgentChatToolName,
+  AgentEditProposalPayload,
+  ValidateAgentEditBatchResult,
 } from '../shared/agent-chat-contract'
+import { mergeAgentEditProposals } from '../shared/agent-edit-proposal-merge'
+import { buildFinalAnswerContract } from '../shared/agent-final-answer-contract'
 import type {
   ExportSanitizedAgentTurnTraceResult,
   GetLastAgentTurnTraceResult,
@@ -66,6 +83,13 @@ import {
   AGENT_CHAT_MAX_THREAD_MESSAGES,
   AGENT_CHAT_MAX_USER_TEXT_CHARS,
 } from '../shared/agent-chat-contract'
+import {
+  AGENT_CONTEXT_MAX_PINS_PER_PROJECT,
+  AgentContextPinSchema,
+} from '../shared/agent-context-pins-contract'
+import { AGENT_CONTEXT_BUDGETS } from '../shared/agent-context-budget-contract'
+import { formatThreadMemoryBlock } from '../shared/agent-thread-memory'
+import { appendTraceToThreadMemory, loadThreadMemory } from './agent-thread-memory-store'
 import {
   RUN_COMMAND_DEFAULT_TIMEOUT_MS,
   RUN_COMMAND_MAX_TIMEOUT_MS,
@@ -97,6 +121,7 @@ const ActiveContextSchema = z.object({
     )
     .max(AGENT_CHAT_MAX_ATTACHMENTS)
     .optional(),
+  pinned: z.array(AgentContextPinSchema).max(AGENT_CONTEXT_MAX_PINS_PER_PROJECT).optional(),
   editorSelection: z
     .object({
       path: z.string().min(1).max(4096),
@@ -111,7 +136,7 @@ const ActiveContextSchema = z.object({
 })
 
 const ThreadMessageSchema = z.object({
-  role: z.enum(['user', 'assistant']),
+  role: z.enum(['user', 'assistant', 'system']),
   content: z.string().max(AGENT_CHAT_MAX_MESSAGE_CHARS),
 })
 
@@ -120,6 +145,12 @@ const StartPayloadSchema = z.object({
   model: z.string().min(1).max(MAX_MODEL_LEN),
   userText: z.string().min(1).max(AGENT_CHAT_MAX_USER_TEXT_CHARS),
   threadSnapshot: z.array(ThreadMessageSchema).max(AGENT_CHAT_MAX_THREAD_MESSAGES),
+  activeContext: ActiveContextSchema,
+})
+
+const ValidateAgentEditBatchSchema = z.object({
+  streamId: z.string().min(1).max(AGENT_CHAT_MAX_STREAM_ID_LEN),
+  batch: AgentToolBatchPayloadSchema,
   activeContext: ActiveContextSchema,
 })
 
@@ -143,9 +174,6 @@ const pendingCommandApprovals = new Map<
     resolve: (approved: boolean) => void
   }
 >()
-
-const EDIT_INTENT_RE =
-  /\b(add|apply|build|change|create|delete|edit|fix|implement|make|move|patch|refactor|remove|rename|replace|update|write)\b/i
 
 let targetWindow: BrowserWindow | null = null
 let getCurrentProject: () => CurrentProjectSnapshot = () => ({ projectId: null, manifest: null })
@@ -252,8 +280,16 @@ function buildInitialMessages(
 ): AgentModelChatMessage[] {
   const { systemPrompt } = buildChatSystemPrompt(manifest)
   const activeContext = buildActiveContextBlock(payload.activeContext, manifest, projectId)
+  const threadMemory = formatThreadMemoryBlock(loadThreadMemory(projectId))
+  const memoryBlock =
+    threadMemory.trim().length > 0
+      ? threadMemory.length <= AGENT_CONTEXT_BUDGETS.threadMemoryMaxChars
+        ? threadMemory
+        : `${threadMemory.slice(0, AGENT_CONTEXT_BUDGETS.threadMemoryMaxChars)}\n[...thread memory truncated...]`
+      : ''
   const dynamicContext = [
     activeContext,
+    memoryBlock,
     retrievedContext.trim() ? `## Relevant workspace context\n${retrievedContext}` : '',
   ]
     .filter(Boolean)
@@ -261,7 +297,12 @@ function buildInitialMessages(
   const prior = payload.threadSnapshot
     .filter((m) => m.content.trim())
     .slice(-40)
-    .map((m): AgentModelChatMessage => ({ role: m.role, content: m.content }))
+    .map((m): AgentModelChatMessage => {
+      if (m.role === 'system') {
+        return { role: 'system', content: m.content }
+      }
+      return { role: m.role, content: m.content }
+    })
   const planModeBlock =
     payload.activeContext.chatMode === 'plan'
       ? [
@@ -270,6 +311,7 @@ function buildInitialMessages(
           `The user enabled **Plan mode** for this turn. After any necessary read/search tool calls, your final answer must include **exactly one** fenced JSON block with the markdown language tag \`${GF_PLAN_FENCE}\` (not \`${AGENT_TOOL_FENCE_INFO}\`).`,
           'The fence body must be one JSON object with: `schemaVersion` 1, `summary` (string), `filesLikelyTouched` (string array), `risksUnknowns` (string array), `steps` (array of { `id`, `title` } with at least one step), `verification` (string).',
           'You may put readable prose before or after the fence. The JSON must parse as-is. Do not put file-write payloads inside this JSON; use `propose_file_edits` or the grokforge-agent-tools fence for edits as usual.',
+          'For an empty or nearly empty workspace, `list_directory` once (plus retrieval if needed) is enough — then stop calling tools and emit the `gf-plan` fence in your final answer. Do not loop on more discovery tools.',
         ].join('\n')
       : ''
   return [
@@ -280,7 +322,13 @@ function buildInitialMessages(
         '',
         '## Agent tool loop',
         'You may use the provided read/search tools to inspect this workspace before answering. Use tools when exact file contents or paths matter. You may request one-shot commands with run_command for tests, typecheck, git inspection, or diagnostics, but GrokForge will always ask the user before running model-requested commands. Do not claim a command ran unless the tool result says it ran. During tool planning, prefer tool calls over drafting the full answer; GrokForge will ask for the final response after tool use finishes.',
-        'When you know the complete file changes for a user-requested edit, prefer the `propose_file_edits` tool. It creates a real GrokForge diff review and does not write files until the user applies it. Use the fenced grokforge-agent-tools block only as a compatibility fallback when the tool is not available.',
+        'When the user names a feature or area without a path, use `search_workspace` and/or `list_directory` first—do not ask for an absolute path unless search is ambiguous.',
+        'Prefer tool use over clarifying questions. On edit/fix/implement intents, run discovery tools early before proposing file changes.',
+        'For localized edits on existing files, prefer `search_replace` with an exact old_string that appears once, or `propose_file_edits` with minimal full-file content. Both create a GrokForge diff review without writing disk until the user applies. Use full `write_file` only for new files or intentional whole-file rewrites. Use the fenced grokforge-agent-tools block only as a compatibility fallback when tools are unavailable.',
+        'For any **existing** file you modify, you MUST call `read_file` on that path earlier in this same turn before `propose_file_edits` or a write fence. New files do not require a prior read.',
+        'Copy `contentHash` from `read_file` into `expectedContentHash` on `search_replace`, `propose_file_edits`, and fenced `write_file` ops for existing files. Re-read if the file may have changed on disk.',
+        'Each `write_file` must contain complete file text with **real line breaks** (never one semicolon-separated line for the whole file). Base proposals on `read_file` `rawContent` (not the line-numbered `content` field): preserve indentation and line breaks for unchanged sections. Use `startLine` / `maxLines` when reading large files before editing.',
+        'When creating **multiple new files** in one task (e.g. bootstrap), prefer **one** `propose_file_edits` call with several `write_file` operations (up to 32), not separate calls per file.',
         planModeBlock,
         dynamicContext,
       ]
@@ -292,21 +340,14 @@ function buildInitialMessages(
   ]
 }
 
-function finalAnswerContract(userText: string, editProposalCreated: boolean): AgentModelChatMessage {
-  const maybeEdit = EDIT_INTENT_RE.test(userText)
+function finalAnswerContract(
+  userText: string,
+  editProposalCreated: boolean,
+  chatMode: 'fast' | 'plan',
+): AgentModelChatMessage {
   return {
     role: 'system',
-    content: [
-      '## Final response contract',
-      editProposalCreated
-        ? 'A first-class edit proposal has already been created with `propose_file_edits`. Do not append a fenced `' + AGENT_TOOL_FENCE_INFO + '` JSON block; briefly tell the user the diff review is ready.'
-        : 'If the final answer proposes workspace file changes and you have not already called `propose_file_edits`, append exactly one fenced `' + AGENT_TOOL_FENCE_INFO + '` JSON block after the human-readable summary. The renderer hides that block and turns it into a pending diff review.',
-      maybeEdit && !editProposalCreated
-        ? 'The user appears to be asking for an edit. Do not stop at prose or a normal code fence if you know the full file contents needed. Emit the machine-readable block so GrokForge can review/apply it.'
-        : 'If this is only an explanation or you are missing necessary file contents, omit the block.',
-      'Use `write_file` with complete replacement content. Use `delete_file` for a single existing file. For moves, use `write_file` at the destination plus `delete_file` for the source.',
-      'JSON version: ' + String(AGENT_TOOL_PROTOCOL_VERSION) + '. Every path must be absolute and under a workspace root.',
-    ].join('\n'),
+    content: buildFinalAnswerContract({ userText, editProposalCreated, chatMode }),
   }
 }
 
@@ -316,6 +357,7 @@ function isAllowedToolName(name: string): name is AgentChatToolName {
     name === 'list_directory' ||
     name === 'read_file' ||
     name === 'search_workspace' ||
+    name === 'search_replace' ||
     name === 'run_command' ||
     name === 'propose_file_edits'
   )
@@ -383,6 +425,7 @@ async function runAgentTurn(
   }
 
   emit({ streamId: payload.streamId, phase: 'turn_started' })
+  clearAgentTurnReads(payload.streamId)
   const safePayload: AgentChatStartPayload = {
     ...payload,
     activeContext: sanitizeActiveContext(manifest, projectId, payload.activeContext),
@@ -475,6 +518,7 @@ async function runAgentTurn(
   const messages = buildInitialMessages(manifest, projectId, safePayload, retrieval.context)
   let totalToolChars = 0
   let editProposalCreated = false
+  let turnProposalAccum: AgentEditProposalPayload | null = null
 
   const onFinalChunk = scratch
     ? (delta: string) => {
@@ -482,17 +526,49 @@ async function runAgentTurn(
       }
     : undefined
 
-  for (let i = 0; i < AGENT_TOOL_MAX_ITERATIONS; i += 1) {
+  const isPlanMode = safePayload.activeContext.chatMode === 'plan'
+  const maxToolIterations = isPlanMode
+    ? Math.min(AGENT_TOOL_MAX_ITERATIONS, 3)
+    : AGENT_TOOL_MAX_ITERATIONS
+  let toolRoundCount = 0
+
+  const completeTurnWithFinalStream = async (extraUserHint?: string): Promise<void> => {
+    if (isPlanMode) {
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Writing structured plan',
+        status: 'running',
+      })
+    }
+    if (extraUserHint) {
+      messages.push({ role: 'user', content: extraUserHint })
+    }
+    messages.push(
+      finalAnswerContract(
+        safePayload.userText,
+        editProposalCreated,
+        safePayload.activeContext.chatMode,
+      ),
+    )
+    messages.push({
+      role: 'user',
+      content:
+        'Now provide the final answer to the user from the gathered context. Stream the final answer; do not request more tools.',
+    })
+    await streamFinalAnswer(payload.streamId, payload.model, messages, ac.signal, onFinalChunk)
+    emit({ streamId: payload.streamId, phase: 'activity_clear_running', reason: 'done' })
+    emit({ streamId: payload.streamId, phase: 'done' })
+  }
+
+  for (let i = 0; i < maxToolIterations; i += 1) {
     if (ac.signal.aborted) throw ac.signal.reason
     const sampled = await sampleChatCompletion(payload.model, messages, ac.signal)
     if (sampled.toolCalls.length === 0) {
-      messages.push(finalAnswerContract(safePayload.userText, editProposalCreated))
-      messages.push({ role: 'user', content: 'Now provide the final answer to the user from the gathered context. Stream the final answer; do not request more tools.' })
-      await streamFinalAnswer(payload.streamId, payload.model, messages, ac.signal, onFinalChunk)
-      emit({ streamId: payload.streamId, phase: 'activity_clear_running', reason: 'done' })
-      emit({ streamId: payload.streamId, phase: 'done' })
+      await completeTurnWithFinalStream()
       return
     }
+
+    toolRoundCount += 1
 
     messages.push({
       role: 'assistant',
@@ -520,36 +596,73 @@ async function runAgentTurn(
       } else if (totalToolChars >= AGENT_TOOL_TOTAL_RESULT_CHARS) {
         toolContent = JSON.stringify({ ok: false, error: 'Total tool result budget reached.' })
         doneTitle = 'Tool budget reached'
-      } else if (name === 'propose_file_edits') {
-        const proposalResult = validateAgentEditProposal(parseToolArgs(call.function.arguments), {
-          projectId,
-          manifest,
-          activeContext: safePayload.activeContext,
-          signal: ac.signal,
-        })
-        if (!proposalResult.ok) {
-          doneTitle = 'Edit proposal failed'
-          detail = proposalResult.error
-          toolContent = JSON.stringify({
-            ok: false,
-            error: proposalResult.error,
-            rejected: proposalResult.proposal?.rejected ?? [],
-          })
+      } else if (name === 'search_replace' || name === 'propose_file_edits') {
+        const rawToolArgs = parseToolArgs(call.function.arguments)
+        const searchReplaceParsed =
+          name === 'search_replace' ? SearchReplaceToolArgsSchema.safeParse(rawToolArgs) : null
+        if (name === 'search_replace' && searchReplaceParsed && !searchReplaceParsed.success) {
+          doneTitle = 'Search replace failed'
+          detail = searchReplaceParsed.error.message
+          toolContent = JSON.stringify({ ok: false, error: searchReplaceParsed.error.message })
         } else {
-          ok = true
-          editProposalCreated = true
-          emit({ streamId: payload.streamId, phase: 'edit_proposal', proposal: proposalResult.proposal })
-          const count = proposalResult.proposal.batch.operations.length
-          const rejected = proposalResult.proposal.rejected.length
-          doneTitle = 'Prepared edit proposal'
-          detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${rejected} rejected` : ''}`
-          toolContent = JSON.stringify({
-            ok: true,
-            proposalCreated: true,
-            operations: count,
-            rejected: proposalResult.proposal.rejected,
-            message: 'The proposal is now available in GrokForge for user diff review. Do not repeat the full JSON in the final answer.',
-          })
+          const writeBatch =
+            name === 'search_replace' && searchReplaceParsed?.success
+              ? (() => {
+                  const built = resolveSearchReplaceToWriteBatch(searchReplaceParsed.data, {
+                    projectId,
+                    manifest,
+                    activeContext: safePayload.activeContext,
+                    signal: ac.signal,
+                  })
+                  if (!built.ok) return built
+                  recordAgentTurnRead(payload.streamId, built.path, built.contentHash)
+                  return built
+                })()
+              : null
+          if (name === 'search_replace' && writeBatch && !writeBatch.ok) {
+            doneTitle = 'Search replace failed'
+            detail = writeBatch.error
+            toolContent = JSON.stringify({ ok: false, error: writeBatch.error })
+          } else {
+            const proposalResult = validateAgentEditProposal(
+              name === 'search_replace' && writeBatch && 'batch' in writeBatch ? writeBatch.batch : rawToolArgs,
+              {
+                projectId,
+                manifest,
+                activeContext: safePayload.activeContext,
+                signal: ac.signal,
+                readPathsThisTurn: getAgentTurnReads(payload.streamId),
+                readHashesThisTurn: getAgentTurnReadHashes(payload.streamId),
+              },
+            )
+            if (!proposalResult.ok) {
+              doneTitle = name === 'search_replace' ? 'Search replace failed' : 'Edit proposal failed'
+              detail = proposalResult.error
+              toolContent = JSON.stringify({
+                ok: false,
+                error: proposalResult.error,
+                rejected: proposalResult.proposal?.rejected ?? [],
+              })
+            } else {
+              ok = true
+              editProposalCreated = true
+              turnProposalAccum = mergeAgentEditProposals(turnProposalAccum, proposalResult.proposal)
+              emit({ streamId: payload.streamId, phase: 'edit_proposal', proposal: turnProposalAccum })
+              const count = turnProposalAccum.batch.operations.length
+              const rejected = turnProposalAccum.rejected.length
+              doneTitle =
+                name === 'search_replace' ? 'Prepared search_replace proposal' : 'Prepared edit proposal'
+              detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${rejected} rejected` : ''}`
+              toolContent = JSON.stringify({
+                ok: true,
+                proposalCreated: true,
+                operations: count,
+                rejected: turnProposalAccum.rejected,
+                message:
+                  'The proposal is now available in GrokForge for user diff review. Do not repeat the full JSON in the final answer.',
+              })
+            }
+          }
         }
       } else if (name === 'run_command') {
         const parsedArgs = RunCommandToolArgsSchema.safeParse(parseToolArgs(call.function.arguments))
@@ -655,12 +768,14 @@ async function runAgentTurn(
           }
         }
       } else {
-        const result = runAgentWorkspaceTool(name, parseToolArgs(call.function.arguments), {
+        const toolEnv = {
           projectId,
           manifest,
           activeContext: safePayload.activeContext,
           signal: ac.signal,
-        })
+        }
+        const toolArgs = parseToolArgs(call.function.arguments)
+        const result = runAgentWorkspaceTool(name, toolArgs, toolEnv)
         ok = result.ok
         doneTitle = result.displayTitle
         detail = result.displayDetail
@@ -669,6 +784,11 @@ async function runAgentTurn(
           ? `${result.content.slice(0, remaining)}\n[...total tool result budget reached...]`
           : result.content
         totalToolChars += toolContent.length
+        if (name === 'read_file' && ok) {
+          const readTarget = resolveReadFileTargetPath(toolArgs, toolEnv)
+          const readHash = parseReadFileToolContentHash(result.content)
+          if (readTarget && readHash) recordAgentTurnRead(payload.streamId, readTarget, readHash)
+        }
       }
       const truncatedInLoop =
         toolContent.includes('[...total tool result budget reached...]') ||
@@ -698,18 +818,20 @@ async function runAgentTurn(
       scratch.editProposalCreated = editProposalCreated
       scratch.totalToolCharsAccumulated = totalToolChars
     }
+
+    if (isPlanMode && toolRoundCount >= 1) {
+      await completeTurnWithFinalStream(
+        'You have enough workspace context from discovery tools. Provide your final answer now with exactly one ```gf-plan``` fenced JSON block. Do not request more tools.',
+      )
+      return
+    }
   }
 
   if (scratch) scratch.maxToolIterationsHit = true
-  messages.push({
-    role: 'user',
-    content:
-      'GrokForge reached the maximum read/search tool iterations for this turn. Provide the best grounded answer you can from the gathered context, and say what you could not verify.',
-  })
-  messages.push(finalAnswerContract(safePayload.userText, editProposalCreated))
-  await streamFinalAnswer(payload.streamId, payload.model, messages, ac.signal, onFinalChunk)
-  emit({ streamId: payload.streamId, phase: 'activity_clear_running', reason: 'done' })
-  emit({ streamId: payload.streamId, phase: 'done' })
+  const maxHint = isPlanMode
+    ? 'GrokForge reached the plan-mode tool step limit. Provide your final answer with exactly one ```gf-plan``` fenced JSON block from the context gathered so far.'
+    : 'GrokForge reached the maximum read/search tool iterations for this turn. Provide the best grounded answer you can from the gathered context, and say what you could not verify.'
+  await completeTurnWithFinalStream(maxHint)
 }
 
 async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
@@ -771,12 +893,12 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
   } finally {
     clearTimeout(timeout)
     activeTurns.delete(payload.streamId)
+    setImmediate(() => clearAgentTurnReads(payload.streamId))
     if (scratch) {
       try {
-        writeAgentTurnTrace(
-          scratch.projectId,
-          finalizeTurnTrace(scratch, traceOutcome, { errorMessage: traceError }),
-        )
+        const finalizedTrace = finalizeTurnTrace(scratch, traceOutcome, { errorMessage: traceError })
+        writeAgentTurnTrace(scratch.projectId, finalizedTrace)
+        appendTraceToThreadMemory(scratch.projectId, finalizedTrace)
       } catch {
         /* ignore trace persistence failures */
       }
@@ -850,5 +972,26 @@ export function registerAgentChatIpc(options: { getCurrentProject: () => Current
     const snap = getCurrentProject()
     if (!snap.projectId || !snap.manifest) return { ok: false, error: 'No project loaded.' }
     return replayRetrievalPreviewFromLatestTrace(snap.projectId, snap.manifest)
+  })
+
+  ipcMain.handle('validate-agent-edit-batch', (_, raw: unknown): ValidateAgentEditBatchResult => {
+    const parsed = ValidateAgentEditBatchSchema.safeParse(raw)
+    if (!parsed.success) return { ok: false, error: parsed.error.message }
+    const snap = getCurrentProject()
+    if (!snap.projectId || !snap.manifest) return { ok: false, error: 'No project loaded.' }
+    const activeContext = sanitizeActiveContext(snap.manifest, snap.projectId, parsed.data.activeContext)
+    const result = validateAgentEditProposal(parsed.data.batch, {
+      projectId: snap.projectId,
+      manifest: snap.manifest,
+      activeContext,
+      signal: new AbortController().signal,
+      readPathsThisTurn: getAgentTurnReads(parsed.data.streamId),
+      readHashesThisTurn: getAgentTurnReadHashes(parsed.data.streamId),
+    })
+    if (result.ok) {
+      clearAgentTurnReads(parsed.data.streamId)
+      return { ok: true, proposal: result.proposal }
+    }
+    return { ok: false, error: result.error, proposal: result.proposal }
   })
 }

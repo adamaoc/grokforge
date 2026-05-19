@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type { editor as MonacoEditor } from 'monaco-editor'
 import { Save, PanelRightClose } from 'lucide-react'
@@ -10,14 +10,17 @@ import type {
   Root,
   WorkspaceFsMutationEvent,
 } from '@/types'
-import { getModelForIntent } from '@/types'
 import { getLanguageFromPath } from '@/lib/getLanguageFromPath'
 import { normalizeFsPath } from '@/lib/workspace-path-check'
 import { isSameOrDescendantPath, remapRecordForRename } from '@/lib/workspace-fs-mutation-state'
-import { ModelBadge } from '@/components/grokforge/ModelBadge'
 import { EditorEmptyState } from '@/components/EditorEmptyState'
 import { EditorTabBar } from '@/components/EditorTabBar'
 import { GroupedDiffView } from '@/components/GroupedDiffView'
+import { AgentEditSafetyBanner } from '@/components/AgentEditSafetyBanner'
+import { AgentProposalTraceSnippet } from '@/components/AgentProposalTraceSnippet'
+import { DiffViewErrorBoundary } from '@/components/DiffViewErrorBoundary'
+import type { AgentEditSafetyResult } from '../../../shared/agent-edit-safety-warnings'
+import { formatDiffSessionSummary, summarizeDiffSessionStats } from '../../../shared/diff-line-stats'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -68,6 +71,10 @@ interface EditorPaneProps {
     onPrimary: () => void
     secondaryLabel?: string
     onSecondary?: () => void
+    regenerateLabel?: string
+    onRegenerate?: () => void
+    fixFailedEditLabel?: string
+    onFixFailedEdit?: () => void
     primaryDisabled?: boolean
   } | null
   onCloseDiffSession?: () => void
@@ -113,7 +120,6 @@ export function EditorPane({
   onAskAgent,
   onCollapseEditorPane,
 }: EditorPaneProps) {
-  const executionModelId = useMemo(() => getModelForIntent(project, 'execution'), [project])
   const [fileContents, setFileContents] = useState<Record<string, string>>({})
   const [isDirty, setIsDirty] = useState<Record<string, boolean>>({})
   const [pendingClosePath, setPendingClosePath] = useState<string | null>(null)
@@ -364,15 +370,27 @@ export function EditorPane({
 
   const pendingFileName = pendingClosePath ? pendingClosePath.split('/').pop() || pendingClosePath : ''
 
+  const agentProposalSafety: AgentEditSafetyResult[] =
+    diffSession?.source === 'agent-proposal'
+      ? diffSession.files
+          .map((f) => f.editSafety)
+          .filter((item): item is AgentEditSafetyResult => item != null)
+      : []
+
+  const diffSessionStatsLine = diffSession
+    ? formatDiffSessionSummary(diffSession.files.length, summarizeDiffSessionStats(diffSession.files))
+    : null
+
   if (diffSession) {
     return (
       <div className="flex min-h-0 flex-1 flex-col bg-zinc-950">
-        <div className="gf-no-drag flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-950 px-4 py-2.5">
+        <div className="gf-no-drag flex shrink-0 flex-col gap-2 border-b border-zinc-800 bg-zinc-950 px-4 py-2.5">
+          <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-white">{diffSession.title}</div>
             <div className="truncate text-xs text-zinc-500">
-              {diffSession.description ||
-                `${diffSession.files.length} ${diffSession.files.length === 1 ? 'file' : 'files'} · ${diffSession.source}`}
+              {diffSession.description ?? diffSessionStatsLine ?? `${diffSession.files.length} files`}
+              <span className="text-zinc-600"> · {diffSession.source}</span>
             </div>
             {diffSession.warnings?.length ? (
               <div className="mt-1 truncate text-[11px] text-amber-300">
@@ -399,6 +417,28 @@ export function EditorPane({
                   Hide editor pane
                 </TooltipContent>
               </Tooltip>
+            ) : null}
+            {diffSessionActions?.onFixFailedEdit && diffSessionActions.fixFailedEditLabel ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg border-amber-800/80 bg-zinc-900 text-xs text-amber-100/90 hover:bg-zinc-800"
+                onClick={diffSessionActions.onFixFailedEdit}
+              >
+                {diffSessionActions.fixFailedEditLabel}
+              </Button>
+            ) : null}
+            {diffSessionActions?.onRegenerate && diffSessionActions.regenerateLabel ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-lg border-zinc-700 bg-zinc-900 text-xs hover:bg-zinc-800"
+                onClick={diffSessionActions.onRegenerate}
+              >
+                {diffSessionActions.regenerateLabel}
+              </Button>
             ) : null}
             {diffSessionActions?.secondaryLabel && diffSessionActions.onSecondary ? (
               <Button
@@ -432,9 +472,16 @@ export function EditorPane({
               Close
             </Button>
           </div>
+          </div>
+          {agentProposalSafety.length > 0 ? (
+            <AgentEditSafetyBanner assessments={agentProposalSafety} />
+          ) : null}
+          {diffSession.source === 'agent-proposal' ? <AgentProposalTraceSnippet /> : null}
         </div>
         <div className="flex min-h-0 flex-1 flex-col px-3 pb-3 pt-1">
-          <GroupedDiffView session={diffSession} project={project} />
+          <DiffViewErrorBoundary onClose={onCloseDiffSession}>
+            <GroupedDiffView session={diffSession} project={project} />
+          </DiffViewErrorBoundary>
         </div>
       </div>
     )
@@ -487,9 +534,9 @@ export function EditorPane({
                 padding: { top: 16, bottom: 16 },
               }}
             />
-            <div className="pointer-events-none absolute right-4 top-4 flex items-center gap-2">
-              <div className="pointer-events-auto flex items-center gap-2">
-                {isDirty[activeFile] ? (
+            {isDirty[activeFile] ? (
+              <div className="pointer-events-none absolute right-4 top-4 flex items-center gap-2">
+                <div className="pointer-events-auto">
                   <Button
                     type="button"
                     variant="outline"
@@ -500,15 +547,9 @@ export function EditorPane({
                   >
                     <Save size={14} /> Save
                   </Button>
-                ) : null}
-                <div className="rounded-full border border-zinc-800 bg-zinc-900/80 px-3 py-1 font-mono text-xs text-zinc-400">
-                  {activeFile.split('/').pop()}
                 </div>
-                <ModelBadge title={executionModelId} className="hidden sm:inline">
-                  {executionModelId}
-                </ModelBadge>
               </div>
-            </div>
+            ) : null}
           </>
         ) : null}
       </div>

@@ -14,6 +14,10 @@ function isPathUnder(path: string, maybeParent: string): boolean {
   return p === parent || p.startsWith(`${parent}/`)
 }
 
+function expandedRootsForProject(roots: Root[]): Record<string, boolean> {
+  return Object.fromEntries(roots.map((root) => [root.id, true]))
+}
+
 function formatRefreshTime(timestamp: number | undefined): string {
   if (!timestamp) return 'not refreshed yet'
   return new Date(timestamp).toLocaleTimeString([], {
@@ -80,6 +84,8 @@ interface SidebarProps {
   /** File tree local mutations — reconcile editor state and refresh affected directories/status. */
   onWorkspaceFsMutation?: (event: WorkspaceFsMutationEvent, refreshPaths: string[]) => void
   onAddPathToChat?: (attachment: AgentChatAttachment) => void
+  isPathPinnedForAgent?: (path: string) => boolean
+  onTogglePinForAgent?: (path: string, isDirectory: boolean) => void
   onOpenDiffSession?: (session: DiffSession) => void
 }
 
@@ -100,9 +106,13 @@ export function Sidebar({
   workspaceFsChange,
   onWorkspaceFsMutation,
   onAddPathToChat,
+  isPathPinnedForAgent,
+  onTogglePinForAgent,
   onOpenDiffSession,
 }: SidebarProps) {
-  const [expandedRoots, setExpandedRoots] = useState<Record<string, boolean>>({})
+  const [expandedRoots, setExpandedRoots] = useState<Record<string, boolean>>(() =>
+    expandedRootsForProject(project.roots),
+  )
   const [gitByRootId, setGitByRootId] = useState<Record<string, GitStatusSummary>>({})
   const [gitRefreshedAtByRootId, setGitRefreshedAtByRootId] = useState<Record<string, number>>({})
   const [gitLoadingIds, setGitLoadingIds] = useState<ReadonlySet<string>>(() => new Set())
@@ -171,6 +181,19 @@ export function Sidebar({
     }
     onOpenDiffSession(res.session)
   }, [onOpenDiffSession])
+
+  useEffect(() => {
+    setExpandedRoots((prev) => {
+      const next: Record<string, boolean> = {}
+      let changed = false
+      for (const root of project.roots) {
+        if (!(root.id in prev)) changed = true
+        next[root.id] = prev[root.id] ?? true
+      }
+      if (Object.keys(prev).length !== project.roots.length) changed = true
+      return changed ? next : prev
+    })
+  }, [rootsGitKey, project.roots])
 
   useEffect(() => {
     void refreshGitStatuses()
@@ -367,6 +390,8 @@ export function Sidebar({
                           source: 'workspace',
                         })
                       }
+                      isPathPinnedForAgent={isPathPinnedForAgent}
+                      onTogglePinForAgent={onTogglePinForAgent}
                     />
                   </div>
                 )}

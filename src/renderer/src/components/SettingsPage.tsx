@@ -36,6 +36,7 @@ import {
   readStoredAgentWritesMode,
   type AgentWritesMode,
 } from '@/lib/agent-writes-mode'
+import { AgentWriteHistorySection } from '@/components/AgentWriteHistorySection'
 
 const URL_XAI_CONSOLE = 'https://console.x.ai/'
 const URL_XAI_CHAT_DOCS = 'https://docs.x.ai/docs/guides/chat'
@@ -45,7 +46,9 @@ export interface SettingsPageProps {
   onBack: () => void
   macTitleBarInset?: boolean
   project?: GrokProjectManifest | null
+  workspaceProjectId?: string | null
   onProjectSaved?: (manifest: GrokProjectManifest) => void
+  onAgentDiskFilesChanged?: (paths: string[]) => void
 }
 
 function statusDescription(status: XaiKeyStatusPayload | null): string {
@@ -66,7 +69,14 @@ function voiceSelectionFromId(raw: string | null | undefined): { selected: strin
   return { selected: CUSTOM_VOICE_VALUE, draft: id }
 }
 
-export function SettingsPage({ onBack, macTitleBarInset, project, onProjectSaved }: SettingsPageProps) {
+export function SettingsPage({
+  onBack,
+  macTitleBarInset,
+  project,
+  workspaceProjectId = null,
+  onProjectSaved,
+  onAgentDiskFilesChanged,
+}: SettingsPageProps) {
   const initialVoice = voiceSelectionFromId(project?.voice.customVoiceId)
   const [status, setStatus] = useState<XaiKeyStatusPayload | null>(null)
   const [apiKeyInput, setApiKeyInput] = useState('')
@@ -402,6 +412,13 @@ export function SettingsPage({ onBack, macTitleBarInset, project, onProjectSaved
               </button>
             </div>
           </section>
+
+          {workspaceProjectId ? (
+            <AgentWriteHistorySection
+              projectId={workspaceProjectId}
+              onReverted={onAgentDiskFilesChanged}
+            />
+          ) : null}
 
           <section
             className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm"

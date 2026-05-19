@@ -13,7 +13,7 @@ export function buildTextAgentTurnContext(args: {
   project: GrokProjectManifest
   activeRoot: Root | null
   activeFilePath: string | null
-  modelIntent: 'chat_default' | 'planning'
+  modelIntent: 'chat_default' | 'planning' | 'execution'
   chatMode: 'fast' | 'plan'
 }): ChatTurnContextV1 {
   const { project, activeRoot, activeFilePath, modelIntent, chatMode } = args
@@ -48,5 +48,6 @@ export function buildVoiceTurnContext(args: {
 export function formatModelIntentLabel(intent: ChatTurnContextV1['modelIntent']): string {
   if (intent === 'chat_default') return 'Default'
   if (intent === 'planning') return 'Planning'
+  if (intent === 'execution') return 'Execution'
   return 'Voice'
 }

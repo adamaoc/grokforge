@@ -165,7 +165,7 @@ export function buildChatSystemPrompt(
   lines.push('')
   lines.push('## Workspace index (bounded, ignore-aware)')
   lines.push(
-    'Use this as a compact map of likely project structure. It is not a full file read; ask the user or use provided file context when exact contents matter.',
+    'Use this as a compact map of likely project structure. It is not a full file read; use `search_workspace`, `list_directory`, and `read_file` when exact paths or contents matter.',
   )
   for (const root of workspaceIndex.roots) {
     lines.push('')
@@ -194,6 +194,18 @@ export function buildChatSystemPrompt(
     }
   }
   warnings.push(...workspaceIndex.warnings)
+
+  lines.push('')
+  lines.push('## Workspace exploration')
+  lines.push(
+    'When the user names a page, feature, or area (for example "admin page" or "dashboard widget") **without** giving a file path, proactively use `search_workspace` and/or `list_directory`, then `read_file` on the best match. Do **not** ask for a path unless multiple equally likely targets remain after search.',
+  )
+  lines.push(
+    'Prefer **acting with tools** over clarifying questions. Ask the user only when search results are ambiguous or you need a product decision.',
+  )
+  lines.push(
+    'For edit, fix, or implement requests, run discovery tools **early** in the turn (before `propose_file_edits`). For existing files you will modify, you must still `read_file` each path in the same turn before proposing writes.',
+  )
 
   lines.push('')
   lines.push('## Custom instructions (from manifest context.customInstructions)')
@@ -240,9 +252,39 @@ export function buildChatSystemPrompt(
     '- Only the workspace roots listed above are writable by the agent. Do not assume any other directory (including parent folders of a root) is part of the workspace unless it appears in the roots list.',
   )
   lines.push('- Do not target paths ignored by `manifest.ignore` (e.g. `node_modules`, build output) — those writes are rejected.')
-  lines.push('- Use full-file replacement: `write_file` sends the **entire** new file contents.')
+  lines.push(
+    '- GrokForge applies one full file per `write_file` operation, so each `content` must be the **complete** valid file text—but make the **smallest faithful change** that satisfies the request. Start from `read_file` output and edit only what is needed.',
+  )
+  lines.push(
+    '- **Line breaks are required:** never put an entire source file on one line. Use real newlines in `content` (standard JSON string escaping). Semicolon-chained one-liners break `//` comments and silently comment out the rest of the file.',
+  )
+  lines.push(
+    '- **Preserve layout from `read_file`:** use the `rawContent` field (not the line-numbered `content` field) when copying text for edits. Keep indentation, line breaks, and spacing for unchanged sections. Do not minify or semicolon-chain statements onto one line.',
+  )
+  lines.push(
+    '- Before proposing `write_file` for an **existing** file, you MUST call `read_file` on that path in the same turn. Do not guess or reconstruct file content from memory. New files do not require a prior read.',
+  )
+  lines.push(
+    '- `read_file` returns `contentHash` (SHA-256 of the **full file** on disk). For every edit to an existing file, pass that value as `expectedContentHash` on `write_file`, `search_replace`, and `propose_file_edits`. If validation fails with a stale-hash error, call `read_file` again and retry.',
+  )
+  lines.push('### Minimal changes')
+  lines.push(
+    '- For localized edits on **existing** files, prefer the `search_replace` tool (exact `old_string` must match once) instead of rewriting the whole file with `write_file`.',
+  )
+  lines.push(
+    '- Prefer the **smallest change** that satisfies the request. Do not rewrite unrelated sections, imports, types, comments, or formatting.',
+  )
+  lines.push(
+    '- Preserve structure you are not intentionally changing. Only rewrite the whole file when the user asks for a deliberate full rewrite, the file is new, or the change is truly global (e.g. major restructure).',
+  )
+  lines.push(
+    '- For long files, use chunked `read_file` with `startLine` and `maxLines` for the section you will edit; do not invent lines you did not read.',
+  )
   lines.push('- Use `delete_file` only for deleting a single existing file under a workspace root. Do not use it for folders.')
   lines.push('- For file moves/renames, emit one `write_file` for the new absolute path and one `delete_file` for the old absolute path.')
+  lines.push(
+    '- When creating several **new** files in one task, prefer one `propose_file_edits` (or one fenced batch) with multiple `write_file` operations instead of one file per tool call.',
+  )
   lines.push('- If the user asks you to create, edit, move, rename, or delete files, your final reply must include this machine-readable block. Do not only show code in a normal markdown fence.')
   lines.push(
     '- **Truthfulness:** Do not tell the user that files were already written, saved, applied, replaced, merged, or patched on disk unless this same reply includes the closing machine-readable `' +

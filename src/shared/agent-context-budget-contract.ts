@@ -18,6 +18,7 @@ export const AGENT_CONTEXT_BUDGETS = {
   workspaceIndexMaxEntriesPerRoot: 220,
   workspaceIndexMaxImportantFilesPerRoot: 40,
   activeContextMaxChars: 8_000,
+  threadMemoryMaxChars: 2_000,
   retrievedContextMaxChars: 18_000,
   retrievalMaxFilesPerTurn: 5,
   retrievalPerFileMaxChars: 40_000,

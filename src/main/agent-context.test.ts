@@ -82,6 +82,38 @@ describe('buildChatSystemPrompt', () => {
     expect(systemPrompt).toContain('Truthfulness')
   })
 
+  it('includes proactive workspace exploration rules', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gf-sys-explore-'))
+    mkdirSync(dir, { recursive: true })
+    const manifest = testManifest({
+      roots: [{ id: 'r1', path: dir, type: 'code', label: 'App' }],
+      context: { alwaysInclude: [] },
+    })
+    const { systemPrompt } = buildChatSystemPrompt(manifest)
+    expect(systemPrompt).toContain('## Workspace exploration')
+    expect(systemPrompt).toContain('search_workspace')
+    expect(systemPrompt).toContain('list_directory')
+    expect(systemPrompt).toContain('Do **not** ask for a path unless multiple equally likely targets remain')
+    expect(systemPrompt).toContain('run discovery tools **early**')
+  })
+
+  it('includes minimal-change edit rules', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gf-sys-minimal-'))
+    mkdirSync(dir, { recursive: true })
+    const manifest = testManifest({
+      roots: [{ id: 'r1', path: dir, type: 'code', label: 'App' }],
+      context: { alwaysInclude: [] },
+    })
+    const { systemPrompt } = buildChatSystemPrompt(manifest)
+    expect(systemPrompt).toContain('### Minimal changes')
+    expect(systemPrompt).toContain('smallest faithful change')
+    expect(systemPrompt).toContain('smallest change')
+    expect(systemPrompt).toContain('read_file')
+    expect(systemPrompt).toContain('startLine')
+    expect(systemPrompt).toContain('maxLines')
+    expect(systemPrompt).toContain('Do not rewrite unrelated sections')
+  })
+
   it('includes a bounded workspace index in the chat system prompt', () => {
     const dir = mkdtempSync(join(tmpdir(), 'gf-sys-index-'))
     const appRoot = join(dir, 'app')
