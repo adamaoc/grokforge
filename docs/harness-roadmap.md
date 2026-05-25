@@ -57,6 +57,10 @@ Protect these while extending the harness.
 
 **Known limitation:** Grok Voice realtime does **not** run the text agent tool loop. [**113**](../project_tasks/post-mvp/113-voice-realtime-harness-profile-alignment.md) aligns voice instructions and handoff copy with harness profiles; implementation work still flows through typed agent chat.
 
+**App stability (deferred):** One report of a **black renderer** after macOS app switch during Plan mode (**Cmd+R** ineffective). Tracked as [**117**](../project_tasks/post-mvp/117-renderer-black-screen-on-macos-resume.md) — address if reproducible; not harness-core.
+
+**UX polish (post-ToDoApp test, 2026-05-25):** [**118**](../project_tasks/post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md) Work vs Plan + auto-exit Plan after first `gf-plan`; [**119**](../project_tasks/post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md) activity/toast honesty; [**120**](../project_tasks/post-mvp/120-post-plan-executor-routing-and-single-file-edits.md) incremental follow-ups without re-planning.
+
 ---
 
 ## 4. Harness debt retrospective

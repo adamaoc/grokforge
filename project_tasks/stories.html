@@ -309,10 +309,11 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">115 stories</span>
+        <span class="pill">119 stories</span>
         <span class="pill">Done: 109</span>
         <span class="pill">Closed: 6</span>
-        <span class="pill">Generated 2026-05-20</span>
+        <span class="pill">Post-MVP: 4</span>
+        <span class="pill">Generated 2026-05-25</span>
       </div>
       <div class="story-filters">
         <label>
@@ -8523,6 +8524,7 @@ chatMode (062)
 <li>When edit tools still fail at turn end, strengthen <strong>final answer contract</strong> and <strong>max-iteration hint</strong> so the model must not claim disk writes.</li>
 <li>Renderer toast heuristic catches **“Updated <code>*.md</code>”** without a proposal.</li>
 <li>Optional: strip read_file line-number prefixes from <code>old_string</code> when every line matches the display format and the stripped string matches exactly once.</li>
+<li><strong>Stall guard:</strong> After the escalation nudge, at most <strong>2</strong> more tool rounds; or <strong>6</strong> total <code>search_replace</code> failures in the turn — then force final answer (avoids long “Grok is thinking…” with only errors).</li>
 </ol>
 <h3>Non-goals</h3>
 <ul>
@@ -8555,6 +8557,226 @@ chatMode (062)
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When shipped: update this <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-117" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">117</span><span class="story-name">Renderer black screen on macOS resume (stability)</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/117-renderer-black-screen-on-macos-resume.md">post-mvp/117-renderer-black-screen-on-macos-resume.md</a>
+          </div>
+          <h2>117 — Renderer black screen on macOS app resume</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (stability / Electron shell); minor renderer recovery UI if pursued (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p><strong>Field report (2026-05-25):</strong> During a <strong>Plan mode</strong> harness test (todo-app greenfield flow), planning looked healthy until the user <strong>tabbed away</strong> from GrokForge (macOS app switcher). On return the window was a <strong>solid black screen</strong> (<code>backgroundColor</code> <code>#0a0a0a</code> in <code>main.ts</code>). <strong>Cmd+R did nothing.</strong> <strong>Force Quit</strong> was required to exit.</p>
+<p>This is <strong>not</strong> harness logic failure — likely <strong>renderer crash, hang, or GPU compositor failure</strong> while a long agent turn may still have been running in main (<strong>070</strong>).</p>
+<p><strong>Priority:</strong> Defer until reproducible or blocking daily harness work. Harness program (<strong>102–116</strong>) stays the focus.</p>
+<h3>Repro notes (from report)</h3>
+<p>| Item | Detail | | --- | --- | | Phase | Plan mode, planning turn in progress | | Trigger | macOS app switch away, then return | | Recovery tried | Cmd+R — no effect | | Exit | Force Quit | | Diff open? | Unknown — if yes, see known <code>setDiffSessionActions</code> loop in <code>ChatThread.tsx</code> (~1908) |</p>
+<h3>Hypotheses (for implementers)</h3>
+<ol>
+<li><strong>Renderer process gone / hung</strong> — no root <code>ErrorBoundary</code>, no <code>webContents.on('render-process-gone')</code> reload in <code>main.ts</code>.</li>
+<li><strong>React render loop</strong> — prior black screen from infinite <code>setDiffSessionActions</code> when diff review callbacks were effect deps (<code>ChatThread.tsx</code> comment ~1906–1908).</li>
+<li><strong>IPC + UI storm while backgrounded</strong> — <code>final_chunk</code> + <code>ReactMarkdown</code> + tool activity updates during long plan/stream; burst on resume.</li>
+<li><strong>Dev-only</strong> — Vite dev server disconnect if using <code>npm run dev</code>.</li>
+<li><strong>macOS GPU layer</strong> — Chromium fails to repaint after resume (sometimes fixed by resize; Cmd+R would not help).</li>
+</ol>
+<h3>Goals (when picked up)</h3>
+<ol>
+<li><strong>Reproduce</strong> reliably (dev vs <code>npm start</code> / packaged; plan-only vs diff open; turn still running vs idle).</li>
+<li><strong>Observe</strong> — Terminal launch logs, Console.app crash reports, detached DevTools console.</li>
+<li><strong>Recover gracefully</strong> — detect renderer death and offer <strong>Reload window</strong> (and log last <code>streamId</code> / phase if agent turn was active).</li>
+<li><strong>Prevent</strong> where possible — root error boundary; avoid diff-session action loops; optional throttle/defer heavy chat markdown while <code>document.hidden</code>.</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Blocking harness <strong>102–116</strong> follow-ups or eval work.</li>
+<li>Full performance audit of chat streaming (unless repro points there).</li>
+</ul>
+<h3>Scope (candidate)</h3>
+<ul>
+<li><a href="../../src/main/main.ts"><code>src/main/main.ts</code></a> — <code>render-process-gone</code>, optional <code>unresponsive</code> handling</li>
+<li><a href="../../src/renderer/src/main.tsx"><code>src/renderer/src/main.tsx</code></a> — root error boundary + recovery affordance</li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — audit diff-session <code>onUpdateDiffSessionActions</code> effects; stream/markdown cost while hidden</li>
+<li><a href="../../src/renderer/src/App.tsx"><code>src/renderer/src/App.tsx</code></a> — <code>backgroundColor</code> vs empty root</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Repro steps documented in this file or PR notes (or marked <strong>Closed</strong> if cannot reproduce after N attempts).</li>
+<li><input type="checkbox" disabled> After simulated/killed renderer, user gets <strong>Reload</strong> (or auto-reload with toast) instead of permanent black screen.</li>
+<li><input type="checkbox" disabled> Root uncaught render errors show in-app fallback, not blank <code>#0a0a0a</code>.</li>
+<li><input type="checkbox" disabled> No regression: <code>npm run typecheck</code>, <code>npm run test</code>; manual smoke on macOS resume during in-flight plan turn.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="../070-background-agent-chat-and-dashboard-activity.md">070</a></strong> — agent turn continues in main when UI unmounts; persistence may survive renderer death</li>
+<li><strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong> — last harness story before this backlog item</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-118" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">118</span><span class="story-name">Work vs Plan mode naming and conversation lifecycle</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md">post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md</a>
+          </div>
+          <h2>118 — Work vs Plan mode naming and conversation lifecycle</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> before changing composer mode control, onboarding copy, or turn-context badges (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p><strong>Field report (2026-05-25, ToDoApp harness test):</strong></p>
+<ul>
+<li>User started a <strong>new</strong> project and the composer was already in <strong>Plan</strong> mode (may have been intentional for greenfield; may also be confusing if leftover <strong>per-project</strong> <code>localStorage</code> — today <code>grokforge.conversationMode.v1:&lt;projectId&gt;</code> defaults to <code>normal</code> for a new UUID).</li>
+<li>After the <strong>first</strong> plan-mode turn (structured <code>gf-plan</code>), mode <strong>stayed on Plan</strong>. A follow-up (“add a remove button”) ran through another full plan cycle — heavier than needed.</li>
+<li><strong>“Chat”</strong> feels like casual talk, not agent work. User prefers <strong>Work</strong> vs <strong>Plan</strong> in the UI.</li>
+</ul>
+<h3>Goals</h3>
+<ol>
+<li><strong>Rename UI only (v1):</strong> Composer toggle <strong>Chat → Work</strong>; keep internal <code>conversationMode: 'normal' | 'plan'</code> and agent <code>chatMode: 'fast' | 'plan'</code> unless a follow-up explicitly migrates persisted turn labels.</li>
+<li><strong>Greenfield default:</strong> When opening a project with <strong>no chat history</strong> (welcome-only or empty thread) and workspace is <strong>greenfield</strong> (<code>isGreenfieldWorkspace</code>), default composer to <strong>Plan</strong> (do not require manual toggle).</li>
+<li><strong>Auto-exit Plan after first plan:</strong> When a plan-mode turn <strong>completes</strong> with a <strong>valid <code>gf-plan</code></strong>, automatically switch composer to <strong>Work</strong> (<code>normal</code>) and persist via <code>writeConversationMode</code>. User can re-select Plan anytime.</li>
+<li><strong>Discoverability:</strong> Mode strip or onboarding (<strong>095</strong>) mentions: *Plan for structured first pass; Work for follow-up edits and execution.*</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Removing Plan mode or changing dual-model routing (<strong>097</strong>, <strong>103</strong>).</li>
+<li>Forcing Work mode during <strong>Executing</strong> (approve-and-run) — <strong>Executing</strong> chip stays as today.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — labels, auto-switch on <code>done</code> + valid plan, greenfield default on thread load</li>
+<li><a href="../../src/renderer/src/lib/conversation-mode-storage.ts"><code>src/renderer/src/lib/conversation-mode-storage.ts</code></a> — optional <code>grokforge.conversationMode.greenfieldDefault.v1</code> if needed</li>
+<li><a href="../../src/shared/workspace-greenfield.ts"><code>src/shared/workspace-greenfield.ts</code></a> — reuse greenfield helper (renderer via existing types IPC or index stats if exposed)</li>
+<li><a href="../../src/renderer/src/components/AgentOnboardingDialog.tsx"><code>src/renderer/src/components/AgentOnboardingDialog.tsx</code></a> — Fast/Plan → Work/Plan copy</li>
+<li><a href="../../src/renderer/src/components/ChatTurnContextUi.tsx"><code>src/renderer/src/components/ChatTurnContextUi.tsx</code></a> — display strings where user sees <code>fast</code> / <code>chat</code></li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Composer shows <strong>Work</strong> and <strong>Plan</strong>; no user-facing <strong>Chat</strong> for conversation mode.</li>
+<li><input type="checkbox" disabled> New greenfield project opens with <strong>Plan</strong> selected when thread has no prior user messages.</li>
+<li><input type="checkbox" disabled> After first successful <code>gf-plan</code> turn, composer switches to <strong>Work</strong> without user action; <code>localStorage</code> reflects <code>normal</code> for that <code>projectId</code>.</li>
+<li><input type="checkbox" disabled> Re-opening project respects saved mode (Work) after auto-exit.</li>
+<li><input type="checkbox" disabled> Manual Plan toggle still works; second plan turn is opt-in.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes; manual smoke: greenfield plan → follow-up message uses <strong>Work</strong> / executor-style routing unless user re-enables Plan.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong>, <strong><a href="101-greenfield-plan-quality.md">101</a></strong>, <strong><a href="095-first-project-onboarding.md">095</a></strong></li>
+<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — harness bias when already in Work mode</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-119" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">119</span><span class="story-name">Agent turn UI honesty and activity compaction</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md">post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md</a>
+          </div>
+          <h2>119 — Agent turn UI honesty and activity compaction</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> for activity list and toast copy (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p><strong>Field report (2026-05-25, ToDoApp):</strong> Harness behavior was correct (merged proposal, one diff card) but the <strong>UI lied by omission</strong>:</p>
+<ul>
+<li>Four <strong>Search &amp; replace</strong> activity rows → one merged proposal + “Combined multiple edits” toast.</li>
+<li>Assistant copy claimed <strong>“four sequential diff reviews”</strong> when only one review surface exists.</li>
+<li><strong>Context retrieval</strong> showed <strong>“Found relevant workspace context · 0 files”</strong> on greenfield — reads like a failure.</li>
+<li><strong>“Apply file changes to finish the plan”</strong> toast duplicated the proposal card after approve-and-run.</li>
+</ul>
+<h3>Goals</h3>
+<ol>
+<li><strong>Activity compaction:</strong> Collapse or roll up consecutive same-path <code>search_replace</code> activities in the live list (e.g. “Search &amp; replace ×4 on <code>index.html</code> → 1 proposal”).</li>
+<li><strong>Retrieval copy:</strong> Greenfield / zero-match retrieval uses honest subtitle (e.g. “No indexed files yet”) instead of “Found … 0 files.”</li>
+<li><strong>Final-answer hint (main):</strong> When proposals were merged in-turn, append a short harness line so the model does not claim multiple separate diff reviews (<strong>shared final-answer contract</strong>).</li>
+<li><strong>Toast dedupe:</strong> Suppress or shorten execute-completion “Apply file changes…” when the agent proposal card is already visible (unless auto-apply failed).</li>
+</ol>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/renderer/src/components/AgentTurnToolActivityList.tsx"><code>src/renderer/src/components/AgentTurnToolActivityList.tsx</code></a></li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — retrieval activity <code>detail</code> / title for <code>retrieval.count === 0</code></li>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — merged-proposal honesty line</li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — execute toast guard</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> ToDoApp-style 4× S&amp;R turn shows ≤2 activity rows or one rolled-up row with count.</li>
+<li><input type="checkbox" disabled> Greenfield first turn retrieval detail does not use “Found … 0 files” without context.</li>
+<li><input type="checkbox" disabled> Eval or unit test: final-answer contract includes merged-edit hint when <code>mergeAgentEditProposals</code> ran (or tag in runner eval).</li>
+<li><input type="checkbox" disabled> Execute done with visible proposal: at most one prominent apply CTA (card or toast, not both).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and targeted tests pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="../093-agent-tool-activity-in-chat-thread.md">093</a></strong>, <strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-120" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">120</span><span class="story-name">Post-plan executor routing and single-file edit bias</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/120-post-plan-executor-routing-and-single-file-edits.md">post-mvp/120-post-plan-executor-routing-and-single-file-edits.md</a>
+          </div>
+          <h2>120 — Post-plan executor routing and single-file edit bias</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> N/A (harness prompts + tool bias); minor composer hint if needed.</p>
+<h3>Why this story exists</h3>
+<p><strong>Field report (2026-05-25):</strong> After an approved greenfield plan and a working <code>index.html</code>, follow-ups (“add remove button”, “dark mode styling”) still triggered <strong>full Plan · tools</strong> cycles and <strong>many <code>search_replace</code></strong> tool calls on a <strong>single file</strong> instead of a tight <strong>executor</strong> pass with one <strong><code>propose_file_edits</code></strong> (or one composed proposal).</p>
+<p>Depends on <strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong> for composer defaulting to <strong>Work</strong> after the first plan; this story covers <strong>harness</strong> behavior when the user is already in Work mode or sends incremental requests.</p>
+<h3>Goals</h3>
+<ol>
+<li><strong>Post-artifact routing:</strong> If the project has an <strong>approved</strong> or <strong>superseded</strong> plan artifact (<strong>109</strong>) and the user message is a small incremental change (heuristic: short text, mentions existing file, no “re-plan” / “from scratch”), bias <strong>executor</strong> profile + <strong><code>models.execution</code></strong> (or <code>chat_default</code>) — not planner + new <code>gf-plan</code>.</li>
+<li><strong>Single-file workspace:</strong> When index stats show <strong>one primary file</strong> (or only <code>index.html</code> under root), nudge <strong><code>propose_file_edits</code></strong> with full <code>rawContent</code> after one <code>read_file</code> — discourage 3+ <code>search_replace</code> on the same path in one turn (align with <strong>116</strong>).</li>
+<li><strong>Optional:</strong> Surface a one-line composer hint in Work mode: *“Incremental edits — no new plan unless you switch to Plan.”*</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Disabling Plan mode or <code>gf-plan</code> for explicit “plan again” requests.</li>
+<li>Changing merge logic (<strong>shared agent-edit-proposal-merge</strong>).</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a> — executor appendix for post-plan / single-file</li>
+<li><a href="../../src/shared/agent-turn-routing.ts"><code>src/shared/agent-turn-routing.ts</code></a> or <a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — optional intent heuristic (keep <strong>097</strong> canonical)</li>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — edit-intent nudge variants</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> — regression tag</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Eval: approved plan exists + “add delete button” user line → executor tools, no <code>gf-plan</code> requirement on final answer.</li>
+<li><input type="checkbox" disabled> Eval or manual: single-file todo HTML follow-up prefers <code>propose_file_edits</code> over 4× S&amp;R when model complies.</li>
+<li><input type="checkbox" disabled> Explicit “create a new plan” / Plan mode still produces <code>gf-plan</code>.</li>
+<li><input type="checkbox" disabled> <code>npm run test:agent-eval</code> passes for touched profiles.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong>, <strong><a href="101-greenfield-plan-quality.md">101</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> debt table if needed, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
     </section>
