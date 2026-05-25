@@ -25,6 +25,12 @@ import { planJsonPath } from './agent-plan-store'
 import { appendTurnReceipt } from './agent-turn-receipt-store'
 import { _resetTurnReceiptLifecycleForTesting } from './agent-turn-receipt-lifecycle'
 import { TURN_RECOVERY_HINT_MARKER } from '../shared/agent-turn-receipt-contract'
+import {
+  EDIT_INTENT_TOOL_NUDGE_MARKER,
+  EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
+} from '../shared/agent-final-answer-contract'
+import { AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
+import { computeAgentContentHash } from './agent-content-hash'
 import { baseEvalPayload, manifestForEvalRoot, setupEvalTurn } from './agent-eval-fixtures'
 import {
   primeActiveAgentTurn,
@@ -397,6 +403,265 @@ describe('agent runner evaluation harness', () => {
     expect(
       payloads.some(
         (p) => p.phase === 'activity' && p.activity.tool === 'read_file' && p.activity.status === 'error',
+      ),
+    ).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it('re-samples once when edit-intent fast turn returns zero tools on first sample', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-edit-nudge-'))
+    const file = join(root, 'index.html')
+    writeFileSync(file, '<html><body>hi</body></html>', 'utf8')
+
+    let sampleCount = 0
+    let sawNudgeOnSecondSample = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const hasNudge = request.messages.some(
+          (m) =>
+            m.role === 'user' &&
+            typeof m.content === 'string' &&
+            m.content.includes(EDIT_INTENT_TOOL_NUDGE_MARKER),
+        )
+        if (sampleCount === 2) sawNudgeOnSecondSample = hasNudge
+        if (sampleCount === 1) return { content: '', toolCalls: [] }
+        if (sampleCount === 2) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-read',
+                type: 'function',
+                function: {
+                  name: 'read_file',
+                  arguments: JSON.stringify({ path: file }),
+                },
+              },
+            ],
+          }
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Done.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId: 'eval-edit-nudge',
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-edit-nudge'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation(
+      basePayload(streamId, 'In index.html, change the page title text and add a footer paragraph.'),
+    )
+
+    expect(sampleCount).toBeGreaterThanOrEqual(2)
+    expect(sawNudgeOnSecondSample).toBe(true)
+    expect(
+      payloads.some(
+        (p) => p.phase === 'activity' && p.activity.tool === 'read_file' && p.activity.status === 'done',
+      ),
+    ).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it('injects search_replace escalation nudge after repeated failures then accepts propose_file_edits', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-sr-escalation-'))
+    const file = join(root, 'docs', 'overview.md')
+    mkdirSync(dirname(file), { recursive: true })
+    const original = '# TaskBoard Overview\n\n## Tech Stack (planned)\n- Frontend: Likely React\n'
+    writeFileSync(file, original, 'utf8')
+    const hash = computeAgentContentHash(original)
+
+    let sampleCount = 0
+    let sawEscalationOnSample = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const hasEscalation = request.messages.some(
+          (m) =>
+            m.role === 'user' &&
+            typeof m.content === 'string' &&
+            m.content.includes(EDIT_SEARCH_REPLACE_ESCALATION_MARKER),
+        )
+        if (hasEscalation) sawEscalationOnSample = true
+
+        if (sampleCount === 1) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-read',
+                type: 'function',
+                function: { name: 'read_file', arguments: JSON.stringify({ path: file }) },
+              },
+            ],
+          }
+        }
+        if (sampleCount === 2 || sampleCount === 3) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: `tc-sr-${sampleCount}`,
+                type: 'function',
+                function: {
+                  name: 'search_replace',
+                  arguments: JSON.stringify({
+                    path: file,
+                    old_string: '## Tech Stack (planned)\n- Frontend: NOT_ON_DISK',
+                    new_string: '## Tech Stack\n- Frontend: React + TypeScript\n',
+                    expectedContentHash: hash,
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        if (sampleCount === 4) {
+          expect(hasEscalation).toBe(true)
+          const updated = original.replace('Likely React', 'React + TypeScript')
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-propose',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      {
+                        op: 'write_file',
+                        path: file,
+                        content: updated,
+                        expectedContentHash: hash,
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Proposal ready for review.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId: 'eval-sr-escalation',
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-sr-escalation'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation(
+      basePayload(streamId, 'Update overview.md tech stack to React + TypeScript.'),
+    )
+
+    expect(sawEscalationOnSample).toBe(true)
+    expect(sampleCount).toBeGreaterThanOrEqual(4)
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it('forces final answer after post-escalation rounds without hanging on more search_replace', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-sr-stall-'))
+    const file = join(root, 'overview.md')
+    const original = '# Overview\n\n## Tech\n- old\n'
+    writeFileSync(file, original, 'utf8')
+    const hash = computeAgentContentHash(original)
+
+    let sampleCount = 0
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const hasEscalation = request.messages.some(
+          (m) =>
+            m.role === 'user' &&
+            typeof m.content === 'string' &&
+            m.content.includes(EDIT_SEARCH_REPLACE_ESCALATION_MARKER),
+        )
+        if (sampleCount === 1) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-read',
+                type: 'function',
+                function: { name: 'read_file', arguments: JSON.stringify({ path: file }) },
+              },
+            ],
+          }
+        }
+        if (sampleCount <= 5) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: `tc-sr-${sampleCount}`,
+                type: 'function',
+                function: {
+                  name: 'search_replace',
+                  arguments: JSON.stringify({
+                    path: file,
+                    old_string: 'MISSING',
+                    new_string: 'new\n',
+                    expectedContentHash: hash,
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        expect(hasEscalation).toBe(true)
+        throw new Error('should not sample again after forced final')
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Edit tools failed; please retry with propose_file_edits.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId: 'eval-sr-stall',
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-sr-stall'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation(
+      basePayload(streamId, 'Update overview.md tech section.'),
+    )
+
+    expect(sampleCount).toBeLessThanOrEqual(6)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title.includes('Finishing turn'),
       ),
     ).toBe(true)
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)

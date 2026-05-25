@@ -5,7 +5,7 @@ import type {
   AgentEditProposalPayload,
 } from '../shared/agent-chat-contract'
 import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
-import { mergeAgentEditProposals } from '../shared/agent-edit-proposal-merge'
+import { findAccumulatedWriteForPath, mergeAgentEditProposals } from '../shared/agent-edit-proposal-merge'
 import type { AgentProfile } from '../shared/agent-profile'
 import { isToolAllowedForProfile } from '../shared/agent-profile'
 import type { GrokProjectManifest } from './manifest'
@@ -15,9 +15,11 @@ import {
   resolveSearchReplaceToWriteBatch,
   SearchReplaceToolArgsSchema,
 } from './agent-search-replace-tool'
+import { recordSearchReplaceFailure } from '../shared/agent-edit-cascade-guard'
 import {
   AGENT_TOOL_TOTAL_RESULT_CHARS,
   executeWorkspaceTool,
+  resolveAgentWorkspacePath,
   type AgentWorkspaceToolResult,
 } from './agent-workspace-tools'
 import { runSubagentSession } from './agent-subagent-runner'
@@ -39,6 +41,9 @@ export type AgentToolExecutorTurnState = {
   turnProposalAccum: AgentEditProposalPayload | null
   agentProfile: AgentProfile
   manifest: GrokProjectManifest
+  /** Per-turn failed search_replace count by resolved absolute path. */
+  searchReplaceFailuresByPath: Map<string, number>
+  userMessageHint?: string
 }
 
 function isAllowedToolName(name: string): name is AgentChatToolName {
@@ -131,14 +136,29 @@ export async function executeAgentToolCall(
       detail = searchReplaceParsed.error.message
       toolContent = JSON.stringify({ ok: false, error: searchReplaceParsed.error.message })
     } else {
+      let searchReplaceChain: { baseContent?: string } | undefined
+      let searchReplaceResolved: string | null = null
+      if (name === 'search_replace' && searchReplaceParsed?.success) {
+        searchReplaceResolved = resolveAgentWorkspacePath(searchReplaceParsed.data.path, ctx)
+        if (searchReplaceResolved) {
+          const prior = findAccumulatedWriteForPath(state.turnProposalAccum, searchReplaceResolved)
+          if (prior) {
+            searchReplaceChain = { baseContent: prior.content }
+          }
+        }
+      }
       const writeBatch =
         name === 'search_replace' && searchReplaceParsed?.success
-          ? resolveSearchReplaceToWriteBatch(searchReplaceParsed.data, ctx)
+          ? resolveSearchReplaceToWriteBatch(searchReplaceParsed.data, ctx, searchReplaceChain)
           : null
       if (name === 'search_replace' && writeBatch && !writeBatch.ok) {
         doneTitle = 'Search replace failed'
         detail = writeBatch.error
         toolContent = JSON.stringify({ ok: false, error: writeBatch.error })
+        if (searchReplaceParsed?.success) {
+          const resolved = resolveAgentWorkspacePath(searchReplaceParsed.data.path, ctx)
+          if (resolved) recordSearchReplaceFailure(state.searchReplaceFailuresByPath, resolved)
+        }
       } else {
         if (name === 'search_replace' && writeBatch && writeBatch.ok) {
           ctx.recordPathRead(writeBatch.path, writeBatch.contentHash)
@@ -146,6 +166,12 @@ export async function executeAgentToolCall(
         const proposalResult = validateAgentEditProposal(
           name === 'search_replace' && writeBatch && 'batch' in writeBatch ? writeBatch.batch : rawToolArgs,
           ctx,
+          {
+            searchReplaceFailuresByPath: state.searchReplaceFailuresByPath,
+            userMessageHint: state.userMessageHint,
+            contentSource:
+              name === 'search_replace' && writeBatch && writeBatch.ok ? 'search_replace' : 'propose',
+          },
         )
         if (!proposalResult.ok) {
           doneTitle = name === 'search_replace' ? 'Search replace failed' : 'Edit proposal failed'
@@ -164,7 +190,15 @@ export async function executeAgentToolCall(
           const rejected = turnProposalAccum.rejected.length
           doneTitle =
             name === 'search_replace' ? 'Prepared search_replace proposal' : 'Prepared edit proposal'
-          detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${rejected} rejected` : ''}`
+          const chainNote =
+            name === 'search_replace' &&
+            writeBatch &&
+            writeBatch.ok &&
+            writeBatch.chainedFromAccumulated &&
+            searchReplaceResolved
+              ? ` · composed with prior edit on ${searchReplaceResolved.split(/[/\\]/).filter(Boolean).pop() ?? 'file'}`
+              : ''
+          detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${rejected} rejected` : ''}${chainNote}`
           toolContent = JSON.stringify({
             ok: true,
             proposalCreated: true,

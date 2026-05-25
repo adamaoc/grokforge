@@ -20,6 +20,46 @@ import {
   needsSourceLayoutRepair,
 } from '../shared/agent-file-content-normalize'
 import { AgentToolBatchPayloadSchema } from '../shared/agent-tool-schema'
+import { assessEditCascadeGuard } from '../shared/agent-edit-cascade-guard'
+import { assessProposalWriteContent } from '../shared/agent-edit-corrupt-content'
+import {
+  diagnoseMarkdownProposalRepair,
+  formatMarkdownProposalDiagnostics,
+  formatProposalValidationError,
+  isAgentEditDiagnosticsInToolErrorsEnabled,
+  isSearchReplaceResultDestructive,
+  isUnacceptableCrushedMarkdownProposal,
+  resolveCrushedMarkdownRejectionReason,
+  SEARCH_REPLACE_SHRINK_STUB_REASON,
+  tryRepairMarkdownProposalFromDisk,
+} from '../shared/agent-proposal-quality'
+
+function isDevMode(): boolean {
+  return process.env.NODE_ENV === 'development'
+}
+
+function logProposalValidationDev(
+  resolved: string,
+  originalOnDisk: string,
+  normalizedContent: string,
+  reason: string,
+): void {
+  if (!isDevMode()) return
+  const diag = diagnoseMarkdownProposalRepair(originalOnDisk, normalizedContent, resolved)
+  console.warn('[GrokForge agent-edit] proposal validation', {
+    path: resolved,
+    reason,
+    diagnostics: formatMarkdownProposalDiagnostics(diag),
+    proposalPreview: normalizedContent.slice(0, 280),
+  })
+}
+
+export type ValidateAgentEditProposalOptions = {
+  searchReplaceFailuresByPath?: ReadonlyMap<string, number>
+  userMessageHint?: string
+  /** Patched full file from search_replace — skip propose-style crushed checks. */
+  contentSource?: 'search_replace' | 'propose'
+}
 
 function readDiskHash(resolved: string): string | null {
   if (!existsSync(resolved)) return null
@@ -56,6 +96,7 @@ function validateExistingFileContentHash(
 export function validateAgentEditProposal(
   rawArgs: unknown,
   ctx: AgentToolExecutionContext,
+  options?: ValidateAgentEditProposalOptions,
 ): { ok: true; proposal: AgentEditProposalPayload } | { ok: false; error: string; proposal?: AgentEditProposalPayload } {
   if (ctx.abortSignal.aborted) {
     return { ok: false, error: 'Tool cancelled.' }
@@ -95,14 +136,21 @@ export function validateAgentEditProposal(
         rejected.push({ path: op.path, reason: AGENT_EDIT_READ_BEFORE_WRITE_REASON })
         continue
       }
+      let originalOnDisk: string | null = null
       if (fileExistsOnDisk) {
-        const hashError = validateExistingFileContentHash(
-          resolved,
-          op.expectedContentHash,
-          ctx.readHashesThisTurn,
-        )
-        if (hashError) {
-          rejected.push({ path: op.path, reason: hashError })
+        try {
+          originalOnDisk = readFileSync(resolved, 'utf-8')
+        } catch {
+          rejected.push({ path: op.path, reason: 'Could not read file' })
+          continue
+        }
+        const expectedForHash = resolveExpectedHash(op.expectedContentHash, resolved, ctx.readHashesThisTurn)
+        if (!expectedForHash) {
+          rejected.push({ path: op.path, reason: AGENT_EDIT_MISSING_CONTENT_HASH_REASON })
+          continue
+        }
+        if (computeAgentContentHash(originalOnDisk) !== expectedForHash) {
+          rejected.push({ path: op.path, reason: AGENT_EDIT_STALE_HASH_REASON })
           continue
         }
       }
@@ -116,6 +164,76 @@ export function validateAgentEditProposal(
       if (needsSourceLayoutRepair(normalizedContent)) {
         normalizedContent = normalizeAgentWriteFileContent(normalizedContent)
       }
+      const integrity = assessProposalWriteContent(normalizedContent)
+      if (!integrity.ok) {
+        const reason = integrity.reason ?? 'Proposal content failed integrity checks.'
+        logProposalValidationDev(resolved, originalOnDisk ?? '', normalizedContent, reason)
+        rejected.push({
+          path: op.path,
+          reason,
+        })
+        continue
+      }
+      if (fileExistsOnDisk && originalOnDisk !== null) {
+        if (options?.contentSource === 'search_replace') {
+          if (isSearchReplaceResultDestructive(originalOnDisk, normalizedContent, resolved)) {
+            logProposalValidationDev(
+              resolved,
+              originalOnDisk,
+              normalizedContent,
+              SEARCH_REPLACE_SHRINK_STUB_REASON,
+            )
+            rejected.push({ path: op.path, reason: SEARCH_REPLACE_SHRINK_STUB_REASON })
+            continue
+          }
+        } else if (isUnacceptableCrushedMarkdownProposal(originalOnDisk, normalizedContent, resolved)) {
+          const repaired = tryRepairMarkdownProposalFromDisk(
+            originalOnDisk,
+            normalizedContent,
+            resolved,
+          )
+          if (repaired) {
+            if (isDevMode()) {
+              console.debug('[GrokForge agent-edit] repaired crushed/partial markdown proposal', {
+                path: resolved,
+                diagnostics: formatMarkdownProposalDiagnostics(
+                  diagnoseMarkdownProposalRepair(originalOnDisk, normalizedContent, resolved),
+                ),
+              })
+            }
+            normalizedContent = repaired
+          } else {
+            const crushedReason = resolveCrushedMarkdownRejectionReason(
+              originalOnDisk,
+              normalizedContent,
+              resolved,
+            )
+            logProposalValidationDev(resolved, originalOnDisk, normalizedContent, crushedReason)
+            const diagSuffix = isAgentEditDiagnosticsInToolErrorsEnabled()
+              ? ` (${formatMarkdownProposalDiagnostics(
+                  diagnoseMarkdownProposalRepair(originalOnDisk, normalizedContent, resolved),
+                )})`
+              : ''
+            rejected.push({
+              path: op.path,
+              reason: crushedReason + diagSuffix,
+            })
+            continue
+          }
+        }
+        const cascade = assessEditCascadeGuard({
+          resolvedPath: resolved,
+          originalOnDisk,
+          proposedContent: normalizedContent,
+          searchReplaceFailuresByPath: options?.searchReplaceFailuresByPath,
+          userMessageHint: options?.userMessageHint,
+        })
+        if (cascade.blocked) {
+          rejected.push({ path: op.path, reason: cascade.reason ?? 'Edit blocked by harness cascade guard.' })
+          continue
+        }
+      }
+
       operations.push({
         op: 'write_file',
         path: resolved,
@@ -160,6 +278,8 @@ export function validateAgentEditProposal(
     batch: { version: AGENT_TOOL_PROTOCOL_VERSION, operations },
     rejected,
   }
-  if (operations.length === 0) return { ok: false, error: 'No proposal operations passed workspace validation.', proposal }
+  if (operations.length === 0) {
+    return { ok: false, error: formatProposalValidationError(rejected), proposal }
+  }
   return { ok: true, proposal }
 }

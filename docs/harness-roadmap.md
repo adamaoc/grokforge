@@ -1,6 +1,6 @@
 # Harness program roadmap
 
-**Last updated:** 2026-05-19.
+**Last updated:** 2026-05-20.
 
 This document is the **program index** for GrokForge’s agent harness (stories **102–114**). For design depth, patterns, and research synthesis, see **[`i-am-a-harness.md`](i-am-a-harness.md)**. For IPC, file paths, and implementation detail, see **[`AGENTS.md`](../AGENTS.md)**.
 
@@ -76,6 +76,8 @@ Condensed “symptom → harness cause → fix” from product research and ship
 | Harness regressions undetected | Thin eval fixtures | [**063**](../project_tasks/063-agent-evaluation-suite-and-smartness-regressions.md), [**108**](../project_tasks/post-mvp/108-harness-eval-suite-per-model-regressions.md) |
 | Crash mid-tool, no recovery signal | No durable turn boundary | [**110**](../project_tasks/post-mvp/110-agent-interrupted-tool-boundaries.md) |
 | Fence + `propose_file_edits` duplicate paths | Legacy compatibility write path | [**114**](../project_tasks/post-mvp/114-deprecate-fenced-agent-tools-protocol.md) (done — fence apply removed; display strip only) |
+| Repeated `search_replace` fail → destructive full-file proposal | No turn policy; prompt-only minimal change (**083**) | [**115**](../project_tasks/post-mvp/115-agent-edit-cascade-guard-after-search-replace-failures.md) — reject shrink proposals after ≥2 S&R failures on same path |
+| S&R retry loop burns tool budget; false “updated on disk” narrative | **115** blocks bad proposals but no mid-turn recovery nudge | [**116**](../project_tasks/post-mvp/116-agent-edit-search-replace-escalation-nudge.md) — escalation nudge, honest final contract, renderer toast |
 
 ---
 

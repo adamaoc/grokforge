@@ -71,7 +71,19 @@ import type {
   AgentEditProposalPayload,
 } from '../shared/agent-chat-contract'
 import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
-import { buildFinalAnswerContract } from '../shared/agent-final-answer-contract'
+import {
+  pathsAtSearchReplaceEscalationThreshold,
+  POST_ESCALATION_MAX_TOOL_ROUNDS,
+  SEARCH_REPLACE_MAX_FAILURES_PER_TURN_BEFORE_FORCE_FINAL,
+  shouldInjectSearchReplaceEscalation,
+  totalSearchReplaceFailures,
+} from '../shared/agent-edit-cascade-guard'
+import {
+  buildEditIntentToolNudge,
+  buildFinalAnswerContract,
+  buildSearchReplaceEscalationNudge,
+  isLikelyEditIntent,
+} from '../shared/agent-final-answer-contract'
 import type {
   ExportSanitizedAgentTurnTraceResult,
   GetLastAgentTurnTraceResult,
@@ -170,6 +182,7 @@ const StartPayloadSchema = z.object({
   model: z.string().min(1).max(MAX_MODEL_LEN),
   modelIntent: z.enum(['chat_default', 'planning', 'execution']).optional(),
   isApprovedPlanAutoRun: z.boolean().optional(),
+  planWorkflowUsePlanningModel: z.boolean().optional(),
   approvedPlanId: z.string().uuid().optional(),
   approvedPlanMessageId: z.string().min(1).max(256).optional(),
   userText: z.string().min(1).max(AGENT_CHAT_MAX_USER_TEXT_CHARS),
@@ -461,6 +474,7 @@ function buildInitialMessages(
 function finalAnswerContract(
   userText: string,
   editProposalCreated: boolean,
+  editToolsFailed: boolean,
   chatMode: 'fast' | 'plan',
   harnessProfileKey: HarnessProfileKey,
   agentProfileId: AgentProfileId,
@@ -471,6 +485,7 @@ function finalAnswerContract(
     content: buildFinalAnswerContract({
       userText,
       editProposalCreated,
+      editToolsFailed,
       chatMode,
       profileKey: harnessProfileKey,
       agentProfileId,
@@ -478,6 +493,41 @@ function finalAnswerContract(
       greenfieldWorkspace: harnessCtx.greenfieldWorkspace,
     }),
   }
+}
+
+function computeEditToolsFailed(
+  userText: string,
+  editProposalCreated: boolean,
+  searchReplaceFailuresByPath: ReadonlyMap<string, number>,
+): boolean {
+  return (
+    !editProposalCreated &&
+    isLikelyEditIntent(userText) &&
+    shouldInjectSearchReplaceEscalation(searchReplaceFailuresByPath)
+  )
+}
+
+function buildMaxToolIterationsHint(input: {
+  isPlanMode: boolean
+  userText: string
+  editProposalCreated: boolean
+  searchReplaceFailuresByPath: ReadonlyMap<string, number>
+}): string {
+  if (
+    !input.isPlanMode &&
+    computeEditToolsFailed(input.userText, input.editProposalCreated, input.searchReplaceFailuresByPath)
+  ) {
+    return [
+      'GrokForge reached the maximum tool iterations for this turn.',
+      'Edit tools did not succeed (search_replace failed repeatedly and no reviewable edit proposal was created).',
+      'Summarize what you attempted; do not claim any workspace file was updated, saved, or written on disk.',
+      'Tell the user they can retry with propose_file_edits using the complete file from read_file rawContent, or edit manually.',
+    ].join(' ')
+  }
+  if (input.isPlanMode) {
+    return 'GrokForge reached the plan-mode tool step limit. Provide your final answer with exactly one ```gf-plan``` fenced JSON block from the context gathered so far.'
+  }
+  return 'GrokForge reached the maximum read/search tool iterations for this turn. Provide the best grounded answer you can from the gathered context, and say what you could not verify.'
 }
 
 function isAllowedToolName(name: string): name is AgentChatToolName {
@@ -690,6 +740,7 @@ async function runAgentTurn(
   let totalToolChars = 0
   let editProposalCreated = false
   let turnProposalAccum: AgentEditProposalPayload | null = null
+  const searchReplaceFailuresByPath = new Map<string, number>()
 
   const onFinalChunk = scratch
     ? (delta: string) => {
@@ -704,6 +755,9 @@ async function runAgentTurn(
       : AGENT_TOOL_MAX_ITERATIONS
   let toolRoundCount = 0
   let providerRoundIndex = 0
+  let editIntentToolNudgeIssued = false
+  let searchReplaceEscalationNudgeIssued = false
+  let postEscalationToolRounds = 0
 
   const snapshotForProviderRound = (roundKind: 'tool_sample' | 'final_stream') => {
     const snapshot = buildTurnSnapshot({
@@ -737,6 +791,11 @@ async function runAgentTurn(
       finalAnswerContract(
         safePayload.userText,
         editProposalCreated,
+        computeEditToolsFailed(
+          safePayload.userText,
+          editProposalCreated,
+          searchReplaceFailuresByPath,
+        ),
         safePayload.activeContext.chatMode,
         routing.harnessProfileKey,
         routing.agentProfileId,
@@ -760,6 +819,17 @@ async function runAgentTurn(
     const sampleSnapshot = snapshotForProviderRound('tool_sample')
     const sampled = await providerSampleFromSnapshot(sampleSnapshot, ac.signal)
     if (sampled.toolCalls.length === 0) {
+      const shouldNudgeForEditIntent =
+        !isPlanMode &&
+        !editProposalCreated &&
+        agentProfile.canProposeEdits &&
+        isLikelyEditIntent(safePayload.userText) &&
+        !editIntentToolNudgeIssued
+      if (shouldNudgeForEditIntent) {
+        editIntentToolNudgeIssued = true
+        messages.push({ role: 'user', content: buildEditIntentToolNudge() })
+        continue
+      }
       await completeTurnWithFinalStream()
       return
     }
@@ -808,6 +878,8 @@ async function runAgentTurn(
           turnProposalAccum,
           agentProfile,
           manifest,
+          searchReplaceFailuresByPath,
+          userMessageHint: safePayload.userText,
         },
         { emit, approvalRequestId: activityId(), waitForCommandApproval },
       )
@@ -865,6 +937,64 @@ async function runAgentTurn(
       scratch.totalToolCharsAccumulated = totalToolChars
     }
 
+    if (searchReplaceEscalationNudgeIssued) {
+      postEscalationToolRounds += 1
+    }
+
+    const shouldForceFinalForEditFailures =
+      !isPlanMode &&
+      !editProposalCreated &&
+      agentProfile.canProposeEdits &&
+      isLikelyEditIntent(safePayload.userText) &&
+      (totalSearchReplaceFailures(searchReplaceFailuresByPath) >=
+        SEARCH_REPLACE_MAX_FAILURES_PER_TURN_BEFORE_FORCE_FINAL ||
+        (searchReplaceEscalationNudgeIssued &&
+          postEscalationToolRounds >= POST_ESCALATION_MAX_TOOL_ROUNDS))
+
+    if (shouldForceFinalForEditFailures) {
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Finishing turn (edit tools did not succeed)',
+        status: 'done',
+        detail:
+          'Stopping further tool rounds after repeated search_replace failures. Provide an honest summary — no proposal was created.',
+      })
+      await completeTurnWithFinalStream(
+        buildMaxToolIterationsHint({
+          isPlanMode,
+          userText: safePayload.userText,
+          editProposalCreated,
+          searchReplaceFailuresByPath,
+        }),
+      )
+      return
+    }
+
+    const shouldEscalateSearchReplace =
+      !isPlanMode &&
+      !editProposalCreated &&
+      agentProfile.canProposeEdits &&
+      !searchReplaceEscalationNudgeIssued &&
+      shouldInjectSearchReplaceEscalation(searchReplaceFailuresByPath)
+    if (shouldEscalateSearchReplace) {
+      searchReplaceEscalationNudgeIssued = true
+      postEscalationToolRounds = 0
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Harness: switch to propose_file_edits',
+        status: 'done',
+        detail:
+          'search_replace failed repeatedly. Re-read rawContent and use a full-file propose_file_edits for localized changes.',
+      })
+      messages.push({
+        role: 'user',
+        content: buildSearchReplaceEscalationNudge(
+          pathsAtSearchReplaceEscalationThreshold(searchReplaceFailuresByPath),
+        ),
+      })
+      continue
+    }
+
     if (isPlanMode && toolRoundCount >= 1) {
       await completeTurnWithFinalStream(
         'You have enough workspace context from discovery tools. Provide your final answer now with exactly one ```gf-plan``` fenced JSON block. Do not request more tools.',
@@ -874,9 +1004,12 @@ async function runAgentTurn(
   }
 
   if (scratch) scratch.maxToolIterationsHit = true
-  const maxHint = isPlanMode
-    ? 'GrokForge reached the plan-mode tool step limit. Provide your final answer with exactly one ```gf-plan``` fenced JSON block from the context gathered so far.'
-    : 'GrokForge reached the maximum read/search tool iterations for this turn. Provide the best grounded answer you can from the gathered context, and say what you could not verify.'
+  const maxHint = buildMaxToolIterationsHint({
+    isPlanMode,
+    userText: safePayload.userText,
+    editProposalCreated,
+    searchReplaceFailuresByPath,
+  })
   await completeTurnWithFinalStream(maxHint)
 }
 

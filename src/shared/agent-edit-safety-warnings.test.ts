@@ -97,6 +97,35 @@ describe('analyzeAgentEditSafety', () => {
     expect(result.issues.some((i) => i.code === 'collapsed_single_line_source')).toBe(true)
   })
 
+  it('does not flag normal markdown docs with long prose lines', () => {
+    const original = `# TaskBoard Overview  
+
+This is a task manager application built with a Kanban-style interface. Users can create new tasks and move them through swim lanes representing different stages of progress (e.g., To Do, In Progress, Done).  
+
+## Key Features 
+
+- Create, edit, and delete tasks 
+
+## Tech Stack (planned) 
+
+- Frontend: Likely React 
+- Backend: TBD  
+`
+    const modified = original
+      .replace('## Tech Stack (planned)', '## Tech Stack')
+      .replace('Likely React', 'React + TypeScript')
+      .replace('TBD', 'Node.js + TypeScript\n- Served with Vite')
+    const result = analyzeAgentEditSafety({
+      original,
+      modified,
+      status: 'modified',
+      resolvedPath: '/proj/docs/overview.md',
+    })
+    expect(result.hasMessySourceLayout).toBe(false)
+    expect(result.issues.some((i) => i.code === 'messy_source_layout')).toBe(false)
+    expect(result.severity).toBe('ok')
+  })
+
   it('flags partially crushed proposals with very long lines', () => {
     const messy = `import x from 'y';\n${' '.repeat(4)}return ( ${'<div className="a">'.repeat(40)} </motion.div> );}\n`
     const result = analyzeAgentEditSafety({

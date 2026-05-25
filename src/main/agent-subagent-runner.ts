@@ -283,6 +283,7 @@ export async function runSubagentSession(input: RunSubagentSessionInput): Promis
             totalToolChars,
             editProposalCreated: false,
             turnProposalAccum: null,
+            searchReplaceFailuresByPath: new Map(),
             agentProfile,
             manifest: input.manifest,
           },

@@ -1,3 +1,5 @@
+import { looksLikeHtmlDocument } from './agent-edit-corrupt-content'
+
 /**
  * Some models return `write_file` / propose_file_edits `content` with JSON-style
  * escapes still literal (U+005C + `n`) instead of real newlines (U+000A). After
@@ -44,6 +46,15 @@ export function hasOverlongSourceLines(
   return content.split(/\r?\n/).some((line) => line.length > maxLineChars)
 }
 
+/** True for TSX/JSX sources — not plain HTML or vanilla JS in `<script>`. */
+export function looksLikeJsxOrTsxSource(content: string): boolean {
+  if (!content) return false
+  if (/\breturn\s*\(\s*</.test(content)) return true
+  if (/<[A-Z][A-Za-z0-9]*[\s/>]/.test(content)) return true
+  if (/<\/[A-Z][A-Za-z0-9]*>/.test(content)) return true
+  return false
+}
+
 /** Collapsed one-liner or partial repair with very long lines / too few breaks. */
 export function needsSourceLayoutRepair(content: string): boolean {
   if (!content || content.length < 200) return false
@@ -62,6 +73,12 @@ function unescapeLiteralNewlines(content: string): string {
     .replace(/\\n/g, '\n')
     .replace(/\\r/g, '\n')
     .replace(/\\t/g, '\t')
+}
+
+/** Unescape literal \\n sequences when models send JSON-style escapes in tool args. */
+export function unescapeLiteralNewlinesWhenDominant(content: string): string {
+  if (!hasDominantLiteralEscapedNewlines(content)) return content
+  return unescapeLiteralNewlines(content)
 }
 
 /** Insert line breaks before common statement and comment boundaries. */
@@ -106,6 +123,48 @@ function reflowBlockInterior(text: string, maxLineChars: number = AGENT_LAYOUT_M
   if (hasOverlongSourceLines(out, maxLineChars)) {
     out = softWrapOverlongLines(out, maxLineChars)
   }
+  return out
+}
+
+/** True when content looks like markdown (ATX headings or glued ` ## ` sections). */
+export function looksLikeMarkdownDocument(content: string): boolean {
+  const t = content.trim()
+  if (!t) return false
+  if (/^#{1,6}\s/m.test(t)) return true
+  if (/\s#{1,6}\s/.test(t)) return true
+  if (/^-\s/m.test(t)) return true
+  if (/\s-\s+\S/.test(t) && /#{1,6}\s/.test(t)) return true
+  return false
+}
+
+/**
+ * Models often glue markdown onto one line (`# Title ## Section - bullet`).
+ * Inserts breaks before headings and list items without shredding well-formed files.
+ */
+export function reflowMarkdownDocumentLineBreaks(content: string): string {
+  if (!content?.trim()) return content
+  const lineCount = content.split(/\r?\n/).length
+  if (lineCount > 10 && !hasOverlongSourceLines(content, 240)) return content
+  if (!looksLikeMarkdownDocument(content)) return content
+
+  const hadTrailingNewline = content.endsWith('\n')
+  let out = content.trim()
+  out = out.replace(/([^\n#])\s*(#{1,6}\s+)/g, '$1\n\n$2')
+  out = out.replace(/([^\n])\s+(-\s+\S)/g, '$1\n$2')
+  out = out.replace(/\n{3,}/g, '\n\n')
+  if (hadTrailingNewline && !out.endsWith('\n')) out += '\n'
+  return out
+}
+
+/** Insert line breaks between HTML tags (models often emit one-line documents). */
+export function reflowHtmlDocumentLineBreaks(content: string): string {
+  if (!looksLikeHtmlDocument(content)) return content
+  let out = content.trim()
+  if (out.split(/\r?\n/).length > 8 && !hasOverlongSourceLines(out, 240)) {
+    return content
+  }
+  out = out.replace(/<!DOCTYPE\s+html>/gi, (m) => `${m}\n`)
+  out = out.replace(/>\s*</g, '>\n<')
   return out
 }
 
@@ -155,12 +214,21 @@ export function repairSourceLayout(content: string): string {
     if (isCollapsedMultiStatementSource(out) || lineCount <= 4) {
       out = expandCollapsedSourceLineBreaks(out)
     }
-    if (hasOverlongSourceLines(out)) {
+    if (hasOverlongSourceLines(out) && looksLikeJsxOrTsxSource(out)) {
       out = reflowCrushedJsxAndBlocks(out)
     }
     if (hasOverlongSourceLines(out)) {
       out = softWrapOverlongLines(out)
     }
+  }
+  if (looksLikeMarkdownDocument(out)) {
+    const mdLines = out.split(/\r?\n/).length
+    if (mdLines <= 3 || hasOverlongSourceLines(out)) {
+      out = reflowMarkdownDocumentLineBreaks(out)
+    }
+  }
+  if (looksLikeHtmlDocument(out)) {
+    out = reflowHtmlDocumentLineBreaks(out)
   }
   if (/<style[\s>]/i.test(out) || /<script[\s>]/i.test(out)) {
     out = reflowHtmlEmbeddedBlocks(out)

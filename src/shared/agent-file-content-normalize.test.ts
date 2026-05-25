@@ -6,10 +6,13 @@ import {
   expandCollapsedSourceLineBreaks,
   hasOverlongSourceLines,
   isCollapsedMultiStatementSource,
+  looksLikeJsxOrTsxSource,
   needsSourceLayoutRepair,
   normalizeAgentWriteFileContent,
   repairSourceLayout,
   reflowCrushedJsxAndBlocks,
+  reflowMarkdownDocumentLineBreaks,
+  looksLikeMarkdownDocument,
 } from './agent-file-content-normalize'
 
 describe('normalizeAgentWriteFileContent', () => {
@@ -31,12 +34,33 @@ describe('normalizeAgentWriteFileContent', () => {
     expect(normalizeAgentWriteFileContent(broken)).toBe('# Hello\n\n## Section\nBody line.')
   })
 
+  it('reflows glued one-line markdown onto separate lines', () => {
+    const crushed =
+      '# TaskBoard Overview ## Key Features - Create tasks - Drag ## Tech Stack (planned) - Frontend: Likely React - Backend: TBD'
+    expect(looksLikeMarkdownDocument(crushed)).toBe(true)
+    const out = reflowMarkdownDocumentLineBreaks(crushed)
+    expect(out.split('\n').length).toBeGreaterThan(4)
+    expect(out).toContain('# TaskBoard Overview')
+    expect(out).toContain('## Key Features')
+    expect(out).toContain('## Tech Stack')
+    expect(normalizeAgentWriteFileContent(crushed).split('\n').length).toBeGreaterThan(4)
+  })
+
   it('handles \\r\\n before bare \\n', () => {
     expect(normalizeAgentWriteFileContent('a\\r\\nb\\nc')).toBe('a\nb\nc')
   })
 
   it('unescapes \\t when \\n dominance triggers', () => {
     expect(normalizeAgentWriteFileContent('a\\nb\\tc\\nd')).toBe('a\nb\tc\nd')
+  })
+
+  it('reflows one-line HTML documents onto separate lines', () => {
+    const oneLine =
+      "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Todo</title></head><body><h1>Hi</h1></body></html>"
+    const normalized = normalizeAgentWriteFileContent(oneLine)
+    expect(normalized.split('\n').length).toBeGreaterThan(4)
+    expect(normalized).toContain('<!DOCTYPE html>\n')
+    expect(normalized).toContain('>\n<')
   })
 
   it('expands collapsed TS/JS source with semicolons and line comments', () => {
@@ -109,6 +133,24 @@ describe('reflowCrushedJsxAndBlocks', () => {
     const out = reflowCrushedJsxAndBlocks(crushed)
     expect(out).toContain('>\n<')
     expect(hasOverlongSourceLines(out)).toBe(false)
+  })
+})
+
+describe('normalizeAgentWriteFileContent — vanilla HTML/JS', () => {
+  it('does not insert orphan closing-paren lines into crushed todo script', () => {
+    const crushed = `<!DOCTYPE html><html><body><script>function renderTodos() { todos.forEach((todo, index) => { const cb = () => { renderTodos(); }; list.appendChild(cb); }); }</script></body></html>`
+    const out = normalizeAgentWriteFileContent(crushed)
+    const orphanCloseParens = out.split('\n').filter((l) => /^\s*\)\s*;?\s*$/.test(l)).length
+    expect(orphanCloseParens).toBe(0)
+    expect(out).toContain('function renderTodos')
+    expect(out).not.toMatch(/\n\s*\)\s*\n\s*\)\s*\n/)
+  })
+
+  it('does not treat vanilla HTML script as JSX for reflow gating', () => {
+    expect(looksLikeJsxOrTsxSource('<html><script>function f() { return 1; }</script></html>')).toBe(
+      false,
+    )
+    expect(looksLikeJsxOrTsxSource('export function X() { return ( <Card /> ); }')).toBe(true)
   })
 })
 

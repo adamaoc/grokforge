@@ -86,7 +86,16 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 
 ---
 
-## 10. Tool limits — max iterations / plan one discovery round
+## 10. Surgical fix — search_replace failures must not yield destructive full rewrite
+
+- **Setup:** Single-file HTML/JS app with a known syntax error (e.g. extra `)`). **Fast** or **Execution** chip.
+- **Prompt:** Paste console error + “fix the JS”.
+- **Expected:** Prefer `search_replace` with text from `read_file` **`rawContent`**; if S&R fails repeatedly, harness **rejects** a proposal that deletes most of the file (**115**). After ≥2 failures, a mid-turn **escalation nudge** (**116**) should steer the model to `propose_file_edits` with complete `rawContent` (same-size rewrite), or an honest final answer without claiming disk writes.
+- **Verify:** Turn trace: multiple `search_replace` `ok: false`, escalation marker in messages, then `propose_file_edits` `ok: true` **or** final answer + UI toast when the model claims “Updated …” without a proposal; destructive shrink still rejected (**115**).
+
+---
+
+## 11. Tool limits — max iterations / plan one discovery round
 
 - **Setup (fast):** Model that keeps requesting `read_file` in a loop (or use dev mock).
 - **Expected:** Stops at max tool iterations; final answer still streams.
@@ -99,5 +108,7 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 
 - Story **063** — eval harness foundation  
 - Story **108** — per-profile matrix tests  
+- Story **115** — edit cascade guard after `search_replace` failures
+- Story **116** — search_replace failure escalation nudge + honest final-answer UX  
 - [`AGENTS.md`](../AGENTS.md) — agent chat + harness eval policy  
 - [`docs/i-am-a-harness.md`](i-am-a-harness.md) — harness design reference

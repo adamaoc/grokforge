@@ -152,6 +152,8 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 112 | Subagents as child sessions **(done)** | [`post-mvp/112-agent-subagents-child-sessions.md`](post-mvp/112-agent-subagents-child-sessions.md) |
 | 113 | Voice realtime harness alignment **(done)** | [`post-mvp/113-voice-realtime-harness-profile-alignment.md`](post-mvp/113-voice-realtime-harness-profile-alignment.md) |
 | 114 | Deprecate fenced `grokforge-agent-tools` protocol **(done)** | [`post-mvp/114-deprecate-fenced-agent-tools-protocol.md`](post-mvp/114-deprecate-fenced-agent-tools-protocol.md) |
+| 115 | Edit cascade guard after search_replace failures **(done)** | [`post-mvp/115-agent-edit-cascade-guard-after-search-replace-failures.md`](post-mvp/115-agent-edit-cascade-guard-after-search-replace-failures.md) |
+| 116 | Search_replace failure escalation nudge **(done)** | [`post-mvp/116-agent-edit-search-replace-escalation-nudge.md`](post-mvp/116-agent-edit-search-replace-escalation-nudge.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
@@ -169,4 +171,4 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **Parallel (not harness-core):** ~~**081**~~ terminal dock **(closed)**.
 
-*Last progress update: **2026-05-19** — **081** closed (terminal dock modes out of scope). Harness wave **102–114** complete. MVP **001–080** complete.*
+*Last progress update: **2026-05-20** — **116** search_replace failure escalation nudge + honest final-answer UX. Harness wave **102–116**. MVP **001–080** complete.*

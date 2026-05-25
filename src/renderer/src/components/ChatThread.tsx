@@ -95,12 +95,15 @@ import {
 } from "@/lib/workspace-path-check";
 import { getLanguageFromPath } from "@/lib/getLanguageFromPath";
 import { basenamePath } from "@/lib/workspace-paths";
-import { assistantReplyClaimsDiskWrites } from "@/lib/assistant-disk-claim-heuristic";
+import { assistantReplyClaimsEditOutcomeWithoutTool } from "@/lib/assistant-disk-claim-heuristic";
 import type { ParsedAgentToolBatch } from "../../../shared/agent-tool-schema";
 import { stripAgentToolFenceFromAssistantDisplay } from "../../../shared/agent-tool-schema";
 import { AGENT_TOOL_FENCE_INFO } from "../../../shared/agent-tool-contract";
 import { normalizeAgentWriteFileContent } from "../../../shared/agent-file-content-normalize";
-import { mergeAgentEditProposals } from "../../../shared/agent-edit-proposal-merge";
+import {
+  agentEditProposalPathKey,
+  mergeAgentEditProposals,
+} from "../../../shared/agent-edit-proposal-merge";
 import {
   analyzeAgentEditSafety,
   mergeAgentEditSafetyResults,
@@ -132,12 +135,12 @@ import {
   writeConversationMode,
 } from "@/lib/conversation-mode-storage";
 import {
-  derivePlanUiPhase,
   getPlanInteraction,
   patchPlanInteraction,
+  resolvePlanWorkflowPhase,
   setPlanRunPhase,
   supersedePendingPlansBeforeNewUserMessage,
-  type PlanUiPhase,
+  threadHasPlanCard,
 } from "@/lib/plan-interaction-storage";
 import { approvedPlanAutoRunUserText } from "@/lib/approved-plan-auto-run";
 import {
@@ -330,6 +333,7 @@ export function ChatThread({
     string | null
   >(null);
   const executingPlanMessageIdRef = useRef<string | null>(null);
+  const executingPlanUsesPlanningModelRef = useRef(false);
   const liveTurnRoutingRef = useRef<AgentChatTurnRouting | null>(null);
 
   const displayThreadModel = useMemo(
@@ -340,6 +344,27 @@ export function ChatThread({
     () => getModelForIntent(project, "planning"),
     [project],
   );
+
+  /** Idle composer intent — mirrors main `resolveAgentChatModelIntent` for the NEXT SEND strip. */
+  const nextSendModelIntent = useMemo((): typeof chatModelIntent => {
+    if (executingPlanMessageId && executingPlanUsesPlanningModelRef.current) {
+      return "planning";
+    }
+    if (executingPlanMessageId) return "execution";
+    if (conversationMode === "plan" && chatModelIntent === "chat_default") {
+      return "planning";
+    }
+    return chatModelIntent;
+  }, [chatModelIntent, conversationMode, executingPlanMessageId]);
+
+  const nextSendDisplayModel = useMemo(
+    () => getModelForIntent(project, nextSendModelIntent),
+    [project, nextSendModelIntent],
+  );
+
+  const nextSendStripIntent = liveTurnRouting?.modelIntent ?? nextSendModelIntent;
+  const nextSendStripModel = liveTurnRouting?.modelId ?? nextSendDisplayModel;
+
   const composerDisplayModel =
     liveTurnRouting?.modelId ?? displayThreadModel;
 
@@ -588,19 +613,42 @@ export function ChatThread({
       },
       source: PendingEditProposal["source"],
     ): PendingEditProposal => {
+      const prior = pendingProposalRef.current;
+      const priorPathKeys = new Set(
+        (prior?.batch.operations ?? []).map((op) =>
+          agentEditProposalPathKey(op.path),
+        ),
+      );
+      const incomingPathKeys = incoming.batch.operations.map((op) =>
+        agentEditProposalPathKey(op.path),
+      );
       const mergedPayload = mergeAgentEditProposals(
-        pendingProposalRef.current
+        prior
           ? {
-              batch: pendingProposalRef.current.batch,
-              rejected: pendingProposalRef.current.rejected,
+              batch: prior.batch,
+              rejected: prior.rejected,
             }
           : null,
         incoming,
       );
+      const replacedSamePath = incomingPathKeys.some((key) =>
+        priorPathKeys.has(key),
+      );
+      if (replacedSamePath) {
+        const displayPath =
+          incoming.batch.operations.find(
+            (op) =>
+              priorPathKeys.has(agentEditProposalPathKey(op.path)) &&
+              op.path.trim(),
+          )?.path ?? incoming.batch.operations[0]?.path;
+        const shortPath =
+          displayPath?.split(/[/\\]/).filter(Boolean).pop() ?? "file";
+        toast.message(`Combined multiple edits on \`${shortPath}\` into one proposal.`);
+      }
       return {
         batch: mergedPayload.batch as ParsedAgentToolBatch,
         rejected: mergedPayload.rejected,
-        source: pendingProposalRef.current?.source ?? source,
+        source: prior?.source ?? source,
       };
     },
     [],
@@ -700,6 +748,7 @@ export function ChatThread({
             modified: op.content,
             status,
             userMessageHint: lastUserMessageHint,
+            resolvedPath: op.path,
           }),
         );
       }
@@ -853,6 +902,7 @@ export function ChatThread({
 
   const clearExecutingPlan = useCallback(() => {
     executingPlanMessageIdRef.current = null;
+    executingPlanUsesPlanningModelRef.current = false;
     setExecutingPlanMessageId(null);
   }, []);
 
@@ -1019,7 +1069,8 @@ export function ChatThread({
             patchPlanRunPhaseForMessage(endedAssistantId, "failed");
           }
         }
-        if (executingPlanMessageIdRef.current) {
+        const executingPlanMsgId = executingPlanMessageIdRef.current;
+        if (executingPlanMsgId) {
           finalizeExecutePlanTurn("done");
         } else {
           setLiveTurnRouting(null);
@@ -1029,15 +1080,32 @@ export function ChatThread({
           trimmedFinal &&
           !hadProposal &&
           !endedInPlanMode &&
-          assistantReplyClaimsDiskWrites(finalContent)
+          assistantReplyClaimsEditOutcomeWithoutTool(finalContent)
         ) {
           toast.message("No file edit proposal was attached", {
             description:
-              "This reply reads like files were already changed, but GrokForge did not receive a propose_file_edits tool result. Ask the model to call propose_file_edits.",
+              "This reply reads like a diff is ready or files were changed, but GrokForge did not receive search_replace or propose_file_edits. Ask the model to call an edit tool.",
             duration: 14_000,
           });
         }
-        void flushPendingAutoApply();
+        void (async () => {
+          await flushPendingAutoApply();
+          if (
+            executingPlanMsgId &&
+            pendingProposalRef.current?.batch.operations.length
+          ) {
+            const paths = pendingProposalRef.current.batch.operations
+              .map((op) => op.path)
+              .slice(0, 3);
+            toast.message("Apply file changes to finish the plan", {
+              description:
+                readStoredAgentWritesMode() === "auto_apply"
+                  ? "Auto-apply did not run (proposal may have been rejected or blocked). Review the diff, then use Apply all."
+                  : `Files are not on disk until you approve. Use Apply all on the proposal card${paths.length ? ` (${paths.join(", ")})` : ""}.`,
+              duration: 16_000,
+            });
+          }
+        })();
         proposalCreatedInTurnRef.current = false;
         setLiveTurnContext(null);
         return;
@@ -1321,8 +1389,10 @@ export function ChatThread({
     manageComposerInput?: boolean;
     activeChatMode?: "fast" | "plan";
     modelIntent?: "chat_default" | "planning" | "execution";
-    /** Story 069 approve-and-run; main forces execution routing. */
+    /** Story 069 approve-and-run; main forces executor profile. */
     isApprovedPlanAutoRun?: boolean;
+    /** Keep models.planning for execute when in Plan workflow. */
+    planWorkflowUsePlanningModel?: boolean;
     /** Story 109 — durable plan artifact for execute handoff. */
     approvedPlanId?: string;
     approvedPlanMessageId?: string;
@@ -1369,12 +1439,17 @@ export function ChatThread({
       options.activeChatMode ?? (conversationMode === "plan" ? "plan" : "fast");
     const effectiveModelIntent = options.modelIntent ?? chatModelIntent;
     const isApprovedPlanAutoRun = options.isApprovedPlanAutoRun === true;
+    const planWorkflowUsePlanningModel =
+      isApprovedPlanAutoRun && options.planWorkflowUsePlanningModel === true;
+    const routedModelIntent = planWorkflowUsePlanningModel
+      ? "planning"
+      : effectiveModelIntent;
 
     const turnCtx = buildTextAgentTurnContext({
       project,
       activeRoot,
       activeFilePath: activeFilePath ?? null,
-      modelIntent: effectiveModelIntent,
+      modelIntent: routedModelIntent,
       chatMode: effectiveActiveChatMode,
     });
 
@@ -1390,7 +1465,7 @@ export function ChatThread({
         });
         streamChatModelRef.current = getModelForIntent(
           project,
-          effectiveModelIntent,
+          routedModelIntent,
           { logSelection: true },
         );
         const userMessage: ChatMessage = {
@@ -1460,7 +1535,7 @@ export function ChatThread({
       const priorSnapshot = baseMessages;
       streamChatModelRef.current = getModelForIntent(
         project,
-        effectiveModelIntent,
+        routedModelIntent,
         { logSelection: true },
       );
 
@@ -1520,8 +1595,11 @@ export function ChatThread({
       const start = await electron.agentChatStart({
         streamId,
         model: streamChatModelRef.current,
-        modelIntent: effectiveModelIntent,
+        modelIntent: routedModelIntent,
         ...(isApprovedPlanAutoRun ? { isApprovedPlanAutoRun: true } : {}),
+        ...(planWorkflowUsePlanningModel
+          ? { planWorkflowUsePlanningModel: true }
+          : {}),
         ...(options.approvedPlanId ? { approvedPlanId: options.approvedPlanId } : {}),
         ...(options.approvedPlanMessageId
           ? { approvedPlanMessageId: options.approvedPlanMessageId }
@@ -1679,13 +1757,10 @@ export function ChatThread({
           status: "approved",
         });
       }
+      const usePlanningForExecute = conversationMode === "plan";
+      executingPlanUsesPlanningModelRef.current = usePlanningForExecute;
       executingPlanMessageIdRef.current = planMessageId;
       setExecutingPlanMessageId(planMessageId);
-      if (projectId) {
-        writeConversationMode(projectId, "normal");
-        setConversationMode("normal");
-      }
-      setChatModelIntent("execution");
       const userText = approvedPlanAutoRunUserText(
         planId,
         plan?.summary ?? "Approved plan.",
@@ -1693,15 +1768,15 @@ export function ChatThread({
       void startAgentTurnWithUserText(userText, {
         manageComposerInput: false,
         activeChatMode: "fast",
-        modelIntent: "execution",
         isApprovedPlanAutoRun: true,
+        planWorkflowUsePlanningModel: usePlanningForExecute,
         approvedPlanId: planId,
         approvedPlanMessageId: planMessageId,
         baseMessages: messages,
         supersedePlans: true,
       });
     },
-    [isSending, messages, projectId, startAgentTurnWithUserText],
+    [conversationMode, isSending, messages, projectId, startAgentTurnWithUserText],
   );
 
   const cancelStream = () => {
@@ -1927,6 +2002,7 @@ export function ChatThread({
                   modified: modifiedContent,
                   status: fileStatus,
                   userMessageHint: lastUserMessageHint,
+                  resolvedPath: op.path,
                 })
               : undefined,
         });
@@ -2192,29 +2268,50 @@ export function ChatThread({
   const showPlanWorkflowChrome =
     conversationMode === "plan" || executingPlanMessageId != null;
 
-  const composerPlanPhase: PlanUiPhase = useMemo(() => {
-    if (busy && liveTurnContext?.chatMode === "plan") return "planning";
-    if (executingPlanMessageId && busy) return "executing";
-    if (executingPlanMessageId && projectId) {
-      const st = getPlanInteraction(
-        projectId,
+  const isStreamingPlanFenceLive = useMemo(() => {
+    if (!streamingStreamId || !messages?.length) return false;
+    const liveId = assistantIdRef.current;
+    const liveMsg = messages.find((m) => m.id === liveId);
+    if (liveMsg?.role !== "assistant" || !liveMsg.content) return false;
+    return (
+      !parseGfPlanFromAssistantContent(liveMsg.content) &&
+      new RegExp("```\\s*" + GF_PLAN_FENCE, "i").test(liveMsg.content)
+    );
+  }, [messages, streamingStreamId]);
+
+  const composerPlanPhase = useMemo(
+    () =>
+      resolvePlanWorkflowPhase({
+        conversationMode,
+        busy,
+        liveChatMode: liveTurnContext?.chatMode,
+        isStreamingPlanFence: isStreamingPlanFenceLive,
         executingPlanMessageId,
-        executingPlan?.steps.length ?? 0,
-      );
-      return derivePlanUiPhase(st, {
-        isExecutingThisPlan: executingPlanMessageId != null && busy,
-      });
-    }
-    if (conversationMode === "plan") return "pending";
-    return "pending";
-  }, [
-    busy,
-    conversationMode,
-    executingPlan?.steps.length,
-    executingPlanMessageId,
-    liveTurnContext?.chatMode,
-    projectId,
-  ]);
+        executingPlanStepCount: executingPlan?.steps.length,
+        projectId,
+        messages: messages ?? [],
+      }),
+    [
+      busy,
+      conversationMode,
+      executingPlan?.steps.length,
+      executingPlanMessageId,
+      isStreamingPlanFenceLive,
+      liveTurnContext?.chatMode,
+      messages,
+      projectId,
+    ],
+  );
+
+  const hasPlanCardInThread = useMemo(
+    () => threadHasPlanCard(messages),
+    [messages],
+  );
+
+  const showComposerPlanStepper =
+    showPlanWorkflowChrome &&
+    !hasPlanCardInThread &&
+    executingPlanMessageId == null;
 
   const editActivitiesDoneCount = useMemo(() => {
     return agentActivities.filter(
@@ -2320,8 +2417,9 @@ export function ChatThread({
                   activeFilePath={activeFilePath}
                   pinnedCount={pinnedContext.length}
                   conversationMode={conversationMode}
-                  chatModelIntent={chatModelIntent}
-                  displayThreadModel={displayThreadModel}
+                  chatModelIntent={nextSendStripIntent}
+                  displayThreadModel={nextSendStripModel}
+                  planWorkflowExecuting={executingPlanMessageId != null}
                 />
                 <AnimatePresence>
                   {threadList.map((msg, index) => {
@@ -2491,20 +2589,22 @@ export function ChatThread({
                                         ? liveTurnRouting
                                         : null
                                     }
-                                    uiPhase={derivePlanUiPhase(
-                                      getPlanInteraction(
-                                        projectId,
-                                        msg.id,
-                                        plan.steps.length,
-                                      ),
-                                      {
-                                        globalPlanningTurn:
-                                          isLiveAssistantTurn &&
-                                          liveTurnContext?.chatMode === "plan",
-                                        isExecutingThisPlan:
-                                          executingPlanMessageId === msg.id,
-                                      },
-                                    )}
+                                    uiPhase={resolvePlanWorkflowPhase({
+                                      conversationMode,
+                                      busy,
+                                      liveChatMode: isLiveAssistantTurn
+                                        ? liveTurnContext?.chatMode
+                                        : undefined,
+                                      isStreamingPlanFence:
+                                        isLiveAssistantTurn && showGfPlanStreaming,
+                                      executingPlanMessageId:
+                                        executingPlanMessageId === msg.id
+                                          ? msg.id
+                                          : null,
+                                      executingPlanStepCount: plan.steps.length,
+                                      projectId,
+                                      messages: messages ?? [],
+                                    })}
                                     onApproveAndRun={handlePlanApproveAndRun}
                                   />
                                 ) : null}
@@ -3016,7 +3116,7 @@ export function ChatThread({
               : "",
           )}
         >
-          {showPlanWorkflowChrome ? (
+          {showComposerPlanStepper ? (
             <motion.div className="mb-3 w-full min-w-0 rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-2.5">
               <PlanPhaseStepper
                 phase={composerPlanPhase}
@@ -3024,15 +3124,6 @@ export function ChatThread({
                 compact
               />
             </motion.div>
-          ) : null}
-          {showPlanWorkflowChrome ? (
-            <div className="mb-3 w-full min-w-0 rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-2.5">
-              <PlanPhaseStepper
-                phase={composerPlanPhase}
-                routing={liveTurnRouting}
-                compact
-              />
-            </div>
           ) : null}
           <div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
             <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
@@ -3082,6 +3173,14 @@ export function ChatThread({
                   >
                     Plan
                   </button>
+                  {executingPlanMessageId != null ? (
+                    <span
+                      className="rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1 text-[10px] font-medium tracking-tight text-gf-accent"
+                      aria-current="step"
+                    >
+                      Executing
+                    </span>
+                  ) : null}
                 </div>
               </div>
               {!projectId ? (
@@ -3093,6 +3192,24 @@ export function ChatThread({
                 <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
                   Next turn
                 </span>
+                {conversationMode === "plan" || executingPlanMessageId != null ? (
+                  <ModelBadge
+                    variant="chip"
+                    className="text-zinc-400"
+                    title={
+                      executingPlanMessageId != null
+                        ? executingPlanUsesPlanningModelRef.current
+                          ? "Plan workflow: execute uses models.planning"
+                          : "Approve-and-run uses models.execution"
+                        : "Plan mode uses models.planning"
+                    }
+                  >
+                    {executingPlanMessageId != null &&
+                    !executingPlanUsesPlanningModelRef.current
+                      ? getModelForIntent(project, "execution")
+                      : planningModelId}
+                  </ModelBadge>
+                ) : (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <div
@@ -3137,13 +3254,16 @@ export function ChatThread({
                     <span className="font-mono">models.planning</span> (
                     {planningModelId}). Works in Chat and Plan mode. Use{" "}
                     <strong>Mode</strong> (Chat / Plan) for structured{" "}
-                    <span className="font-mono">gf-plan</span> workflow; approve-and-run
-                    uses <span className="font-mono">models.execution</span>.
+                    <span className="font-mono">gf-plan</span> workflow; approve-and-run in
+                    Plan mode stays on <span className="font-mono">models.planning</span>.
                   </TooltipContent>
                 </Tooltip>
-                <ModelBadge variant="chip" title={composerDisplayModel}>
-                  {composerDisplayModel}
-                </ModelBadge>
+                )}
+                {conversationMode !== "plan" && executingPlanMessageId == null ? (
+                  <ModelBadge variant="chip" title={composerDisplayModel}>
+                    {composerDisplayModel}
+                  </ModelBadge>
+                ) : null}
               </div>
             </div>
             <DropdownMenu>

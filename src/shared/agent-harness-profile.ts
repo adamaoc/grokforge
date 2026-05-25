@@ -28,6 +28,7 @@ const EXECUTOR_FROM_PLAN_SECTIONS: readonly string[] = [
   'Follow the **approved `gf-plan` step order** from thread context. Do not replan from scratch or invent a new architecture unless a step is blocked.',
   'Before editing any **existing** path, call `read_file` or `search_workspace` on that path in this turn.',
   'Prefer `search_replace` for localized edits on existing files; use `propose_file_edits` for new files or multi-file bootstrap.',
+  'For **new HTML files**, send one **complete** document in a single `write_file` (valid `<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`, embedded CSS/JS, and closing tags) — never a one-line stub or truncated opener.',
   'Respect plan file paths and verification commands; run `run_command` only when the plan or user intent requires it (user approval required).',
 ]
 
@@ -52,6 +53,7 @@ export type AgentHarnessProfile = {
 export const AGENT_TOOL_LOOP_SHARED: readonly string[] = [
   'You may use the provided read/search tools to inspect this workspace before answering. Use tools when exact file contents or paths matter. You may request one-shot commands with run_command for tests, typecheck, git inspection, or diagnostics, but GrokForge will always ask the user before running model-requested commands. Do not claim a command ran unless the tool result says it ran. During tool planning, prefer tool calls over drafting the full answer; GrokForge will ask for the final response after tool use finishes.',
   'For localized edits on existing files, prefer `search_replace` with an exact old_string that appears once, or `propose_file_edits` with minimal full-file content. Both create a GrokForge diff review without writing disk until the user applies. Use full `write_file` only for new files or intentional whole-file rewrites.',
+  'Multiple `search_replace` calls on the **same file in one turn** are applied **in order** on the in-memory proposal (each patch builds on the prior). For many unrelated regions (e.g. restyle + markup + script), prefer one larger `search_replace` with a unique `old_string`, or a single `propose_file_edits` with the full file.',
   'For any **existing** file you modify, you MUST call `read_file` on that path earlier in this same turn before `propose_file_edits` or a write fence. New files do not require a prior read.',
   'Copy `contentHash` from `read_file` into `expectedContentHash` on `search_replace` and `propose_file_edits` write ops for existing files. Re-read if the file may have changed on disk.',
   'Each `write_file` must contain complete file text with **real line breaks** (never one semicolon-separated line for the whole file). Base proposals on `read_file` `rawContent` (not the line-numbered `content` field): preserve indentation and line breaks for unchanged sections. Use `startLine` / `maxLines` when reading large files before editing.',
@@ -162,7 +164,10 @@ export function buildHarnessTurnPromptSections(
   if (ctx.greenfieldWorkspace && profile.key === 'grok_4_3') {
     sections.push(...GREENFIELD_PLAN_SECTIONS)
   }
-  if (ctx.executeFromApprovedPlan && profile.key === 'grok_code_fast') {
+  if (
+    ctx.executeFromApprovedPlan &&
+    (profile.key === 'grok_code_fast' || profile.key === 'grok_4_3')
+  ) {
     sections.push(...EXECUTOR_FROM_PLAN_SECTIONS)
   }
   return sections

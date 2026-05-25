@@ -84,6 +84,13 @@ describe('buildHarnessTurnPromptSections', () => {
     })
     expect(sections.join('\n')).toMatch(/Execute approved plan/i)
   })
+
+  it('includes execute-from-plan sections for grok_4_3 when executeFromApprovedPlan', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_4_3'), {
+      executeFromApprovedPlan: true,
+    })
+    expect(sections.join('\n')).toMatch(/Execute approved plan/i)
+  })
 })
 
 describe('buildFinalAnswerContract with profileKey', () => {

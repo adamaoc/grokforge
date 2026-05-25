@@ -541,6 +541,17 @@ function readFileContentForAgent(
     const numbered = selected.map((line, idx) => `${String(startLine + idx).padStart(5, ' ')} | ${line}`).join('\n')
     const numberedTrimmed = trimText(numbered, AGENT_READ_FILE_MAX_CHARS)
     const layoutNeedsRepair = needsSourceLayoutRepair(text)
+    const readFormatWarnings: string[] = []
+    if (layoutNeedsRepair) {
+      readFormatWarnings.push(
+        'File layout looks crushed (one line and/or very long lines). Base edits on rawContent; use normal line breaks. GrokForge will try to repair layout on apply, but prefer search_replace or a well-formatted full rewrite.',
+      )
+    }
+    if (/\.(md|mdx)$/i.test(checked.path) && text.split(/\r?\n/).some((line) => /  +\s*$/.test(line))) {
+      readFormatWarnings.push(
+        'Markdown lines may end with two trailing spaces (hard line breaks). Copy rawContent exactly, including trailing spaces, for search_replace.',
+      )
+    }
     options?.onReadSuccess?.(checked.path, contentHash)
     return {
       ok: true,
@@ -558,12 +569,7 @@ function readFileContentForAgent(
             rawTrimmed.truncated ||
             numberedTrimmed.truncated ||
             startIdx + maxLines < lines.length,
-          ...(layoutNeedsRepair
-            ? {
-                formatWarning:
-                  'File layout looks crushed (one line and/or very long lines). Base edits on rawContent; use normal line breaks. GrokForge will try to repair layout on apply, but prefer search_replace or a well-formatted full rewrite.',
-              }
-            : {}),
+          ...(readFormatWarnings.length > 0 ? { formatWarning: readFormatWarnings.join(' ') } : {}),
           rawContent: rawTrimmed.text,
           content: numberedTrimmed.text,
         },

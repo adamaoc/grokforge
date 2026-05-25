@@ -35,6 +35,7 @@ export function ChatLiveContextStrip({
   conversationMode,
   chatModelIntent,
   displayThreadModel,
+  planWorkflowExecuting = false,
 }: {
   project: GrokProjectManifest
   activeRoot: Root | null
@@ -43,8 +44,14 @@ export function ChatLiveContextStrip({
   conversationMode: 'normal' | 'plan'
   chatModelIntent: 'chat_default' | 'planning' | 'execution'
   displayThreadModel: string
+  planWorkflowExecuting?: boolean
 }) {
-  const chatMode: 'fast' | 'plan' = conversationMode === 'plan' ? 'plan' : 'fast'
+  const agentModeLabel = planWorkflowExecuting
+    ? 'execute'
+    : conversationMode === 'plan'
+      ? 'plan'
+      : 'fast'
+  const showIntentHumanLabel = chatModelIntent !== 'planning'
 
   return (
     <div className="sticky top-0 z-10 -mx-4 mb-4 border-b border-zinc-800/80 bg-zinc-950/90 px-4 py-2.5 backdrop-blur-sm">
@@ -53,15 +60,19 @@ export function ChatLiveContextStrip({
         <ModelBadge variant="pill" className="text-zinc-400" title="GrokForge model intent (manifest slot)">
           {chatModelIntent}
         </ModelBadge>
-        <span className="text-zinc-600">·</span>
-        <span className="text-zinc-400">{formatModelIntentLabel(chatModelIntent)}</span>
+        {showIntentHumanLabel ? (
+          <>
+            <span className="text-zinc-600">·</span>
+            <span className="text-zinc-400">{formatModelIntentLabel(chatModelIntent)}</span>
+          </>
+        ) : null}
         <span className="text-zinc-600">·</span>
         <ModelBadge variant="pill" title="Resolved xAI model id" className="max-w-[min(100%,14rem)] text-zinc-400">
           {displayThreadModel}
         </ModelBadge>
         <span className="text-zinc-600">·</span>
         <span className="rounded-md border border-zinc-800 bg-zinc-950/60 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
-          Agent mode: {chatMode}
+          Conversation: {agentModeLabel}
         </span>
       </div>
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-zinc-800/80 pt-2">

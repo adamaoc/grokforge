@@ -6,14 +6,73 @@ import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
 export const EDIT_INTENT_RE =
   /\b(add|apply|build|change|create|delete|edit|fix|implement|make|move|patch|refactor|remove|rename|replace|update|write)\b/i
 
+/** Marker in harness nudge when a fast-mode edit turn sampled zero tools (eval/tests). */
+export const EDIT_INTENT_TOOL_NUDGE_MARKER = 'Harness: edit tools required'
+
+/** Marker when search_replace failed repeatedly and the harness steers recovery (eval/tests). */
+export const EDIT_SEARCH_REPLACE_ESCALATION_MARKER = 'Harness: search_replace escalation'
+
+export function isLikelyEditIntent(userText: string): boolean {
+  return EDIT_INTENT_RE.test(userText)
+}
+
+function basenameForEscalationPath(pathKey: string): string {
+  const parts = pathKey.split(/[/\\]/).filter(Boolean)
+  return parts[parts.length - 1] ?? pathKey
+}
+
+/** User message injected once after repeated search_replace failures on a path. */
+export function buildSearchReplaceEscalationNudge(paths: readonly string[]): string {
+  const labels = paths.map(basenameForEscalationPath).filter(Boolean)
+  const pathLine =
+    labels.length > 0
+      ? `Affected file(s): ${labels.join(', ')}.`
+      : 'One or more files had repeated search_replace failures.'
+  return [
+    `## ${EDIT_SEARCH_REPLACE_ESCALATION_MARKER}`,
+    pathLine,
+    'Do **not** retry `search_replace` with guessed or reformatted `old_string` text.',
+    'Call `read_file` again and copy text only from **`rawContent`** (not the line-numbered `content` field).',
+    'For small files or localized section edits: use one `propose_file_edits` with the **complete** file body from the latest `read_file` `rawContent` (every heading and section), changing only what the user asked for.',
+    'Do not send only the changed bullets or a shortened stub — include the full document text in `write_file.content`.',
+    'On markdown/plain text under ~64 lines, GrokForge still accepts the proposal for diff review; on code files, destructive shrink stays blocked.',
+    'Do not tell the user the file was updated until an edit tool returns `ok: true` in this turn.',
+  ].join('\n')
+}
+
+/** User message injected once when the model skips tools on an edit-intent fast turn. */
+export function buildEditIntentToolNudge(): string {
+  return [
+    `## ${EDIT_INTENT_TOOL_NUDGE_MARKER}`,
+    'The user message asks for workspace file changes, but this turn has not created an edit proposal yet.',
+    'You must call tools before finishing — retrieval snippets are not sufficient.',
+    'For each existing file you will change: call `read_file` first, then `search_replace` (localized) or `propose_file_edits` (new files / multi-file).',
+    'Do not tell the user a diff or proposal is ready until an edit tool succeeds in this turn.',
+  ].join('\n')
+}
+
 export type AgentFinalAnswerContractInput = {
   userText: string
   editProposalCreated: boolean
+  /** Edit-intent turn where search_replace failed repeatedly and no proposal was created. */
+  editToolsFailed?: boolean
   chatMode: 'fast' | 'plan'
   profileKey?: HarnessProfileKey
   agentProfileId?: AgentProfileId
   executeFromApprovedPlan?: boolean
   greenfieldWorkspace?: boolean
+}
+
+function editToolsFailedAppendix(editToolsFailed?: boolean): string {
+  if (!editToolsFailed) return ''
+  return [
+    '',
+    '### Edit tools did not succeed (this turn)',
+    '**search_replace** failed repeatedly and GrokForge does **not** have a reviewable edit proposal from this turn.',
+    'Do **not** claim any workspace file was updated, changed, saved, or written on disk.',
+    'Tell the user what failed (exact match / validation), and that they can retry with `propose_file_edits` using the full file from `read_file` `rawContent`, or edit manually.',
+    'A full-file rewrite that keeps unrelated content is allowed; proposals that remove most of the file were blocked for safety.',
+  ].join('\n')
 }
 
 function planModeProfileAppendix(profileKey?: HarnessProfileKey, greenfieldWorkspace?: boolean): string {
@@ -73,7 +132,7 @@ export function buildFinalAnswerContract(input: AgentFinalAnswerContractInput): 
       .join('\n')
   }
 
-  const maybeEdit = EDIT_INTENT_RE.test(input.userText)
+  const maybeEdit = isLikelyEditIntent(input.userText)
   return [
     '## Final response contract',
     input.editProposalCreated
@@ -92,6 +151,7 @@ export function buildFinalAnswerContract(input: AgentFinalAnswerContractInput): 
     'For existing files, include `expectedContentHash` from the latest `read_file` `contentHash` on each write operation.',
     'Every path must be absolute and under a workspace root.',
     'Do not tell the user that files were already written, saved, or applied on disk unless `propose_file_edits` succeeded in this turn.',
+    editToolsFailedAppendix(input.editToolsFailed),
     fastModeProfileAppendix(input.profileKey),
     executorFromPlanAppendix(input.profileKey, input.executeFromApprovedPlan, input.agentProfileId),
   ]

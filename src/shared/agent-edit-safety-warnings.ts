@@ -1,6 +1,9 @@
+import { isMarkdownOrPlainTextPath } from './agent-markdown-path'
 import {
   hasDominantLiteralEscapedNewlines,
   isCollapsedMultiStatementSource,
+  looksLikeJsxOrTsxSource,
+  looksLikeMarkdownDocument,
   needsSourceLayoutRepair,
 } from './agent-file-content-normalize'
 
@@ -81,6 +84,8 @@ export function analyzeAgentEditSafety(args: {
   modified: string
   status?: 'created' | 'modified' | 'deleted'
   userMessageHint?: string
+  /** When set, markdown/plain-text docs skip JSX-style “crushed layout” cautions. */
+  resolvedPath?: string
 }): AgentEditSafetyResult {
   const status =
     args.status ??
@@ -98,8 +103,14 @@ export function analyzeAgentEditSafety(args: {
   const statsLine = formatStatsLine(originalLines, modifiedLines, status)
   const hasLiteralEscapedNewlines = hasDominantLiteralEscapedNewlines(modified)
   const hasCollapsedSingleLineSource = isCollapsedMultiStatementSource(modified)
+  const skipMessyLayoutForMarkdown =
+    Boolean(args.resolvedPath && isMarkdownOrPlainTextPath(args.resolvedPath)) &&
+    looksLikeMarkdownDocument(modified) &&
+    !looksLikeJsxOrTsxSource(modified)
   const hasMessySourceLayout =
-    !hasCollapsedSingleLineSource && needsSourceLayoutRepair(modified)
+    !hasCollapsedSingleLineSource &&
+    !skipMessyLayoutForMarkdown &&
+    needsSourceLayoutRepair(modified)
 
   if (hasLiteralEscapedNewlines) {
     issues.push({

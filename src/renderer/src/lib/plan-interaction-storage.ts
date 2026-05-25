@@ -1,4 +1,73 @@
-import { parseGfPlanFromAssistantContent } from '../../../shared/gf-plan-contract'
+import {
+  GF_PLAN_FENCE,
+  parseGfPlanFromAssistantContent,
+  type GfPlanV1,
+} from '../../../shared/gf-plan-contract'
+
+export type PlanWorkflowMessage = {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+
+/** True when assistant content has an open `gf-plan` fence but JSON is not valid yet. */
+export function isStreamingGfPlanFenceContent(content: string): boolean {
+  if (!content.trim()) return false
+  if (parseGfPlanFromAssistantContent(content)) return false
+  return new RegExp('```\\s*' + GF_PLAN_FENCE + '\\s*\\n', 'i').test(content)
+}
+
+export function findLatestPlanInThread(
+  messages: readonly PlanWorkflowMessage[],
+): { messageId: string; plan: GfPlanV1; stepCount: number } | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const m = messages[i]
+    if (m?.role !== 'assistant' || !m.content) continue
+    const plan = parseGfPlanFromAssistantContent(m.content)
+    if (!plan) continue
+    return { messageId: m.id, plan, stepCount: plan.steps.length }
+  }
+  return null
+}
+
+export function threadHasPlanCard(messages: readonly PlanWorkflowMessage[] | null | undefined): boolean {
+  return findLatestPlanInThread(messages ?? []) !== null
+}
+
+export type ResolvePlanWorkflowPhaseInput = {
+  conversationMode: 'normal' | 'plan'
+  busy: boolean
+  liveChatMode?: 'fast' | 'plan'
+  isStreamingPlanFence?: boolean
+  executingPlanMessageId: string | null
+  executingPlanStepCount?: number
+  projectId: string | null | undefined
+  messages: readonly PlanWorkflowMessage[]
+}
+
+/** Single source of truth for composer + plan card stepper phases (story 098). */
+export function resolvePlanWorkflowPhase(input: ResolvePlanWorkflowPhaseInput): PlanUiPhase {
+  if (input.busy && input.liveChatMode === 'plan') return 'planning'
+  if (input.isStreamingPlanFence) return 'planning'
+
+  if (input.executingPlanMessageId) {
+    if (input.busy) return 'executing'
+    const stepCount = input.executingPlanStepCount ?? 1
+    const st = getPlanInteraction(input.projectId, input.executingPlanMessageId, stepCount)
+    return derivePlanUiPhase(st, { isExecutingThisPlan: true })
+  }
+
+  if (input.conversationMode === 'plan') {
+    const latest = findLatestPlanInThread(input.messages)
+    if (latest) {
+      const st = getPlanInteraction(input.projectId, latest.messageId, latest.stepCount)
+      return derivePlanUiPhase(st, {})
+    }
+    return 'awaiting_plan'
+  }
+
+  return 'pending'
+}
 
 export type PlanInteractionStatus = 'pending' | 'approved' | 'cancelled' | 'superseded'
 
@@ -14,6 +83,7 @@ export type PlanInteractionState = {
 
 /** Derived UI phase for stepper + badges (story 098). */
 export type PlanUiPhase =
+  | 'awaiting_plan'
   | 'planning'
   | 'pending'
   | 'approved_idle'
@@ -133,6 +203,8 @@ export function derivePlanUiPhase(
 
 export function planUiPhaseLabel(phase: PlanUiPhase): string {
   switch (phase) {
+    case 'awaiting_plan':
+      return 'Ready to plan'
     case 'planning':
       return 'Planning'
     case 'pending':

@@ -9,7 +9,7 @@ import { getModelForIntent, type ModelRoutingManifest } from './model-router'
 
 export type AgentTurnRoutingInput = Pick<
   AgentChatStartPayload,
-  'modelIntent' | 'activeContext' | 'isApprovedPlanAutoRun'
+  'modelIntent' | 'activeContext' | 'isApprovedPlanAutoRun' | 'planWorkflowUsePlanningModel'
 >
 
 /**
@@ -17,7 +17,9 @@ export type AgentTurnRoutingInput = Pick<
  * Precedence: approve-and-run → explicit chip → plan default → fast default.
  */
 export function resolveAgentChatModelIntent(payload: AgentTurnRoutingInput): AgentChatTextModelIntent {
-  if (payload.isApprovedPlanAutoRun) return 'execution'
+  if (payload.isApprovedPlanAutoRun) {
+    return payload.planWorkflowUsePlanningModel ? 'planning' : 'execution'
+  }
   if (payload.modelIntent) return payload.modelIntent
   if (payload.activeContext.chatMode === 'plan') return 'planning'
   return 'chat_default'

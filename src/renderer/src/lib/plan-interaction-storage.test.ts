@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   derivePlanUiPhase,
   getPlanInteraction,
+  isStreamingGfPlanFenceContent,
   patchPlanInteraction,
+  planUiPhaseLabel,
+  resolvePlanWorkflowPhase,
   setPlanRunPhase,
   supersedePendingPlansBeforeNewUserMessage,
 } from './plan-interaction-storage'
@@ -49,6 +52,10 @@ describe('plan-interaction-storage', () => {
     expect(derivePlanUiPhase(done, {})).toBe('done')
   })
 
+  it('labels awaiting_plan for composer idle', () => {
+    expect(planUiPhaseLabel('awaiting_plan')).toBe('Ready to plan')
+  })
+
   it('derives planning when global planning turn is active', () => {
     const st = getPlanInteraction(PROJECT, 'msg-1', 2)
     expect(derivePlanUiPhase(st, { globalPlanningTurn: true })).toBe('planning')
@@ -57,6 +64,67 @@ describe('plan-interaction-storage', () => {
   it('derives approved_idle after approve without runPhase', () => {
     const st = patchPlanInteraction(PROJECT, 'msg-1', { status: 'approved' }, 2)
     expect(derivePlanUiPhase(st, {})).toBe('approved_idle')
+  })
+
+  it('resolvePlanWorkflowPhase returns awaiting_plan with no plan in thread', () => {
+    expect(
+      resolvePlanWorkflowPhase({
+        conversationMode: 'plan',
+        busy: false,
+        executingPlanMessageId: null,
+        projectId: PROJECT,
+        messages: [{ id: 'u1', role: 'user', content: 'build a todo app' }],
+      }),
+    ).toBe('awaiting_plan')
+  })
+
+  it('resolvePlanWorkflowPhase returns planning while busy in plan mode', () => {
+    expect(
+      resolvePlanWorkflowPhase({
+        conversationMode: 'plan',
+        busy: true,
+        liveChatMode: 'plan',
+        executingPlanMessageId: null,
+        projectId: PROJECT,
+        messages: [],
+      }),
+    ).toBe('planning')
+  })
+
+  it('resolvePlanWorkflowPhase returns planning for streaming gf-plan fence', () => {
+    expect(
+      resolvePlanWorkflowPhase({
+        conversationMode: 'plan',
+        busy: false,
+        isStreamingPlanFence: true,
+        executingPlanMessageId: null,
+        projectId: PROJECT,
+        messages: [],
+      }),
+    ).toBe('planning')
+  })
+
+  it('resolvePlanWorkflowPhase returns pending only after plan exists and idle', () => {
+    const planContent =
+      '```gf-plan\n{"schemaVersion":1,"summary":"s","filesLikelyTouched":[],"risksUnknowns":[],"steps":[{"id":"1","title":"t"}],"verification":"v"}\n```'
+    expect(
+      resolvePlanWorkflowPhase({
+        conversationMode: 'plan',
+        busy: false,
+        executingPlanMessageId: null,
+        projectId: PROJECT,
+        messages: [{ id: 'a1', role: 'assistant', content: planContent }],
+      }),
+    ).toBe('pending')
+  })
+
+  it('isStreamingGfPlanFenceContent is true before JSON validates', () => {
+    expect(isStreamingGfPlanFenceContent('```gf-plan\n{"schemaVersion":1')).toBe(true)
+    expect(
+      isStreamingGfPlanFenceContent(
+        '```gf-plan\n{"schemaVersion":1,"summary":"s","filesLikelyTouched":[],"risksUnknowns":[],"steps":[{"id":"1","title":"t"}],"verification":"v"}\n```',
+      ),
+    ).toBe(false)
   })
 
   it('supersedes pending plans on new user message', () => {

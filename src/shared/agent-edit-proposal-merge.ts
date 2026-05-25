@@ -29,6 +29,30 @@ export function agentEditProposalPathKey(path: string): string {
   return trimmed.startsWith('/') ? (joined ? `/${joined}` : '/') : joined
 }
 
+/** In-turn accumulated write_file body for same-path search_replace chaining. */
+export type AccumulatedWriteForPath = {
+  content: string
+  expectedContentHash?: string
+}
+
+/** Latest write_file op for a resolved path in the turn proposal accumulator. */
+export function findAccumulatedWriteForPath(
+  accumulated: AgentEditProposalPayload | null,
+  resolvedPath: string,
+): AccumulatedWriteForPath | null {
+  if (!accumulated) return null
+  const key = agentEditProposalPathKey(resolvedPath)
+  for (const op of accumulated.batch.operations) {
+    if (op.op !== 'write_file') continue
+    if (agentEditProposalPathKey(op.path) !== key) continue
+    return {
+      content: op.content,
+      ...(op.expectedContentHash ? { expectedContentHash: op.expectedContentHash } : {}),
+    }
+  }
+  return null
+}
+
 function dedupeRejected(
   rejected: AgentEditProposalPayload['rejected'],
 ): AgentEditProposalPayload['rejected'] {
@@ -45,7 +69,8 @@ function dedupeRejected(
 
 /**
  * Merge edit proposals from multiple tool calls in the same agent turn.
- * Later operations for the same path win.
+ * Same path: incoming replaces accumulated (content should already chain via search_replace).
+ * Different paths: operations accumulate.
  */
 export function mergeAgentEditProposals(
   accumulated: AgentEditProposalPayload | null,

@@ -309,10 +309,10 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">113 stories</span>
-        <span class="pill">Done: 107</span>
+        <span class="pill">115 stories</span>
+        <span class="pill">Done: 109</span>
         <span class="pill">Closed: 6</span>
-        <span class="pill">Generated 2026-05-19</span>
+        <span class="pill">Generated 2026-05-20</span>
       </div>
       <div class="story-filters">
         <label>
@@ -8451,6 +8451,110 @@ chatMode (062)
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When implemented: mark <strong>114</strong> done, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-115" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">115</span><span class="story-name">Edit cascade guard after search_replace failures</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/115-agent-edit-cascade-guard-after-search-replace-failures.md">post-mvp/115-agent-edit-cascade-guard-after-search-replace-failures.md</a>
+          </div>
+          <h2>115 — Agent edits: cascade guard after search_replace failures</h2>
+<p><strong>Status:</strong> Done (2026-05-19).</p>
+<p><strong>Design skill:</strong> N/A (harness enforcement in main/shared).</p>
+<h3>Why this story exists</h3>
+<p>Field report (ToDoApp <code>index.html</code>, 2026-05-19): the model failed <strong><code>search_replace</code></strong> five times (<code>old_string was not found</code>), then <strong><code>propose_file_edits</code></strong> with a full-file rewrite that removed ~56% of lines. Safety warnings appeared in the UI, but the harness still created a reviewable proposal. Prompt-only minimal-change guidance (<strong>083</strong>) did not prevent this.</p>
+<h3>Goals</h3>
+<ol>
+<li>Track per-path <strong><code>search_replace</code> failures</strong> within a single agent turn.</li>
+<li><strong>Reject</strong> <code>propose_file_edits</code> / successful-path <code>search_replace</code> → <code>write_file</code> when:</li>
+</ol>
+<ul>
+<li>the path has ≥2 failures this turn, and</li>
+<li>the proposal would <strong>dramatically shrink</strong> the file (&gt;50% lines or chars), unless the user asked for a full rewrite.</li>
+</ul>
+<ol>
+<li>Enrich <strong>not found</strong> errors with <code>rawContent</code> guidance and a short <code>old_string</code> preview.</li>
+</ol>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-edit-cascade-guard.ts"><code>src/shared/agent-edit-cascade-guard.ts</code></a> — pure guard + tests</li>
+<li><a href="../../src/shared/agent-search-replace.ts"><code>src/shared/agent-search-replace.ts</code></a> — not-found message helper</li>
+<li><a href="../../src/main/agent-edit-proposals.ts"><code>src/main/agent-edit-proposals.ts</code></a> — guard during validation</li>
+<li><a href="../../src/main/agent-tool-executor.ts"><code>src/main/agent-tool-executor.ts</code></a> — failure counting + turn state</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — pass <code>userText</code> + failure map</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> ToDoApp-style fixture: 2+ S&amp;R failures + destructive full write → proposal rejected with cascade reason.</li>
+<li><input type="checkbox" disabled checked> Full-rewrite user intent bypasses the guard.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="083-agent-edit-prompting-minimal-change.md">083</a></strong>, <strong><a href="084-agent-edit-pre-apply-safety-warnings.md">084</a></strong>, <strong><a href="085-agent-search-replace-tool.md">085</a></strong>, <strong><a href="092-agent-edit-failure-self-correction.md">092</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update this <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-116" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">116</span><span class="story-name">Search_replace failure escalation nudge</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/116-agent-edit-search-replace-escalation-nudge.md">post-mvp/116-agent-edit-search-replace-escalation-nudge.md</a>
+          </div>
+          <h2>116 — Agent edits: search_replace failure escalation nudge</h2>
+<p><strong>Status:</strong> Done (2026-05-20).</p>
+<p><strong>Design skill:</strong> N/A (harness enforcement in main/shared); renderer toast copy only.</p>
+<h3>Why this story exists</h3>
+<p>Field report (TaskBoard <code>docs/overview.md</code>, 2026-05-20): the model failed <strong><code>search_replace</code></strong> many times (<code>old_string was not found</code>), exhausted the tool budget, <strong><code>propose_file_edits</code></strong> left no reviewable diff, and the final answer still claimed the file was updated. Story <strong>115</strong> blocked destructive full-file rewrites after repeated failures but did not <strong>guide recovery</strong> or surface honest UX.</p>
+<h3>Goals</h3>
+<ol>
+<li>After <strong>≥2</strong> <code>search_replace</code> failures on a path in one turn (and no successful edit proposal), inject <strong>one</strong> mid-turn harness user message: stop retrying guessed <code>old_string</code>; re-read <code>rawContent</code>; use <code>propose_file_edits</code> with complete file text for small/localized changes.</li>
+<li>When edit tools still fail at turn end, strengthen <strong>final answer contract</strong> and <strong>max-iteration hint</strong> so the model must not claim disk writes.</li>
+<li>Renderer toast heuristic catches **“Updated <code>*.md</code>”** without a proposal.</li>
+<li>Optional: strip read_file line-number prefixes from <code>old_string</code> when every line matches the display format and the stripped string matches exactly once.</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Weakening <strong>115</strong> cascade thresholds.</li>
+<li>Fuzzy or whitespace-normalized <code>search_replace</code>.</li>
+<li>Raising global <code>AGENT_TOOL_MAX_ITERATIONS</code>.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — escalation nudge + <code>editToolsFailed</code> contract</li>
+<li><a href="../../src/shared/agent-edit-cascade-guard.ts"><code>src/shared/agent-edit-cascade-guard.ts</code></a> — <code>shouldInjectSearchReplaceEscalation</code> helper</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — inject nudge; pass failure state to final stream</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> — escalation recovery eval</li>
+<li><a href="../../src/renderer/src/lib/assistant-disk-claim-heuristic.ts"><code>src/renderer/src/lib/assistant-disk-claim-heuristic.ts</code></a> — toast patterns</li>
+<li><a href="../../src/shared/agent-search-replace.ts"><code>src/shared/agent-search-replace.ts</code></a> — optional line-number strip</li>
+<li><a href="../../src/main/agent-search-replace-tool.ts"><code>src/main/agent-search-replace-tool.ts</code></a> — apply strip before patch</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> After ≥2 S&amp;R failures on a path, exactly one escalation user message is injected before the next tool sample.</li>
+<li><input type="checkbox" disabled checked> Eval proves marker appears and a subsequent successful <code>propose_file_edits</code> is possible in the same turn.</li>
+<li><input type="checkbox" disabled checked> Final contract + max-hint forbid false “updated on disk” when <code>editToolsFailed</code>.</li>
+<li><input type="checkbox" disabled checked> Renderer toast covers “Updated <code>*.md</code>” without proposal.</li>
+<li><input type="checkbox" disabled checked> <strong>115</strong> destructive guard unchanged.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code>, <code>npm run test</code>, <code>npm run test:agent-eval</code> pass.</li>
+</ul>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong>, <strong><a href="092-agent-edit-failure-self-correction.md">092</a></strong>, <strong><a href="085-agent-search-replace-tool.md">085</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update this <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
     </section>

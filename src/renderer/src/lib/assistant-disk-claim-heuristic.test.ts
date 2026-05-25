@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { assistantReplyClaimsDiskWrites } from './assistant-disk-claim-heuristic'
+import {
+  assistantReplyClaimsDiskWrites,
+  assistantReplyClaimsEditOutcomeWithoutTool,
+} from './assistant-disk-claim-heuristic'
 import { AGENT_TOOL_FENCE_INFO } from '../../../shared/agent-tool-contract'
 
 describe('assistantReplyClaimsDiskWrites', () => {
@@ -20,6 +23,14 @@ describe('assistantReplyClaimsDiskWrites', () => {
     ).toBe(false)
   })
 
+  it('is true for sentence-initial Updated path.md without I have', () => {
+    expect(
+      assistantReplyClaimsDiskWrites(
+        'Updated overview.md (Tech Stack section now reflects React + TypeScript).',
+      ),
+    ).toBe(true)
+  })
+
   it('is false when a tool fence or propose_file_edits is mentioned', () => {
     expect(
       assistantReplyClaimsDiskWrites(
@@ -29,6 +40,30 @@ describe('assistantReplyClaimsDiskWrites', () => {
     expect(
       assistantReplyClaimsDiskWrites(
         "I've updated App.tsx; calling propose_file_edits next.",
+      ),
+    ).toBe(false)
+  })
+})
+
+describe('assistantReplyClaimsEditOutcomeWithoutTool', () => {
+  it('is true when the reply claims a proposal is ready for diff review', () => {
+    expect(
+      assistantReplyClaimsEditOutcomeWithoutTool(
+        'The edit proposal for the title text change, footer paragraph, and dark-blue background is ready for your review in the diff panel.',
+      ),
+    ).toBe(true)
+  })
+
+  it('still covers past-tense disk write claims', () => {
+    expect(assistantReplyClaimsEditOutcomeWithoutTool('I have updated src/App.tsx for the new layout.')).toBe(
+      true,
+    )
+  })
+
+  it('is false for neutral explanations', () => {
+    expect(
+      assistantReplyClaimsEditOutcomeWithoutTool(
+        'To change the title, you would edit the <title> element in index.html.',
       ),
     ).toBe(false)
   })

@@ -70,8 +70,10 @@ export type AgentChatStartPayload = {
   model: string
   /** Composer chip override; main resolves canonical intent when omitted. */
   modelIntent?: AgentChatTextModelIntent
-  /** Story 069 approve-and-run; main forces execution intent + executor profile. */
+  /** Story 069 approve-and-run; main forces executor profile. */
   isApprovedPlanAutoRun?: boolean
+  /** When true with approve-and-run, keep `models.planning` for the execute turn (Plan workflow cohesion). */
+  planWorkflowUsePlanningModel?: boolean
   /** Story 109 — durable plan artifact id for execute handoff. */
   approvedPlanId?: string
   /** Story 109 — assistant message id that produced the plan. */

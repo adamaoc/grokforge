@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { AGENT_TOOL_FENCE_INFO } from './agent-tool-contract'
 import { GF_PLAN_FENCE } from './gf-plan-contract'
-import { buildFinalAnswerContract } from './agent-final-answer-contract'
+import {
+  buildFinalAnswerContract,
+  buildEditIntentToolNudge,
+  buildSearchReplaceEscalationNudge,
+  EDIT_INTENT_TOOL_NUDGE_MARKER,
+  EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
+  isLikelyEditIntent,
+} from './agent-final-answer-contract'
 
 describe('buildFinalAnswerContract', () => {
   it('requires gf-plan and forbids edit tools when chatMode is plan', () => {
@@ -43,5 +50,34 @@ describe('buildFinalAnswerContract', () => {
     expect(content).not.toContain(AGENT_TOOL_FENCE_INFO)
     expect(content).not.toContain('Final response contract (Plan mode)')
     expect(content).toMatch(/Do not stop at prose/i)
+  })
+
+  it('detects edit intent from common verbs', () => {
+    expect(isLikelyEditIntent('In index.html, change the page title')).toBe(true)
+    expect(isLikelyEditIntent('Explain how React hooks work')).toBe(false)
+  })
+
+  it('builds edit-intent tool nudge with stable marker', () => {
+    expect(buildEditIntentToolNudge()).toContain(EDIT_INTENT_TOOL_NUDGE_MARKER)
+    expect(buildEditIntentToolNudge()).toMatch(/search_replace/)
+  })
+
+  it('builds search_replace escalation nudge with stable marker and path labels', () => {
+    const nudge = buildSearchReplaceEscalationNudge(['/proj/docs/overview.md'])
+    expect(nudge).toContain(EDIT_SEARCH_REPLACE_ESCALATION_MARKER)
+    expect(nudge).toContain('overview.md')
+    expect(nudge).toMatch(/propose_file_edits/)
+    expect(nudge).toMatch(/rawContent/)
+  })
+
+  it('adds editToolsFailed appendix when edit tools did not succeed', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'update overview.md tech stack',
+      editProposalCreated: false,
+      editToolsFailed: true,
+      chatMode: 'fast',
+    })
+    expect(content).toMatch(/Edit tools did not succeed/i)
+    expect(content).toMatch(/Do \*\*not\*\* claim any workspace file was updated/i)
   })
 })

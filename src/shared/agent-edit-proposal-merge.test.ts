@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { AGENT_TOOL_PROTOCOL_VERSION } from './agent-tool-contract'
-import { mergeAgentEditProposals } from './agent-edit-proposal-merge'
+import { findAccumulatedWriteForPath, mergeAgentEditProposals } from './agent-edit-proposal-merge'
 import type { AgentEditProposalPayload } from './agent-chat-contract'
 
 function proposal(
@@ -29,6 +29,28 @@ describe('mergeAgentEditProposals', () => {
   it('merges two single-file proposals into two operations', () => {
     const merged = mergeAgentEditProposals(proposal(['/proj/a.html']), proposal(['/proj/b.css']))
     expect(merged.batch.operations.map((o) => o.path)).toEqual(['/proj/a.html', '/proj/b.css'])
+  })
+
+  it('findAccumulatedWriteForPath returns latest write_file content', () => {
+    const first = {
+      batch: {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [
+          {
+            op: 'write_file' as const,
+            path: '/proj/x.js',
+            content: 'v1',
+            expectedContentHash: 'a'.repeat(64),
+          },
+        ],
+      },
+      rejected: [],
+    }
+    expect(findAccumulatedWriteForPath(first, '/proj/x.js')).toEqual({
+      content: 'v1',
+      expectedContentHash: 'a'.repeat(64),
+    })
+    expect(findAccumulatedWriteForPath(null, '/proj/x.js')).toBeNull()
   })
 
   it('later operation wins for the same path', () => {

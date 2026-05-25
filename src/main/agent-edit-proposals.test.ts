@@ -15,6 +15,14 @@ import {
   AGENT_EDIT_STALE_HASH_REASON,
 } from '../shared/agent-content-hash'
 import { computeAgentContentHash } from './agent-content-hash'
+import {
+  AGENT_EDIT_CASCADE_GUARD_REASON,
+  recordSearchReplaceFailure,
+} from '../shared/agent-edit-cascade-guard'
+import {
+  AGENT_EDIT_CORRUPT_CONTENT_REASON,
+  AGENT_EDIT_INCOMPLETE_HTML_REASON,
+} from '../shared/agent-edit-corrupt-content'
 
 function manifestForRoot(root: string): GrokProjectManifest {
   return {
@@ -222,6 +230,237 @@ describe('validateAgentEditProposal', () => {
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected rejection')
     expect(result.proposal?.rejected).toEqual([{ path: 'src/stale.ts', reason: AGENT_EDIT_STALE_HASH_REASON }])
+  })
+
+  it('rejects destructive full-file write after repeated search_replace failures on same path', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const existing = join(root, 'index.html')
+    const original = `<!DOCTYPE html>
+<html><body>
+<script>
+let todos = [];
+function renderTodos() {
+  document.getElementById('list').innerHTML = todos.map(t => '<li>' + t + '</li>').join('');
+}
+renderTodos();
+</script>
+</body></html>
+`
+    writeFileSync(existing, original, 'utf8')
+    const hash = computeAgentContentHash(original)
+    const failures = new Map<string, number>()
+    recordSearchReplaceFailure(failures, existing)
+    recordSearchReplaceFailure(failures, existing)
+
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [
+          {
+            op: 'write_file',
+            path: existing,
+            content: '<html><body><script>let todos = [];</script></body></html>',
+            expectedContentHash: hash,
+          },
+        ],
+      },
+      {
+        ...env(root),
+        readPathsThisTurn: new Set([agentEditPathKey(existing)]),
+        readHashesThisTurn: new Map([[agentEditPathKey(existing), hash]]),
+      },
+      {
+        searchReplaceFailuresByPath: failures,
+        userMessageHint: 'fix syntax error at line 107',
+      },
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected cascade guard rejection')
+    expect(result.proposal?.rejected[0]?.reason).toContain(AGENT_EDIT_CASCADE_GUARD_REASON)
+  })
+
+  it('accepts search_replace patch that renames Tech Stack (planned) without crushed rejection', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const existing = join(root, 'docs', 'overview.md')
+    mkdirSync(join(root, 'docs'), { recursive: true })
+    const original = `# TaskBoard Overview  
+
+## Key Features 
+
+- Create, edit, and delete tasks 
+
+## Tech Stack (planned) 
+
+- Frontend: Likely React or similar for interactive UI 
+- Backend: To be determined  
+
+The goal is to provide a lightweight app.  
+`
+    const patched = original
+      .replace('## Tech Stack (planned)', '## Tech Stack')
+      .replace('- Frontend: Likely React or similar for interactive UI', '- Frontend: React + TypeScript')
+      .replace('- Backend: To be determined', '- Backend: Node.js + TypeScript\n- Build & Serve: Vite')
+    writeFileSync(existing, original, 'utf8')
+    const hash = computeAgentContentHash(original)
+
+    const fromSr = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: existing, content: patched, expectedContentHash: hash }],
+      },
+      {
+        ...env(root),
+        readPathsThisTurn: new Set([agentEditPathKey(existing)]),
+        readHashesThisTurn: new Map([[agentEditPathKey(existing), hash]]),
+        contentSource: 'search_replace',
+      },
+    )
+    expect(fromSr.ok).toBe(true)
+    if (!fromSr.ok) throw new Error('expected search_replace validation to pass')
+    const op = fromSr.proposal.batch.operations[0]
+    if (op.op !== 'write_file') throw new Error('expected write_file')
+    expect(op.content).toContain('React + TypeScript')
+    expect(op.content).toContain('The goal is to provide')
+  })
+
+  it('repairs partial markdown section proposal into full file', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const existing = join(root, 'docs', 'overview.md')
+    mkdirSync(join(root, 'docs'), { recursive: true })
+    const original = `# TaskBoard Overview  
+
+## Key Features 
+
+- one
+
+## Tech Stack (planned) 
+
+- Frontend: Likely React 
+- Backend: To be determined  
+`
+    writeFileSync(existing, original, 'utf8')
+    const hash = computeAgentContentHash(original)
+    const partial = `## Tech Stack (planned)
+
+- Frontend: React + TypeScript
+- Backend: Node.js + TypeScript
+- Served with Vite`
+
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [
+          {
+            op: 'write_file',
+            path: existing,
+            content: partial,
+            expectedContentHash: hash,
+          },
+        ],
+      },
+      {
+        ...env(root),
+        readPathsThisTurn: new Set([agentEditPathKey(existing)]),
+        readHashesThisTurn: new Map([[agentEditPathKey(existing), hash]]),
+      },
+    )
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected repair to pass validation')
+    const op = result.proposal.batch.operations[0]
+    if (op.op !== 'write_file') throw new Error('expected write_file')
+    expect(op.content).toContain('## Key Features')
+    expect(op.content).toContain('React + TypeScript')
+  })
+
+  it('repairs crushed one-line markdown stub into full file on disk', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const existing = join(root, 'docs', 'overview.md')
+    mkdirSync(join(root, 'docs'), { recursive: true })
+    const original = `# TaskBoard Overview
+
+## Key Features
+- one
+
+## Tech Stack (planned)
+- Frontend: Likely React
+`
+    writeFileSync(existing, original, 'utf8')
+    const hash = computeAgentContentHash(original)
+    const crushed = '# TaskBoard Overview ## Tech Stack (planned) - Frontend: React + TypeScript'
+
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [
+          {
+            op: 'write_file',
+            path: existing,
+            content: crushed,
+            expectedContentHash: hash,
+          },
+        ],
+      },
+      {
+        ...env(root),
+        readPathsThisTurn: new Set([agentEditPathKey(existing)]),
+        readHashesThisTurn: new Map([[agentEditPathKey(existing), hash]]),
+      },
+    )
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected crushed markdown repair')
+    const op = result.proposal.batch.operations[0]
+    if (op.op !== 'write_file') throw new Error('expected write_file')
+    expect(op.content).toContain('## Key Features')
+    expect(op.content).toContain('React + TypeScript')
+  })
+
+  it('rejects write_file with orphan close-paren corruption', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const corrupt = `<!DOCTYPE html>
+<html><body>
+)
+)
+)
+)
+);
+)
+)
+</body></html>`
+
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: 'index.html', content: corrupt }],
+      },
+      env(root),
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected corrupt rejection')
+    expect(result.proposal?.rejected[0]?.reason).toBe(AGENT_EDIT_CORRUPT_CONTENT_REASON)
+  })
+
+  it('rejects truncated HTML document proposals', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [
+          {
+            op: 'write_file',
+            path: 'index.html',
+            content: '<!DOCTYPE html> html lang="en"',
+          },
+        ],
+      },
+      env(root),
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected incomplete HTML rejection')
+    expect(result.proposal?.rejected[0]?.reason).toBe(AGENT_EDIT_INCOMPLETE_HTML_REASON)
   })
 
   it('normalizes literal backslash-n sequences in write_file content', () => {

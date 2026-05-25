@@ -15,6 +15,7 @@ type StepId = (typeof STEPS)[number]['id']
 
 function stepIndex(phase: PlanUiPhase): number {
   switch (phase) {
+    case 'awaiting_plan':
     case 'planning':
       return 0
     case 'pending':
