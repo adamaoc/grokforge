@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, ChevronDown, ExternalLink, Loader2 } from 'lucide-react'
 import type { GrokProjectManifest, XaiKeyStatusPayload } from '@/types'
-import { getModelForIntent } from '@/types'
+import { getModelForIntent, DUAL_MODEL_FALLBACKS } from '@/types'
 import { normalizeTtsVoiceId, TTS_VOICE_PRESETS, XAI_API_KEY_MAX_LEN } from '@/types'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -33,15 +33,28 @@ import {
   readStoredAccent,
 } from '@/lib/accent-theme'
 import {
-  persistAgentWritesMode,
-  readStoredAgentWritesMode,
-  type AgentWritesMode,
-} from '@/lib/agent-writes-mode'
+  persistHarnessTemperament,
+  readStoredHarnessTemperament,
+  type HarnessTemperament,
+} from '@/lib/harness-temperament'
 import { AgentWriteHistorySection } from '@/components/AgentWriteHistorySection'
 
 const URL_XAI_CONSOLE = 'https://console.x.ai/'
 const URL_XAI_CHAT_DOCS = 'https://docs.x.ai/docs/guides/chat'
+const URL_XAI_MODELS = 'https://docs.x.ai/developers/models'
+const URL_XAI_VOICE_DOCS = 'https://docs.x.ai/developers/model-capabilities/audio/voice'
 const CUSTOM_VOICE_VALUE = '__custom__'
+
+const AGENT_MODEL_SLOT_HELP: Record<
+  'chat_default' | 'planning' | 'execution' | 'reasoning' | 'voice',
+  string
+> = {
+  chat_default: 'Grok Build 0.1 · 256k context · fast agentic coding',
+  planning: 'Grok 4.3 · 1M context · planning and read-only tools',
+  execution: 'Grok Build 0.1 · approve-and-run executor slot',
+  reasoning: 'Deep reasoning · subagent explorer slot',
+  voice: 'Realtime voice agent WebSocket model',
+}
 
 export interface SettingsPageProps {
   onBack: () => void
@@ -83,12 +96,15 @@ export function SettingsPage({
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [savingVoice, setSavingVoice] = useState(false)
+  const [restoringModelDefaults, setRestoringModelDefaults] = useState(false)
   const [selectedVoiceValue, setSelectedVoiceValue] = useState(initialVoice.selected)
   const [voiceDraft, setVoiceDraft] = useState(initialVoice.draft)
   const [clearOpen, setClearOpen] = useState(false)
   const [accent, setAccent] = useState<AccentId>(() => readStoredAccent())
   const [moreThemesOpen, setMoreThemesOpen] = useState(() => isAccentInMoreSection(readStoredAccent()))
-  const [agentWritesMode, setAgentWritesMode] = useState<AgentWritesMode>(() => readStoredAgentWritesMode())
+  const [harnessTemperament, setHarnessTemperament] = useState<HarnessTemperament>(() =>
+    readStoredHarnessTemperament(),
+  )
 
   const refreshStatus = useCallback(async () => {
     const el = window.electron?.getXaiKeyStatus
@@ -170,9 +186,9 @@ export function SettingsPage({
     if (isAccentInMoreSection(id)) setMoreThemesOpen(true)
   }
 
-  const selectAgentWritesMode = (mode: AgentWritesMode) => {
-    persistAgentWritesMode(mode)
-    setAgentWritesMode(mode)
+  const selectHarnessTemperament = (temperament: HarnessTemperament) => {
+    persistHarnessTemperament(temperament)
+    setHarnessTemperament(temperament)
   }
 
   const handleSaveVoice = async () => {
@@ -221,6 +237,40 @@ export function SettingsPage({
       toast.success(`Voice set to ${verify.voice.name ?? selectedVoiceId}`)
     } finally {
       setSavingVoice(false)
+    }
+  }
+
+  const handleRestoreModelDefaults = async () => {
+    if (!project) {
+      toast.error('Open a project to restore model defaults.')
+      return
+    }
+    const save = window.electron?.saveManifest
+    if (!save) {
+      toast.error('Saving requires the GrokForge desktop app.')
+      return
+    }
+    const next: GrokProjectManifest = {
+      ...project,
+      models: {
+        default: DUAL_MODEL_FALLBACKS.chat_default,
+        planning: DUAL_MODEL_FALLBACKS.planning,
+        execution: DUAL_MODEL_FALLBACKS.execution,
+        reasoning: DUAL_MODEL_FALLBACKS.reasoning,
+        voice: DUAL_MODEL_FALLBACKS.voice,
+      },
+    }
+    setRestoringModelDefaults(true)
+    try {
+      const ok = await save(next)
+      if (!ok) {
+        toast.error('Could not restore recommended model defaults.')
+        return
+      }
+      onProjectSaved?.(next)
+      toast.success('Restored recommended xAI model defaults for this project.')
+    } finally {
+      setRestoringModelDefaults(false)
     }
   }
 
@@ -362,53 +412,54 @@ export function SettingsPage({
 
           <section
             className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm"
-            aria-labelledby="gf-settings-agent-writes-heading"
+            aria-labelledby="gf-settings-harness-temperament-heading"
           >
-            <h2 id="gf-settings-agent-writes-heading" className="text-base font-semibold text-white">
-              Agent file writes
+            <h2 id="gf-settings-harness-temperament-heading" className="text-base font-semibold text-white">
+              Harness temperament
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              When the assistant proposes disk changes (via GrokForge&apos;s structured block), choose whether you
-              confirm once per reply or files are written automatically. Only paths under your workspace roots can be
-              written. Stored in <span className="font-mono text-xs text-zinc-500">localStorage</span>.
+              Choose how aggressively GrokForge applies agent file edits. Stored in{' '}
+              <span className="font-mono text-xs text-zinc-500">grokforge.harnessTemperament.v1</span>.
             </p>
             <div
               className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2"
               role="radiogroup"
-              aria-labelledby="gf-settings-agent-writes-heading"
+              aria-labelledby="gf-settings-harness-temperament-heading"
             >
               <button
                 type="button"
                 role="radio"
-                aria-checked={agentWritesMode === 'batch_confirm'}
-                onClick={() => selectAgentWritesMode('batch_confirm')}
+                aria-checked={harnessTemperament === 'trust'}
+                onClick={() => selectHarnessTemperament('trust')}
                 className={cn(
                   'flex flex-col items-stretch gap-2 rounded-2xl border p-4 text-left transition-colors',
-                  agentWritesMode === 'batch_confirm'
+                  harnessTemperament === 'trust'
                     ? 'border-primary bg-zinc-900/80 ring-1 ring-primary/40'
                     : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900/60',
                 )}
               >
-                <p className="text-sm font-semibold text-white">Batch confirm</p>
+                <p className="text-sm font-semibold text-white">Trust</p>
                 <p className="text-xs text-zinc-500">
-                  Show pending changes after each reply; apply all when you are ready (recommended).
+                  Review the diff and apply when ready. Nothing hits disk until you approve (recommended for
+                  unfamiliar code).
                 </p>
               </button>
               <button
                 type="button"
                 role="radio"
-                aria-checked={agentWritesMode === 'auto_apply'}
-                onClick={() => selectAgentWritesMode('auto_apply')}
+                aria-checked={harnessTemperament === 'velocity'}
+                onClick={() => selectHarnessTemperament('velocity')}
                 className={cn(
                   'flex flex-col items-stretch gap-2 rounded-2xl border p-4 text-left transition-colors',
-                  agentWritesMode === 'auto_apply'
+                  harnessTemperament === 'velocity'
                     ? 'border-primary bg-zinc-900/80 ring-1 ring-primary/40'
                     : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900/60',
                 )}
               >
-                <p className="text-sm font-semibold text-white">Auto apply</p>
+                <p className="text-sm font-semibold text-white">Velocity</p>
                 <p className="text-xs text-zinc-500">
-                  Writes run as soon as the reply validates. Use Undo right after if something looks wrong.
+                  Valid proposals auto-apply when a turn completes — no need to open the diff first. Undo reverts
+                  the last batch; you can still review applied edits afterward.
                 </p>
               </button>
             </div>
@@ -447,12 +498,41 @@ export function SettingsPage({
                     key={intent}
                     label={label}
                     modelId={getModelForIntent(project, intent)}
+                    helper={AGENT_MODEL_SLOT_HELP[intent]}
                   />
                 ))}
               </dl>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-xl border-zinc-700 text-zinc-300 hover:bg-zinc-900"
+                  disabled={!project || restoringModelDefaults}
+                  onClick={() => void handleRestoreModelDefaults()}
+                >
+                  {restoringModelDefaults ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                      Restoring…
+                    </>
+                  ) : (
+                    'Restore recommended defaults'
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 rounded-xl text-zinc-400 hover:text-white"
+                  onClick={() => openHttps(URL_XAI_MODELS)}
+                >
+                  xAI models hub <ExternalLink size={14} aria-hidden />
+                </Button>
+              </div>
               <p className="mt-4 text-xs text-zinc-500">
-                Model id changes and retirement notes:{' '}
-                <span className="font-mono">docs/harness-102-xai-investigation.md</span> in the repo.
+                Catalog notes and redirect matrix:{' '}
+                <span className="font-mono">docs/harness-102-xai-investigation.md</span> (last reviewed 2026-05-26).
               </p>
             </section>
           ) : null}
@@ -472,7 +552,15 @@ export function SettingsPage({
               Voice
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              Voice used for chat read-aloud and the Voice Agent. Custom ids are checked with xAI before saving.
+              Voice used for chat read-aloud and the Voice Agent. Built-in voices follow the{' '}
+              <button
+                type="button"
+                className="text-zinc-300 underline decoration-zinc-600 underline-offset-2 hover:text-white"
+                onClick={() => openHttps(URL_XAI_VOICE_DOCS)}
+              >
+                xAI voice docs
+              </button>
+              . Custom ids are checked with xAI before saving.
             </p>
             <div className="mt-5 space-y-3">
               <label htmlFor="gf-voice-id" className="text-xs font-medium uppercase tracking-wide text-zinc-500">
@@ -670,11 +758,22 @@ export function SettingsPage({
   )
 }
 
-function AgentModelSlotRow({ label, modelId }: { label: string; modelId: string }) {
+function AgentModelSlotRow({
+  label,
+  modelId,
+  helper,
+}: {
+  label: string
+  modelId: string
+  helper?: string
+}) {
   return (
-    <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5">
-      <dt className="text-zinc-400">{label}</dt>
-      <dd className="font-mono text-xs text-zinc-200">{modelId}</dd>
+    <div className="px-4 py-2.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <dt className="text-zinc-400">{label}</dt>
+        <dd className="font-mono text-xs text-zinc-200">{modelId}</dd>
+      </div>
+      {helper ? <p className="mt-1 text-xs text-zinc-500">{helper}</p> : null}
     </div>
   )
 }

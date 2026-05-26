@@ -48,6 +48,7 @@ import {
   setAgentChatTargetWindow,
 } from './agent-runner'
 import { refreshWorkspaceIndex } from './agent-index-store'
+import { isGreenfieldWorkspace } from '../shared/workspace-greenfield'
 import type { RefreshProjectIntelligenceResult } from '../shared/agent-chat-contract'
 import {
   appendChatMessage,
@@ -832,11 +833,22 @@ ipcMain.handle('refresh-project-intelligence', (): RefreshProjectIntelligenceRes
   }
   try {
     const index = refreshWorkspaceIndex(currentProjectId, currentProject)
+    const isGreenfield = isGreenfieldWorkspace({
+      index: {
+        intelligence: {
+          files: index.intelligence.files,
+          packages: index.intelligence.packages,
+          stats: { fileCountScanned: index.intelligence.stats.fileCountScanned },
+        },
+      },
+      retrievalMatchCount: 0,
+    })
     return {
       ok: true,
       updatedAt: index.updatedAt,
       fileCountScanned: index.intelligence.stats.fileCountScanned,
       sensitiveSkipped: index.intelligence.stats.skippedSensitive,
+      isGreenfield,
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Failed to refresh project intelligence'

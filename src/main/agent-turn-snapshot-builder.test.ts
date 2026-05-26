@@ -4,7 +4,7 @@ import { buildTurnSnapshot } from './agent-turn-snapshot-builder'
 
 const baseRouting = {
   modelIntent: 'chat_default' as const,
-  modelId: 'grok-code-fast-1',
+  modelId: 'grok-build-0.1',
   harnessProfileKey: 'grok_code_fast' as const,
   agentProfileId: 'default' as const,
 }

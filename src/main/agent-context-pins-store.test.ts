@@ -31,11 +31,11 @@ function manifest(rootPath: string): GrokProjectManifest {
     roots: [{ id: 'root', path: rootPath, type: 'code', label: 'Root' }],
     ignore: ['**/node_modules'],
     models: {
-      default: 'grok-code-fast-1',
+      default: 'grok-build-0.1',
       planning: 'grok-4.3',
-      execution: 'grok-code-fast-1',
-      reasoning: 'grok-4.20-reasoning',
-      voice: 'grok-voice-think-fast-1.0',
+      execution: 'grok-build-0.1',
+      reasoning: 'grok-4.20-0309-reasoning',
+      voice: 'grok-voice-latest',
     },
     voice: {
       enabled: true,

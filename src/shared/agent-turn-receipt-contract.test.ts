@@ -12,7 +12,7 @@ const baseReceipt = {
   schemaVersion: 1 as const,
   streamId: 'stream-1',
   endedAt: '2026-05-19T12:00:00.000Z',
-  modelId: 'grok-code-fast-1',
+  modelId: 'grok-build-0.1',
   harnessProfileKey: 'grok_code_fast' as const,
   agentProfileId: 'default' as const,
   toolCallsStarted: 2,

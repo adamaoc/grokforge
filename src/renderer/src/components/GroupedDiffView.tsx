@@ -21,7 +21,7 @@ function DiffLegend() {
       <span>
         <span className="font-mono text-red-400">-</span> removed
       </span>
-      <span className="text-zinc-600">Unchanged regions collapsed · scroll to hunks</span>
+      <span className="text-zinc-600">New files show inline (all lines added) · edits use side-by-side</span>
     </div>
   )
 }

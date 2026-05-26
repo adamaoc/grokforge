@@ -2,6 +2,7 @@ import type { AgentToolBatchPayload } from './agent-tool-contract'
 import type { AgentContextPin } from './agent-context-pins-contract'
 import type { AgentProfileId } from './agent-profile'
 import type { HarnessProfileKey } from './agent-harness-profile-contract'
+import type { ReasoningEffort } from './agent-reasoning-effort'
 import type { ModelIntent } from './model-router'
 import type { AgentSubagentEventPayload } from './agent-subagent-contract'
 
@@ -62,6 +63,8 @@ export type AgentChatTurnRouting = {
   modelId: string
   harnessProfileKey: HarnessProfileKey
   agentProfileId: AgentProfileId
+  /** Chat completions `reasoning_effort` when supported (story 121). */
+  reasoningEffort?: ReasoningEffort
 }
 
 export type AgentChatStartPayload = {
@@ -70,10 +73,8 @@ export type AgentChatStartPayload = {
   model: string
   /** Composer chip override; main resolves canonical intent when omitted. */
   modelIntent?: AgentChatTextModelIntent
-  /** Story 069 approve-and-run; main forces executor profile. */
+  /** Story 069 approve-and-run; main forces executor profile + models.execution. */
   isApprovedPlanAutoRun?: boolean
-  /** When true with approve-and-run, keep `models.planning` for the execute turn (Plan workflow cohesion). */
-  planWorkflowUsePlanningModel?: boolean
   /** Story 109 — durable plan artifact id for execute handoff. */
   approvedPlanId?: string
   /** Story 109 — assistant message id that produced the plan. */
@@ -92,7 +93,7 @@ export type AgentChatCapabilitiesResult = {
 }
 
 export type RefreshProjectIntelligenceResult =
-  | { ok: true; updatedAt: string; fileCountScanned: number; sensitiveSkipped: number }
+  | { ok: true; updatedAt: string; fileCountScanned: number; sensitiveSkipped: number; isGreenfield: boolean }
   | { ok: false; error: string }
 
 export type AgentChatToolName =
@@ -136,6 +137,8 @@ export type AgentChatActivityPayload = {
   title: string
   detail?: string
   status: 'running' | 'done' | 'error' | 'interrupted'
+  /** Resolved workspace path for edit tools — groups activity compaction (story 119). */
+  subjectPath?: string
   /** Story 112 — nest activity under a child subagent session. */
   childSessionId?: string
 }

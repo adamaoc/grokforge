@@ -2,9 +2,36 @@ import { describe, expect, it } from 'vitest'
 import type { AgentModelChatMessage } from './agent-model-message'
 import {
   cloneMessagesForSnapshot,
+  AGENT_CHAT_SAMPLE_MAX_TOKENS_EXECUTOR,
+  AGENT_CHAT_SAMPLE_MAX_TOKENS_PLANNER,
+  providerRequestFromSnapshot,
   recombineSnapshotMessages,
+  resolveAgentChatSampleMaxTokens,
   splitSystemAndProviderMessages,
+  type AgentTurnSnapshot,
 } from './agent-turn-snapshot'
+
+function minimalSnapshot(
+  overrides: Partial<AgentTurnSnapshot> & Pick<AgentTurnSnapshot, 'agentProfileId' | 'roundKind'>,
+): AgentTurnSnapshot {
+  return {
+    snapshotId: 'snap-1',
+    streamId: 'stream-1',
+    roundIndex: 0,
+    roundKind: overrides.roundKind,
+    createdAt: new Date().toISOString(),
+    modelId: 'grok-build-0.1',
+    modelIntent: 'execution',
+    harnessProfileKey: 'grok_code_fast',
+    agentProfileId: overrides.agentProfileId,
+    chatMode: 'fast',
+    systemMessages: ['sys'],
+    messagesForProvider: [{ role: 'user', content: 'hi' }],
+    toolDefinitions: [],
+    activeContext: { chatMode: 'fast' },
+    ...overrides,
+  }
+}
 
 describe('splitSystemAndProviderMessages', () => {
   it('splits system from user assistant and tool messages', () => {
@@ -31,6 +58,31 @@ describe('recombineSnapshotMessages', () => {
       { role: 'system', content: 'sys' },
       { role: 'user', content: 'hi' },
     ])
+  })
+})
+
+describe('resolveAgentChatSampleMaxTokens', () => {
+  it('uses a high budget for executor tool samples', () => {
+    expect(
+      resolveAgentChatSampleMaxTokens(
+        minimalSnapshot({ agentProfileId: 'executor', roundKind: 'tool_sample' }),
+      ),
+    ).toBe(AGENT_CHAT_SAMPLE_MAX_TOKENS_EXECUTOR)
+  })
+
+  it('uses a smaller budget for planner tool samples', () => {
+    expect(
+      resolveAgentChatSampleMaxTokens(
+        minimalSnapshot({ agentProfileId: 'planner', roundKind: 'tool_sample' }),
+      ),
+    ).toBe(AGENT_CHAT_SAMPLE_MAX_TOKENS_PLANNER)
+  })
+
+  it('is included on provider requests from snapshots', () => {
+    const req = providerRequestFromSnapshot(
+      minimalSnapshot({ agentProfileId: 'executor', roundKind: 'tool_sample' }),
+    )
+    expect(req.sampleMaxTokens).toBe(AGENT_CHAT_SAMPLE_MAX_TOKENS_EXECUTOR)
   })
 })
 

@@ -40,6 +40,7 @@ export function buildTurnSnapshot(input: BuildTurnSnapshotInput): AgentTurnSnaps
     modelIntent: input.routing.modelIntent,
     harnessProfileKey: input.routing.harnessProfileKey,
     agentProfileId: input.routing.agentProfileId,
+    reasoningEffort: input.routing.reasoningEffort,
     chatMode: input.chatMode,
     systemMessages,
     messagesForProvider,

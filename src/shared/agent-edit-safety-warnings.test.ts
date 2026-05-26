@@ -74,6 +74,46 @@ describe('analyzeAgentEditSafety', () => {
     expect(result.severity).toBe('ok')
   })
 
+  it('does not flag one-line new stylesheets as crushed JS', () => {
+    const css =
+      'body{margin:0;font-family:sans-serif}.container{max-width:480px;margin:0 auto;padding:1rem;}ul{list-style:none;padding:0;}'
+    const result = analyzeAgentEditSafety({
+      original: null,
+      modified: css,
+      status: 'created',
+      resolvedPath: '/proj/styles.css',
+    })
+    expect(result.hasCollapsedSingleLineSource).toBe(false)
+    expect(result.severity).not.toBe('severe')
+  })
+
+  it('does not flag vanilla bootstrap app.js as crushed', () => {
+    const js =
+      "const STORAGE_KEY='todos';function loadTodos(){return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}function saveTodos(items){localStorage.setItem(STORAGE_KEY,JSON.stringify(items));}document.addEventListener('DOMContentLoaded',()=>{const form=document.querySelector('#todo-form');form.addEventListener('submit',(e)=>{e.preventDefault();});});"
+    const result = analyzeAgentEditSafety({
+      original: null,
+      modified: js,
+      status: 'created',
+      resolvedPath: '/proj/app.js',
+    })
+    expect(result.hasCollapsedSingleLineSource).toBe(false)
+    expect(result.severity).not.toBe('severe')
+  })
+
+  it('does not flag normalized new HTML bootstrap as crushed', () => {
+    const html = `<!DOCTYPE html>
+<html><head><title>T</title></head>
+<body><p>ok</p></body></html>`
+    const result = analyzeAgentEditSafety({
+      original: null,
+      modified: html,
+      status: 'created',
+      resolvedPath: '/proj/index.html',
+    })
+    expect(result.hasCollapsedSingleLineSource).toBe(false)
+    expect(result.severity).not.toBe('severe')
+  })
+
   it('flags literal escaped newlines', () => {
     const result = analyzeAgentEditSafety({
       original: 'a\nb\nc\n',

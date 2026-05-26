@@ -1,4 +1,5 @@
 import { isMarkdownOrPlainTextPath } from './agent-markdown-path'
+import { isJammedJavaScriptSource, looksLikeHtmlDocument } from './agent-edit-corrupt-content'
 import {
   hasDominantLiteralEscapedNewlines,
   isCollapsedMultiStatementSource,
@@ -33,6 +34,48 @@ export type AgentEditSafetyResult = {
 }
 
 const ADD_INTENT_RE = /\b(add|widget|insert|append)\b/i
+
+/** New stylesheets are often one minified line — not the JS “crushed statements” failure mode. */
+function isNewStylesheetBootstrap(path: string | undefined, status: string, content: string): boolean {
+  if (status !== 'created' || !path) return false
+  if (!/\.css$/i.test(path.trim())) return false
+  return !/\b(function|import|export|const|let|var)\b/.test(content)
+}
+
+function htmlHasJammedEmbeddedScript(content: string): boolean {
+  const scriptRe = /<script(\s[^>]*)?>([\s\S]*?)<\/script>/gi
+  for (const match of content.matchAll(scriptRe)) {
+    const body = (match[2] ?? '').trim()
+    if (body.length >= 80 && isJammedJavaScriptSource(body)) return true
+  }
+  return false
+}
+
+/** After normalize, multi-line HTML with closing tags is safe to apply without the JS crush warning. */
+function isNewHtmlBootstrap(path: string | undefined, status: string, content: string): boolean {
+  if (status !== 'created' || !path) return false
+  if (!/\.html?$/i.test(path.trim())) return false
+  if (!looksLikeHtmlDocument(content)) return false
+  if (htmlHasJammedEmbeddedScript(content)) return false
+  const lines = content.split(/\r?\n/).filter((l) => l.trim().length > 0).length
+  if (lines >= 4 && /<\/body>/i.test(content) && /<\/html>/i.test(content)) return true
+  // One-line HTML after entity decode still reflows to multiple lines on normalize.
+  return lines >= 3 && content.length >= 120 && /<\/html>/i.test(content)
+}
+
+/** Vanilla todo/bootstrap scripts are often one minified line — not JSX crush. */
+function isNewVanillaWebScriptBootstrap(
+  path: string | undefined,
+  status: string,
+  content: string,
+): boolean {
+  if (status !== 'created' || !path) return false
+  if (!/\.js$/i.test(path.trim())) return false
+  if (/\b(import|export)\s/.test(content)) return false
+  if (!/\b(document|localStorage|addEventListener|querySelector)\b/.test(content)) return false
+  if (isJammedJavaScriptSource(content)) return false
+  return content.length >= 80 && content.length <= 12_000
+}
 
 function countLines(text: string): number {
   if (!text) return 0
@@ -102,14 +145,23 @@ export function analyzeAgentEditSafety(args: {
 
   const statsLine = formatStatsLine(originalLines, modifiedLines, status)
   const hasLiteralEscapedNewlines = hasDominantLiteralEscapedNewlines(modified)
-  const hasCollapsedSingleLineSource = isCollapsedMultiStatementSource(modified)
+  const skipCollapsedForBootstrap =
+    isNewStylesheetBootstrap(args.resolvedPath, status, modified) ||
+    isNewHtmlBootstrap(args.resolvedPath, status, modified) ||
+    isNewVanillaWebScriptBootstrap(args.resolvedPath, status, modified)
+  const hasCollapsedSingleLineSource =
+    !skipCollapsedForBootstrap && isCollapsedMultiStatementSource(modified)
   const skipMessyLayoutForMarkdown =
     Boolean(args.resolvedPath && isMarkdownOrPlainTextPath(args.resolvedPath)) &&
     looksLikeMarkdownDocument(modified) &&
     !looksLikeJsxOrTsxSource(modified)
+  const skipMessyLayoutForBootstrap =
+    skipCollapsedForBootstrap ||
+    isNewStylesheetBootstrap(args.resolvedPath, status, modified)
   const hasMessySourceLayout =
     !hasCollapsedSingleLineSource &&
     !skipMessyLayoutForMarkdown &&
+    !skipMessyLayoutForBootstrap &&
     needsSourceLayoutRepair(modified)
 
   if (hasLiteralEscapedNewlines) {

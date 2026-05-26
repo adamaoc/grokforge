@@ -26,6 +26,8 @@ function stepIndex(phase: PlanUiPhase): number {
       return 2
     case 'done':
       return 3
+    case 'needs_review':
+      return 1
     case 'failed':
       return 2
     case 'cancelled':
@@ -41,12 +43,14 @@ function isStepComplete(stepId: StepId, activeIdx: number, phase: PlanUiPhase): 
   if (phase === 'done') return idx < 4
   if (phase === 'failed' && stepId === 'execute') return false
   if (phase === 'approved_idle' && (stepId === 'plan' || stepId === 'review')) return true
+  if (phase === 'needs_review' && (stepId === 'plan' || stepId === 'review')) return true
   return idx < activeIdx
 }
 
 function isStepActive(stepId: StepId, activeIdx: number, phase: PlanUiPhase): boolean {
   const idx = STEPS.findIndex((s) => s.id === stepId)
   if (phase === 'failed' && stepId === 'execute') return true
+  if (phase === 'needs_review' && stepId === 'review') return true
   if (phase === 'done' && stepId === 'done') return true
   return idx === activeIdx
 }

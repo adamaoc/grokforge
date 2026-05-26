@@ -21,11 +21,11 @@ function testManifest(overrides: Partial<GrokProjectManifest> = {}): GrokProject
     name: 'Test',
     roots: [{ id: 'r1', path: join(tmpdir(), 'gf-root-placeholder'), type: 'code', label: 'Root' }],
     models: {
-      default: 'grok-code-fast-1',
+      default: 'grok-build-0.1',
       planning: 'grok-4.3',
-      execution: 'grok-code-fast-1',
-      reasoning: 'grok-4.20-reasoning',
-      voice: 'grok-voice-think-fast-1.0',
+      execution: 'grok-build-0.1',
+      reasoning: 'grok-4.20-0309-reasoning',
+      voice: 'grok-voice-latest',
     },
     voice: {
       enabled: false,

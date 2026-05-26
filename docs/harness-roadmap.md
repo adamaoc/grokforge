@@ -20,17 +20,17 @@ New projects **intentionally** use two xAI model ids so we can tune prompts and 
 
 | Manifest slot | Default model id | When used | Harness profile key | Agent profile |
 | --- | --- | --- | --- | --- |
-| `default` | `grok-code-fast-1` | Fast chat (`chat_default`) | `grok_code_fast` | `default` |
+| `default` | `grok-build-0.1` | Fast chat (`chat_default`) | `grok_code_fast` | `default` |
 | `planning` | `grok-4.3` | Plan mode (default intent) | `grok_4_3` | `planner` |
-| `execution` | `grok-code-fast-1` | Approve-and-run ([**069**](../project_tasks/069-plan-approve-auto-agent-turn.md)) | `grok_code_fast` | `executor` |
-| `reasoning` | `grok-4.20-reasoning` | Reserved / future | `generic` if unmapped | context-dependent |
-| `voice` | `grok-voice-think-fast-1.0` | Voice realtime (separate WebSocket path) | N/A for text loop | N/A |
+| `execution` | `grok-build-0.1` | Approve-and-run ([**069**](../project_tasks/069-plan-approve-auto-agent-turn.md)) | `grok_code_fast` | `executor` |
+| `reasoning` | `grok-4.20-0309-reasoning` | Reserved / future | `generic` if unmapped | context-dependent |
+| `voice` | `grok-voice-latest` | Voice realtime (separate WebSocket path) | N/A for text loop | N/A |
 
 **Code:** defaults in [`DUAL_MODEL_FALLBACKS`](../src/shared/model-router.ts); turn routing in [`resolveAgentTurnRouting`](../src/shared/agent-turn-routing.ts); profile key in [`resolveHarnessProfileKey`](../src/shared/agent-harness-profile-contract.ts); toolsets in [`resolveAgentProfileId`](../src/shared/agent-profile.ts).
 
 **Notes:**
 
-- xAI may **redirect** API requests that still send `grok-code-fast-1` to `grok-4.3` (low reasoning effort). We **keep the fast slug in manifest** on purpose for harness A/B. See [`harness-102-xai-investigation.md`](harness-102-xai-investigation.md).
+- Legacy slug **`grok-code-fast-1`** redirects to **`grok-build-0.1`** at the API (not `grok-4.3`). We **keep dual ids in manifest** on purpose for harness A/B. See [`harness-102-xai-investigation.md`](harness-102-xai-investigation.md) and story **[121](../project_tasks/post-mvp/121-xai-model-catalog-and-api-sync.md)**.
 - [**102**](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md) — dual-model manifest, `turn_started.routing`, trace metadata.
 - [**103**](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md) — per-key system sections, tool-loop bias, final-answer variants (`grok_code_fast`, `grok_4_3`, `generic`).
 
@@ -59,7 +59,7 @@ Protect these while extending the harness.
 
 **App stability (deferred):** One report of a **black renderer** after macOS app switch during Plan mode (**Cmd+R** ineffective). Tracked as [**117**](../project_tasks/post-mvp/117-renderer-black-screen-on-macos-resume.md) — address if reproducible; not harness-core.
 
-**UX polish (post-ToDoApp test, 2026-05-25):** [**118**](../project_tasks/post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md) Work vs Plan + auto-exit Plan after first `gf-plan`; [**119**](../project_tasks/post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md) activity/toast honesty; [**120**](../project_tasks/post-mvp/120-post-plan-executor-routing-and-single-file-edits.md) incremental follow-ups without re-planning.
+**UX polish (post-ToDoApp / Codex comparison, 2026-05-25+):** [**118**](../project_tasks/post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md) **Trust vs velocity** temperament **(done)** — velocity auto-applies without opening diff; undo + review on demand; Work vs Plan lifecycle; [**119**](../project_tasks/post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md) activity/toast honesty; [**120**](../project_tasks/post-mvp/120-post-plan-executor-routing-and-single-file-edits.md) incremental follow-ups without re-planning **(done)**. **Field reports:** [Codex / Cursor / GrokForge ToDoApp comparison](field-reports/README.md) + [visual comparison HTML](field-reports/agent-harness-comparison.html).
 
 ---
 
@@ -137,7 +137,7 @@ Logical program order for **102–114**. Status as of **2026-05-19**.
 
 | Layer | What | Where |
 | --- | --- | --- |
-| **Automated** | Mocked agent-loop regressions (profiles, toolsets, contracts) | `npm run test:agent-eval` → [`agent-runner-evaluation.test.ts`](../src/main/agent-runner-evaluation.test.ts), tags in [`agent-eval-tags.ts`](../src/shared/agent-eval-tags.ts) |
+| **Automated** | Mocked agent-loop regressions (profiles, toolsets, contracts, greenfield execute / partial-batch recovery **124**) | `npm run test:agent-eval` → [`agent-runner-evaluation.test.ts`](../src/main/agent-runner-evaluation.test.ts), tags in [`agent-eval-tags.ts`](../src/shared/agent-eval-tags.ts) |
 | **Foundation** | First deterministic eval harness | [**063**](../project_tasks/063-agent-evaluation-suite-and-smartness-regressions.md) |
 | **Manual** | Dual-model smoke flows (plan, execute, cancel, offload, etc.) | [`harness-eval-checklist.md`](harness-eval-checklist.md) |
 

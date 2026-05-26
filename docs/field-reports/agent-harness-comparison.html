@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GrokForge — Agent harness comparison (Codex · Cursor · GrokForge)</title>
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #18181b;
+      --surface-2: #27272a;
+      --border: #3f3f46;
+      --text: #fafafa;
+      --muted: #a1a1aa;
+      --accent: #00ff9f;
+      --accent-dim: #00cc7a;
+      --codex: #10a37f;
+      --cursor: #7c3aed;
+      --grok: #00ff9f;
+      --warn: #fbbf24;
+      --danger: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      font-size: 15px;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    h1 { font-size: 1.75rem; font-weight: 700; margin: 0 0 0.5rem; letter-spacing: -0.02em; }
+    .subtitle { color: var(--muted); margin: 0; max-width: 52rem; }
+    .meta { font-size: 0.8rem; color: var(--muted); margin-top: 1rem; }
+    h2 {
+      font-size: 1.25rem;
+      margin: 2.5rem 0 1rem;
+      padding-top: 0.5rem;
+      border-top: 1px solid var(--border);
+      color: var(--accent);
+    }
+    h3 { font-size: 1rem; margin: 1.25rem 0 0.5rem; color: var(--text); }
+    p { margin: 0.5rem 0 1rem; color: #d4d4d8; }
+    a { color: var(--accent-dim); }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+    }
+    .card.codex::before { background: var(--codex); }
+    .card.cursor::before { background: var(--cursor); }
+    .card.grok::before { background: var(--grok); }
+    .card h3 { margin-top: 0; font-size: 1.1rem; }
+    .tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+    }
+    .tag.velocity { background: rgba(16, 163, 127, 0.2); color: #6ee7b7; }
+    .tag.balanced { background: rgba(124, 58, 237, 0.25); color: #c4b5fd; }
+    .tag.trust { background: rgba(0, 255, 159, 0.12); color: var(--accent); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      margin: 1rem 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.6rem 0.75rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--surface-2); color: var(--muted); font-weight: 600; }
+    td ul { margin: 0; padding-left: 1.1rem; }
+    td li { margin: 0.25rem 0; }
+    .win { color: #6ee7b7; }
+    .gap { color: var(--warn); }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+    }
+    .panel h3 { margin-top: 0; font-size: 0.95rem; }
+    .panel ul { margin: 0; padding-left: 1.2rem; color: #d4d4d8; }
+    .panel li { margin: 0.35rem 0; }
+    .venn {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+      margin: 1.25rem 0;
+    }
+    @media (max-width: 800px) { .venn { grid-template-columns: 1fr; } }
+    .venn-item {
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 1rem;
+      border-left: 3px solid var(--accent);
+    }
+    .venn-item strong { display: block; margin-bottom: 0.35rem; color: var(--accent); font-size: 0.85rem; }
+    /* Happy path */
+    .workflow {
+      counter-reset: step;
+      margin: 1.5rem 0;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 3rem 1fr;
+      gap: 1rem;
+      margin-bottom: 0;
+      position: relative;
+    }
+    .step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 1.45rem;
+      top: 3rem;
+      bottom: 0;
+      width: 2px;
+      background: var(--border);
+    }
+    .step-num {
+      width: 2.9rem;
+      height: 2.9rem;
+      border-radius: 50%;
+      background: var(--surface-2);
+      border: 2px solid var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      flex-shrink: 0;
+      z-index: 1;
+    }
+    .step-body {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .step-body h4 { margin: 0 0 0.35rem; font-size: 1rem; }
+    .step-body .ui { font-size: 0.8rem; color: var(--accent-dim); margin-bottom: 0.5rem; }
+    .step-body p { margin: 0; font-size: 0.9rem; }
+    .modes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 1rem 0;
+    }
+    .pill {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .pill.plan { border-color: #6366f1; color: #a5b4fc; }
+    .pill.work { border-color: var(--accent-dim); color: var(--accent); }
+    .pill.trust { border-color: #71717a; }
+    .pill.velocity { border-color: var(--codex); color: #6ee7b7; }
+    footer {
+      margin-top: 3rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      overflow-x: auto;
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      line-height: 1.4;
+      color: #d4d4d8;
+      white-space: pre;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Agent harness comparison</h1>
+      <p class="subtitle">
+        Same greenfield <strong>GrokForge Todo</strong> prompt across three hosts — how each app <em>feels</em>,
+        what the harness optimizes for, and how we want users to work inside <strong>GrokForge</strong>.
+      </p>
+      <p class="meta">
+        Field reports: May 2026 ·
+        <a href="./codex-todoapp-comparison.md">Codex</a> ·
+        <a href="./cursor-todoapp-comparison.md">Cursor</a> ·
+        <a href="./grokforge-todoapp-comparison.md">GrokForge</a>
+      </p>
+    </header>
+
+  <section>
+    <h2>Three hosts at a glance</h2>
+    <div class="cards">
+      <article class="card codex">
+        <span class="tag velocity">Velocity harness</span>
+        <h3>OpenAI Codex</h3>
+        <p>Inline plan in chat → <strong>Build it</strong> → one work stream. <strong>Full access</strong> writes feel auto-applied. File cards, undo, preview.</p>
+        <p><strong>Feels like:</strong> a fast coworker shipping code.</p>
+      </article>
+      <article class="card cursor">
+        <span class="tag balanced">Balanced harness</span>
+        <h3>Cursor Composer</h3>
+        <p><strong>Plan</strong> asks scope questions → <code>.plan.md</code> in repo → <strong>Build</strong> → <strong>Agent</strong> for follow-ups. Keep / Undo batches.</p>
+        <p><strong>Feels like:</strong> a PM who clarifies, then an engineer who implements.</p>
+      </article>
+      <article class="card grok">
+        <span class="tag trust">Trust + velocity choice</span>
+        <h3>GrokForge</h3>
+        <p><strong>Plan</strong> → structured <code>gf-plan</code> → <strong>Approve and run</strong> → <code>propose_file_edits</code> → diff → Apply (or auto-apply). Desktop IDE + Grok dual-model routing.</p>
+        <p><strong>Feels like:</strong> an intern with power tools — nothing hits disk until you say so (Trust).</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>What every harness shares</h2>
+    <div class="venn">
+      <div class="venn-item">
+        <strong>Model + harness</strong>
+        Intelligence from the LLM; behavior from prompts, tools, gates, and UI.
+      </div>
+      <div class="venn-item">
+        <strong>Plan → implement</strong>
+        Greenfield work starts with an explicit plan beat before bulk edits.
+      </div>
+      <div class="venn-item">
+        <strong>Tool loop</strong>
+        Read/search/list (and often edit tools) with user-visible progress.
+      </div>
+      <div class="venn-item">
+        <strong>File-grounded output</strong>
+        HTML/CSS/JS (or docs) land as real paths in the workspace.
+      </div>
+      <div class="venn-item">
+        <strong>Iteration</strong>
+        Follow-ups (localStorage, delete, styling) without restarting the project.
+      </div>
+      <div class="venn-item">
+        <strong>Undo / review</strong>
+        Some form of rollback or diff review exists on every host.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Side-by-side harness contract</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Dimension</th>
+          <th>Codex</th>
+          <th>Cursor</th>
+          <th>GrokForge</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Primary stance</td>
+          <td>Ship fast; review optional</td>
+          <td>Clarify → plan file → build → agent</td>
+          <td>Trust-first; Velocity optional (<strong>118</strong>)</td>
+        </tr>
+        <tr>
+          <td>Before code</td>
+          <td>Inline numbered plan</td>
+          <td><strong>Questions UI</strong> → <code>.plan.md</code></td>
+          <td><code>gf-plan</code> JSON + PlanModeCard</td>
+        </tr>
+        <tr>
+          <td>Execute gate</td>
+          <td><strong>Build it</strong></td>
+          <td><strong>Build</strong></td>
+          <td><strong>Approve and run</strong> / Build it</td>
+        </tr>
+        <tr>
+          <td>Disk writes</td>
+          <td>Full access (immediate)</td>
+          <td>Agent + Keep All</td>
+          <td>Proposal → validate → Apply / auto-apply</td>
+        </tr>
+        <tr>
+          <td>Follow-up mode</td>
+          <td>Same work stream</td>
+          <td><strong>Agent</strong> (not Plan)</td>
+          <td><strong>Work</strong> (after 118 lifecycle)</td>
+        </tr>
+        <tr>
+          <td>Greenfield files</td>
+          <td>3 files (html/css/js)</td>
+          <td>3 files</td>
+          <td>Often 1 <code>index.html</code> or multi-file per plan</td>
+        </tr>
+        <tr>
+          <td>Plan artifact</td>
+          <td>Chat only</td>
+          <td>Repo markdown</td>
+          <td>App data <code>plan.json</code> + card</td>
+        </tr>
+        <tr>
+          <td>Harness visibility</td>
+          <td>“Worked for 43s” summary</td>
+          <td>PASS checklist</td>
+          <td>Tool rows + model routing badges</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Who does what better (for our use case)</h2>
+    <p>Our use case: <strong>dogfood a Grok-native desktop harness</strong> — dual-model routing, reviewable writes, evals, voice, multi-root workspaces — not “fastest possible chat widget.”</p>
+    <div class="two-col">
+      <div class="panel">
+        <h3 class="win">GrokForge strengths</h3>
+        <ul>
+          <li>Nothing on disk without validation + user consent (Trust)</li>
+          <li>Monaco diff column for serious review</li>
+          <li>Durable <code>plan.json</code> + approve-and-run handoff</li>
+          <li>Per-model harness profiles (plan vs execute)</li>
+          <li>Edit safety: cascade guard, S&R escalation, truncated-script reject</li>
+          <li>Trust <strong>and</strong> Velocity temperament in one app</li>
+          <li>Turn traces / eval tags for harness engineering</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3 class="gap">Borrow from others</h3>
+        <ul>
+          <li><strong>Codex:</strong> rhythm after build; file cards; time-on-task; preview</li>
+          <li><strong>Codex:</strong> follow-ups without replanning (→ Work default, <strong>120</strong>)</li>
+          <li><strong>Cursor:</strong> 1–2 scope questions before plan (persist? delete?)</li>
+          <li><strong>Cursor:</strong> PASS-style turn summary (<strong>119</strong>)</li>
+          <li><strong>Both:</strong> verification narrative (tests/browser) — future story</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Architecture sketch</h2>
+    <div class="diagram">  USER INTENT ("build a todo app")
+         │
+         ▼
+  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+  │    CODEX     │     │    CURSOR    │     │  GROKFORGE   │
+  │ inline plan  │     │  questions   │     │  gf-plan     │
+  │  Build it    │     │  .plan.md    │     │  Plan card   │
+  └──────┬───────┘     │  Build       │     │ Approve+run  │
+         │             └──────┬───────┘     └──────┬───────┘
+         │                    │                    │
+         ▼                    ▼                    ▼
+  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+  │ work stream  │     │    Agent     │     │ propose_file │
+  │ file cards   │     │ Keep/Undo    │     │ _edits → diff│
+  │ full access  │     │ inline diff  │     │ → Apply/undo │
+  └──────────────┘     └──────────────┘     └──────────────┘
+         │                    │                    │
+         └────────────────────┴────────────────────┘
+                              ▼
+                    FILES ON DISK (workspace)</div>
+  </section>
+
+  <section id="happy-path">
+    <h2>Happy path — GrokForge Todo (how we want you to work)</h2>
+    <p>
+      This is the <strong>ideal</strong> greenfield run after stories <strong>118</strong> (Work/Plan, Trust/Velocity)
+      and harness fixes (execution model, sample token budget, diff honesty). Adjust temperament in
+      <strong>Settings → Agent</strong> or the composer chip.
+    </p>
+    <div class="modes">
+      <span class="pill plan">Plan mode</span>
+      <span class="pill work">Work mode</span>
+      <span class="pill trust">Trust — review before Apply</span>
+      <span class="pill velocity">Velocity — auto-apply when valid</span>
+    </div>
+
+    <div class="workflow">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h4>Open the workspace</h4>
+          <div class="ui">File → Open folder · pick empty <code>ToDoApp</code> root</div>
+          <p>GrokForge creates a stored project (manifest in app data). An empty tree triggers <strong>greenfield</strong> behavior.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h4>Start in Plan</h4>
+          <div class="ui">Composer: <span class="pill plan">Plan</span> · model chip: Planning (<code>grok-4.3</code>)</div>
+          <p>First message on an empty project should default to <strong>Plan</strong>, not Work. Describe the app in plain language (HTML/CSS/JS, add + complete todos, name “GrokForge Todo”).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h4>Let the planner finish</h4>
+          <div class="ui">Activity: retrieval · list_directory · “Writing structured plan”</div>
+          <p>Planner profile uses <strong>read-only</strong> tools. Final answer includes a <code>gf-plan</code> block. Review the <strong>PlanModeCard</strong> (steps, files, verification). Expand JSON only if you want the raw artifact.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h4>Approve and run</h4>
+          <div class="ui">Plan card → <strong>Approve and run</strong> (Velocity: optional “Build it” label)</div>
+          <p>Main runs an <strong>executor</strong> turn with <code>grok-build</code>. Composer moves to <strong>Work</strong> when execute completes successfully. Do not stay in Plan for follow-ups.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h4>Review the proposal</h4>
+          <div class="ui">Proposal card · Review diff · editor column</div>
+          <p><strong>Trust:</strong> Open diff, read full content (new files show green preview). Fix scary one-line CSS in the viewer — normalization runs on review. Click <strong>Apply all</strong>.</p>
+          <p><strong>Velocity:</strong> Valid proposals auto-apply when the turn ends; open diff afterward if you want. <strong>Undo</strong> uses the last batch snapshot.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <h4>Verify outside the app</h4>
+          <div class="ui">File tree → copy path → open <code>index.html</code> in browser</div>
+          <p>We do not require an in-app browser. Confirm add/toggle/persist work. If JS fails, ask in <strong>Work</strong> for a fix — prefer <code>index.html</code> + <code>script.js</code> over a huge inline script.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">7</div>
+        <div class="step-body">
+          <h4>Iterate in Work</h4>
+          <div class="ui">Composer: <span class="pill work">Work</span> · Fast / execution model</div>
+          <p>“Add localStorage”, “add delete button”, “dark mode” — short messages, <strong>executor</strong> tools, one composed proposal when possible. Switch to <strong>Plan</strong> only when you want a new structured plan.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">8</div>
+        <div class="step-body">
+          <h4>When things go wrong</h4>
+          <div class="ui">Red tool rows · “Edit proposal failed” · plan card Failed / needs review</div>
+          <p>If execute produced no files, the plan card should say <strong>failed</strong> — not Done. Truncated HTML/JS is rejected before Apply. For crushed scripts, use one full-file <code>propose_file_edits</code> after <code>read_file</code>, not endless <code>search_replace</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3>Trust vs Velocity in one line</h3>
+    <table>
+      <tr><th>Trust</th><td>You open every diff and click Apply. Plan mode stays until you switch (greenfield still starts Plan).</td></tr>
+      <tr><th>Velocity</th><td>After <code>gf-plan</code>, auto Work; valid proposals land on disk without opening diff; undo + review on demand — Codex-like rhythm, GrokForge gates.</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Anti-patterns (learned from dogfood)</h2>
+    <ul style="color: #d4d4d8; padding-left: 1.25rem;">
+      <li>Leaving <strong>Plan</strong> selected for “add a button” → full replan. Use <strong>Work</strong>.</li>
+      <li>Assuming <strong>Done</strong> on the plan stepper means all steps shipped — one execute turn may only bootstrap step 1.</li>
+      <li>Applying a proposal without browser check — truncated <code>&lt;script&gt;</code> can pass closed HTML tags.</li>
+      <li>Using <code>search_replace</code> on a one-line crushed file — use full-file <code>propose_file_edits</code> from <code>rawContent</code>.</li>
+    </ul>
+  </section>
+
+  <footer>
+    GrokForge · docs/field-reports · Generated for internal harness/product alignment.
+    Open this file in any browser. Markdown detail:
+    <a href="./README.md">field-reports README</a>.
+  </footer>
+  </div>
+</body>
+</html>

@@ -13,11 +13,19 @@ import { GREENFIELD_HARNESS_MARKER } from '../shared/workspace-greenfield'
 import {
   AGENT_EVAL_TAG_AGENT_EXECUTOR,
   AGENT_EVAL_TAG_AGENT_PLANNER,
+  AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE,
   AGENT_EVAL_TAG_BEHAVIOR_PROACTIVE,
+  AGENT_EVAL_TAG_BEHAVIOR_SINGLE_FILE,
   AGENT_EVAL_TAG_CONTRACT_PLAN,
   AGENT_EVAL_TAG_PROFILE_GROK_4_3,
   AGENT_EVAL_TAG_PROFILE_GROK_CODE_FAST,
+  AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH,
+  AGENT_EVAL_TAG_ROUTING_POST_PLAN,
 } from '../shared/agent-eval-tags'
+import {
+  POST_PLAN_INCREMENTAL_MARKER,
+  SINGLE_FILE_EDIT_BIAS_MARKER,
+} from '../shared/post-plan-incremental'
 import { GF_PLAN_FENCE } from '../shared/gf-plan-contract'
 import type { StoredPlanArtifact } from '../shared/agent-plan-artifact'
 import { buildApprovedPlanExecuteUserText } from '../shared/agent-plan-artifact'
@@ -27,11 +35,20 @@ import { _resetTurnReceiptLifecycleForTesting } from './agent-turn-receipt-lifec
 import { TURN_RECOVERY_HINT_MARKER } from '../shared/agent-turn-receipt-contract'
 import {
   EDIT_INTENT_TOOL_NUDGE_MARKER,
+  EDIT_PARTIAL_BATCH_NUDGE_MARKER,
   EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
+  PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER,
 } from '../shared/agent-final-answer-contract'
+import { GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS } from '../shared/agent-harness-profile'
 import { AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
 import { computeAgentContentHash } from './agent-content-hash'
-import { baseEvalPayload, manifestForEvalRoot, setupEvalTurn } from './agent-eval-fixtures'
+import {
+  baseEvalPayload,
+  manifestForEvalRoot,
+  seedApprovedPlanArtifact,
+  seedSingleFileWorkspaceIndex,
+  setupEvalTurn,
+} from './agent-eval-fixtures'
 import {
   primeActiveAgentTurn,
   runAgentTurnJobForEvaluation,
@@ -215,6 +232,15 @@ describe('agent runner evaluation harness', () => {
     await runAgentTurnJobForEvaluation(payload)
 
     expect(getSystemPrompt()).toContain(GREENFIELD_HARNESS_MARKER)
+    const retrievalDone = payloads.find(
+      (p) => p.phase === 'activity' && p.activity.tool === 'retrieval' && p.activity.status === 'done',
+    )
+    expect(retrievalDone).toBeDefined()
+    if (retrievalDone?.phase === 'activity') {
+      expect(retrievalDone.activity.title).toBe('No indexed files yet')
+      expect(retrievalDone.activity.detail).not.toMatch(/0 files/)
+      expect(retrievalDone.activity.title).not.toContain('Found relevant')
+    }
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 
@@ -291,7 +317,7 @@ describe('agent runner evaluation harness', () => {
     expect(turnStarted?.phase).toBe('turn_started')
     if (turnStarted?.phase === 'turn_started') {
       expect(turnStarted.routing.modelIntent).toBe('chat_default')
-      expect(turnStarted.routing.modelId).toBe('grok-code-fast-1')
+      expect(turnStarted.routing.modelId).toBe('grok-build-0.1')
       expect(turnStarted.routing.harnessProfileKey).toBe('grok_code_fast')
       expect(turnStarted.routing.agentProfileId).toBe('default')
     }
@@ -579,7 +605,222 @@ describe('agent runner evaluation harness', () => {
 
     expect(sawEscalationOnSample).toBe(true)
     expect(sampleCount).toBeGreaterThanOrEqual(4)
-    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE} — approve-and-run bootstrap includes script.js in proposal`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-gf-exec-'))
+    const projectId = 'eval-greenfield-execute-124'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vanilla todo app',
+        filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create index.html, styles.css, script.js' }],
+        verification: 'Open index.html in browser',
+      },
+    })
+
+    const html = `<!DOCTYPE html>
+<html lang="en"><head><title>Todo</title><link rel="stylesheet" href="styles.css"></head>
+<body><h1>Todo</h1><script src="script.js"></script></body></html>`
+    const css = 'body {\n  font-family: sans-serif;\n  margin: 0;\n}\n'
+    const script = `const STORAGE_KEY = 'todos';\n\nfunction init() {\n  document.addEventListener('DOMContentLoaded', () => {\n    console.log('ready');\n  });\n}\n\ninit();\n`
+
+    let sampleCount = 0
+    let systemPrompt = ''
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        if (sampleCount === 1) {
+          const first = request.messages[0]
+          systemPrompt = first && typeof first.content === 'string' ? first.content : ''
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-bootstrap',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      { op: 'write_file', path: join(root, 'index.html'), content: html },
+                      { op: 'write_file', path: join(root, 'styles.css'), content: css },
+                      { op: 'write_file', path: join(root, 'script.js'), content: script },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Bootstrap proposal ready.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-greenfield-execute-124'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vanilla todo app')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(systemPrompt).toContain(GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS[0])
+    expect(systemPrompt).toMatch(/script\.js/i)
+    const proposal = payloads.find((p) => p.phase === 'edit_proposal')
+    expect(proposal?.phase).toBe('edit_proposal')
+    if (proposal?.phase === 'edit_proposal') {
+      const paths = proposal.proposal.batch.operations.map((op) => op.path)
+      expect(paths.some((p) => p.endsWith('script.js'))).toBe(true)
+      expect(proposal.proposal.rejected.length).toBe(0)
+    }
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH} — injects nudge when batch accepts HTML/CSS and rejects script.js`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-partial-batch-'))
+    const projectId = 'eval-partial-batch-124'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vanilla todo app',
+        filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create index.html, styles.css, script.js' }],
+        verification: 'Open index.html',
+      },
+    })
+
+    const html = `<!DOCTYPE html>
+<html lang="en"><head><title>Todo</title><link rel="stylesheet" href="styles.css"></head>
+<body><h1>Todo</h1><script src="script.js"></script></body></html>`
+    const css = 'body { font-family: sans-serif; margin: 0; }\n'
+    const corruptJs = `function init() {
+)
+)
+)
+);
+)
+)
+`
+    const validJs = `function init() {\n  document.addEventListener('DOMContentLoaded', () => {});\n}\ninit();\n`
+
+    let sampleCount = 0
+    let sawPartialNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const hasPartialNudge = request.messages.some(
+          (m) =>
+            m.role === 'user' &&
+            typeof m.content === 'string' &&
+            m.content.includes(EDIT_PARTIAL_BATCH_NUDGE_MARKER),
+        )
+        if (hasPartialNudge) sawPartialNudge = true
+
+        if (sampleCount === 1) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-partial',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      { op: 'write_file', path: join(root, 'index.html'), content: html },
+                      { op: 'write_file', path: join(root, 'styles.css'), content: css },
+                      { op: 'write_file', path: join(root, 'script.js'), content: corruptJs },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        if (sampleCount === 2) {
+          expect(hasPartialNudge).toBe(true)
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-fix-js',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [{ op: 'write_file', path: join(root, 'script.js'), content: validJs }],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        const hasHonesty = request.messages.some(
+          (m) =>
+            m.role === 'system' &&
+            typeof m.content === 'string' &&
+            m.content.includes(PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER),
+        )
+        if (sawPartialNudge) expect(hasHonesty).toBe(true)
+        emitChunk('Partial bootstrap — review diff.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-partial-batch-124'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vanilla todo app')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawPartialNudge).toBe(true)
+    expect(sampleCount).toBeGreaterThanOrEqual(2)
+    expect(
+      payloads.some(
+        (p) => p.phase === 'activity' && p.activity.title === 'Harness: retry rejected paths',
+      ),
+    ).toBe(true)
+    const proposal = payloads.find((p) => p.phase === 'edit_proposal')
+    if (proposal?.phase === 'edit_proposal') {
+      expect(proposal.proposal.batch.operations.length).toBeGreaterThanOrEqual(2)
+    }
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 
@@ -727,11 +968,11 @@ describe('agent runner evaluation harness', () => {
       model: 'wrong-renderer-hint',
     })
 
-    expect(modelsUsed.every((m) => m === 'grok-code-fast-1')).toBe(true)
+    expect(modelsUsed.every((m) => m === 'grok-build-0.1')).toBe(true)
     const turnStarted = payloads.find((p) => p.phase === 'turn_started')
     expect(turnStarted?.phase).toBe('turn_started')
     if (turnStarted?.phase === 'turn_started') {
-      expect(turnStarted.routing.modelId).toBe('grok-code-fast-1')
+      expect(turnStarted.routing.modelId).toBe('grok-build-0.1')
     }
   })
 
@@ -773,10 +1014,10 @@ describe('agent runner evaluation harness', () => {
     expect(turnStarted?.phase).toBe('turn_started')
     if (turnStarted?.phase === 'turn_started') {
       expect(turnStarted.routing.modelIntent).toBe('execution')
-      expect(turnStarted.routing.modelId).toBe('grok-code-fast-1')
+      expect(turnStarted.routing.modelId).toBe('grok-build-0.1')
       expect(turnStarted.routing.agentProfileId).toBe('executor')
     }
-    expect(modelsUsed.every((m) => m === 'grok-code-fast-1')).toBe(true)
+    expect(modelsUsed.every((m) => m === 'grok-build-0.1')).toBe(true)
   })
 
   it('injects compact approved plan artifact summary when approvedPlanId is set (109)', async () => {
@@ -845,7 +1086,7 @@ describe('agent runner evaluation harness', () => {
       streamId: 'prior-stream',
       status: 'in_progress',
       endedAt: '2026-05-19T10:00:00.000Z',
-      modelId: 'grok-code-fast-1',
+      modelId: 'grok-build-0.1',
       harnessProfileKey: 'grok_code_fast',
       agentProfileId: 'default',
       toolCallsStarted: 2,
@@ -926,7 +1167,7 @@ describe('agent runner evaluation harness', () => {
       }
     }
 
-    it(`${AGENT_EVAL_TAG_PROFILE_GROK_CODE_FAST} — fast chat uses grok-code-fast-1 harness copy`, async () => {
+    it(`${AGENT_EVAL_TAG_PROFILE_GROK_CODE_FAST} — fast chat uses grok-build-0.1 harness copy`, async () => {
       const root = mkdtempSync(join(tmpdir(), 'gf-eval-matrix-fast-'))
       writeFileSync(join(root, 'a.txt'), 'a\n', 'utf8')
 
@@ -940,13 +1181,14 @@ describe('agent runner evaluation harness', () => {
 
       const samples = getRecords().filter((r) => r.phase === 'sample')
       expect(samples.length).toBeGreaterThan(0)
-      expect(samples[0]?.model).toBe('grok-code-fast-1')
+      expect(samples[0]?.model).toBe('grok-build-0.1')
       expect(samples[0]?.systemText).toMatch(/Harness profile \(fast execution\)/i)
+      expect(samples[0]?.reasoningEffort).toBeUndefined()
 
       const turnStarted = payloads.find((p) => p.phase === 'turn_started')
       if (turnStarted?.phase === 'turn_started') {
         expect(turnStarted.routing.harnessProfileKey).toBe('grok_code_fast')
-        expect(turnStarted.routing.modelId).toBe('grok-code-fast-1')
+        expect(turnStarted.routing.modelId).toBe('grok-build-0.1')
       }
     })
 
@@ -974,7 +1216,10 @@ describe('agent runner evaluation harness', () => {
         expect(turnStarted.routing.harnessProfileKey).toBe('grok_4_3')
         expect(turnStarted.routing.modelIntent).toBe('planning')
         expect(turnStarted.routing.agentProfileId).toBe('planner')
+        expect(turnStarted.routing.reasoningEffort).toBe('medium')
       }
+
+      expect(samples[0]?.reasoningEffort).toBe('medium')
     })
 
     it(`${AGENT_EVAL_TAG_AGENT_PLANNER} — plan mode tool defs exclude edit and command tools`, async () => {
@@ -1097,9 +1342,83 @@ describe('agent runner evaluation harness', () => {
 
       const fastSample = fast.getRecords().find((r) => r.phase === 'sample')
       const planSample = plan.getRecords().find((r) => r.phase === 'sample')
-      expect(fastSample?.model).toBe('grok-code-fast-1')
+      expect(fastSample?.model).toBe('grok-build-0.1')
       expect(planSample?.model).toBe('grok-4.3')
       expect(fastSample?.systemText).not.toBe(planSample?.systemText)
+    })
+
+    it(`${AGENT_EVAL_TAG_ROUTING_POST_PLAN} — incremental Work follow-up routes to executor`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-post-plan-120-'))
+      writeFileSync(join(root, 'index.html'), '<!DOCTYPE html><html></html>\n', 'utf8')
+      const projectId = 'eval-post-plan-120'
+      seedApprovedPlanArtifact(projectId)
+
+      const { payloads, getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transportNoToolsFinal('Added delete button.'),
+        payload: baseEvalPayload('eval-post-plan-inc', 'add delete button'),
+      })
+      matrixRestores.push(restore)
+
+      const turnStarted = payloads.find((p) => p.phase === 'turn_started')
+      expect(turnStarted?.phase).toBe('turn_started')
+      if (turnStarted?.phase === 'turn_started') {
+        expect(turnStarted.routing.modelIntent).toBe('execution')
+        expect(turnStarted.routing.agentProfileId).toBe('executor')
+      }
+
+      const sample = getRecords().find((r) => r.phase === 'sample')
+      expect(sample?.systemText).toContain(POST_PLAN_INCREMENTAL_MARKER)
+      expect(sample?.systemText).toMatch(/Approved plan artifact/i)
+
+      const finals = getRecords().filter((r) => r.phase === 'final')
+      const lastFinal = finals[finals.length - 1]
+      expect(lastFinal?.systemText).toMatch(/Post-plan incremental/i)
+      expect(lastFinal?.systemText).not.toMatch(/Final response contract \(Plan mode\)/i)
+    })
+
+    it(`${AGENT_EVAL_TAG_CONTRACT_PLAN} — explicit replan in Plan mode still requires gf-plan`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-replan-120-'))
+      writeFileSync(join(root, 'a.txt'), 'a\n', 'utf8')
+      const projectId = 'eval-replan-120'
+      seedApprovedPlanArtifact(projectId)
+
+      const payload = baseEvalPayload('eval-replan-plan', 'create a new plan for the app')
+      payload.activeContext.chatMode = 'plan'
+
+      const { getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transportNoToolsFinal('```gf-plan\n{}\n```'),
+        payload,
+      })
+      matrixRestores.push(restore)
+
+      const finals = getRecords().filter((r) => r.phase === 'final')
+      const lastFinal = finals[finals.length - 1]
+      expect(lastFinal?.systemText).toMatch(/Final response contract \(Plan mode\)/i)
+      expect(lastFinal?.systemText).toContain(GF_PLAN_FENCE)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_SINGLE_FILE} — single-file index injects edit bias marker`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-single-file-120-'))
+      writeFileSync(join(root, 'index.html'), '<!DOCTYPE html><html></html>\n', 'utf8')
+      const projectId = 'eval-single-file-120'
+      seedApprovedPlanArtifact(projectId)
+      seedSingleFileWorkspaceIndex(projectId, root)
+
+      const { getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transportNoToolsFinal('Updated styling.'),
+        payload: baseEvalPayload('eval-single-file', 'add dark mode styling'),
+      })
+      matrixRestores.push(restore)
+
+      const sample = getRecords().find((r) => r.phase === 'sample')
+      expect(sample?.systemText).toContain(SINGLE_FILE_EDIT_BIAS_MARKER)
+      expect(sample?.systemText).toContain('index.html')
     })
 
     it(`${AGENT_EVAL_TAG_AGENT_PLANNER} — rejects propose_file_edits when model requests it`, async () => {

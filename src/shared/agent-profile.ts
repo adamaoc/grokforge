@@ -41,6 +41,7 @@ const PROFILE_EXECUTOR: AgentProfile = {
   displayName: 'Executor',
   allowedTools: [...AGENT_TOOLSET_FULL, 'spawn_subagent'],
   deniedTools: deniedToolsFor([...AGENT_TOOLSET_FULL, 'spawn_subagent']),
+  maxToolRounds: 6,
   canProposeEdits: true,
   canRunCommand: true,
 }
@@ -80,10 +81,18 @@ export function getAgentProfile(id: AgentProfileId): Readonly<AgentProfile> {
  * Product phase → profile. Plan mode wins over execution intent.
  */
 export function resolveAgentProfileId(
-  payload: Pick<AgentChatStartPayload, 'modelIntent' | 'activeContext' | 'isApprovedPlanAutoRun'>,
+  payload: Pick<AgentChatStartPayload, 'modelIntent' | 'activeContext' | 'isApprovedPlanAutoRun'> & {
+    postPlanIncremental?: boolean
+  },
 ): AgentProfileId {
   if (payload.activeContext.chatMode === 'plan') return 'planner'
-  if (payload.isApprovedPlanAutoRun || payload.modelIntent === 'execution') return 'executor'
+  if (
+    payload.isApprovedPlanAutoRun ||
+    payload.postPlanIncremental ||
+    payload.modelIntent === 'execution'
+  ) {
+    return 'executor'
+  }
   return 'default'
 }
 

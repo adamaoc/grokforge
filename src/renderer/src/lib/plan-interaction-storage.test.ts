@@ -47,9 +47,20 @@ describe('plan-interaction-storage', () => {
     const executing = setPlanRunPhase(PROJECT, 'msg-1', 'executing', 2)
     expect(executing.runPhase).toBe('executing')
     expect(derivePlanUiPhase(executing, { isExecutingThisPlan: true })).toBe('executing')
+    expect(derivePlanUiPhase(executing, { isExecutingThisPlan: false })).toBe('approved_idle')
+    expect(
+      derivePlanUiPhase(executing, {
+        isExecutingThisPlan: false,
+        staleExecutingRunPhase: true,
+      }),
+    ).toBe('needs_review')
 
     const done = setPlanRunPhase(PROJECT, 'msg-1', 'done', 2)
     expect(derivePlanUiPhase(done, {})).toBe('done')
+
+    const needsReview = setPlanRunPhase(PROJECT, 'msg-1', 'needs_review', 2)
+    expect(derivePlanUiPhase(needsReview, {})).toBe('needs_review')
+    expect(planUiPhaseLabel('needs_review')).toBe('Review changes')
   })
 
   it('labels awaiting_plan for composer idle', () => {
@@ -91,6 +102,24 @@ describe('plan-interaction-storage', () => {
     ).toBe('planning')
   })
 
+  it('resolvePlanWorkflowPhase prefers executing over stale plan-mode busy during approve-and-run', () => {
+    const planContent =
+      '```gf-plan\n{"schemaVersion":1,"summary":"s","filesLikelyTouched":[],"risksUnknowns":[],"steps":[{"id":"1","title":"t"}],"verification":"v"}\n```'
+    patchPlanInteraction(PROJECT, 'a1', { status: 'approved' }, 1)
+    setPlanRunPhase(PROJECT, 'a1', 'executing', 1)
+    expect(
+      resolvePlanWorkflowPhase({
+        conversationMode: 'plan',
+        busy: true,
+        liveChatMode: 'plan',
+        executingPlanMessageId: 'a1',
+        executingPlanStepCount: 1,
+        projectId: PROJECT,
+        messages: [{ id: 'a1', role: 'assistant', content: planContent }],
+      }),
+    ).toBe('executing')
+  })
+
   it('resolvePlanWorkflowPhase returns planning for streaming gf-plan fence', () => {
     expect(
       resolvePlanWorkflowPhase({
@@ -102,6 +131,22 @@ describe('plan-interaction-storage', () => {
         messages: [],
       }),
     ).toBe('planning')
+  })
+
+  it('resolvePlanWorkflowPhase shows done on plan card after execute when composer is Work', () => {
+    const planContent =
+      '```gf-plan\n{"schemaVersion":1,"summary":"s","filesLikelyTouched":[],"risksUnknowns":[],"steps":[{"id":"1","title":"t"}],"verification":"v"}\n```'
+    patchPlanInteraction(PROJECT, 'a1', { status: 'approved' }, 1)
+    setPlanRunPhase(PROJECT, 'a1', 'done', 1)
+    expect(
+      resolvePlanWorkflowPhase({
+        conversationMode: 'normal',
+        busy: false,
+        executingPlanMessageId: null,
+        projectId: PROJECT,
+        messages: [{ id: 'a1', role: 'assistant', content: planContent }],
+      }),
+    ).toBe('done')
   })
 
   it('resolvePlanWorkflowPhase returns pending only after plan exists and idle', () => {
@@ -116,6 +161,23 @@ describe('plan-interaction-storage', () => {
         messages: [{ id: 'a1', role: 'assistant', content: planContent }],
       }),
     ).toBe('pending')
+  })
+
+  it('resolvePlanWorkflowPhase treats stale executing runPhase as needs_review when idle', () => {
+    const planContent =
+      '```gf-plan\n{"schemaVersion":1,"summary":"s","filesLikelyTouched":[],"risksUnknowns":[],"steps":[{"id":"1","title":"t"}],"verification":"v"}\n```'
+    patchPlanInteraction(PROJECT, 'a1', { status: 'approved' }, 1)
+    setPlanRunPhase(PROJECT, 'a1', 'executing', 1)
+    expect(
+      resolvePlanWorkflowPhase({
+        conversationMode: 'normal',
+        busy: false,
+        executingPlanMessageId: 'a1',
+        executingPlanStepCount: 1,
+        projectId: PROJECT,
+        messages: [{ id: 'a1', role: 'assistant', content: planContent }],
+      }),
+    ).toBe('needs_review')
   })
 
   it('isStreamingGfPlanFenceContent is true before JSON validates', () => {

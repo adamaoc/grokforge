@@ -1,7 +1,8 @@
 import type { AgentProfileId } from './agent-profile'
 import type { HarnessProfileKey } from './agent-harness-profile-contract'
-import { GF_PLAN_FENCE } from './gf-plan-contract'
-import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
+import { EXECUTOR_FROM_PLAN_FINAL_ANSWER_POINTER } from './agent-harness-profile'
+import { buildGfPlanFinalAnswerContract } from './gf-plan-contract'
+import { isPartialBatchIntegrityRejection } from './agent-edit-corrupt-content'
 
 export const EDIT_INTENT_RE =
   /\b(add|apply|build|change|create|delete|edit|fix|implement|make|move|patch|refactor|remove|rename|replace|update|write)\b/i
@@ -11,6 +12,18 @@ export const EDIT_INTENT_TOOL_NUDGE_MARKER = 'Harness: edit tools required'
 
 /** Marker when search_replace failed repeatedly and the harness steers recovery (eval/tests). */
 export const EDIT_SEARCH_REPLACE_ESCALATION_MARKER = 'Harness: search_replace escalation'
+
+/** Marker when propose_file_edits HTML was rejected as incomplete (eval/tests). */
+export const EDIT_INCOMPLETE_HTML_NUDGE_MARKER = 'Harness: incomplete HTML proposal'
+
+/** Marker when a multi-file proposal accepted some paths and rejected others (story 124). */
+export const EDIT_PARTIAL_BATCH_NUDGE_MARKER = 'Harness: partial batch proposal recovery'
+
+/** Marker in final answer when rejected paths remain in the pending proposal (story 124). */
+export const PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER = 'Harness: partial batch proposal honesty'
+
+/** Marker when multiple edit tools merged into one diff review (story 119). */
+export const MERGED_EDIT_PROPOSAL_HONESTY_MARKER = 'Harness: merged edit proposal honesty'
 
 export function isLikelyEditIntent(userText: string): boolean {
   return EDIT_INTENT_RE.test(userText)
@@ -28,25 +41,112 @@ export function buildSearchReplaceEscalationNudge(paths: readonly string[]): str
     labels.length > 0
       ? `Affected file(s): ${labels.join(', ')}.`
       : 'One or more files had repeated search_replace failures.'
+  const hasHtml = paths.some((p) => /\.html?$/i.test(p.replace(/\\/g, '/')))
+  const htmlLines = hasHtml
+    ? [
+        'For **index.html** (or any HTML with inline `<script>`): do **not** patch the crushed script with `search_replace`. Use one `propose_file_edits` `write_file` with the **entire** file from `rawContent`, fixing the `<script>` block with **one statement per line** (no `}function`, no `}););`, no code after `//` on the same line). Prefer `script.js` + `<script src="script.js">` for new todo apps.',
+      ]
+    : []
   return [
     `## ${EDIT_SEARCH_REPLACE_ESCALATION_MARKER}`,
     pathLine,
     'Do **not** retry `search_replace` with guessed or reformatted `old_string` text.',
     'Call `read_file` again and copy text only from **`rawContent`** (not the line-numbered `content` field).',
     'For small files or localized section edits: use one `propose_file_edits` with the **complete** file body from the latest `read_file` `rawContent` (every heading and section), changing only what the user asked for.',
+    ...htmlLines,
     'Do not send only the changed bullets or a shortened stub — include the full document text in `write_file.content`.',
     'On markdown/plain text under ~64 lines, GrokForge still accepts the proposal for diff review; on code files, destructive shrink stays blocked.',
     'Do not tell the user the file was updated until an edit tool returns `ok: true` in this turn.',
   ].join('\n')
 }
 
+/** User message injected once after repeated incomplete HTML write_file proposals. */
+export function buildIncompleteHtmlProposalNudge(paths: readonly string[]): string {
+  const labels = paths.map(basenameForEscalationPath).filter(Boolean)
+  const pathLine =
+    labels.length > 0
+      ? `Affected file(s): ${labels.join(', ')}.`
+      : 'One or more new HTML files had incomplete proposals.'
+  return [
+    `## ${EDIT_INCOMPLETE_HTML_NUDGE_MARKER}`,
+    pathLine,
+    'GrokForge rejected the proposal because `write_file.content` was truncated or missing closing tags.',
+    'Retry with **complete** `write_file.content` for each path — especially HTML with `<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`, and **`</body></html>`** closing tags.',
+    '- Use real line breaks in HTML — not a one-line stub or opener like `<!DOCTYPE html> html lang="en"`.',
+    '- Use normal UTF-8 quotes in HTML attributes (`lang="en"`) — not `&#34;`, `&quot;`, or `\\u003c` escape sequences.',
+    '- Include `<meta charset="UTF-8">` in new HTML documents.',
+    '- You may include multiple files in one `propose_file_edits` if each body is complete.',
+    'Do not tell the user the file was created until an edit tool succeeds in this turn.',
+  ].join('\n')
+}
+
+export type PartialBatchRejectedOp = {
+  path?: string
+  reason?: string
+}
+
+export function shouldInjectPartialBatchProposalNudge(input: {
+  acceptedCount: number
+  rejected: readonly PartialBatchRejectedOp[]
+  executeFromApprovedPlan?: boolean
+}): boolean {
+  if (input.acceptedCount < 1 || input.rejected.length < 1) return false
+  if (input.executeFromApprovedPlan) return true
+  return input.rejected.some((r) => isPartialBatchIntegrityRejection(r.reason))
+}
+
+/** User message injected once when a multi-file proposal accepted some paths and rejected others. */
+export function buildPartialBatchProposalNudge(
+  rejected: readonly PartialBatchRejectedOp[],
+  acceptedCount: number,
+): string {
+  const labels = rejected
+    .map((r) => (r.path ? basenameForEscalationPath(r.path) : ''))
+    .filter(Boolean)
+  const pathLine =
+    labels.length > 0
+      ? `Rejected path(s): ${labels.join(', ')}.`
+      : 'One or more paths in the last proposal were rejected.'
+  const reasonLines = rejected.slice(0, 4).map((r) => {
+    const base = r.path ? basenameForEscalationPath(r.path) : 'file'
+    const reason = (r.reason ?? 'validation failed').slice(0, 160)
+    return `- **${base}:** ${reason}`
+  })
+  const hasJs = rejected.some((r) => /\.(m?js|cjs)$/i.test((r.path ?? '').replace(/\\/g, '/')))
+  const hasHtml = rejected.some((r) => /\.html?$/i.test((r.path ?? '').replace(/\\/g, '/')))
+  const jsHint = hasJs
+    ? [
+        'For **script.js**: submit the **complete** file with **one statement per line** — no crushed one-liners, no orphan `)` lines, no `}function` glue. Prefer a separate file over inline HTML `<script>`.',
+      ]
+    : []
+  const htmlHint = hasHtml
+    ? [
+        'For **index.html**: use clean UTF-8 with real quotes (`lang="en"`) — not `&#34;`, `&quot;`, or `\\u` escapes. Include `<meta charset="UTF-8">`.',
+      ]
+    : []
+  return [
+    `## ${EDIT_PARTIAL_BATCH_NUDGE_MARKER}`,
+    pathLine,
+    `${acceptedCount} file(s) are already in the pending diff review — do **not** resubmit those paths unless you need to fix them.`,
+    ...reasonLines,
+    ...jsHint,
+    ...htmlHint,
+    'Retry with **one** `propose_file_edits` containing **only the rejected paths**, each with a **complete** `write_file.content` body.',
+    'Use `read_file` first if you need the latest disk or plan context — copy from `rawContent` when editing existing files.',
+    'Do **not** tell the user every planned file was created until all rejected paths succeed in this turn.',
+  ].join('\n')
+}
+
 /** User message injected once when the model skips tools on an edit-intent fast turn. */
-export function buildEditIntentToolNudge(): string {
+export function buildEditIntentToolNudge(options?: { singleFilePrimary?: boolean }): string {
+  const editToolLine = options?.singleFilePrimary
+    ? 'After `read_file` on the primary file, prefer **one** `propose_file_edits` with full `rawContent` — avoid multiple `search_replace` on the same path.'
+    : 'For each existing file you will change: call `read_file` first, then `search_replace` (localized) or `propose_file_edits` (new files / multi-file).'
   return [
     `## ${EDIT_INTENT_TOOL_NUDGE_MARKER}`,
     'The user message asks for workspace file changes, but this turn has not created an edit proposal yet.',
     'You must call tools before finishing — retrieval snippets are not sufficient.',
-    'For each existing file you will change: call `read_file` first, then `search_replace` (localized) or `propose_file_edits` (new files / multi-file).',
+    editToolLine,
     'Do not tell the user a diff or proposal is ready until an edit tool succeeds in this turn.',
   ].join('\n')
 }
@@ -54,13 +154,19 @@ export function buildEditIntentToolNudge(): string {
 export type AgentFinalAnswerContractInput = {
   userText: string
   editProposalCreated: boolean
+  /** Multiple edit tools composed into one proposal this turn (story 119). */
+  editProposalComposedInTurn?: boolean
   /** Edit-intent turn where search_replace failed repeatedly and no proposal was created. */
   editToolsFailed?: boolean
   chatMode: 'fast' | 'plan'
   profileKey?: HarnessProfileKey
   agentProfileId?: AgentProfileId
   executeFromApprovedPlan?: boolean
+  /** Story 120: incremental Work follow-up — no new gf-plan. */
+  postPlanIncremental?: boolean
   greenfieldWorkspace?: boolean
+  /** Story 124: paths still rejected in the pending edit proposal at final answer. */
+  partialBatchRejections?: readonly PartialBatchRejectedOp[]
 }
 
 function editToolsFailedAppendix(editToolsFailed?: boolean): string {
@@ -75,36 +181,21 @@ function editToolsFailedAppendix(editToolsFailed?: boolean): string {
   ].join('\n')
 }
 
-function planModeProfileAppendix(profileKey?: HarnessProfileKey, greenfieldWorkspace?: boolean): string {
-  if (profileKey !== 'grok_4_3') return ''
-  const greenfieldNote = greenfieldWorkspace
-    ? `If the greenfield harness appendix (${GREENFIELD_HARNESS_MARKER}) applied above, keep concrete file paths, dependencies, and verification commands in the plan JSON.`
-    : ''
-  return [
-    '',
-    '### Plan quality (Grok 4.3 harness)',
-    'Make `filesLikelyTouched` concrete paths or clear relative paths under workspace roots.',
-    'In `risksUnknowns`, list assumptions, missing context, and blockers — not generic filler.',
-    'Each `steps` entry should be an actionable engineering step with a clear outcome; include at least one verification-oriented step.',
-    '`verification` should name commands or manual checks (e.g. `npm run typecheck`, open UI route, run tests) the executor can run after approval.',
-    'Do not propose file edits in this turn; structured plan only.',
-    greenfieldNote,
-  ]
-    .filter(Boolean)
-    .join('\n')
-}
-
 function executorFromPlanAppendix(
-  _profileKey?: HarnessProfileKey,
   executeFromApprovedPlan?: boolean,
   agentProfileId?: AgentProfileId,
 ): string {
   if (!executeFromApprovedPlan && agentProfileId !== 'executor') return ''
+  return ['', '### Execute approved plan (final answer)', EXECUTOR_FROM_PLAN_FINAL_ANSWER_POINTER].join('\n')
+}
+
+function postPlanIncrementalAppendix(postPlanIncremental?: boolean): string {
+  if (!postPlanIncremental) return ''
   return [
     '',
-    '### Execute approved plan (final answer)',
-    'Follow the approved `gf-plan` step order from thread context. `read_file` or `search_workspace` before editing existing paths.',
-    'Prefer `search_replace` for localized edits; use `propose_file_edits` for new files or multi-file bootstrap. Do not replan from scratch.',
+    '### Post-plan incremental follow-up (final answer)',
+    'Do **not** output a `gf-plan` fence or structured replan — implement the small change with edit tools.',
+    'Briefly confirm what you changed after the edit proposal is ready.',
   ].join('\n')
 }
 
@@ -113,23 +204,47 @@ function fastModeProfileAppendix(profileKey?: HarnessProfileKey): string {
   return 'Keep the human-readable summary **brief** unless the user asked for a long explanation.'
 }
 
+function mergedEditProposalHonestyAppendix(
+  editProposalCreated?: boolean,
+  editProposalComposedInTurn?: boolean,
+): string {
+  if (!editProposalCreated || !editProposalComposedInTurn) return ''
+  return [
+    '',
+    `### ${MERGED_EDIT_PROPOSAL_HONESTY_MARKER}`,
+    'GrokForge merged multiple edit tool calls in this turn into **one** combined diff review.',
+    'Do **not** describe multiple separate diff reviews, sequential review cards, or several apply steps.',
+    'Tell the user one proposal is ready to review (and apply once if they use Trust mode).',
+  ].join('\n')
+}
+
+function partialBatchHonestyAppendix(
+  editProposalCreated?: boolean,
+  rejected?: readonly PartialBatchRejectedOp[],
+): string {
+  if (!editProposalCreated || !rejected?.length) return ''
+  const labels = rejected
+    .map((r) => (r.path ? basenameForEscalationPath(r.path) : ''))
+    .filter(Boolean)
+  const pathList = labels.length > 0 ? labels.join(', ') : 'some planned paths'
+  return [
+    '',
+    `### ${PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER}`,
+    `GrokForge accepted part of this turn's edit proposal, but **rejected** validation for: ${pathList}.`,
+    'Do **not** claim the approved plan is fully implemented, every planned file was created, or the bootstrap is complete.',
+    'Tell the user which files are ready in the diff review and which paths still need a corrected proposal (mention validation reasons briefly).',
+    'If you already retried in this turn, say what remains blocked — do not imply silent success.',
+  ].join('\n')
+}
+
 /** System message appended before the final streaming answer in the agent tool loop. */
 export function buildFinalAnswerContract(input: AgentFinalAnswerContractInput): string {
   if (input.chatMode === 'plan') {
-    return [
-      '## Final response contract (Plan mode)',
-      `This turn is **Plan mode only**. Your final answer must include **exactly one** fenced JSON block with the markdown language tag \`${GF_PLAN_FENCE}\`.`,
-      'The fence body must be one JSON object: `schemaVersion` 1, `summary`, `filesLikelyTouched` (array), `risksUnknowns` (array), `steps` ({ `id`, `title` }[], at least one), `verification`.',
-      'You may include short readable prose before or after the fence. The JSON must parse as-is.',
-      'Do **not** call `propose_file_edits` or propose file writes on this turn — execution happens after the user approves the plan.',
-      'In `filesLikelyTouched` and steps, be explicit about single-file vs multi-file layout. Mention code quality expectations (readable formatting, real line breaks, basic styling for greenfield UI).',
-      planModeProfileAppendix(input.profileKey, input.greenfieldWorkspace),
-      input.agentProfileId === 'planner'
-        ? 'Agent profile **planner**: edit tools and command tools are disabled for this turn — output the plan only.'
-        : '',
-    ]
-      .filter(Boolean)
-      .join('\n')
+    return buildGfPlanFinalAnswerContract({
+      agentProfileId: input.agentProfileId,
+      profileKey: input.profileKey,
+      greenfieldWorkspace: input.greenfieldWorkspace,
+    })
   }
 
   const maybeEdit = isLikelyEditIntent(input.userText)
@@ -152,8 +267,14 @@ export function buildFinalAnswerContract(input: AgentFinalAnswerContractInput): 
     'Every path must be absolute and under a workspace root.',
     'Do not tell the user that files were already written, saved, or applied on disk unless `propose_file_edits` succeeded in this turn.',
     editToolsFailedAppendix(input.editToolsFailed),
+    mergedEditProposalHonestyAppendix(
+      input.editProposalCreated,
+      input.editProposalComposedInTurn,
+    ),
+    partialBatchHonestyAppendix(input.editProposalCreated, input.partialBatchRejections),
     fastModeProfileAppendix(input.profileKey),
-    executorFromPlanAppendix(input.profileKey, input.executeFromApprovedPlan, input.agentProfileId),
+    executorFromPlanAppendix(input.executeFromApprovedPlan, input.agentProfileId),
+    postPlanIncrementalAppendix(input.postPlanIncremental),
   ]
     .filter(Boolean)
     .join('\n')

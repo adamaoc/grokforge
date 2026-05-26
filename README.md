@@ -50,6 +50,7 @@ On the **welcome** screen, start a **new project** by choosing a folder (first w
 | [`AGENTS.md`](AGENTS.md) | Architecture, IPC, workspace manifest, keys, terminal vs agent commands, testing commands |
 | [`project_tasks/README.md`](project_tasks/README.md) | Numbered MVP stories and status |
 | [`docs/dependency-runtime-watchlist.md`](docs/dependency-runtime-watchlist.md) | Dependency and runtime upgrade notes |
+| [`docs/harness-102-xai-investigation.md`](docs/harness-102-xai-investigation.md) | xAI model catalog, redirects, and GrokForge defaults (last reviewed 2026-05-26) |
 
 ## Security & keys (short)
 

@@ -1,6 +1,7 @@
 import type { AgentChatActiveContext, AgentChatTextModelIntent, AgentChatTurnRouting } from './agent-chat-contract'
 import type { AgentProfileId } from './agent-profile'
 import type { HarnessProfileKey } from './agent-harness-profile-contract'
+import type { ReasoningEffort } from './agent-reasoning-effort'
 import type { AgentModelChatMessage } from './agent-model-message'
 import { parseOffloadedToolOriginalChars } from './agent-context-offload'
 
@@ -35,6 +36,7 @@ export type AgentTurnSnapshot = {
   readonly modelIntent: AgentChatTextModelIntent
   readonly harnessProfileKey: HarnessProfileKey
   readonly agentProfileId: AgentProfileId
+  readonly reasoningEffort?: ReasoningEffort
   readonly chatMode: 'fast' | 'plan'
   readonly systemMessages: readonly string[]
   readonly messagesForProvider: readonly AgentModelChatMessage[]
@@ -51,6 +53,7 @@ export type AgentProviderRoundTraceSummary = {
   modelIntent?: AgentChatTextModelIntent
   harnessProfileKey?: HarnessProfileKey
   agentProfileId?: AgentProfileId
+  reasoningEffort?: ReasoningEffort
   toolNames: string[]
   messageCounts: { system: number; user: number; assistant: number; tool: number }
   totalChars: number
@@ -168,6 +171,7 @@ export function summarizeSnapshotForTrace(
     modelIntent: snapshot.modelIntent,
     harnessProfileKey: snapshot.harnessProfileKey,
     agentProfileId: snapshot.agentProfileId,
+    reasoningEffort: snapshot.reasoningEffort,
     toolNames: snapshot.toolDefinitions.map((t) => t.function.name),
     messageCounts,
     totalChars: budgetTotal,
@@ -177,7 +181,7 @@ export function summarizeSnapshotForTrace(
 
 export type BuildTurnSnapshotRouting = Pick<
   AgentChatTurnRouting,
-  'modelId' | 'modelIntent' | 'harnessProfileKey' | 'agentProfileId'
+  'modelId' | 'modelIntent' | 'harnessProfileKey' | 'agentProfileId' | 'reasoningEffort'
 >
 
 export function cloneActiveContextForSnapshot(ctx: AgentChatActiveContext): AgentChatActiveContext {
@@ -188,12 +192,39 @@ export function cloneMessagesForSnapshot(messages: readonly AgentModelChatMessag
   return messages.map((m) => cloneValue(m))
 }
 
+/** Tool-sample completion budget — 1200 truncates full-file propose_file_edits (greenfield HTML). */
+export const AGENT_CHAT_SAMPLE_MAX_TOKENS_PLANNER = 2048
+export const AGENT_CHAT_SAMPLE_MAX_TOKENS_DEFAULT = 4096
+export const AGENT_CHAT_SAMPLE_MAX_TOKENS_EXECUTOR = 16_384
+export const AGENT_CHAT_SAMPLE_MAX_TOKENS_LEGACY = 1200
+
+export function resolveAgentChatSampleMaxTokens(
+  snapshot: Pick<AgentTurnSnapshot, 'roundKind' | 'agentProfileId'>,
+): number {
+  if (snapshot.roundKind !== 'tool_sample') {
+    return AGENT_CHAT_SAMPLE_MAX_TOKENS_DEFAULT
+  }
+  switch (snapshot.agentProfileId) {
+    case 'planner':
+      return AGENT_CHAT_SAMPLE_MAX_TOKENS_PLANNER
+    case 'executor':
+      return AGENT_CHAT_SAMPLE_MAX_TOKENS_EXECUTOR
+    case 'explorer':
+      return AGENT_CHAT_SAMPLE_MAX_TOKENS_DEFAULT
+    default:
+      return AGENT_CHAT_SAMPLE_MAX_TOKENS_DEFAULT
+  }
+}
+
 /** Payload sent to xAI for one provider round (derived from {@link AgentTurnSnapshot}). */
 export type AgentProviderRequest = {
   snapshotId: string
   model: string
   messages: AgentModelChatMessage[]
   tools: readonly AgentSnapshotToolDefinition[]
+  reasoningEffort?: ReasoningEffort
+  /** Chat completions max_tokens for tool_sample rounds (story 105 transport). */
+  sampleMaxTokens?: number
 }
 
 export function providerRequestFromSnapshot(snapshot: AgentTurnSnapshot): AgentProviderRequest {
@@ -202,5 +233,7 @@ export function providerRequestFromSnapshot(snapshot: AgentTurnSnapshot): AgentP
     model: snapshot.modelId,
     messages: recombineSnapshotMessages(snapshot),
     tools: snapshot.toolDefinitions.map((t) => cloneValue(t)),
+    reasoningEffort: snapshot.reasoningEffort,
+    sampleMaxTokens: resolveAgentChatSampleMaxTokens(snapshot),
   }
 }

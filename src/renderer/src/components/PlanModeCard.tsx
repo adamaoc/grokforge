@@ -14,6 +14,7 @@ import { PlanPhaseStepper } from '@/components/PlanPhaseStepper'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { AgentChatTurnRouting } from '@/types'
+import type { HarnessTemperament } from '@/lib/harness-temperament'
 
 type Props = {
   projectId: string | null | undefined
@@ -27,7 +28,10 @@ type Props = {
   anotherPlanExecuting?: boolean
   liveRouting?: AgentChatTurnRouting | null
   refreshEpoch?: number
+  harnessTemperament?: HarnessTemperament
   onApproveAndRun?: (messageId: string) => void
+  /** One-line partial execute summary when some paths were rejected (story 125). */
+  executeOutcomeSummary?: string
 }
 
 function extractPlanJsonForDisplay(content: string | undefined): string | null {
@@ -52,7 +56,9 @@ export function PlanModeCard({
   anotherPlanExecuting = false,
   liveRouting = null,
   refreshEpoch = 0,
+  harnessTemperament = 'trust',
   onApproveAndRun,
+  executeOutcomeSummary,
 }: Props) {
   const stepCount = plan.steps.length
   const [local, setLocal] = useState<PlanInteractionState>(() =>
@@ -91,15 +97,24 @@ export function PlanModeCard({
   const headerTone =
     uiPhase === 'executing' || uiPhase === 'done'
       ? 'border-primary/40 bg-primary/10'
-      : uiPhase === 'failed'
+      : uiPhase === 'needs_review'
+        ? 'border-amber-900/50 bg-amber-950/20'
+        : uiPhase === 'failed'
         ? 'border-red-900/50 bg-red-950/20'
         : uiPhase === 'cancelled' || uiPhase === 'superseded'
           ? 'border-zinc-700 bg-zinc-900/40'
           : 'border-zinc-700 bg-zinc-900/60'
 
+  const approveLabel =
+    harnessTemperament === 'velocity' ? 'Build it' : 'Approve and run'
+
   return (
     <div className={cn('mt-3 max-w-full rounded-2xl border px-3 py-3 text-sm shadow-sm', headerTone)}>
       <PlanPhaseStepper phase={uiPhase} routing={liveRouting} compact className="mb-3 border-b border-zinc-800/80 pb-3" />
+
+      {executeOutcomeSummary ? (
+        <p className="mb-3 text-xs leading-relaxed text-amber-200/90">{executeOutcomeSummary}</p>
+      ) : null}
 
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -118,6 +133,7 @@ export function PlanModeCard({
             uiPhase === 'pending' && 'bg-zinc-800 text-zinc-300',
             (uiPhase === 'executing' || uiPhase === 'done' || uiPhase === 'approved_idle') &&
               'bg-primary/15 text-primary',
+            uiPhase === 'needs_review' && 'bg-amber-950/50 text-amber-400',
             uiPhase === 'failed' && 'bg-red-950/50 text-red-400',
             (uiPhase === 'cancelled' || uiPhase === 'superseded') && 'bg-zinc-800 text-zinc-500',
           )}
@@ -187,7 +203,7 @@ export function PlanModeCard({
       {local.status === 'pending' ? (
         <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-800/80 pt-3">
           <Button type="button" size="sm" className="rounded-xl" onClick={approve} disabled={approveDisabled}>
-            Approve and run
+            {approveLabel}
           </Button>
           <Button
             type="button"
@@ -207,7 +223,20 @@ export function PlanModeCard({
         </div>
       ) : uiPhase === 'done' ? (
         <p className="mt-3 border-t border-zinc-800/80 pt-3 text-[11px] text-zinc-500">
-          Execution finished. Review tool activity and applied edits above.
+          {harnessTemperament === 'trust'
+            ? 'Files were written after you applied the proposal. Review tool activity and applied edits above.'
+            : 'Execution finished. Review tool activity and applied edits above.'}
+        </p>
+      ) : uiPhase === 'needs_review' ? (
+        <p className="mt-3 border-t border-zinc-800/80 pt-3 text-[11px] text-amber-400/90">
+          {harnessTemperament === 'velocity'
+            ? 'Auto-apply did not finish all file changes. Review the proposal card above — Apply remaining paths or Undo the batch.'
+            : 'Agent finished; files are not on disk until you Apply on the proposal card above.'}
+        </p>
+      ) : uiPhase === 'failed' ? (
+        <p className="mt-3 border-t border-zinc-800/80 pt-3 text-[11px] text-red-400/90">
+          Execution finished without applying file changes. Check failed propose edits in the activity log, then
+          approve and run again or send a follow-up in Work mode.
         </p>
       ) : null}
 

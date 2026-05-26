@@ -5,16 +5,16 @@
 /** xAI TTS max input length (see REST docs). */
 export const TTS_READ_ALOUD_MAX_TEXT_CHARS = 15_000
 
+/** Documented built-in voices (story 121). Legacy hash ids remain valid via custom voice id. */
 export const TTS_VOICE_PRESETS = [
   { id: 'eve', label: 'Eve', detail: 'Default', language: 'auto' },
-  { id: '96819d0bd28d', label: 'Daniel', detail: 'Male · English', language: 'en' },
-  { id: '78a495fdbb39', label: 'James', detail: 'Male · English', language: 'en' },
-  { id: 'f15c6a6a', label: 'Henry', detail: 'Male · British English', language: 'en' },
-  { id: 'a7b78b05', label: 'Sean', detail: 'Male · English (Ireland)', language: 'en' },
-  { id: '6a41d324', label: 'Liam', detail: 'Male · American English', language: 'en' },
-  { id: '5d695b41', label: 'Marc', detail: 'Male · English (South Africa)', language: 'en' },
+  { id: 'ara', label: 'Ara', detail: 'Built-in', language: 'auto' },
+  { id: 'rex', label: 'Rex', detail: 'Built-in', language: 'auto' },
+  { id: 'sal', label: 'Sal', detail: 'Built-in', language: 'auto' },
+  { id: 'leo', label: 'Leo', detail: 'Built-in', language: 'auto' },
 ] as const
 
+/** Legacy name aliases → hash voice ids (still accepted by xAI; not shown in primary picker). */
 const TTS_VOICE_ALIASES: Record<string, string> = {
   daniel: '96819d0bd28d',
   james: '78a495fdbb39',

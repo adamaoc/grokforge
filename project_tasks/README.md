@@ -155,11 +155,16 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 115 | Edit cascade guard after search_replace failures **(done)** | [`post-mvp/115-agent-edit-cascade-guard-after-search-replace-failures.md`](post-mvp/115-agent-edit-cascade-guard-after-search-replace-failures.md) |
 | 116 | Search_replace failure escalation nudge **(done)** | [`post-mvp/116-agent-edit-search-replace-escalation-nudge.md`](post-mvp/116-agent-edit-search-replace-escalation-nudge.md) |
 | 117 | Renderer black screen on macOS resume (stability) | [`post-mvp/117-renderer-black-screen-on-macos-resume.md`](post-mvp/117-renderer-black-screen-on-macos-resume.md) |
-| 118 | Work vs Plan mode naming and conversation lifecycle | [`post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md`](post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md) |
-| 119 | Agent turn UI honesty and activity compaction | [`post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md`](post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md) |
-| 120 | Post-plan executor routing and single-file edit bias | [`post-mvp/120-post-plan-executor-routing-and-single-file-edits.md`](post-mvp/120-post-plan-executor-routing-and-single-file-edits.md) |
-| 121 | xAI model catalog and API sync (Grok Build 0.1, Voice) | [`post-mvp/121-xai-model-catalog-and-api-sync.md`](post-mvp/121-xai-model-catalog-and-api-sync.md) |
+| 118 | Work vs Plan, trust/velocity temperament, plan lifecycle **(done)** | [`post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md`](post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md) |
+| 119 | Agent turn UI honesty and activity compaction **(done)** | [`post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md`](post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md) |
+| 120 | Post-plan executor routing and single-file edit bias **(done)** | [`post-mvp/120-post-plan-executor-routing-and-single-file-edits.md`](post-mvp/120-post-plan-executor-routing-and-single-file-edits.md) |
+| 121 | xAI model catalog and API sync (Grok Build 0.1, Voice) **(done)** | [`post-mvp/121-xai-model-catalog-and-api-sync.md`](post-mvp/121-xai-model-catalog-and-api-sync.md) |
 | 122 | Dynamic xAI model catalog + Settings picker | [`post-mvp/122-dynamic-xai-model-catalog-and-settings-picker.md`](post-mvp/122-dynamic-xai-model-catalog-and-settings-picker.md) |
+| 123 | Plan execute review follow-ups **(done)** | [`post-mvp/123-plan-execute-review-follow-ups.md`](post-mvp/123-plan-execute-review-follow-ups.md) |
+| 124 | Greenfield executor code quality and proposal recovery (Phase A) **(done)** | [`post-mvp/124-greenfield-executor-code-quality-and-proposal-recovery.md`](post-mvp/124-greenfield-executor-code-quality-and-proposal-recovery.md) |
+| 125 | Agent turn activity clarity and chat vertical space (Phase B) **(done)** | [`post-mvp/125-agent-turn-activity-clarity-and-chat-vertical-space.md`](post-mvp/125-agent-turn-activity-clarity-and-chat-vertical-space.md) |
+| 126 | Agent terminal command execution (safe, reviewable) | [`post-mvp/126-agent-terminal-command-execution.md`](post-mvp/126-agent-terminal-command-execution.md) |
+| 127 | Greenfield project scaffolding and initialization | [`post-mvp/127-greenfield-project-scaffolding-and-initialization.md`](post-mvp/127-greenfield-project-scaffolding-and-initialization.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
@@ -177,8 +182,10 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **Parallel (not harness-core):** ~~**081**~~ terminal dock **(closed)**.
 
-**UX / harness polish (post-116):** **118** Work vs Plan lifecycle → **119** activity honesty → **120** post-plan executor routing. **117** renderer stability if reproducible.
+**UX / harness polish (post-116):** ~~**118**~~ Work/Plan + trust vs velocity **(done)**; ~~**120**~~ post-plan executor routing **(done)**; ~~**119**~~ activity honesty **(done)**; ~~**124**~~ greenfield JS/proposal recovery (Phase A) **(done)**; ~~**125**~~ chat spinners + vertical space (Phase B) **(done)**. **117** renderer stability if reproducible.
 
-**xAI catalog sync:** **121** Grok Build 0.1 / Grok 4.3 reasoning / Voice defaults — do before large harness changes that assume old redirect behavior. **122** dynamic model list + Settings pickers (after **121**; reduces need for app releases when xAI ships new ids e.g. Grok 5.0).
+**xAI catalog sync:** ~~**121**~~ Grok Build 0.1 / Grok 4.3 reasoning / Voice defaults — do before large harness changes that assume old redirect behavior. **122** dynamic model list + Settings pickers (after **121**; reduces need for app releases when xAI ships new ids e.g. Grok 5.0).
 
-*Last progress update: **2026-05-26** — Backlog **121–122** (xAI catalog sync + dynamic model picker). **118–120** UX/harness polish; harness wave **102–116** complete.*
+**Greenfield / CLI (next):** **126** agent terminal command execution (approval UX, plan verify, policy — **higher priority**) → **127** project scaffolding and init (validation, multi-file bootstrap; best with **126** for `npm create` / install).
+
+*Last progress update: **2026-05-26** — **125** shipped; **126** / **127** added to post-MVP backlog (command execution before scaffolding).*

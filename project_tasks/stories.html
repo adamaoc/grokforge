@@ -309,10 +309,10 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">121 stories</span>
-        <span class="pill">Done: 109</span>
+        <span class="pill">126 stories</span>
+        <span class="pill">Done: 116</span>
         <span class="pill">Closed: 6</span>
-        <span class="pill">Post-MVP: 6</span>
+        <span class="pill">Post-MVP: 4</span>
         <span class="pill">Generated 2026-05-26</span>
       </div>
       <div class="story-filters">
@@ -8621,68 +8621,112 @@ chatMode (062)
 <p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-118" data-status="post-mvp">
+      <details id="story-118" data-status="done">
         <summary>
-          <span class="story-title"><span class="story-id">118</span><span class="story-name">Work vs Plan mode naming and conversation lifecycle</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="story-title"><span class="story-id">118</span><span class="story-name">Work vs Plan, trust/velocity temperament, plan lifecycle</span></span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
             <span>Post-MVP</span>
             <a class="story-link" href="post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md">post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md</a>
           </div>
-          <h2>118 — Work vs Plan mode naming and conversation lifecycle</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
-<p><strong>Design skill:</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> before changing composer mode control, onboarding copy, or turn-context badges (<code>@styleguide-design</code>).</p>
+          <h2>118 — Work vs Plan, harness temperament (trust / velocity), and conversation lifecycle</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Design skill:</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> before changing composer mode control, Settings, onboarding, or turn-context badges (<code>@styleguide-design</code>).</p>
 <h3>Why this story exists</h3>
-<p><strong>Field report (2026-05-25, ToDoApp harness test):</strong></p>
+<p><strong>Field reports (2026-05-25 / 2026-05-26):</strong> ToDoApp, TaskBoard docs, and a <strong>same-prompt Codex comparison</strong> for CodexForge Todo.</p>
 <ul>
-<li>User started a <strong>new</strong> project and the composer was already in <strong>Plan</strong> mode (may have been intentional for greenfield; may also be confusing if leftover <strong>per-project</strong> <code>localStorage</code> — today <code>grokforge.conversationMode.v1:&lt;projectId&gt;</code> defaults to <code>normal</code> for a new UUID).</li>
-<li>After the <strong>first</strong> plan-mode turn (structured <code>gf-plan</code>), mode <strong>stayed on Plan</strong>. A follow-up (“add a remove button”) ran through another full plan cycle — heavier than needed.</li>
-<li><strong>“Chat”</strong> feels like casual talk, not agent work. User prefers <strong>Work</strong> vs <strong>Plan</strong> in the UI.</li>
+<li><strong>Plan mode stuck</strong> after the first good <code>gf-plan</code>; follow-ups (“add remove button”, tech-stack doc update) re-ran full Plan · tools instead of incremental <strong>Work</strong>.</li>
+<li><strong>“Chat”</strong> undersells agent work — user prefers <strong>Work</strong> vs <strong>Plan</strong>.</li>
+<li><strong>Codex (velocity)</strong> felt smoother: inline plan → <strong>“Build it”</strong>, then a single work stream with auto-applied edits, compact file cards, and follow-ups without re-planning. GrokForge (trust) felt correct on safety but heavy on ceremony.</li>
+<li>User wants <strong>both</strong>: a <strong>trust harness</strong> (review-first) and a <strong>velocity harness</strong> (Codex-like full access) as an explicit <strong>user choice</strong>, not a one-size-fits-all default.</li>
 </ul>
+<p><strong>Product framing:</strong></p>
+<p>| | <strong>Trust</strong> | <strong>Velocity</strong> | |---|-----------|----------------| | <strong>Writes</strong> | Review diff → <strong>Apply all</strong> before disk | <strong>Auto-apply</strong> proposals when validation passes — <strong>without</strong> requiring the user to open the diff first | | <strong>After apply</strong> | Same as today | Diff still <strong>openable</strong> from proposal card / editor; <strong>Undo</strong> (batch snapshot via <strong><code>agent-undo-last-batch</code></strong>) remains | | <strong>Plan lifecycle</strong> | User controls Plan vs Work; may stay in Plan | Greenfield → <strong>Plan</strong> once; valid <code>gf-plan</code> → auto <strong>Work</strong>; <strong>Approve and run</strong> / <strong>Build it</strong> flips to Work + execute | | <strong>Follow-ups</strong> | Opt-in Plan | Default <strong>Work</strong> / executor bias (coordinate <strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong>) |</p>
+<p><strong>Locked (not this story):</strong> Keep single-file greenfield <code>index.html</code> (<strong>101</strong>); keep collapsed <strong><code>gf-plan</code> JSON</strong> plan cards; <strong>no</strong> in-app browser preview (copy path from tree is enough).</p>
 <h3>Goals</h3>
-<ol>
-<li><strong>Rename UI only (v1):</strong> Composer toggle <strong>Chat → Work</strong>; keep internal <code>conversationMode: 'normal' | 'plan'</code> and agent <code>chatMode: 'fast' | 'plan'</code> unless a follow-up explicitly migrates persisted turn labels.</li>
-<li><strong>Greenfield default:</strong> When opening a project with <strong>no chat history</strong> (welcome-only or empty thread) and workspace is <strong>greenfield</strong> (<code>isGreenfieldWorkspace</code>), default composer to <strong>Plan</strong> (do not require manual toggle).</li>
-<li><strong>Auto-exit Plan after first plan:</strong> When a plan-mode turn <strong>completes</strong> with a <strong>valid <code>gf-plan</code></strong>, automatically switch composer to <strong>Work</strong> (<code>normal</code>) and persist via <code>writeConversationMode</code>. User can re-select Plan anytime.</li>
-<li><strong>Discoverability:</strong> Mode strip or onboarding (<strong>095</strong>) mentions: *Plan for structured first pass; Work for follow-up edits and execution.*</li>
-</ol>
+<h4>1. Harness temperament (user setting)</h4>
+<ul>
+<li>Add <strong><code>grokforge.harnessTemperament.v1</code></strong> (or equivalent): <strong><code>trust</code></strong> | <strong><code>velocity</code></strong> (display: <strong>Trust</strong> / <strong>Velocity</strong> — names TBD in UI).</li>
+<li><strong>Settings → Agent</strong> (or new subsection): primary control + short copy explaining trust vs velocity.</li>
+<li><strong>Composer affordance:</strong> Small chip near mode control (Codex-style “Full access” visibility) showing active temperament; optional quick switch without opening Settings.</li>
+<li><strong>Mapping:</strong></li>
+<li><strong>Trust</strong> → <code>grokforge.agentWritesMode</code> = <strong><code>batch_confirm</code></strong> (existing).</li>
+<li><strong>Velocity</strong> → <strong><code>auto_apply</code></strong> (existing), with behavior below enforced on turn complete.</li>
+<li>Deprecate duplicative mental model: temperament is the source of truth; Settings may still show writes mode as derived or hide duplicate toggles.</li>
+</ul>
+<h4>2. Velocity auto-apply (no diff gate)</h4>
+<ul>
+<li>On <strong><code>edit_proposal</code></strong> / turn <strong><code>done</code></strong>, when temperament is <strong>velocity</strong> and proposal passes validation + safety checks: call apply path <strong>without</strong> requiring <code>agentDiffOpenRef</code> / manual <strong>Apply all</strong>.</li>
+<li>User <strong>does not</strong> need to open the diff review pane first; files land on disk when the turn completes (same as today’s <code>auto_apply</code> intent, but explicitly <strong>not</strong> gated on viewing the diff).</li>
+<li><strong>Trust</strong> unchanged: proposal card + <strong>Review diff</strong> + <strong>Apply all</strong> before write.</li>
+</ul>
+<h4>3. Review and undo after auto-apply</h4>
+<ul>
+<li>After velocity auto-apply: proposal card shows <strong>applied</strong> state (or toast); user can still <strong>Review diff</strong> (read-only or post-apply view) from card or editor.</li>
+<li><strong>Undo</strong> remains: <strong><code>agent-undo-last-batch</code></strong> (and applied-edit history <strong>096</strong> if surfaced) for the last applied batch — document in UI copy.</li>
+<li>No silent apply without snapshot: main <strong><code>agent-tool-batch</code></strong> undo snapshot behavior unchanged (<strong>047</strong>).</li>
+</ul>
+<h4>4. Work vs Plan naming and lifecycle</h4>
+<ul>
+<li>Composer toggle <strong>Chat → Work</strong>; keep internal <code>conversationMode: 'normal' | 'plan'</code> and agent <code>chatMode: 'fast' | 'plan'</code> unless a later story migrates persisted turn labels.</li>
+<li><strong>Greenfield default (both temperaments):</strong> Empty thread + <code>isGreenfieldWorkspace</code> → composer <strong>Plan</strong>.</li>
+<li><strong>Velocity only:</strong> When plan-mode turn <strong>completes</strong> with valid <strong><code>gf-plan</code></strong>, auto-switch to <strong>Work</strong> + <code>writeConversationMode(projectId, 'normal')</code>.</li>
+<li><strong>Trust:</strong> Auto-exit Plan after first plan is <strong>off</strong> (user stays in Plan until they switch) — or document as optional sub-toggle; default <strong>off</strong> per user preference.</li>
+<li><strong>Discoverability:</strong> Onboarding / mode hint — *Plan for structured first pass; Work for follow-up edits.*</li>
+</ul>
+<h4>5. Codex-like plan → execute (velocity)</h4>
+<ul>
+<li>On <strong><code>PlanModeCard</code></strong>, primary CTA remains <strong>Approve and run</strong>; in velocity, completing approve-and-run also ensures composer is <strong>Work</strong> (not left on Plan).</li>
+<li>Optional label alias <strong>“Build it”</strong> on primary CTA when temperament is velocity (copy-only; same IPC as approve-and-run).</li>
+</ul>
 <h3>Non-goals</h3>
 <ul>
-<li>Removing Plan mode or changing dual-model routing (<strong>097</strong>, <strong>103</strong>).</li>
-<li>Forcing Work mode during <strong>Executing</strong> (approve-and-run) — <strong>Executing</strong> chip stays as today.</li>
+<li>Removing Plan mode, <strong><code>gf-plan</code> JSON</strong> artifacts (<strong>109</strong>), or dual-model routing (<strong>097</strong>, <strong>103</strong>).</li>
+<li>In-app browser / localhost preview panel.</li>
+<li>Multi-file greenfield scaffold (stay single <code>index.html</code>).</li>
+<li>Forcing Work during <strong>Executing</strong> chip — unchanged.</li>
+<li>Activity compaction / retrieval copy (<strong>119</strong>) or post-plan routing heuristics (<strong>120</strong>) — separate stories; <strong>120</strong> more important when velocity + Work default ship.</li>
 </ul>
 <h3>Scope</h3>
 <ul>
-<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — labels, auto-switch on <code>done</code> + valid plan, greenfield default on thread load</li>
-<li><a href="../../src/renderer/src/lib/conversation-mode-storage.ts"><code>src/renderer/src/lib/conversation-mode-storage.ts</code></a> — optional <code>grokforge.conversationMode.greenfieldDefault.v1</code> if needed</li>
-<li><a href="../../src/shared/workspace-greenfield.ts"><code>src/shared/workspace-greenfield.ts</code></a> — reuse greenfield helper (renderer via existing types IPC or index stats if exposed)</li>
-<li><a href="../../src/renderer/src/components/AgentOnboardingDialog.tsx"><code>src/renderer/src/components/AgentOnboardingDialog.tsx</code></a> — Fast/Plan → Work/Plan copy</li>
-<li><a href="../../src/renderer/src/components/ChatTurnContextUi.tsx"><code>src/renderer/src/components/ChatTurnContextUi.tsx</code></a> — display strings where user sees <code>fast</code> / <code>chat</code></li>
+<li><a href="../../src/renderer/src/lib/agent-writes-mode.ts"><code>src/renderer/src/lib/agent-writes-mode.ts</code></a> — temperament helper or migration from writes-only key</li>
+<li><a href="../../src/renderer/src/components/SettingsPage.tsx"><code>src/renderer/src/components/SettingsPage.tsx</code></a> — Trust / Velocity control</li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — auto-apply without diff-open gate, temperament chip, Work/Plan labels, plan auto-exit (velocity), greenfield Plan default</li>
+<li><a href="../../src/renderer/src/lib/conversation-mode-storage.ts"><code>src/renderer/src/lib/conversation-mode-storage.ts</code></a></li>
+<li><a href="../../src/shared/workspace-greenfield.ts"><code>src/shared/workspace-greenfield.ts</code></a> — greenfield default Plan</li>
+<li><a href="../../src/renderer/src/components/PlanModeCard.tsx"><code>src/renderer/src/components/PlanModeCard.tsx</code></a> — optional “Build it” label</li>
+<li><a href="../../src/renderer/src/components/AgentOnboardingDialog.tsx"><code>src/renderer/src/components/AgentOnboardingDialog.tsx</code></a> — Work/Plan + temperament one-liner</li>
+<li><a href="../../src/renderer/src/components/ChatTurnContextUi.tsx"><code>src/renderer/src/components/ChatTurnContextUi.tsx</code></a> — display strings</li>
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Composer shows <strong>Work</strong> and <strong>Plan</strong>; no user-facing <strong>Chat</strong> for conversation mode.</li>
-<li><input type="checkbox" disabled> New greenfield project opens with <strong>Plan</strong> selected when thread has no prior user messages.</li>
-<li><input type="checkbox" disabled> After first successful <code>gf-plan</code> turn, composer switches to <strong>Work</strong> without user action; <code>localStorage</code> reflects <code>normal</code> for that <code>projectId</code>.</li>
-<li><input type="checkbox" disabled> Re-opening project respects saved mode (Work) after auto-exit.</li>
-<li><input type="checkbox" disabled> Manual Plan toggle still works; second plan turn is opt-in.</li>
-<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes; manual smoke: greenfield plan → follow-up message uses <strong>Work</strong> / executor-style routing unless user re-enables Plan.</li>
+<li><input type="checkbox" disabled> Settings (and composer chip) expose <strong>Trust</strong> vs <strong>Velocity</strong>; choice persists in <code>localStorage</code>.</li>
+<li><input type="checkbox" disabled> <strong>Velocity:</strong> valid proposal on turn complete auto-applies <strong>without</strong> opening diff; disk updates; undo still works via existing batch undo.</li>
+<li><input type="checkbox" disabled> <strong>Velocity:</strong> user can open diff after apply from proposal card / editor; applied state is clear.</li>
+<li><input type="checkbox" disabled> <strong>Trust:</strong> behavior matches current review-before-apply (<code>batch_confirm</code>).</li>
+<li><input type="checkbox" disabled> Composer shows <strong>Work</strong> and <strong>Plan</strong> (no user-facing <strong>Chat</strong>).</li>
+<li><input type="checkbox" disabled> Greenfield empty thread opens in <strong>Plan</strong>.</li>
+<li><input type="checkbox" disabled> <strong>Velocity:</strong> after first valid <code>gf-plan</code>, composer switches to <strong>Work</strong>; follow-up send defaults to Work unless user selects Plan.</li>
+<li><input type="checkbox" disabled> <strong>Trust:</strong> Plan mode not auto-cleared after first plan (unless user switches).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes; manual smoke: velocity greenfield plan → approve/build → auto-apply → follow-up in Work without second plan stepper.</li>
 </ul>
 <h3>Related</h3>
 <ul>
-<li><strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong>, <strong><a href="101-greenfield-plan-quality.md">101</a></strong>, <strong><a href="095-first-project-onboarding.md">095</a></strong></li>
-<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — harness bias when already in Work mode</li>
+<li><strong><a href="../047-diff-apply-discard-and-conflict-safety.md">047</a></strong>, <strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong>, <strong><a href="089-agent-edit-safe-vs-power-mode.md">089</a></strong> — writes / safe mode</li>
+<li><strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong>, <strong><a href="101-greenfield-plan-quality.md">101</a></strong>, <strong><a href="109-rpi-plan-artifacts-on-disk.md">109</a></strong>, <strong><a href="095-first-project-onboarding.md">095</a></strong></li>
+<li><strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong>, <strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — polish; <strong>120</strong> pairs with velocity Work default</li>
+<li><strong><a href="121-xai-model-catalog-and-api-sync.md">121</a></strong> — catalog defaults updated (<code>grok-build-0.1</code> for coding slots); Work/Plan lifecycle in this story is unchanged</li>
 </ul>
 <h3>Completion bookkeeping</h3>
-<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> UX polish line, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-119" data-status="post-mvp">
+      <details id="story-119" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">119</span><span class="story-name">Agent turn UI honesty and activity compaction</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8690,7 +8734,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md">post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md</a>
           </div>
           <h2>119 — Agent turn UI honesty and activity compaction</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
 <p><strong>Design skill:</strong> Read <code>.cursor/skills/styleguide-design/SKILL.md</code> for activity list and toast copy (<code>@styleguide-design</code>).</p>
 <h3>Why this story exists</h3>
 <p><strong>Field report (2026-05-25, ToDoApp):</strong> Harness behavior was correct (merged proposal, one diff card) but the <strong>UI lied by omission</strong>:</p>
@@ -8716,11 +8760,11 @@ chatMode (062)
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> ToDoApp-style 4× S&amp;R turn shows ≤2 activity rows or one rolled-up row with count.</li>
-<li><input type="checkbox" disabled> Greenfield first turn retrieval detail does not use “Found … 0 files” without context.</li>
-<li><input type="checkbox" disabled> Eval or unit test: final-answer contract includes merged-edit hint when <code>mergeAgentEditProposals</code> ran (or tag in runner eval).</li>
-<li><input type="checkbox" disabled> Execute done with visible proposal: at most one prominent apply CTA (card or toast, not both).</li>
-<li><input type="checkbox" disabled> <code>npm run typecheck</code> and targeted tests pass.</li>
+<li><input type="checkbox" disabled checked> ToDoApp-style 4× S&amp;R turn shows ≤2 activity rows or one rolled-up row with count.</li>
+<li><input type="checkbox" disabled checked> Greenfield first turn retrieval detail does not use “Found … 0 files” without context.</li>
+<li><input type="checkbox" disabled checked> Eval or unit test: final-answer contract includes merged-edit hint when <code>mergeAgentEditProposals</code> ran (or tag in runner eval).</li>
+<li><input type="checkbox" disabled checked> Execute done with visible proposal: at most one prominent apply CTA (card or toast, not both).</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and targeted tests pass.</li>
 </ul>
 <h3>Related</h3>
 <ul>
@@ -8730,10 +8774,10 @@ chatMode (062)
 <p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-120" data-status="post-mvp">
+      <details id="story-120" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">120</span><span class="story-name">Post-plan executor routing and single-file edit bias</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8741,7 +8785,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/120-post-plan-executor-routing-and-single-file-edits.md">post-mvp/120-post-plan-executor-routing-and-single-file-edits.md</a>
           </div>
           <h2>120 — Post-plan executor routing and single-file edit bias</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
 <p><strong>Design skill:</strong> N/A (harness prompts + tool bias); minor composer hint if needed.</p>
 <h3>Why this story exists</h3>
 <p><strong>Field report (2026-05-25):</strong> After an approved greenfield plan and a working <code>index.html</code>, follow-ups (“add remove button”, “dark mode styling”) still triggered <strong>full Plan · tools</strong> cycles and <strong>many <code>search_replace</code></strong> tool calls on a <strong>single file</strong> instead of a tight <strong>executor</strong> pass with one <strong><code>propose_file_edits</code></strong> (or one composed proposal).</p>
@@ -8766,10 +8810,10 @@ chatMode (062)
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Eval: approved plan exists + “add delete button” user line → executor tools, no <code>gf-plan</code> requirement on final answer.</li>
-<li><input type="checkbox" disabled> Eval or manual: single-file todo HTML follow-up prefers <code>propose_file_edits</code> over 4× S&amp;R when model complies.</li>
-<li><input type="checkbox" disabled> Explicit “create a new plan” / Plan mode still produces <code>gf-plan</code>.</li>
-<li><input type="checkbox" disabled> <code>npm run test:agent-eval</code> passes for touched profiles.</li>
+<li><input type="checkbox" disabled checked> Eval: approved plan exists + “add delete button” user line → executor tools, no <code>gf-plan</code> requirement on final answer.</li>
+<li><input type="checkbox" disabled checked> Eval or manual: single-file todo HTML follow-up prefers <code>propose_file_edits</code> over 4× S&amp;R when model complies.</li>
+<li><input type="checkbox" disabled checked> Explicit “create a new plan” / Plan mode still produces <code>gf-plan</code>.</li>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> passes for touched profiles.</li>
 </ul>
 <h3>Related</h3>
 <ul>
@@ -8779,10 +8823,10 @@ chatMode (062)
 <p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> debt table if needed, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-121" data-status="post-mvp">
+      <details id="story-121" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">121</span><span class="story-name">xAI model catalog and API sync (Grok Build 0.1, Voice)</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -8790,7 +8834,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/121-xai-model-catalog-and-api-sync.md">post-mvp/121-xai-model-catalog-and-api-sync.md</a>
           </div>
           <h2>121 — xAI model catalog and API sync (Grok Build 0.1, Grok 4.3, Voice)</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
 <p><strong>Design skill:</strong> Read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> for Settings → Models / Voice copy, TTS voice picker, and any model-id labels in chat chrome.</p>
 <p><strong>Depends on:</strong> Nothing (research + alignment story). Touches foundations from <a href="102-dual-model-manifest-and-harness-foundation.md"><strong>102</strong></a>, <a href="103-agent-harness-per-model-profiles.md"><strong>103</strong></a>, <a href="113-voice-realtime-harness-profile-alignment.md"><strong>113</strong></a>.</p>
 <p><strong>Blocks:</strong> Optional follow-ups (reasoning effort UI, STT, multimodal chat attachments) — list as separate stories if scoped out here.</p>
@@ -9029,6 +9073,444 @@ chatMode (062)
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-123" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">123</span><span class="story-name">Plan execute review follow-ups</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/123-plan-execute-review-follow-ups.md">post-mvp/123-plan-execute-review-follow-ups.md</a>
+          </div>
+          <h2>123 — Plan execute review follow-ups</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Design skill:</strong> N/A for routing contract cleanup; read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>styleguide-design</code></a> if the Plan card / composer status UI changes.</p>
+<h3>Why this story exists</h3>
+<p>Code review on the uncommitted master changes found two remaining reliability seams around <strong>Plan approve -&gt; execute</strong> after stories <strong>118</strong>, <strong>120</strong>, and <strong>121</strong>:</p>
+<ol>
+<li>The renderer now sends approve-and-run turns through <strong><code>models.execution</code></strong>, but the shared payload, main Zod schema, unit tests, docs, and one composer tooltip still preserve or describe the old <strong><code>planWorkflowUsePlanningModel</code></strong> override.</li>
+<li>The Plan card marks execute as done/failed from renderer-local activity state plus a boolean that only means an edit proposal event happened. In Velocity mode, auto-apply may fail or skip after a valid proposal, yet the card can still show execution as complete.</li>
+</ol>
+<p>These are not blocking the current test suite, but they are easy places for future agents or contributors to reintroduce the old routing behavior or show overly optimistic execute status.</p>
+<h3>Goals</h3>
+<h4>1. Reconcile the approve-and-run routing contract</h4>
+<ul>
+<li>Decide whether <code>planWorkflowUsePlanningModel</code> is truly retired or still a supported advanced path.</li>
+<li>If retired, remove it from:</li>
+<li><code>src/shared/agent-chat-contract.ts</code></li>
+<li><code>src/main/agent-runner.ts</code> payload schema</li>
+<li><code>src/shared/agent-turn-routing.ts</code></li>
+<li>routing tests that assert the planning override</li>
+<li>AGENTS / docs / renderer tooltips that say Plan approve-and-run stays on <code>models.planning</code></li>
+<li>If supported, update renderer behavior and docs so the flag is intentionally surfaced, tested, and not contradicted by the Work/Plan copy.</li>
+</ul>
+<h4>2. Make Plan execute outcome reflect apply outcome</h4>
+<ul>
+<li>Track execute outcome from durable events rather than only <code>agentActivitiesRef.current</code> and <code>proposalCreatedInTurnRef</code>.</li>
+<li>In <strong>Velocity</strong>, do not mark the Plan run as <code>done</code> until auto-apply reports a complete or partial apply result.</li>
+<li>If auto-apply fails, conflicts, or applies zero files, keep the proposal visible and mark the run as failed or needs-review with honest copy.</li>
+<li>In <strong>Trust</strong>, distinguish &quot;proposal ready for review&quot; from &quot;files written&quot;; avoid copy that implies disk writes already happened.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> One canonical approve-and-run routing contract exists; tests, docs, AGENTS, renderer tooltips, and main schema agree.</li>
+<li><input type="checkbox" disabled checked> A stale <code>planWorkflowUsePlanningModel</code> payload cannot silently route a normal approve-and-run execute turn to the planning model unless that path is deliberately supported.</li>
+<li><input type="checkbox" disabled checked> Velocity approve-and-run with rejected/conflicting/zero-applied writes leaves the Plan card in failed or needs-review state, not completed.</li>
+<li><input type="checkbox" disabled checked> Trust approve-and-run with a valid proposal clearly communicates &quot;review/apply pending&quot; rather than &quot;written&quot;.</li>
+<li><input type="checkbox" disabled checked> Regression tests cover execute success, edit rejection, auto-apply failure/conflict, and trust-mode pending proposal.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong> — Work vs Plan and temperament</li>
+<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — executor routing / single-file bias</li>
+<li><strong><a href="121-xai-model-catalog-and-api-sync.md">121</a></strong> — model ids and reasoning effort</li>
+<li><strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong> — original approve-and-run flow</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> debt table if needed, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-124" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">124</span><span class="story-name">Greenfield executor code quality and proposal recovery (Phase A)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/124-greenfield-executor-code-quality-and-proposal-recovery.md">post-mvp/124-greenfield-executor-code-quality-and-proposal-recovery.md</a>
+          </div>
+          <h2>124 — Greenfield executor code quality and proposal recovery (Phase A)</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Priority:</strong> <strong>Phase A</strong> — slightly higher than <strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong> (harness reliability blocks successful multi-file execute before UI polish pays off).</p>
+<p><strong>Design skill:</strong> N/A (harness prompts, validation, runner recovery); read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>styleguide-design</code></a> only if proposal rejection UX copy changes.</p>
+<h3>Why this story exists</h3>
+<p><strong>Dogfood session (2026-05-26, greenfield Todo app):</strong> After approving a simple multi-file plan (HTML + CSS + JS), planning worked and <strong>HTML/CSS proposals applied</strong>, but <strong><code>script.js</code> repeatedly failed validation</strong> with messages like *corrupted / orphan closing parentheses*. Only <strong>2 of 3</strong> planned files landed on disk because the JS <code>write_file</code> kept getting rejected while the turn still felt “mostly done.”</p>
+<p>This is a <strong>harness quality and recovery</strong> problem, not a Plan-mode routing issue (<strong>118</strong>, <strong>120</strong> already shipped). Existing guards (<strong>115</strong>, <strong>116</strong>, <code>agent-edit-corrupt-content.ts</code>, crushed-script detection) catch bad output but do not yet <strong>steer the executor</strong> toward clean multi-file JS on the first or second attempt, nor <strong>recover gracefully</strong> when one path in a batch is rejected.</p>
+<h3>Goals</h3>
+<ol>
+<li><strong>Higher-quality first proposals:</strong> Strengthen greenfield <strong>execute</strong> guidance so new apps prefer <strong><code>index.html</code> + <code>styles.css</code> + <code>script.js</code></strong> (or equivalent) with <strong>real line breaks</strong>, valid JS syntax, and <strong>no inline crushed <code>&lt;script&gt;</code></strong> when the plan calls for separate files.</li>
+<li><strong>JS-specific validation clarity:</strong> Tune corrupt-content / proposal-quality checks for <code>.js</code> so true positives stay high but rejection reasons are actionable (what to fix, not generic “corrupted”).</li>
+<li><strong>Normalization before reject:</strong> Where safe, auto-normalize common model mistakes (glued statements, orphan <code>)</code> lines, one-line stubs) before hard rejection — align with <strong>100</strong> markdown normalize patterns where applicable.</li>
+<li><strong>Partial-batch recovery:</strong> When a multi-file <code>propose_file_edits</code> accepts some paths and rejects others (e.g. HTML ok, JS corrupt), inject a <strong>single mid-turn recovery nudge</strong> or final-answer contract line: re-read <code>rawContent</code>, resubmit <strong>only failed paths</strong> with complete file bodies — do not claim the turn fully succeeded.</li>
+<li><strong>Single-file vs multi-file bias:</strong> When the approved plan lists multiple concrete paths, discourage executor from stuffing all JS into <code>index.html</code>; reinforce <strong>120</strong> single-file bias only when the workspace/index is actually single-file post-bootstrap.</li>
+<li><strong>Eval regressions:</strong> Add focused harness eval cases for greenfield execute producing valid <code>script.js</code> (or honest failure after bounded retries).</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Replacing corrupt-content detection with “trust the model.”</li>
+<li>Chat UI spinners, scrolling, or activity layout (<strong>125</strong>).</li>
+<li>Changing approve-and-run routing or Plan card apply semantics (<strong>123</strong>).</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a> — <code>GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS</code>, executor-from-plan appendices, multi-file JS guidance</li>
+<li><a href="../../src/shared/agent-edit-corrupt-content.ts"><code>src/shared/agent-edit-corrupt-content.ts</code></a> — JS orphan-paren / jammed-source heuristics and rejection copy</li>
+<li><a href="../../src/shared/agent-proposal-quality.ts"><code>src/shared/agent-proposal-quality.ts</code></a> / <a href="../../src/shared/agent-file-content-normalize.ts"><code>src/shared/agent-file-content-normalize.ts</code></a> — optional JS normalize pass</li>
+<li><a href="../../src/main/agent-edit-proposals.ts"><code>src/main/agent-edit-proposals.ts</code></a> — <code>validateAgentEditProposal</code>, partial rejection handling</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — recovery nudge when batch has accepted + rejected ops; final-answer honesty for partial execute</li>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — partial multi-file failure appendix</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> + <a href="../../src/shared/agent-eval-tags.ts"><code>src/shared/agent-eval-tags.ts</code></a></li>
+</ul>
+<h3>Suggested eval tags</h3>
+<p>Add to <code>agent-eval-tags.ts</code> and use in <code>agent-runner-evaluation.test.ts</code> names/comments:</p>
+<p>| Tag | Intent | |-----|--------| | <code>behavior:greenfield_execute</code> | Approve-and-run over empty/near-empty workspace with multi-file plan | | <code>validation:js_corruption</code> | Reject or recover crushed/invalid <code>script.js</code> proposals | | <code>recovery:partial_batch</code> | Some <code>write_file</code> ops accepted, one path rejected — harness nudge + honest final answer |</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Eval or fixture: greenfield execute turn with plan paths <code>index.html</code>, <code>styles.css</code>, <code>script.js</code> — valid non-crushed <code>script.js</code> content passes validation (or deterministic reject + recovery nudge within the same turn).</li>
+<li><input type="checkbox" disabled checked> Eval: intentionally corrupt <code>script.js</code> proposal triggers rejection with reason mentioning fix strategy (full file from <code>rawContent</code>, line breaks, separate file) — not a generic one-liner.</li>
+<li><input type="checkbox" disabled checked> When a multi-file proposal has ≥1 accepted op and ≥1 rejected op, main injects recovery guidance once and final-answer contract forbids claiming all planned files were created.</li>
+<li><input type="checkbox" disabled checked> Executor harness appendix for multi-file greenfield explicitly prefers external <code>script.js</code> over inline crushed scripts when the plan lists separate JS path.</li>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> and <code>npm run typecheck</code> pass; update corrupt-content / edit-proposal unit tests if heuristics change.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="101-greenfield-plan-quality.md">101</a></strong> — planner greenfield plan shape</li>
+<li><strong><a href="../100-proposal-quality-auto-normalize.md">100</a></strong> — markdown normalize / stub reject</li>
+<li><strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong> — S&amp;R escalation</li>
+<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — post-plan / single-file bias (do not over-apply to fresh multi-file execute)</li>
+<li><strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong> — approve-and-run</li>
+<li><strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong> — UI noise (Phase B)</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> if debt row added, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-125" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">125</span><span class="story-name">Agent turn activity clarity and chat vertical space (Phase B)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/125-agent-turn-activity-clarity-and-chat-vertical-space.md">post-mvp/125-agent-turn-activity-clarity-and-chat-vertical-space.md</a>
+          </div>
+          <h2>125 — Agent turn activity clarity and chat vertical space (Phase B)</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Priority:</strong> <strong>Phase B</strong> — after <strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong> (Phase A); improves diagnosis and calm during turns once proposals are more reliable.</p>
+<p><strong>Design skill:</strong> Required — read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> (<code>@styleguide-design</code>) for chat layout, activity list density, and spinner/loading patterns.</p>
+<h3>Why this story exists</h3>
+<p><strong>Dogfood session (2026-05-26, greenfield Todo app):</strong> After <strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong> shipped activity compaction and toast dedupe, an approve-and-run execute still felt <strong>noisy and hard to scan</strong>:</p>
+<ul>
+<li><strong>Planning spinners</strong> (Plan stepper / phase chips / tool activity “running” states) <strong>continued after execution started</strong> and sometimes <strong>after the turn finished</strong>.</li>
+<li>Validation failures on <code>script.js</code> were <strong>buried</strong> in vertical clutter — long activity lists, proposal card, Plan card, and composer chrome competed for attention.</li>
+<li><strong>Scrolling</strong> in the chat column did not keep the latest error or proposal in view reliably during active turns.</li>
+<li>Duplicate <strong>loading affordances</strong> (<code>isThinking</code>, live tool <code>running</code> rows, plan execute phase) made it unclear what the harness was still doing.</li>
+</ul>
+<p><strong>119</strong> addressed misleading copy (retrieval “0 files”, merged S&amp;R rollup, merged-edit final-answer hint, execute toast dedupe). <strong>125</strong> targets <strong>layout, lifecycle-bound spinners, and scanability</strong> during Plan → execute → review.</p>
+<h3>Goals</h3>
+<ol>
+<li><strong>Spinner honesty:</strong> Plan-phase and execute-phase loading indicators must <strong>clear when the linked agent turn completes, cancels, or errors</strong> — including plan message stepper vs live execute turn (<code>executingPlanMessageId</code>).</li>
+<li><strong>One primary “busy” surface:</strong> Avoid simultaneous ambiguous spinners (composer thinking, Plan stepper executing, activity list <code>running</code> dots) without a single canonical phase label.</li>
+<li><strong>Vertical density:</strong> Tighten activity list, plan card, and proposal blocks during live turns (collapsed-by-default older rows, smaller gaps, optional sticky error row) so a 3-file execute fits in less scroll depth.</li>
+<li><strong>Scroll behavior:</strong> When <code>edit_proposal</code>, terminal error activity, or failed validation arrives, <strong>pin or scroll</strong> the chat transcript so the user sees the actionable surface without manual hunt.</li>
+<li><strong>Error prominence:</strong> Failed tool rows and <code>rejected</code> proposal paths use consistent <strong>amber/red</strong> treatment and one-line summary at top of activity panel (build on <strong>119</strong> compaction).</li>
+<li><strong>Toast discipline:</strong> Extend <strong>119</strong> rules — no redundant success/info toasts when proposal card + Plan card already state next action; surface <strong>partial execute</strong> (2/3 files) in card copy, not only buried activity detail.</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Changing corrupt-content validation rules (<strong>124</strong>).</li>
+<li>Replacing Monaco diff or proposal merge semantics.</li>
+<li>macOS black screen on resume (<strong>117</strong>) unless the same repro is filed with steps.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — <code>isThinking</code>, <code>streamingStreamId</code>, scroll container, <code>pinChatToBottom</code>, plan execute lifecycle hooks</li>
+<li><a href="../../src/renderer/src/components/AgentTurnToolActivityList.tsx"><code>src/renderer/src/components/AgentTurnToolActivityList.tsx</code></a> — density, running-state display, error summary</li>
+<li><a href="../../src/renderer/src/components/PlanPhaseStepper.tsx"><code>src/renderer/src/components/PlanPhaseStepper.tsx</code></a> / <a href="../../src/renderer/src/components/PlanModeCard.tsx"><code>PlanModeCard.tsx</code></a> — phase vs <code>executingPlanMessageId</code> spinner sync</li>
+<li><a href="../../src/renderer/src/hooks/usePlanExecuteLifecycle.ts"><code>src/renderer/src/hooks/usePlanExecuteLifecycle.ts</code></a> — clear executing state on <code>done</code> / <code>error</code> / <code>cancelled</code></li>
+<li><a href="../../src/renderer/src/lib/plan-interaction-storage.ts"><code>src/renderer/src/lib/plan-interaction-storage.ts</code></a> — <code>derivePlanUiPhase</code> vs live turn</li>
+<li><a href="../../src/renderer/src/lib/plan-execute-lifecycle.ts"><code>src/renderer/src/lib/plan-execute-lifecycle.ts</code></a> — toast guards (extend <strong>119</strong>)</li>
+<li><a href="../../src/renderer/src/components/ChatTurnContextUi.tsx"><code>src/renderer/src/components/ChatTurnContextUi.tsx</code></a> — optional compact turn banner</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> <strong>Manual:</strong> Approve-and-run on a plan message → Plan stepper shows <strong>executing</strong> only while the execute stream is active; returns to <strong>review</strong> / <strong>done</strong> / <strong>failed</strong> within one UI frame of <code>done</code> / <code>error</code> / <code>cancelled</code> (no stuck “Planning” or infinite stepper spinner).</li>
+<li><input type="checkbox" disabled> <strong>Manual:</strong> After turn completes, no <code>Loader2</code> spinners remain in the activity list except for a new live turn.</li>
+<li><input type="checkbox" disabled> <strong>Manual:</strong> On <code>script.js</code> (or any) validation failure, user can see the failure reason <strong>without scrolling past</strong> more than one screen of tool rows (activity error summary or auto-scroll to failed row).</li>
+<li><input type="checkbox" disabled> <strong>Manual:</strong> With proposal card visible, no extra toast repeats “apply” or “combined edits” (<strong>119</strong> behavior preserved).</li>
+<li><input type="checkbox" disabled> <strong>Manual:</strong> Partial multi-file execute (some paths rejected) — Plan card or proposal header states <strong>which paths failed</strong> in one line.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes; add renderer unit tests for phase derivation / spinner clearing if logic is extracted.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong> — activity compaction, retrieval copy, toast dedupe <strong>(done)</strong></li>
+<li><strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong> — plan stepper baseline</li>
+<li><strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong> — Work/Plan lifecycle</li>
+<li><strong><a href="123-plan-execute-review-follow-ups.md">123</a></strong> — execute outcome vs auto-apply <strong>(done)</strong></li>
+<li><strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong> — JS validation / partial recovery (Phase A)</li>
+<li><strong><a href="../093-agent-tool-activity-in-chat-thread.md">093</a></strong> — inline tool activity</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-126" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">126</span><span class="story-name">Agent terminal command execution (safe, reviewable)</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/126-agent-terminal-command-execution.md">post-mvp/126-agent-terminal-command-execution.md</a>
+          </div>
+          <h2>126 — Agent terminal command execution (safe, reviewable, non-regressing)</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Priority:</strong> <strong>Higher than <a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong> — real project init and verification depend on approved commands; scaffolding story assumes this path is reliable.</p>
+<p><strong>Design skill:</strong> Required — read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> (<code>@styleguide-design</code>) for approval cards, activity rows, Settings copy, and temperament-aware affordances.</p>
+<h3>Why this story exists</h3>
+<p>GrokForge already ships <strong>infrastructure</strong> for model-requested commands (<strong><a href="../059-agent-command-tool-approvals.md">059</a></strong>, <strong><code>run_command</code></strong> tool, <strong><code>run-command-policy</code></strong>, guarded spawn in <strong><code>run-command.ts</code></strong>) and a <strong>separate human PTY terminal</strong> (<strong>050–054</strong>, <strong>053</strong> boundaries). In practice, dogfood and field reports show a <strong>capability gap</strong>, not a missing IPC:</p>
+<ul>
+<li><strong>Greenfield and scaffold workflows</strong> (<code>npm create</code>, <code>npm install</code>, <code>git init</code>, <code>npm run build</code>, <code>npx</code>, typecheck/test) are described in plans (<strong><a href="101-greenfield-plan-quality.md">101</a></strong>) but often <strong>never run</strong> because the model leans on hand-written <code>package.json</code> + <code>propose_file_edits</code> alone — slower, more validation failures, and unlike Codex/Cursor velocity paths (<a href="../../docs/field-reports/codex-todoapp-comparison.md"><code>docs/field-reports/codex-todoapp-comparison.md</code></a>).</li>
+<li>Users happy with <strong>existing-project edit loops</strong> (<strong>115–116</strong>, <strong>120</strong>, <strong>124</strong>) report that command tooling feels <strong>secondary</strong>: approval UX is easy to miss, output is buried in activity, and there is no <strong>first-class “run this step from the plan”</strong> rhythm next to diff review.</li>
+<li><strong>Safety is correct but incomplete for product use:</strong> every command requires approval (<strong>059</strong>), yet there is no <strong>tiered policy</strong> (e.g. allow-listed read-only diagnostics vs install/network), no <strong>session-scoped remember</strong> for repeated safe patterns, and no clear link between <strong>Plan verification steps</strong> and one-click approve.</li>
+</ul>
+<p>This story <strong>expands and productizes</strong> agent command execution without changing the trust model for <strong>file writes</strong> (<code>propose_file_edits</code> / diff review / temperament <strong>118</strong>).</p>
+<h3>Goals</h3>
+<h4>1. Make command execution a first-class agent capability</h4>
+<ul>
+<li>Executor / default profiles should <strong>reach for <code>run_command</code></strong> when the user or approved plan asks to install, scaffold via CLI, init git, or verify (typecheck, test, build) — with harness copy that matches <strong>file-edit</strong> honesty (never claim a command ran without tool result).</li>
+<li>After a successful command that creates or changes files under a root, trigger <strong>bounded workspace refresh</strong> (index / tree) so the agent and user see new files without a manual reload.</li>
+</ul>
+<h4>2. Safety model (explicit, limited V1 scope)</h4>
+<p><strong>Default remains: human approval before every model-requested command</strong> (preserve <strong>059</strong> / <strong>053</strong> boundary: agent ≠ human PTY).</p>
+<p>Proposed <strong>incremental</strong> policy layers (ship in phases within this story or follow-up slices — document in PR):</p>
+<p>| Tier | Examples | Behavior | |------|----------|----------| | <strong>Hard deny</strong> | <code>rm -rf /</code>, <code>dd</code> to block devices, fork bombs | Unchanged — never run (<strong><code>run-command-policy</code></strong>). | | <strong>Soft risk</strong> | <code>sudo</code>, <code>rm -rf</code> under cwd, pipe-to-shell | Require explicit ack checkbox in approval UI (existing <code>needs_ack</code>). | | <strong>Network / install</strong> | <code>npm install</code>, <code>npx</code>, <code>npm create</code>, <code>git clone</code>, <code>curl</code> | Always show <strong>network/install</strong> banner; approval required. | | <strong>Read-only / diagnostic</strong> | <code>git status</code>, <code>node --version</code>, <code>npm run typecheck</code> (no install subcommand) | Approval required in V1; optional <strong>Phase B</strong>: project-level allow-list in Settings (off by default). |</p>
+<p><strong>Non-goal for V1:</strong> autonomous command runs without approval; PTY bridging; “Full access” velocity mode for shell (<strong>118</strong> velocity applies to <strong>file</strong> auto-apply only).</p>
+<h4>3. Review UX aligned with edit proposals</h4>
+<ul>
+<li>Approval surface should feel as deliberate as <strong>diff review</strong>: command string, <strong>cwd root</strong> label, model <strong>purpose</strong>, timeout, policy tier, and <strong>truncated output preview</strong> after run.</li>
+<li>Reuse patterns from proposal cards where possible: inline chat card, <strong>Approve / Reject</strong>, optional <strong>Copy to human terminal</strong> (insert command into PTY — user runs manually).</li>
+<li>Activity list: compact states (<code>awaiting_approval</code> → <code>running</code> → <code>completed</code> / <code>failed</code> / <code>rejected</code> / <code>timeout</code>) with exit code; extend <strong>119</strong> / <strong>125</strong> honesty (no “success” spinners after terminal state).</li>
+<li>Settings (Agent): <strong>Command approval</strong> subsection — default “ask every time”; document threat model (trusted-developer tooling, not sandbox).</li>
+</ul>
+<h4>4. Plan → execute integration</h4>
+<ul>
+<li>When <strong><code>gf-plan</code></strong> or approved-plan execute block lists a <strong>verification</strong> or <strong>install</strong> step, executor harness should emit <strong><code>run_command</code></strong> with structured purpose (not only <code>propose_file_edits</code>).</li>
+<li>PlanModeCard / execute outcome (<strong>123</strong>) should surface <strong>pending command approvals</strong> alongside pending file proposals (“2 files to review, 1 command awaiting approval”).</li>
+<li>Partial turn honesty: if edits applied but a verification command was rejected or failed, final answer and Plan card must not claim “built and verified.”</li>
+</ul>
+<h4>5. Regression prevention (mandatory)</h4>
+<ul>
+<li><strong>No changes</strong> to default approval requirements for <strong><code>propose_file_edits</code></strong> / <strong><code>search_replace</code></strong> / merge behavior (<strong>069</strong>, <strong>115–116</strong>).</li>
+<li><strong>No auto-run</strong> commands when temperament is <strong>velocity</strong> unless user explicitly opts into a separate setting (out of scope).</li>
+<li><strong>Planner profile</strong> stays read-only — no <code>run_command</code> on planning turns (<strong>104</strong>).</li>
+<li>Ship behind <strong>feature flag or manifest opt-in</strong> (<code>agentCommands.enabled</code>, default <strong>on</strong> only after eval pass) if needed for staged rollout.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/main/run-command-policy.ts"><code>src/main/run-command-policy.ts</code></a> — tiered classification, tests for scaffold/install/diagnostic strings</li>
+<li><a href="../../src/main/run-command.ts"><code>src/main/run-command.ts</code></a> / <a href="../../src/main/agent-run-command-tool.ts"><code>src/main/agent-run-command-tool.ts</code></a> — cwd, timeout, output caps, post-run index hook</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — harness nudges when plan lists verify/install but no <code>run_command</code> sampled</li>
+<li><a href="../../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a> — executor/greenfield execute copy: CLI scaffold + verify, not hand-rolled <code>package.json</code> only</li>
+<li><a href="../../src/shared/gf-plan-contract.ts"><code>src/shared/gf-plan-contract.ts</code></a> — optional structured <code>verification</code> steps (if prompts alone insufficient)</li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — approval card polish, plan/execute pending counts</li>
+<li><a href="../../src/renderer/src/components/AgentTurnToolActivityList.tsx"><code>src/renderer/src/components/AgentTurnToolActivityList.tsx</code></a> — command activity density and terminal states</li>
+<li><a href="../../src/renderer/src/components/SettingsPage.tsx"><code>src/renderer/src/components/SettingsPage.tsx</code></a> — command policy copy + optional allow-list (Phase B)</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> — <code>behavior:run_command_approval</code>, plan-verify command path</li>
+<li><a href="../../e2e/terminal-policy.test.ts"><code>e2e/terminal-policy.test.ts</code></a> — extend policy matrix</li>
+<li>Docs: <a href="../../AGENTS.md"><code>AGENTS.md</code></a>, <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> — manual smoke for npm/git/diagnostic commands</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Replacing <strong><code>propose_file_edits</code></strong> with shell heredocs or <code>echo &gt; file</code> for routine edits.</li>
+<li>Agent control of <strong>human PTY</strong> sessions (<strong>053</strong>).</li>
+<li>Long-running dev servers without explicit timeout + user ack (document “start server” as manual / future).</li>
+<li>Container/sandbox isolation, macOS sandbox entitlements, or CI remote runners.</li>
+<li>Rewriting terminal dock UI (<strong>081</strong> closed).</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Regression: existing edit happy path</strong> | Require <code>npm run test:agent-eval</code> + manual ToDoApp <strong>Work</strong> follow-up (S&amp;R → proposal → apply) before merge; no changes to validation/merge in same PR as policy loosening. | | <strong>Regression: velocity auto-apply</strong> | Commands never auto-run; only files follow temperament <strong>118</strong>. | | <strong>False confidence</strong> | Model claims command success — strengthen final-answer contract + activity exit codes (same pattern as edit-fence honesty). | | <strong>Destructive commands under workspace cwd</strong> | Keep <code>needs_ack</code> for <code>rm -rf</code>; never widen hard-deny list without security review. | | <strong>Output/token blow-up</strong> | Keep <strong><code>RUN_COMMAND_MAX_OUTPUT_CHARS</code></strong>; offload huge logs via <strong>107</strong> pointers if needed. | | <strong>Scope creep</strong> | Phase A = approval UX + harness nudges + policy tests; Phase B = Settings allow-list + plan card integration. |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Blocks (soft):</strong> <strong><a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong> — scaffold success rate improves materially once <code>npm create</code> / <code>npm install</code> / <code>git init</code> are reliable and visible in the loop.</li>
+<li><strong>Builds on:</strong> <strong>059</strong>, <strong>053</strong>, <strong>101</strong> (plan verification steps), <strong>123</strong> (execute outcome honesty), <strong>118</strong> (temperament).</li>
+<li><strong>Does not require:</strong> <strong>122</strong> dynamic model catalog.</li>
+</ul>
+<h3>Suggested eval / manual tags</h3>
+<p>| Tag | Intent | |-----|--------| | <code>behavior:run_command_plan_verify</code> | Approved plan with install/typecheck step → model requests <code>run_command</code> | | <code>policy:npm_install</code> | <code>npm install</code> classified network/install; still requires approval | | <code>policy:git_status_safe</code> | Diagnostic git command classified; approval still required in V1 |</p>
+<h3>Acceptance criteria</h3>
+<h4>Safety and control</h4>
+<ul>
+<li><input type="checkbox" disabled> Every model-requested command in V1 requires explicit user approval before spawn (no silent runs).</li>
+<li><input type="checkbox" disabled> Hard-deny patterns remain blocked; policy unit tests cover scaffold/install/diagnostic examples.</li>
+<li><input type="checkbox" disabled> Rejected or timed-out commands return clear tool results; model final answer does not claim success.</li>
+<li><input type="checkbox" disabled> Human PTY remains unavailable to the agent (regression test or contract comment in <strong>053</strong> style).</li>
+</ul>
+<h4>Product behavior</h4>
+<ul>
+<li><input type="checkbox" disabled> Manual: empty folder → plan with “npm install” / “typecheck” → execute turn shows <strong>command approval card</strong> with cwd, purpose, and policy reason.</li>
+<li><input type="checkbox" disabled> Manual: approved <code>npm run typecheck</code> (or equivalent) shows exit code and truncated output in activity; workspace tree reflects new files after <code>npm create</code> when applicable.</li>
+<li><input type="checkbox" disabled> Plan/execute UI surfaces pending command approval when a turn has both proposal and command awaiting user action.</li>
+</ul>
+<h4>Non-regression</h4>
+<ul>
+<li><input type="checkbox" disabled> Manual: existing multi-file project — incremental “add button” / CSS tweak still uses <strong>Work</strong> executor + <code>propose_file_edits</code> without extra plan cycles (<strong>120</strong>).</li>
+<li><input type="checkbox" disabled> <code>npm run test:agent-eval</code> passes; no new failures in edit validation / merge / S&amp;R escalation tests.</li>
+<li><input type="checkbox" disabled> Trust and Velocity temperaments: file review/auto-apply behavior unchanged; commands always approval-gated.</li>
+</ul>
+<h4>Docs and bookkeeping</h4>
+<ul>
+<li><input type="checkbox" disabled> <code>AGENTS.md</code> and harness eval checklist describe command approval happy path.</li>
+<li><input type="checkbox" disabled> When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="../059-agent-command-tool-approvals.md">059</a></strong> — V1 approval baseline (done)</li>
+<li><strong><a href="../053-terminal-safety-policy-and-agent-boundaries.md">053</a></strong> — agent vs human terminal</li>
+<li><strong><a href="101-greenfield-plan-quality.md">101</a></strong> — plan verification steps</li>
+<li><strong><a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong> — scaffolding (depends on this story)</li>
+<li><strong><a href="123-plan-execute-review-follow-ups.md">123</a></strong> — execute outcome honesty</li>
+<li>Field reports: <a href="../../docs/field-reports/grokforge-todoapp-comparison.md"><code>docs/field-reports/grokforge-todoapp-comparison.md</code></a>, <a href="../../docs/field-reports/codex-todoapp-comparison.md"><code>codex-todoapp-comparison.md</code></a></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> if debt row added, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-127" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">127</span><span class="story-name">Greenfield project scaffolding and initialization</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/127-greenfield-project-scaffolding-and-initialization.md">post-mvp/127-greenfield-project-scaffolding-and-initialization.md</a>
+          </div>
+          <h2>127 — Greenfield project scaffolding and initialization</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Priority:</strong> <strong>Lower than <a href="126-agent-terminal-command-execution.md">126</a></strong> — CLI scaffold/install commands should be dependable first; this story improves multi-file bootstrap and validation either way, but full “<code>npm create vite</code>” success path is <strong>much easier after 126</strong>.</p>
+<p><strong>Design skill:</strong> N/A for harness-only phases; read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> if proposal rejection copy, Plan card scaffold summary, or Settings scaffolding hints change.</p>
+<h3>Why this story exists</h3>
+<p>Users are <strong>satisfied with GrokForge on existing projects</strong> — incremental edits, diff review, Work-mode follow-ups, and merge proposals feel solid after <strong>118–120</strong> and <strong>124</strong>. <strong>Greenfield / new repo</strong> flows remain the main weakness:</p>
+<p><strong>Observed during testing (2026-05-25 – 2026-05-26, ToDoApp / TaskBoard dogfood):</strong></p>
+<p>| Problem | Symptom | Harness area | |---------|---------|----------------| | <strong>Hand-rolled scaffold</strong> | Model writes <code>package.json</code>, <code>vite.config.ts</code>, etc. via <code>propose_file_edits</code> instead of <code>npm create</code> | Missing or unused <strong>126</strong> command loop; executor copy still file-first | | <strong>Validation churn</strong> | <code>package.json</code>, <code>.js</code>, or crushed one-line configs <strong>rejected</strong> as corrupt/incomplete; user sees “failed” with little recovery | <code>agent-edit-corrupt-content</code>, <code>agent-proposal-quality</code>, <strong>124</strong> partial-batch | | <strong>Multi-file partial success</strong> | 2/3 planned files land; assistant or Plan card overstates “done” | <strong>124</strong> recovery nudge; <strong>123</strong> / <strong>125</strong> outcome copy | | <strong>Wrong project shape</strong> | Inline <code>&lt;script&gt;</code> in <code>index.html</code> when plan asked for <code>script.js</code> | <strong>101</strong> / greenfield execute appendix; browser <code>SyntaxError</code> after apply | | <strong>No dependency install</strong> | Plan lists <code>npm install</code> but disk has no <code>node_modules</code>; user must run terminal manually | <strong>126</strong> gap | | <strong>Re-planning on follow-ups</strong> | Fixed by <strong>118</strong> / <strong>120</strong> for existing trees — must not regress when tightening greenfield rules |</p>
+<p>Codex/Cursor comparisons (<a href="../../docs/field-reports/codex-todoapp-comparison.md"><code>docs/field-reports/codex-todoapp-comparison.md</code></a>, <a href="../../docs/field-reports/cursor-todoapp-comparison.md"><code>cursor-todoapp-comparison.md</code></a>) show competitors <strong>default to CLI scaffold + multi-file layout</strong> in one beat. GrokForge’s trust harness is appropriate; we need <strong>higher first-try success</strong> without weakening review gates on existing repos.</p>
+<h3>Goals</h3>
+<h4>1. Improve scaffold success rate (files + structure)</h4>
+<ul>
+<li><strong>Planner (<code>gf-plan</code>):</strong> For “new app / new project” intents, prefer explicit <strong>project shape</strong> (Vite+React+TS vs static HTML) and a <strong>concrete file manifest</strong> including <code>package.json</code> fields, entry files, and <strong>CLI steps</strong> (delegated to <strong>126</strong> when shipped).</li>
+<li><strong>Executor (approve-and-run / velocity execute):</strong> Prefer <strong>official layout</strong> (e.g. <code>index.html</code> + <code>styles.css</code> + <code>script.js</code> *or* Vite <code>src/</code> tree) per plan — no crushed one-line JSON/JS/CSS (<strong>100</strong>, <strong>124</strong>).</li>
+<li><strong>Single-file vs multi-file:</strong> Heuristic in <strong><code>workspace-greenfield.ts</code></strong> + index stats — don’t apply single-file <strong>120</strong> bias to fresh multi-file plans.</li>
+</ul>
+<h4>2. Validation and normalization tuned for bootstrap files</h4>
+<ul>
+<li>**<code>package.json</code> / <code>tsconfig</code> / <code>vite.config.*</code>:<strong> Distinguish </strong>invalid JSON<strong> (reject) from </strong>minified but valid<strong> one-line JSON (normalize when safe, like markdown </strong>100**).</li>
+<li><strong>New-file bootstrap:</strong> Skip or soften pre-apply warnings that scare users on intentional full-file creates (<strong>124</strong> already started this — extend to config manifests).</li>
+<li><strong>Actionable rejection copy:</strong> Tell the model to re-read <code>rawContent</code>, fix specific keys, or use <strong><code>run_command</code></strong> for <code>npm create</code> / <code>npm init</code> when hand-written manifest keeps failing.</li>
+</ul>
+<h4>3. Retry and recovery without brittle loops</h4>
+<ul>
+<li>One <strong>mid-turn recovery nudge</strong> when scaffold batch has mixed accept/reject (<strong>124</strong> pattern) — add <strong><code>package.json</code>-specific</strong> guidance.</li>
+<li>Cap retry fan-out (align with <strong>116</strong> S&amp;R limits) so greenfield turns don’t stall in “thinking.”</li>
+<li>Final-answer contract: honest partial scaffold (“created <code>index.html</code> and <code>styles.css</code>; <code>package.json</code> rejected — fix: …”).</li>
+</ul>
+<h4>4. Work with terminal execution (<strong>126</strong>)</h4>
+<ul>
+<li>When <strong>126</strong> is available: executor should <strong><code>run_command</code></strong> for <code>npm create</code>, <code>npm install</code>, <code>git init</code>, then <strong><code>read_file</code></strong> / <strong><code>propose_file_edits</code></strong> only for customization — not reinventing the template tree by hand.</li>
+<li>When <strong>126</strong> is not yet shipped: still improve file-only scaffold quality; document manual terminal fallback in plan card copy.</li>
+</ul>
+<h4>5. Regression prevention (mandatory)</h4>
+<ul>
+<li><strong>Existing projects</strong> (non-greenfield index, approved plan already on disk): <strong>no new planner cycles</strong> for small Work-mode edits (<strong>120</strong>).</li>
+<li><strong>Do not relax</strong> corrupt-content rules for normal <code>.js</code> / <code>.ts</code> edits in mature repos — scope bootstrap detection to <strong><code>isGreenfieldWorkspace()</code></strong> or “all paths new this turn.”</li>
+<li><strong>Trust / Velocity:</strong> file approval semantics unchanged (<strong>118</strong>); scaffolding story does not bypass diff review.</li>
+<li>Eval gate: add greenfield scaffold cases; run full <strong><code>npm run test:agent-eval</code></strong> before merge.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/workspace-greenfield.ts"><code>src/shared/workspace-greenfield.ts</code></a> — scaffold intent detection (optional: “bootstrap manifest” flag)</li>
+<li><a href="../../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a> — <code>GREENFIELD_PLAN_SECTIONS</code>, <code>GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS</code>, Vite/React/TS templates vs static site</li>
+<li><a href="../../src/shared/gf-plan-contract.ts"><code>src/shared/gf-plan-contract.ts</code></a> — optional <code>scaffoldKind</code> / <code>cliSteps[]</code> in plan schema (only if prompts insufficient)</li>
+<li><a href="../../src/shared/agent-edit-corrupt-content.ts"><code>src/shared/agent-edit-corrupt-content.ts</code></a> — JSON/manifest heuristics scoped to greenfield/new paths</li>
+<li><a href="../../src/shared/agent-proposal-quality.ts"><code>src/shared/agent-proposal-quality.ts</code></a> / <a href="../../src/shared/agent-file-content-normalize.ts"><code>src/shared/agent-file-content-normalize.ts</code></a> — <code>package.json</code> normalize</li>
+<li><a href="../../src/main/agent-edit-proposals.ts"><code>src/main/agent-edit-proposals.ts</code></a> — validation messages, partial batch recovery variants</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — scaffold retry nudge; post-scaffold index refresh (coordinate <strong>126</strong>)</li>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — partial scaffold honesty</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> — greenfield Vite + static HTML fixtures</li>
+<li><a href="../../docs/field-reports/"><code>docs/field-reports/</code></a> — update GrokForge comparison when shipped</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Removing <strong><code>propose_file_edits</code></strong> review for scaffold files in Trust mode.</li>
+<li>Auto-running <code>npm install</code> without approval (<strong>126</strong> owns command policy).</li>
+<li>Full framework wizard UI in renderer (framework choice stays plan + chat).</li>
+<li>Monorepo / multi-root scaffold orchestration.</li>
+<li>Changing <strong><code>manifest.roots</code></strong> or project picker onboarding (<strong>095</strong>) beyond copy pointers.</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Regression: existing-project edits</strong> | Greenfield-only prompt appendices; eval fixture with populated index + “add delete button” must still route <strong>executor</strong> / <strong>120</strong>. | | <strong>Regression: over-normalize</strong> | JSON normalize only when <code>JSON.parse</code> succeeds after normalize; never strip valid minified production configs in non-greenfield paths. | | <strong>False negatives</strong> | Keep rejecting truly crushed/invalid JS; <strong>124</strong> tests stay green. | | <strong>Coupling to 126</strong> | Story can ship Phase A (file-only quality) before Phase B (CLI-first scaffold); document order in PR. | | <strong>Velocity false “done”</strong> | Reuse <strong>123</strong> <code>plan-execute-outcome</code> for partial scaffold paths. |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Recommended after:</strong> <strong><a href="126-agent-terminal-command-execution.md">126</a></strong> for CLI-first scaffold (<code>npm create vite</code>, <code>npm install</code>).</li>
+<li><strong>Builds on:</strong> <strong>101</strong>, <strong>124</strong>, <strong>118</strong>, <strong>109</strong>, <strong>100</strong>, <strong>120</strong> (do not conflate single-file bias with greenfield multi-file execute).</li>
+<li><strong>Parallel-safe with:</strong> <strong>122</strong> (model picker), <strong>117</strong> (renderer stability).</li>
+</ul>
+<h3>Suggested eval tags</h3>
+<p>| Tag | Intent | |-----|--------| | <code>behavior:greenfield_vite_scaffold</code> | Plan + execute produces valid <code>package.json</code> + entry files (file-only or post-<code>npm create</code>) | | <code>validation:package_json</code> | Malformed vs one-line valid JSON handling | | <code>recovery:scaffold_partial</code> | <code>package.json</code> rejected, HTML accepted — honest nudge + final answer | | <code>routing:existing_project_no_replan</code> | Populated index + incremental user message → no forced <code>gf-plan</code> |</p>
+<h3>Acceptance criteria</h3>
+<h4>Scaffolding quality</h4>
+<ul>
+<li><input type="checkbox" disabled> Eval: greenfield fixture — approve-and-run with Vite+React+TS plan → valid <code>package.json</code> (parseable) and at least one entry file pass validation without manual user coaching.</li>
+<li><input type="checkbox" disabled> Eval: static HTML/CSS/JS plan → valid separate <code>script.js</code> (non-crushed) passes <strong>124</strong>-style checks.</li>
+<li><input type="checkbox" disabled> Eval: intentionally invalid <code>package.json</code> → rejection reason mentions fix strategy (valid JSON, use <code>npm init</code> / <strong>126</strong> command, full <code>rawContent</code>).</li>
+</ul>
+<h4>Recovery and honesty</h4>
+<ul>
+<li><input type="checkbox" disabled> Eval: partial batch (config rejected, markup accepted) → one recovery nudge; final answer does not claim full scaffold complete.</li>
+<li><input type="checkbox" disabled> Manual (Trust): user can Apply successful files while fixing rejected path via follow-up turn without losing prior applied work (<strong>096</strong> undo still works).</li>
+</ul>
+<h4>Non-regression (existing projects)</h4>
+<ul>
+<li><input type="checkbox" disabled> Eval: non-greenfield index + “add localStorage” / “add delete button” → <strong>executor</strong>, no new <code>gf-plan</code> requirement (<strong>120</strong>).</li>
+<li><input type="checkbox" disabled> Manual: mature repo incremental edit — same proposal / S&amp;R / merge behavior as pre-story baseline; <code>npm run test:agent-eval</code> clean.</li>
+</ul>
+<h4>Integration with <strong>126</strong> (when both shipped)</h4>
+<ul>
+<li><input type="checkbox" disabled> Manual: greenfield “create Vite React TS app” plan → model requests <code>npm create</code> (or documented equivalent) via <code>run_command</code>, user approves, tree contains expected template files, then optional <code>propose_file_edits</code> for customization only.</li>
+</ul>
+<h4>Docs and bookkeeping</h4>
+<ul>
+<li><input type="checkbox" disabled> Field report or harness checklist entry for scaffold happy path updated.</li>
+<li><input type="checkbox" disabled> When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="126-agent-terminal-command-execution.md">126</a></strong> — command execution (recommended first)</li>
+<li><strong><a href="101-greenfield-plan-quality.md">101</a></strong> — planner greenfield appendix</li>
+<li><strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong> — JS/partial batch recovery (Phase A done — extend, don’t duplicate blindly)</li>
+<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — post-plan routing (guard against misapplication)</li>
+<li><strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong> — normalize patterns</li>
+<li><strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong> — Plan → Work lifecycle</li>
+<li>Field reports: <a href="../../docs/field-reports/grokforge-todoapp-comparison.md"><code>docs/field-reports/grokforge-todoapp-comparison.md</code></a></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
     </section>

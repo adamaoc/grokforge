@@ -67,6 +67,24 @@ describe('resolveAgentProfileId', () => {
       }),
     ).toBe('default')
   })
+
+  it('maps postPlanIncremental to executor in Work mode', () => {
+    expect(
+      resolveAgentProfileId({
+        activeContext: { ...baseContext, chatMode: 'fast' },
+        postPlanIncremental: true,
+      }),
+    ).toBe('executor')
+  })
+
+  it('plan mode wins over postPlanIncremental', () => {
+    expect(
+      resolveAgentProfileId({
+        activeContext: { ...baseContext, chatMode: 'plan' },
+        postPlanIncremental: true,
+      }),
+    ).toBe('planner')
+  })
 })
 
 describe('isToolAllowedForProfile', () => {

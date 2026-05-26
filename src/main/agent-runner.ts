@@ -15,7 +15,7 @@ import { getXaiApiKey } from './grok-stream'
 import { hasConfiguredXaiApiKey } from './xai-key-store'
 import { AGENT_TOOL_FENCE_INFO } from '../shared/agent-tool-contract'
 import { AgentToolBatchPayloadSchema } from '../shared/agent-tool-schema'
-import { GF_PLAN_FENCE } from '../shared/gf-plan-contract'
+import { buildGfPlanToolLoopBlock, GF_PLAN_FENCE_NUDGE_PHRASE } from '../shared/gf-plan-contract'
 import { shouldIgnoreFsEntry } from './ignore-globs'
 import { isPathWithinWorkspaceRoots } from './workspace-path-guard'
 import { validateAgentEditProposal } from './agent-edit-proposals'
@@ -23,7 +23,11 @@ import { buildAgentToolExecutionContext } from './agent-tool-execution-context-b
 import { executeAgentToolCall } from './agent-tool-executor'
 import { pruneStaleAgentOffloads } from './agent-offload-store'
 import { buildApprovedPlanSystemInjection } from '../shared/agent-plan-artifact'
-import { loadPlanArtifact, planJsonPath } from './agent-plan-store'
+import {
+  findLatestCompletedPlanArtifact,
+  loadPlanArtifact,
+  planJsonPath,
+} from './agent-plan-store'
 import {
   beginTurnReceipt,
   clearTurnReceiptState,
@@ -37,9 +41,9 @@ import { applyToolResultOffload } from './agent-tool-result-offload'
 import { clearAgentTurnReads, getAgentTurnReadHashes, getAgentTurnReads } from './agent-turn-read-registry'
 import {
   AGENT_TOOL_MAX_ITERATIONS,
+  APPROVED_PLAN_EXECUTE_MAX_TOOL_ROUNDS,
   buildActiveContextBlock,
-  buildAgentToolDefinitions,
-  filterToolDefinitionsForProfile,
+  buildToolDefinitionsForTurn,
   buildLexicalRetrievalContext,
   isLikelySensitivePath,
 } from './agent-workspace-tools'
@@ -79,10 +83,21 @@ import {
   totalSearchReplaceFailures,
 } from '../shared/agent-edit-cascade-guard'
 import {
+  INCOMPLETE_HTML_MAX_FAILURES_PER_TURN_BEFORE_FORCE_FINAL,
+  isIncompleteHtmlProposalError,
+  pathsAtIncompleteHtmlNudgeThreshold,
+  recordIncompleteHtmlProposalFailure,
+  shouldInjectIncompleteHtmlProposalNudge,
+  totalIncompleteHtmlFailures,
+} from '../shared/agent-edit-corrupt-content'
+import {
   buildEditIntentToolNudge,
   buildFinalAnswerContract,
+  buildIncompleteHtmlProposalNudge,
+  buildPartialBatchProposalNudge,
   buildSearchReplaceEscalationNudge,
   isLikelyEditIntent,
+  shouldInjectPartialBatchProposalNudge,
 } from '../shared/agent-final-answer-contract'
 import type {
   ExportSanitizedAgentTurnTraceResult,
@@ -119,6 +134,13 @@ import {
   type HarnessPromptTurnContext,
 } from '../shared/agent-harness-profile'
 import { loadWorkspaceIndex, type StoredWorkspaceIndex } from './agent-index-store'
+import {
+  isSingleFilePrimaryWorkspace,
+  primaryNonTrivialFile,
+  shouldRoutePostPlanIncremental,
+} from '../shared/post-plan-incremental'
+import type { StoredPlanArtifact } from '../shared/agent-plan-artifact'
+import { formatRetrievalActivityCopy } from '../shared/agent-activity-display'
 import {
   isGreenfieldWorkspace,
   type GreenfieldIndexSnapshot,
@@ -182,7 +204,6 @@ const StartPayloadSchema = z.object({
   model: z.string().min(1).max(MAX_MODEL_LEN),
   modelIntent: z.enum(['chat_default', 'planning', 'execution']).optional(),
   isApprovedPlanAutoRun: z.boolean().optional(),
-  planWorkflowUsePlanningModel: z.boolean().optional(),
   approvedPlanId: z.string().uuid().optional(),
   approvedPlanMessageId: z.string().min(1).max(256).optional(),
   userText: z.string().min(1).max(AGENT_CHAT_MAX_USER_TEXT_CHARS),
@@ -398,6 +419,7 @@ function buildInitialMessages(
   retrievedContext: string,
   harnessProfileKey: HarnessProfileKey,
   harnessCtx: HarnessPromptTurnContext,
+  postPlanArtifact: StoredPlanArtifact | null = null,
 ): AgentModelChatMessage[] {
   const profile = getHarnessProfile(harnessProfileKey)
   const { systemPrompt } = buildChatSystemPrompt(manifest, {
@@ -430,13 +452,7 @@ function buildInitialMessages(
     })
   const planModeBlock =
     payload.activeContext.chatMode === 'plan'
-      ? [
-          '',
-          '## Plan mode (structured plan output)',
-          `The user enabled **Plan mode** for this turn. After any necessary read/search tool calls, your final answer must include **exactly one** fenced JSON block with the markdown language tag \`${GF_PLAN_FENCE}\` (not \`${AGENT_TOOL_FENCE_INFO}\`).`,
-          'The fence body must be one JSON object with: `schemaVersion` 1, `summary` (string), `filesLikelyTouched` (string array), `risksUnknowns` (string array), `steps` (array of { `id`, `title` } with at least one step), `verification` (string).',
-          'You may put readable prose before or after the fence. The JSON must parse as-is. Do not put file-write payloads inside this JSON; use `propose_file_edits` for edits after the user approves the plan.',
-        ].join('\n')
+      ? `\n${buildGfPlanToolLoopBlock({ forbiddenLegacyFenceTag: AGENT_TOOL_FENCE_INFO })}`
       : ''
   const recoveryBlock = consumeTurnRecoveryHint(projectId) ?? ''
   let approvedPlanBlock = ''
@@ -448,6 +464,11 @@ function buildInitialMessages(
         planJsonPath(projectId, payload.approvedPlanId),
       )
     }
+  } else if (harnessCtx.postPlanIncremental && postPlanArtifact) {
+    approvedPlanBlock = buildApprovedPlanSystemInjection(
+      postPlanArtifact,
+      planJsonPath(projectId, postPlanArtifact.planId),
+    )
   }
   return [
     {
@@ -475,10 +496,12 @@ function finalAnswerContract(
   userText: string,
   editProposalCreated: boolean,
   editToolsFailed: boolean,
+  editProposalComposedInTurn: boolean,
   chatMode: 'fast' | 'plan',
   harnessProfileKey: HarnessProfileKey,
   agentProfileId: AgentProfileId,
   harnessCtx: HarnessPromptTurnContext,
+  turnProposalAccum: AgentEditProposalPayload | null,
 ): AgentModelChatMessage {
   return {
     role: 'system',
@@ -486,24 +509,72 @@ function finalAnswerContract(
       userText,
       editProposalCreated,
       editToolsFailed,
+      editProposalComposedInTurn,
       chatMode,
       profileKey: harnessProfileKey,
       agentProfileId,
       executeFromApprovedPlan: harnessCtx.executeFromApprovedPlan,
+      postPlanIncremental: harnessCtx.postPlanIncremental,
       greenfieldWorkspace: harnessCtx.greenfieldWorkspace,
+      partialBatchRejections: turnProposalAccum?.rejected,
     }),
   }
+}
+
+function resolvePostPlanRoutingInput(
+  projectId: string,
+  payload: AgentChatStartPayload,
+): { postPlanIncremental: boolean; completedPlan: StoredPlanArtifact | null } {
+  const completedPlan = findLatestCompletedPlanArtifact(projectId)
+  const postPlanIncremental =
+    !payload.modelIntent &&
+    shouldRoutePostPlanIncremental({
+      chatMode: payload.activeContext.chatMode,
+      isApprovedPlanAutoRun: payload.isApprovedPlanAutoRun,
+      hasCompletedPlan: completedPlan != null,
+      userText: payload.userText,
+    })
+  return { postPlanIncremental, completedPlan }
 }
 
 function computeEditToolsFailed(
   userText: string,
   editProposalCreated: boolean,
   searchReplaceFailuresByPath: ReadonlyMap<string, number>,
+  incompleteHtmlFailuresByPath: ReadonlyMap<string, number>,
+  executeFromApprovedPlan: boolean,
 ): boolean {
+  if (editProposalCreated) return false
+  const editIntent = executeFromApprovedPlan || isLikelyEditIntent(userText)
+  if (!editIntent) return false
   return (
-    !editProposalCreated &&
-    isLikelyEditIntent(userText) &&
-    shouldInjectSearchReplaceEscalation(searchReplaceFailuresByPath)
+    shouldInjectSearchReplaceEscalation(searchReplaceFailuresByPath) ||
+    shouldInjectIncompleteHtmlProposalNudge(incompleteHtmlFailuresByPath)
+  )
+}
+
+function shouldForceFinalForRepeatedEditFailures(input: {
+  isPlanMode: boolean
+  editProposalCreated: boolean
+  canProposeEdits: boolean
+  userText: string
+  executeFromApprovedPlan: boolean
+  searchReplaceFailuresByPath: ReadonlyMap<string, number>
+  incompleteHtmlFailuresByPath: ReadonlyMap<string, number>
+  searchReplaceEscalationNudgeIssued: boolean
+  incompleteHtmlNudgeIssued: boolean
+  postEscalationToolRounds: number
+}): boolean {
+  if (input.isPlanMode || input.editProposalCreated || !input.canProposeEdits) return false
+  const editIntent = input.executeFromApprovedPlan || isLikelyEditIntent(input.userText)
+  if (!editIntent) return false
+  return (
+    totalSearchReplaceFailures(input.searchReplaceFailuresByPath) >=
+      SEARCH_REPLACE_MAX_FAILURES_PER_TURN_BEFORE_FORCE_FINAL ||
+    totalIncompleteHtmlFailures(input.incompleteHtmlFailuresByPath) >=
+      INCOMPLETE_HTML_MAX_FAILURES_PER_TURN_BEFORE_FORCE_FINAL ||
+    ((input.searchReplaceEscalationNudgeIssued || input.incompleteHtmlNudgeIssued) &&
+      input.postEscalationToolRounds >= POST_ESCALATION_MAX_TOOL_ROUNDS)
   )
 }
 
@@ -512,20 +583,33 @@ function buildMaxToolIterationsHint(input: {
   userText: string
   editProposalCreated: boolean
   searchReplaceFailuresByPath: ReadonlyMap<string, number>
+  incompleteHtmlFailuresByPath: ReadonlyMap<string, number>
+  executeFromApprovedPlan: boolean
 }): string {
   if (
     !input.isPlanMode &&
-    computeEditToolsFailed(input.userText, input.editProposalCreated, input.searchReplaceFailuresByPath)
+    computeEditToolsFailed(
+      input.userText,
+      input.editProposalCreated,
+      input.searchReplaceFailuresByPath,
+      input.incompleteHtmlFailuresByPath,
+      input.executeFromApprovedPlan,
+    )
   ) {
+    const htmlFailures = totalIncompleteHtmlFailures(input.incompleteHtmlFailuresByPath)
+    const htmlNote =
+      htmlFailures > 0
+        ? ' Incomplete HTML proposals were rejected — emit one full document with closing tags in a single propose_file_edits call.'
+        : ''
     return [
       'GrokForge reached the maximum tool iterations for this turn.',
-      'Edit tools did not succeed (search_replace failed repeatedly and no reviewable edit proposal was created).',
+      `Edit tools did not succeed (no reviewable edit proposal was created).${htmlNote}`,
       'Summarize what you attempted; do not claim any workspace file was updated, saved, or written on disk.',
       'Tell the user they can retry with propose_file_edits using the complete file from read_file rawContent, or edit manually.',
     ].join(' ')
   }
   if (input.isPlanMode) {
-    return 'GrokForge reached the plan-mode tool step limit. Provide your final answer with exactly one ```gf-plan``` fenced JSON block from the context gathered so far.'
+    return `GrokForge reached the plan-mode tool step limit. Provide your final answer with ${GF_PLAN_FENCE_NUDGE_PHRASE} from the context gathered so far.`
   }
   return 'GrokForge reached the maximum read/search tool iterations for this turn. Provide the best grounded answer you can from the gathered context, and say what you could not verify.'
 }
@@ -604,13 +688,19 @@ async function runAgentTurn(
     throw new Error('No project loaded')
   }
 
-  const routing = resolveAgentTurnRouting(manifest, payload)
+  const { postPlanIncremental, completedPlan } = resolvePostPlanRoutingInput(projectId, payload)
+  const routing = resolveAgentTurnRouting(manifest, {
+    modelIntent: payload.modelIntent,
+    activeContext: payload.activeContext,
+    isApprovedPlanAutoRun: payload.isApprovedPlanAutoRun,
+    postPlanIncremental,
+  })
   const harnessProfile = getHarnessProfile(routing.harnessProfileKey)
   const agentProfile = getAgentProfile(routing.agentProfileId)
-  const turnToolDefinitions = filterToolDefinitionsForProfile(
-    buildAgentToolDefinitions(harnessProfile.toolDescriptionOverrides),
-    agentProfile,
-  )
+  const turnToolDefinitions = buildToolDefinitionsForTurn({
+    agentProfileId: routing.agentProfileId,
+    toolDescriptionOverrides: harnessProfile.toolDescriptionOverrides,
+  })
   logTurnRoutingIfDev(
     payload,
     routing,
@@ -702,29 +792,35 @@ async function runAgentTurn(
     setRetrievalDetailLines(scratch, retrieval.details)
     setRetrievalContextBodyChars(scratch, retrieval.context.length)
   }
+  const storedIndex = loadWorkspaceIndex(projectId)
+  const greenfieldIndex = storedIndex ? toGreenfieldIndexSnapshot(storedIndex) : null
+  const greenfield = isGreenfieldWorkspace({
+    index: greenfieldIndex,
+    retrievalMatchCount: retrieval.retrieved.length,
+  })
+  const retrievalActivityCopy = formatRetrievalActivityCopy({
+    count: retrieval.count,
+    greenfieldWorkspace: greenfield,
+    details: retrieval.details,
+    stale: retrieval.stale,
+    staleReason: retrieval.staleReason,
+    sensitiveSkipped: retrieval.skipped.sensitive,
+  })
   emitActivity(payload.streamId, {
     id: retrievalActivityId,
     tool: 'retrieval',
-    title: 'Found relevant workspace context',
-    detail: [
-      `${retrieval.count} file${retrieval.count === 1 ? '' : 's'}`,
-      ...retrieval.details.slice(0, 4),
-      retrieval.stale ? `Warning: stale index (${retrieval.staleReason ?? 'refresh recommended'})` : '',
-      retrieval.skipped.sensitive > 0 ? `${retrieval.skipped.sensitive} sensitive file(s) excluded` : '',
-    ]
-      .filter(Boolean)
-      .join(' · '),
+    title: retrievalActivityCopy.title,
+    detail: retrievalActivityCopy.detail,
     status: 'done',
   })
-
-  const storedIndex = loadWorkspaceIndex(projectId)
-  const greenfield = isGreenfieldWorkspace({
-    index: storedIndex ? toGreenfieldIndexSnapshot(storedIndex) : null,
-    retrievalMatchCount: retrieval.retrieved.length,
-  })
+  const singleFilePrimary = isSingleFilePrimaryWorkspace(greenfieldIndex)
+  const primaryFile = primaryNonTrivialFile(greenfieldIndex)
   const harnessCtx: HarnessPromptTurnContext = {
-    greenfieldWorkspace: safePayload.activeContext.chatMode === 'plan' && greenfield,
+    greenfieldWorkspace: greenfield,
     executeFromApprovedPlan: safePayload.isApprovedPlanAutoRun === true,
+    postPlanIncremental,
+    singleFilePrimary,
+    singleFilePrimaryBasename: primaryFile?.basename,
   }
 
   const messages = buildInitialMessages(
@@ -734,13 +830,16 @@ async function runAgentTurn(
     retrieval.context,
     routing.harnessProfileKey,
     harnessCtx,
+    postPlanIncremental ? completedPlan : null,
   )
   pruneStaleAgentOffloads(projectId)
 
   let totalToolChars = 0
   let editProposalCreated = false
+  let editProposalComposedInTurn = false
   let turnProposalAccum: AgentEditProposalPayload | null = null
   const searchReplaceFailuresByPath = new Map<string, number>()
+  const incompleteHtmlFailuresByPath = new Map<string, number>()
 
   const onFinalChunk = scratch
     ? (delta: string) => {
@@ -749,14 +848,18 @@ async function runAgentTurn(
     : undefined
 
   const isPlanMode = safePayload.activeContext.chatMode === 'plan'
-  const maxToolIterations =
-    agentProfile.maxToolRounds !== undefined
+  const executeFromApprovedPlan = safePayload.isApprovedPlanAutoRun === true
+  const maxToolIterations = executeFromApprovedPlan
+    ? Math.min(AGENT_TOOL_MAX_ITERATIONS, APPROVED_PLAN_EXECUTE_MAX_TOOL_ROUNDS)
+    : agentProfile.maxToolRounds !== undefined
       ? Math.min(AGENT_TOOL_MAX_ITERATIONS, agentProfile.maxToolRounds)
       : AGENT_TOOL_MAX_ITERATIONS
   let toolRoundCount = 0
   let providerRoundIndex = 0
   let editIntentToolNudgeIssued = false
   let searchReplaceEscalationNudgeIssued = false
+  let incompleteHtmlNudgeIssued = false
+  let partialBatchNudgeIssued = false
   let postEscalationToolRounds = 0
 
   const snapshotForProviderRound = (roundKind: 'tool_sample' | 'final_stream') => {
@@ -795,11 +898,15 @@ async function runAgentTurn(
           safePayload.userText,
           editProposalCreated,
           searchReplaceFailuresByPath,
+          incompleteHtmlFailuresByPath,
+          executeFromApprovedPlan,
         ),
+        editProposalComposedInTurn,
         safePayload.activeContext.chatMode,
         routing.harnessProfileKey,
         routing.agentProfileId,
         harnessCtx,
+        turnProposalAccum,
       ),
     )
     messages.push({
@@ -816,6 +923,14 @@ async function runAgentTurn(
 
   for (let i = 0; i < maxToolIterations; i += 1) {
     if (ac.signal.aborted) throw ac.signal.reason
+    emitActivity(payload.streamId, {
+      id: activityId(),
+      title: executeFromApprovedPlan ? 'Executing plan (model)' : 'Planning tool step',
+      status: 'running',
+      detail: executeFromApprovedPlan
+        ? `Round ${i + 1}/${maxToolIterations} — large file proposals can take up to ~90s`
+        : `Round ${i + 1}/${maxToolIterations}`,
+    })
     const sampleSnapshot = snapshotForProviderRound('tool_sample')
     const sampled = await providerSampleFromSnapshot(sampleSnapshot, ac.signal)
     if (sampled.toolCalls.length === 0) {
@@ -827,7 +942,10 @@ async function runAgentTurn(
         !editIntentToolNudgeIssued
       if (shouldNudgeForEditIntent) {
         editIntentToolNudgeIssued = true
-        messages.push({ role: 'user', content: buildEditIntentToolNudge() })
+        messages.push({
+          role: 'user',
+          content: buildEditIntentToolNudge({ singleFilePrimary: harnessCtx.singleFilePrimary }),
+        })
         continue
       }
       await completeTurnWithFinalStream()
@@ -886,7 +1004,44 @@ async function runAgentTurn(
 
       const { doneTitle, detail, ok } = outcome
       if (outcome.editProposalCreated !== undefined) editProposalCreated = outcome.editProposalCreated
+      if (outcome.editProposalComposedInTurn) editProposalComposedInTurn = true
       if (outcome.turnProposalAccum !== undefined) turnProposalAccum = outcome.turnProposalAccum
+
+      if (
+        !ok &&
+        (name === 'propose_file_edits' || name === 'search_replace') &&
+        isAllowedToolName(name)
+      ) {
+        try {
+          const parsed = JSON.parse(outcome.toolContent) as {
+            error?: string
+            rejected?: { path?: string; reason?: string }[]
+          }
+          const rejected = parsed.rejected ?? []
+          if (
+            isIncompleteHtmlProposalError(parsed.error) ||
+            rejected.some((r) => isIncompleteHtmlProposalError(r.reason))
+          ) {
+            for (const r of rejected) {
+              if (r.path && isIncompleteHtmlProposalError(r.reason)) {
+                recordIncompleteHtmlProposalFailure(incompleteHtmlFailuresByPath, r.path)
+              }
+            }
+            if (
+              rejected.length === 0 &&
+              isIncompleteHtmlProposalError(parsed.error) &&
+              typeof detail === 'string'
+            ) {
+              const pathMatch = detail.match(/^([^:]+):/)
+              if (pathMatch?.[1]) {
+                recordIncompleteHtmlProposalFailure(incompleteHtmlFailuresByPath, pathMatch[1].trim())
+              }
+            }
+          }
+        } catch {
+          /* ignore malformed tool JSON */
+        }
+      }
 
       const offload = applyToolResultOffload({
         projectId,
@@ -910,6 +1065,7 @@ async function runAgentTurn(
           truncatedInLoop,
           displayTitle: doneTitle,
           errorSnippet: ok ? undefined : (detail?.slice(0, 500) ?? providerToolContent.slice(0, 500)),
+          ...(outcome.validationSummary ? { validationSummary: outcome.validationSummary } : {}),
           ...(offload.offloaded
             ? {
                 offloaded: true,
@@ -929,6 +1085,7 @@ async function runAgentTurn(
               .join(' · ')
           : detail,
         status: ok ? 'done' : 'error',
+        ...(outcome.activitySubjectPath ? { subjectPath: outcome.activitySubjectPath } : {}),
       })
       messages.push({ role: 'tool', tool_call_id: call.id, content: providerToolContent })
     }
@@ -937,27 +1094,30 @@ async function runAgentTurn(
       scratch.totalToolCharsAccumulated = totalToolChars
     }
 
-    if (searchReplaceEscalationNudgeIssued) {
+    if (searchReplaceEscalationNudgeIssued || incompleteHtmlNudgeIssued || partialBatchNudgeIssued) {
       postEscalationToolRounds += 1
     }
 
-    const shouldForceFinalForEditFailures =
-      !isPlanMode &&
-      !editProposalCreated &&
-      agentProfile.canProposeEdits &&
-      isLikelyEditIntent(safePayload.userText) &&
-      (totalSearchReplaceFailures(searchReplaceFailuresByPath) >=
-        SEARCH_REPLACE_MAX_FAILURES_PER_TURN_BEFORE_FORCE_FINAL ||
-        (searchReplaceEscalationNudgeIssued &&
-          postEscalationToolRounds >= POST_ESCALATION_MAX_TOOL_ROUNDS))
-
-    if (shouldForceFinalForEditFailures) {
+    if (
+      shouldForceFinalForRepeatedEditFailures({
+        isPlanMode,
+        editProposalCreated,
+        canProposeEdits: agentProfile.canProposeEdits,
+        userText: safePayload.userText,
+        executeFromApprovedPlan,
+        searchReplaceFailuresByPath,
+        incompleteHtmlFailuresByPath,
+        searchReplaceEscalationNudgeIssued,
+        incompleteHtmlNudgeIssued,
+        postEscalationToolRounds,
+      })
+    ) {
       emitActivity(payload.streamId, {
         id: activityId(),
         title: 'Finishing turn (edit tools did not succeed)',
         status: 'done',
         detail:
-          'Stopping further tool rounds after repeated search_replace failures. Provide an honest summary — no proposal was created.',
+          'Stopping further tool rounds after repeated edit failures. Provide an honest summary — no proposal was created.',
       })
       await completeTurnWithFinalStream(
         buildMaxToolIterationsHint({
@@ -965,6 +1125,8 @@ async function runAgentTurn(
           userText: safePayload.userText,
           editProposalCreated,
           searchReplaceFailuresByPath,
+          incompleteHtmlFailuresByPath,
+          executeFromApprovedPlan,
         }),
       )
       return
@@ -995,9 +1157,63 @@ async function runAgentTurn(
       continue
     }
 
+    const shouldNudgeIncompleteHtml =
+      !isPlanMode &&
+      !editProposalCreated &&
+      agentProfile.canProposeEdits &&
+      !incompleteHtmlNudgeIssued &&
+      shouldInjectIncompleteHtmlProposalNudge(incompleteHtmlFailuresByPath)
+    if (shouldNudgeIncompleteHtml) {
+      incompleteHtmlNudgeIssued = true
+      postEscalationToolRounds = 0
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Harness: complete HTML required',
+        status: 'done',
+        detail:
+          'propose_file_edits was rejected as incomplete HTML. Retry with one full document including closing tags.',
+      })
+      messages.push({
+        role: 'user',
+        content: buildIncompleteHtmlProposalNudge(
+          pathsAtIncompleteHtmlNudgeThreshold(incompleteHtmlFailuresByPath),
+        ),
+      })
+      continue
+    }
+
+    const partialRejected = turnProposalAccum?.rejected ?? []
+    const partialAccepted = turnProposalAccum?.batch.operations.length ?? 0
+    const shouldNudgePartialBatch =
+      !isPlanMode &&
+      editProposalCreated &&
+      agentProfile.canProposeEdits &&
+      !partialBatchNudgeIssued &&
+      shouldInjectPartialBatchProposalNudge({
+        acceptedCount: partialAccepted,
+        rejected: partialRejected,
+        executeFromApprovedPlan,
+      })
+    if (shouldNudgePartialBatch) {
+      partialBatchNudgeIssued = true
+      postEscalationToolRounds = 0
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Harness: retry rejected paths',
+        status: 'done',
+        detail:
+          'Some write_file ops were accepted; others failed validation. Resubmit complete bodies for rejected paths only.',
+      })
+      messages.push({
+        role: 'user',
+        content: buildPartialBatchProposalNudge(partialRejected, partialAccepted),
+      })
+      continue
+    }
+
     if (isPlanMode && toolRoundCount >= 1) {
       await completeTurnWithFinalStream(
-        'You have enough workspace context from discovery tools. Provide your final answer now with exactly one ```gf-plan``` fenced JSON block. Do not request more tools.',
+        `You have enough workspace context from discovery tools. Provide your final answer now with ${GF_PLAN_FENCE_NUDGE_PHRASE}. Do not request more tools.`,
       )
       return
     }
@@ -1009,6 +1225,8 @@ async function runAgentTurn(
     userText: safePayload.userText,
     editProposalCreated,
     searchReplaceFailuresByPath,
+    incompleteHtmlFailuresByPath,
+    executeFromApprovedPlan,
   })
   await completeTurnWithFinalStream(maxHint)
 }
@@ -1022,7 +1240,13 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
   let turnRouting: ReturnType<typeof resolveAgentTurnRouting> | null = null
   if (snap.projectId && snap.manifest) {
     try {
-      turnRouting = resolveAgentTurnRouting(snap.manifest, payload)
+      const { postPlanIncremental } = resolvePostPlanRoutingInput(snap.projectId, payload)
+      turnRouting = resolveAgentTurnRouting(snap.manifest, {
+        modelIntent: payload.modelIntent,
+        activeContext: payload.activeContext,
+        isApprovedPlanAutoRun: payload.isApprovedPlanAutoRun,
+        postPlanIncremental,
+      })
       const { systemPrompt } = buildChatSystemPrompt(snap.manifest)
       scratch = createTurnTraceScratch(snap.projectId, payload, systemPrompt.length, turnRouting)
     } catch {

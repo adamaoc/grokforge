@@ -43,9 +43,11 @@ describe('getModelForIntent', () => {
   })
 
   it('exposes dual-model fallbacks for harness defaults', () => {
-    expect(DUAL_MODEL_FALLBACKS.chat_default).toBe('grok-code-fast-1')
-    expect(DUAL_MODEL_FALLBACKS.execution).toBe('grok-code-fast-1')
+    expect(DUAL_MODEL_FALLBACKS.chat_default).toBe('grok-build-0.1')
+    expect(DUAL_MODEL_FALLBACKS.execution).toBe('grok-build-0.1')
     expect(DUAL_MODEL_FALLBACKS.planning).toBe('grok-4.3')
+    expect(DUAL_MODEL_FALLBACKS.reasoning).toBe('grok-4.20-0309-reasoning')
+    expect(DUAL_MODEL_FALLBACKS.voice).toBe('grok-voice-latest')
   })
 
   it('exposes a bijection between intents and manifest model keys', () => {

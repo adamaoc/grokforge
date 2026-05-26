@@ -13,6 +13,8 @@ import {
   reflowCrushedJsxAndBlocks,
   reflowMarkdownDocumentLineBreaks,
   looksLikeMarkdownDocument,
+  repairJammedJavaScriptSource,
+  looksLikeJavaScriptSource,
 } from './agent-file-content-normalize'
 
 describe('normalizeAgentWriteFileContent', () => {
@@ -54,6 +56,71 @@ describe('normalizeAgentWriteFileContent', () => {
     expect(normalizeAgentWriteFileContent('a\\nb\\tc\\nd')).toBe('a\nb\tc\nd')
   })
 
+  it('decodes HTML entities in .html paths even when count is low', () => {
+    const entities = '<html lang=&quot;en&quot;><body>Hi</body></html>'
+    const normalized = normalizeAgentWriteFileContent(entities, '/proj/index.html')
+    expect(normalized).toContain('lang="en"')
+    expect(normalized).not.toContain('&quot;')
+  })
+
+  it('strips UTF-8 BOM and disallowed control characters', () => {
+    const dirty = `\uFEFF<!DOCTYPE html>\n<html>\u0007<body>Hi</body></html>`
+    const normalized = normalizeAgentWriteFileContent(dirty, '/proj/index.html')
+    expect(normalized.startsWith('\uFEFF')).toBe(false)
+    expect(normalized).not.toContain('\u0007')
+    expect(normalized).toContain('<body>Hi</body>')
+  })
+
+  it('unescapes dominant JSON unicode escapes in HTML tool payloads', () => {
+    const escaped =
+      '<!DOCTYPE html>\\u003chtml lang=\\u0022en\\u0022\\u003e\\u003cbody\\u003eTodo\\u003c/body\\u003e\\u003c/html\\u003e'
+    const normalized = normalizeAgentWriteFileContent(escaped, '/proj/index.html')
+    expect(normalized).toContain('<html lang="en">')
+    expect(normalized).not.toMatch(/\\u[0-9a-fA-F]{4}/)
+  })
+
+  it('repairs common mojibake in HTML text nodes', () => {
+    const mojibake = '<!DOCTYPE html><html><body><p>Don\u00E2\u20AC\u2122t break</p></body></html>'
+    const normalized = normalizeAgentWriteFileContent(mojibake)
+    expect(normalized).toContain("Don't break")
+    expect(normalized).not.toContain('\u00E2\u20AC\u2122')
+  })
+
+  it('decodes dominant HTML entities before reflow', () => {
+    const entities =
+      '<!DOCTYPE html><html lang=&#34;en&#34;><head><title>Todo</title></head><body><h1>Hi</h1></body></html>'
+    const normalized = normalizeAgentWriteFileContent(entities)
+    expect(normalized).toContain('lang="en"')
+    expect(normalized).not.toContain('&#34;')
+    expect(normalized.split('\n').length).toBeGreaterThan(3)
+  })
+
+  it('expands one-line stylesheets for review', () => {
+    const oneLine =
+      '*{box-sizing:border-box;}body{margin:0;font-family:sans-serif;}.container{max-width:480px;margin:0 auto;}'
+    const normalized = normalizeAgentWriteFileContent(oneLine)
+    expect(normalized.split('\n').length).toBeGreaterThan(2)
+  })
+
+  it('repairs jammed inline script with }function and }););', () => {
+    const crushed = `<!DOCTYPE html><html><body><script>
+const todos=[];function save(){localStorage.setItem('t',JSON.stringify(todos));}function init(){render();}updateCount();})// listenersfunction setup(){form.addEventListener('submit',onSubmit);}</script></body></html>`
+    const normalized = normalizeAgentWriteFileContent(crushed)
+    expect(normalized).not.toMatch(/\}\)\s*;\s*\)/)
+    expect(normalized).not.toMatch(/listenersfunction/)
+    expect(normalized).toMatch(/listeners\nfunction setup/)
+  })
+
+  it('splits function init glued after inline script comment', () => {
+    const crushed = `<!DOCTYPE html><html><body><script>
+items.forEach((item) => { listElement.appendChild(li); }); // Set up listeners and initial renderfunction init() {
+  addEventListener('DOMContentLoaded', init);
+}</script></body></html>`
+    const normalized = normalizeAgentWriteFileContent(crushed)
+    expect(normalized).toMatch(/render\nfunction init\s*\(/)
+    expect(normalized).not.toMatch(/renderfunction init/)
+  })
+
   it('reflows one-line HTML documents onto separate lines', () => {
     const oneLine =
       "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Todo</title></head><body><h1>Hi</h1></body></html>"
@@ -61,6 +128,14 @@ describe('normalizeAgentWriteFileContent', () => {
     expect(normalized.split('\n').length).toBeGreaterThan(4)
     expect(normalized).toContain('<!DOCTYPE html>\n')
     expect(normalized).toContain('>\n<')
+  })
+
+  it('splits live code glued after a line comment on the same line', () => {
+    const crushed =
+      "const STORAGE_KEY='todos';// Boot the app when DOM is ready document.addEventListener('DOMContentLoaded', init);"
+    const normalized = normalizeAgentWriteFileContent(crushed)
+    expect(normalized).toMatch(/ready\n\s*document\.addEventListener/)
+    expect(normalized).not.toMatch(/ready document\.addEventListener/)
   })
 
   it('expands collapsed TS/JS source with semicolons and line comments', () => {
@@ -151,6 +226,17 @@ describe('normalizeAgentWriteFileContent — vanilla HTML/JS', () => {
       false,
     )
     expect(looksLikeJsxOrTsxSource('export function X() { return ( <Card /> ); }')).toBe(true)
+  })
+
+  it('repairs jammed standalone script.js source', () => {
+    const crushed =
+      "const todos=[];function save(){}function init(){render();}updateCount();})// listenersfunction setup(){form.addEventListener('submit',onSubmit);}"
+    expect(looksLikeJavaScriptSource(crushed, '/proj/script.js')).toBe(true)
+    const out = normalizeAgentWriteFileContent(crushed, '/proj/script.js')
+    expect(out).not.toMatch(/listenersfunction/)
+    expect(out.split('\n').length).toBeGreaterThan(3)
+    const orphanCloseParens = out.split('\n').filter((l) => /^\s*\)\s*;?\s*$/.test(l)).length
+    expect(orphanCloseParens).toBe(0)
   })
 })
 

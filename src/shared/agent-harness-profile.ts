@@ -5,11 +5,21 @@
 import type { AgentChatToolName } from './agent-chat-contract'
 import type { HarnessProfileKey } from './agent-harness-profile-contract'
 import { resolveHarnessProfileKey } from './agent-harness-profile-contract'
+import {
+  POST_PLAN_INCREMENTAL_MARKER,
+  SINGLE_FILE_EDIT_BIAS_MARKER,
+} from './post-plan-incremental'
 import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
 
 export type HarnessPromptTurnContext = {
   greenfieldWorkspace?: boolean
   executeFromApprovedPlan?: boolean
+  /** Story 120: incremental Work follow-up after approved/superseded plan. */
+  postPlanIncremental?: boolean
+  /** Story 120: workspace index shows one primary non-trivial file. */
+  singleFilePrimary?: boolean
+  /** Basename of primary file when singleFilePrimary (e.g. index.html). */
+  singleFilePrimaryBasename?: string
 }
 
 const GREENFIELD_PLAN_SECTIONS: readonly string[] = [
@@ -23,13 +33,42 @@ const GREENFIELD_PLAN_SECTIONS: readonly string[] = [
   '**Tool budget:** Call `list_directory` once (plus retrieval if needed), then **stop discovery** and emit the `gf-plan` fence in your final answer — do not loop on more listing/search tools.',
 ]
 
+/** Final-answer pointer; detailed edit/search rules live in AGENT_TOOL_LOOP_SHARED. */
+export const EXECUTOR_FROM_PLAN_FINAL_ANSWER_POINTER =
+  'Follow the approved `gf-plan` step order from thread context. Do not replan from scratch. Apply **Agent tool loop** rules above for read-before-edit, `search_replace` vs `propose_file_edits`, and `run_command` approval.'
+
 const EXECUTOR_FROM_PLAN_SECTIONS: readonly string[] = [
   '## Execute approved plan (harness 101)',
   'Follow the **approved `gf-plan` step order** from thread context. Do not replan from scratch or invent a new architecture unless a step is blocked.',
-  'Before editing any **existing** path, call `read_file` or `search_workspace` on that path in this turn.',
-  'Prefer `search_replace` for localized edits on existing files; use `propose_file_edits` for new files or multi-file bootstrap.',
-  'For **new HTML files**, send one **complete** document in a single `write_file` (valid `<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`, embedded CSS/JS, and closing tags) — never a one-line stub or truncated opener.',
+  'Use **Agent tool loop** rules above for discovery, read-before-edit, localized `search_replace`, and `propose_file_edits` for new or multi-file work.',
+  'When the approved plan lists **multiple concrete paths** (e.g. `index.html`, `styles.css`, `script.js`), bootstrap **every named file** — do not collapse all JavaScript into a crushed inline `<script>` in HTML unless the plan explicitly specifies a single-file app.',
+  'For **new HTML files**, send one **complete** document in a single `write_file` (valid `<!DOCTYPE html>`, `<head>`, `<body>`, closing tags). Prefer `<script src="script.js">` when the plan lists a separate JS path — never a one-line stub or truncated opener.',
+  'Use **clean UTF-8** in HTML/CSS/JS: real ASCII quotes in attributes (not &#34;, &quot;, or backslash-u escape sequences), include `<meta charset="UTF-8">` in new HTML, and avoid mojibake or special control characters.',
   'Respect plan file paths and verification commands; run `run_command` only when the plan or user intent requires it (user approval required).',
+]
+
+/** Greenfield execute — multi-file bootstrap is allowed; completeness is enforced by validation, not arbitrary file-count limits. */
+const POST_PLAN_INCREMENTAL_SECTIONS: readonly string[] = [
+  POST_PLAN_INCREMENTAL_MARKER,
+  'An **approved or superseded plan** already exists for this project. This turn is a **small incremental change** in Work mode — do **not** emit a new `gf-plan` or replan from scratch.',
+  'Use read/search tools only as needed, then **`propose_file_edits`** or localized **`search_replace`** for the requested change. Follow the approved plan artifact in context when paths or steps are unclear.',
+]
+
+const SINGLE_FILE_EDIT_BIAS_SECTIONS: readonly string[] = [
+  SINGLE_FILE_EDIT_BIAS_MARKER,
+  'This workspace has **one primary file** for app code. After **one** `read_file` on that file, prefer **one** `propose_file_edits` with the **full** file from `rawContent` (minimal edits to unchanged sections).',
+  'Do **not** chain three or more `search_replace` calls on the same path in one turn — use a single full-file proposal instead (GrokForge merges in-order S&R, but full-file proposals are more reliable for HTML/JS).',
+]
+
+export const GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS: readonly string[] = [
+  '## Greenfield execute (bootstrap)',
+  'Workspace is empty or near-empty: prefer **one `propose_file_edits`** with every new file the approved plan lists (`index.html`, `styles.css`, `script.js`, etc.) when the combined payload is reasonably small.',
+  'When the plan names **`script.js`** (or another JS path), use **external** `<script src="script.js">` in HTML — do **not** put all application logic in a crushed inline `<script>` block.',
+  'Each `write_file` must be a **complete**, **multi-line** file (HTML with `</body></html>`, valid CSS, valid JS). Use real line breaks — not one-line stubs.',
+  'HTML must use **plain UTF-8 text** in attributes and body copy — no HTML entity encoding (&#34;, &quot;) or JSON-style backslash-u escapes in the file body.',
+  'For vanilla todo apps prefer **index.html + styles.css + script.js** (linked with `<script src="script.js">`) instead of a huge inline `<script>` block.',
+  'In JavaScript: **one statement per line**; no decorative `//` comments; never glue `}function`, `}););//`, or executable code on the same line after `//`.',
+  'If GrokForge rejects one path in a multi-file proposal, retry with **complete bodies for the failed paths only** — other accepted files are already in the pending review.',
 ]
 
 export type ReasoningTracePolicy = 'preserve' | 'strip' | 'provider_default'
@@ -49,6 +88,12 @@ export type AgentHarnessProfile = {
   toolLoopSections: readonly string[]
 }
 
+/** Proactive exploration rules — included in AGENT_TOOL_LOOP_SHARED and voice handoff. */
+export const AGENT_TOOL_LOOP_EXPLORE_RULES: readonly string[] = [
+  'When the user names a feature, page, or area without a path, use `search_workspace`, `list_directory`, and `read_file` under workspace roots — do not ask for an absolute path unless search is ambiguous.',
+  'Prefer acting with tools over clarifying questions. On edit, fix, or implement intents, run discovery tools before proposing file changes or drafting plans.',
+]
+
 /** Shared tool-loop rules (all profiles). */
 export const AGENT_TOOL_LOOP_SHARED: readonly string[] = [
   'You may use the provided read/search tools to inspect this workspace before answering. Use tools when exact file contents or paths matter. You may request one-shot commands with run_command for tests, typecheck, git inspection, or diagnostics, but GrokForge will always ask the user before running model-requested commands. Do not claim a command ran unless the tool result says it ran. During tool planning, prefer tool calls over drafting the full answer; GrokForge will ask for the final response after tool use finishes.',
@@ -58,13 +103,15 @@ export const AGENT_TOOL_LOOP_SHARED: readonly string[] = [
   'Copy `contentHash` from `read_file` into `expectedContentHash` on `search_replace` and `propose_file_edits` write ops for existing files. Re-read if the file may have changed on disk.',
   'Each `write_file` must contain complete file text with **real line breaks** (never one semicolon-separated line for the whole file). Base proposals on `read_file` `rawContent` (not the line-numbered `content` field): preserve indentation and line breaks for unchanged sections. Use `startLine` / `maxLines` when reading large files before editing.',
   'When creating **multiple new files** in one task (e.g. bootstrap), prefer **one** `propose_file_edits` call with several `write_file` operations (up to 32), not separate calls per file.',
+  'When the user reports **syntax errors** or broken formatting in an existing file, call `read_file`, then one `propose_file_edits` with the **full** file from `rawContent` — do not loop on `search_replace` against crushed one-line scripts.',
   'Large tool results may be replaced with an offload pointer (`offloaded: true`); use `read_file` on `offloadPath` to load the full text.',
+  ...AGENT_TOOL_LOOP_EXPLORE_RULES,
 ]
 
 const GROK_CODE_FAST: AgentHarnessProfile = {
   key: 'grok_code_fast',
   displayName: 'Grok Fast (code)',
-  modelIds: ['grok-code-fast-1'],
+  modelIds: ['grok-build-0.1', 'grok-code-fast-1', 'grok-code-fast', 'grok-code-fast-1-0825'],
   systemPromptSections: [
     '## Harness profile (fast execution)',
     'You are tuned for **fast, tool-first execution**: call read/search tools early, keep reasoning brief, and deliver concise final answers.',
@@ -76,10 +123,8 @@ const GROK_CODE_FAST: AgentHarnessProfile = {
   finalAnswerContractVariant: 'fast_default',
   reasoningTracePolicy: 'preserve',
   toolUseBias:
-    '**Tool-use bias (fast):** Prefer acting with tools over long explanations. On edit/fix/implement intents, run `search_workspace` and/or `list_directory` immediately, then `read_file` before proposing changes. Keep the final answer short unless the user asked for a deep explanation.',
+    '**Tool-use bias (fast):** Prefer acting with tools over long explanations. Keep the final answer short unless the user asked for a deep explanation.',
   toolLoopSections: [
-    'When the user names a feature or area without a path, use `search_workspace` (like ripgrep) and/or `list_directory` first—do not ask for an absolute path unless search is ambiguous.',
-    'Prefer tool calls over clarifying questions. On edit/fix/implement intents, run discovery tools in the first tool round before proposing file changes.',
     'Bias toward **implementation**: if you have enough context from tools, proceed to `propose_file_edits` rather than extended planning prose.',
   ],
 }
@@ -101,10 +146,9 @@ const GROK_4_3: AgentHarnessProfile = {
   finalAnswerContractVariant: 'plan_capable',
   reasoningTracePolicy: 'preserve',
   toolUseBias:
-    '**Tool-use bias (capable):** Prefer **evidence from tools** over assumptions. Run `search_workspace` and `read_file` before large `propose_file_edits`. In Plan mode, do not propose file edits on this turn — output `gf-plan` only.',
+    '**Tool-use bias (capable):** Prefer **evidence from tools** over assumptions. In Plan mode, do not propose file edits on this turn — output `gf-plan` only.',
   toolLoopSections: [
-    'When the user names a feature or area without a path, proactively use `search_workspace` and/or `list_directory`, then `read_file` on the best matches — do not ask for a path unless search results are ambiguous.',
-    'Prefer **acting with tools** over clarifying questions. Gather enough workspace evidence before drafting plans or edit proposals.',
+    'Gather enough workspace evidence before drafting plans or edit proposals.',
     'In Plan mode, investigation tools are allowed; **do not** call `propose_file_edits` or append edit fences — the user approves the plan before execution.',
   ],
 }
@@ -118,10 +162,7 @@ const GENERIC: AgentHarnessProfile = {
   finalAnswerContractVariant: 'generic_default',
   reasoningTracePolicy: 'preserve',
   toolUseBias: '',
-  toolLoopSections: [
-    'When the user names a feature or area without a path, use `search_workspace` and/or `list_directory` first—do not ask for an absolute path unless search is ambiguous.',
-    'Prefer tool use over clarifying questions. On edit/fix/implement intents, run discovery tools early before proposing file changes.',
-  ],
+  toolLoopSections: [],
 }
 
 const HARNESS_PROFILES: Record<HarnessProfileKey, AgentHarnessProfile> = {
@@ -169,8 +210,24 @@ export function buildHarnessTurnPromptSections(
     (profile.key === 'grok_code_fast' || profile.key === 'grok_4_3')
   ) {
     sections.push(...EXECUTOR_FROM_PLAN_SECTIONS)
+    if (ctx.greenfieldWorkspace && profile.key === 'grok_code_fast') {
+      sections.push(...GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS)
+    }
   }
-  return sections
+  if (
+    ctx.postPlanIncremental &&
+    !ctx.executeFromApprovedPlan &&
+    (profile.key === 'grok_code_fast' || profile.key === 'grok_4_3')
+  ) {
+    sections.push(...POST_PLAN_INCREMENTAL_SECTIONS)
+  }
+  if (ctx.singleFilePrimary && (profile.key === 'grok_code_fast' || profile.key === 'grok_4_3')) {
+    const primaryHint = ctx.singleFilePrimaryBasename
+      ? `Primary file: **${ctx.singleFilePrimaryBasename}**.`
+      : ''
+    sections.push(primaryHint, ...SINGLE_FILE_EDIT_BIAS_SECTIONS)
+  }
+  return sections.filter((s) => s.trim().length > 0)
 }
 
 /** Build the profile-specific portion of the Agent tool loop block. */
@@ -181,10 +238,10 @@ export function buildAgentToolLoopProfileSections(
   return [...profile.toolLoopSections, ...buildHarnessTurnPromptSections(profile, ctx)]
 }
 
-/** Cross-surface proactive exploration rules (story 091 / 113). */
+/** Cross-surface proactive exploration rules (story 091 / 113). Voice uses third-person phrasing on line 1. */
 export const HARNESS_CROSS_SURFACE_EXPLORE_RULES: readonly string[] = [
   'When the user names a feature, page, or area without a path, typed agent chat should locate files with `search_workspace`, `list_directory`, and `read_file` under workspace roots — do not ask for an absolute path unless search is ambiguous.',
-  'Prefer acting with tools over clarifying questions. On edit, fix, or implement intents, run discovery tools before proposing file changes.',
+  AGENT_TOOL_LOOP_EXPLORE_RULES[1]!,
 ]
 
 /** Voice realtime cannot run the text tool loop — handoff honesty (story 113). */

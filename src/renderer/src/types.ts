@@ -29,7 +29,7 @@ import type {
 } from '../../main/chat-store'
 import { CHAT_STORE_SCHEMA_VERSION } from '../../shared/chat-thread-schema'
 import type { GetModelForIntentOptions, ModelIntent } from '../../shared/model-router'
-import { getModelForIntent, MODEL_INTENT_MANIFEST_KEYS } from '../../shared/model-router'
+import { getModelForIntent, DUAL_MODEL_FALLBACKS, MODEL_INTENT_MANIFEST_KEYS } from '../../shared/model-router'
 import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../../main/voice-realtime'
 import type { GitDiffSessionResult, GitStatusSummary } from '../../main/git'
 import {
@@ -250,6 +250,7 @@ export {
   getModelForIntent,
   getHarnessProfile,
   resolveHarnessProfileKey,
+  DUAL_MODEL_FALLBACKS,
   MODEL_INTENT_MANIFEST_KEYS,
   RECENT_PROJECTS_MAX,
   RECENT_PROJECT_DISPLAY_NAME_MAX_LEN,

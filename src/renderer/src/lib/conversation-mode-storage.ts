@@ -1,4 +1,5 @@
-export type ConversationMode = 'normal' | 'plan'
+export type { ConversationMode } from '../../../shared/conversation-mode-contract'
+import type { ConversationMode } from '../../../shared/conversation-mode-contract'
 
 const key = (projectId: string) => `grokforge.conversationMode.v1:${projectId}`
 

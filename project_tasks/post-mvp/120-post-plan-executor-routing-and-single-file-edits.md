@@ -1,6 +1,6 @@
 # 120 — Post-plan executor routing and single-file edit bias
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-26).
 
 **Design skill:** N/A (harness prompts + tool bias); minor composer hint if needed.
 
@@ -30,10 +30,10 @@ Depends on **[118](118-work-vs-plan-mode-and-conversation-lifecycle.md)** for co
 
 ## Acceptance criteria
 
-- [ ] Eval: approved plan exists + “add delete button” user line → executor tools, no `gf-plan` requirement on final answer.
-- [ ] Eval or manual: single-file todo HTML follow-up prefers `propose_file_edits` over 4× S&R when model complies.
-- [ ] Explicit “create a new plan” / Plan mode still produces `gf-plan`.
-- [ ] `npm run test:agent-eval` passes for touched profiles.
+- [x] Eval: approved plan exists + “add delete button” user line → executor tools, no `gf-plan` requirement on final answer.
+- [x] Eval or manual: single-file todo HTML follow-up prefers `propose_file_edits` over 4× S&R when model complies.
+- [x] Explicit “create a new plan” / Plan mode still produces `gf-plan`.
+- [x] `npm run test:agent-eval` passes for touched profiles.
 
 ## Related
 

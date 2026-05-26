@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { GrokProjectManifest } from './manifest'
-import { validateAgentEditProposal } from './agent-edit-proposals'
+import { buildEditProposalValidationSummary, validateAgentEditProposal } from './agent-edit-proposals'
 import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
 import { AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
 import {
@@ -31,11 +31,11 @@ function manifestForRoot(root: string): GrokProjectManifest {
     roots: [{ id: 'root', path: root, type: 'code', label: 'Root' }],
     ignore: ['**/ignored/**'],
     models: {
-      default: 'grok-code-fast-1',
+      default: 'grok-build-0.1',
       planning: 'grok-4.3',
-      execution: 'grok-code-fast-1',
-      reasoning: 'grok-4.20-reasoning',
-      voice: 'grok-voice-think-fast-1.0',
+      execution: 'grok-build-0.1',
+      reasoning: 'grok-4.20-0309-reasoning',
+      voice: 'grok-voice-latest',
     },
     voice: { enabled: true, defaultVoiceMode: 'off', autoListen: false, speakResponses: false },
     context: { alwaysInclude: [] },
@@ -417,6 +417,79 @@ The goal is to provide a lightweight app.
     expect(op.content).toContain('React + TypeScript')
   })
 
+  it('repairs jammed standalone script.js when normalize can recover', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const jammed =
+      "const todos=[];function save(){localStorage.setItem('t',JSON.stringify(todos));}function init(){render();}updateCount();})// listenersfunction setup(){form.addEventListener('submit',onSubmit);}"
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: join(root, 'script.js'), content: jammed }],
+      },
+      env(root),
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(result.error)
+    const op = result.proposal.batch.operations[0]
+    if (op.op !== 'write_file') throw new Error('expected write_file')
+    expect(op.content).not.toMatch(/listenersfunction/)
+    expect(op.content.split('\n').length).toBeGreaterThan(3)
+  })
+
+  it('rejects corrupt script.js with actionable orphan-paren reason', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const corruptJs = `function init() {
+)
+)
+)
+);
+)
+)
+`
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: join(root, 'script.js'), content: corruptJs }],
+      },
+      env(root),
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected reject')
+    expect(result.proposal?.rejected[0]?.reason).toMatch(/full.*script/i)
+  })
+
+  it('accepts valid paths and rejects corrupt script.js in same batch', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const html = `<!DOCTYPE html>
+<html lang="en"><head><title>Todo</title><link rel="stylesheet" href="styles.css"></head>
+<body><h1>Todo</h1><script src="script.js"></script></body></html>`
+    const css = 'body { font-family: sans-serif; margin: 0; }'
+    const corruptJs = `function init() {
+)
+)
+)
+);
+)
+)
+`
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [
+          { op: 'write_file', path: join(root, 'index.html'), content: html },
+          { op: 'write_file', path: join(root, 'styles.css'), content: css },
+          { op: 'write_file', path: join(root, 'script.js'), content: corruptJs },
+        ],
+      },
+      env(root),
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(result.error)
+    expect(result.proposal.batch.operations.length).toBe(2)
+    expect(result.proposal.rejected.length).toBe(1)
+    expect(result.proposal.rejected[0]?.path).toContain('script.js')
+  })
+
   it('rejects write_file with orphan close-paren corruption', () => {
     const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
     const corrupt = `<!DOCTYPE html>
@@ -479,5 +552,16 @@ The goal is to provide a lightweight app.
     if (op?.op === 'write_file') {
       expect(op.content).toBe('# A\n\n## B\nok')
     }
+  })
+})
+
+describe('buildEditProposalValidationSummary', () => {
+  it('summarizes rejected paths for traces', () => {
+    const summary = buildEditProposalValidationSummary(
+      [{ path: '/proj/index.html', reason: 'Incomplete HTML' }],
+      0,
+    )
+    expect(summary).toMatch(/1 rejected/)
+    expect(summary).toMatch(/index\.html/)
   })
 })

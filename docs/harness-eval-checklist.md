@@ -8,7 +8,7 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 
 ## 1. Fast chat — small edit with read-before-write
 
-- **Setup:** Open a project with a small TS/JS file. **Fast** mode, default model (`grok-code-fast-1`).
+- **Setup:** Open a project with a small TS/JS file. **Fast** mode, default model (`grok-build-0.1`).
 - **Prompt:** “Read `src/…` and add a one-line comment at the top.”
 - **Expected:** `read_file` activity, then edit proposal or search_replace; no plan fence; harness profile **fast** in turn debug if visible.
 - **Verify:** `grok_code_fast` / **default** agent profile; execution model slot.
@@ -28,7 +28,7 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 
 - **Setup:** Valid `gf-plan` in thread from (2). Click **Approve and run** (or equivalent).
 - **Expected:** Turn uses **execution** model + **executor** profile; edit tools available; follows plan steps. User line is **short** (plan id + summary preview, not “re-read the fence”). System context includes **Approved plan artifact** with absolute `plan.json` path (**109**). App data has `workspace-projects/<projectId>/plans/<planId>/plan.json` + `plan.md`.
-- **Verify:** `turn_started` routing: `modelIntent: execution`, `agentProfileId: executor`, `grok-code-fast-1`. Optional: agent `read_file` on plan path returns structured JSON. Automated: `agent-runner-evaluation.test.ts` “injects compact approved plan artifact summary when approvedPlanId is set (109)”.
+- **Verify:** `turn_started` routing: `modelIntent: execution`, `agentProfileId: executor`, `grok-build-0.1`. Optional: agent `read_file` on plan path returns structured JSON. Automated: `agent-runner-evaluation.test.ts` “injects compact approved plan artifact summary when approvedPlanId is set (109)”.
 
 ---
 

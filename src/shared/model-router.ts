@@ -24,18 +24,18 @@ export const MODEL_INTENT_MANIFEST_KEYS: Record<ModelIntent, keyof ModelRoutingM
 }
 
 /**
- * Dual-model harness defaults (story 102).
+ * Dual-model harness defaults (stories 102 / 121).
  *
- * We intentionally keep `grok-code-fast-1` on chat_default + execution and `grok-4.3` on
- * planning so the app can run separate harness profiles per model id (story 103), even though
- * xAI may redirect the fast slug to grok-4.3 at the API — see docs/harness-102-xai-investigation.md.
+ * Agentic coding slots use `grok-build-0.1`; planning uses `grok-4.3` so the app can run
+ * separate harness profiles per model family (story 103). Legacy slugs such as
+ * `grok-code-fast-1` redirect to build at the API — see docs/harness-102-xai-investigation.md.
  */
 export const DUAL_MODEL_FALLBACKS: Record<ModelIntent, string> = {
-  chat_default: 'grok-code-fast-1',
+  chat_default: 'grok-build-0.1',
   planning: 'grok-4.3',
-  execution: 'grok-code-fast-1',
-  reasoning: 'grok-4.20-reasoning',
-  voice: 'grok-voice-think-fast-1.0',
+  execution: 'grok-build-0.1',
+  reasoning: 'grok-4.20-0309-reasoning',
+  voice: 'grok-voice-latest',
 }
 
 export type GetModelForIntentOptions = {

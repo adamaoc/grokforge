@@ -10,7 +10,7 @@ describe('defaultManifestForFirstRoot', () => {
     expect(manifest.models.execution).toBe(DUAL_MODEL_FALLBACKS.execution)
     expect(manifest.models.reasoning).toBe(DUAL_MODEL_FALLBACKS.reasoning)
     expect(manifest.models.voice).toBe(DUAL_MODEL_FALLBACKS.voice)
-    expect(manifest.models.default).toBe('grok-code-fast-1')
+    expect(manifest.models.default).toBe('grok-build-0.1')
     expect(manifest.models.planning).toBe('grok-4.3')
   })
 })

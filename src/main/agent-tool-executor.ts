@@ -9,7 +9,7 @@ import { findAccumulatedWriteForPath, mergeAgentEditProposals } from '../shared/
 import type { AgentProfile } from '../shared/agent-profile'
 import { isToolAllowedForProfile } from '../shared/agent-profile'
 import type { GrokProjectManifest } from './manifest'
-import { validateAgentEditProposal } from './agent-edit-proposals'
+import { buildEditProposalValidationSummary, validateAgentEditProposal } from './agent-edit-proposals'
 import { executeRunCommandTool, parseRunCommandToolArgs } from './agent-run-command-tool'
 import {
   resolveSearchReplaceToWriteBatch,
@@ -30,8 +30,14 @@ export type AgentToolCallOutcome = {
   toolContent: string
   doneTitle: string
   detail?: string
+  /** Compact validation outcome for traces / activity when edit tools run. */
+  validationSummary?: string
   editProposalCreated?: boolean
+  /** True when this turn merged into an existing proposal (story 119). */
+  editProposalComposedInTurn?: boolean
   turnProposalAccum?: AgentEditProposalPayload | null
+  /** Resolved path for activity compaction (story 119). */
+  activitySubjectPath?: string
   totalToolCharsAdded: number
 }
 
@@ -86,6 +92,9 @@ export async function executeAgentToolCall(
   let totalToolCharsAdded = 0
   let editProposalCreated = state.editProposalCreated
   let turnProposalAccum = state.turnProposalAccum
+  let validationSummary: string | undefined
+  let editProposalComposedInTurn = false
+  let activitySubjectPath: string | undefined
 
   if (!isAllowedToolName(name)) {
     toolContent = JSON.stringify({ ok: false, error: `Unknown tool: ${name}` })
@@ -141,6 +150,7 @@ export async function executeAgentToolCall(
       if (name === 'search_replace' && searchReplaceParsed?.success) {
         searchReplaceResolved = resolveAgentWorkspacePath(searchReplaceParsed.data.path, ctx)
         if (searchReplaceResolved) {
+          activitySubjectPath = searchReplaceResolved
           const prior = findAccumulatedWriteForPath(state.turnProposalAccum, searchReplaceResolved)
           if (prior) {
             searchReplaceChain = { baseContent: prior.content }
@@ -173,18 +183,31 @@ export async function executeAgentToolCall(
               name === 'search_replace' && writeBatch && writeBatch.ok ? 'search_replace' : 'propose',
           },
         )
+        const rejectedList = proposalResult.proposal?.rejected ?? []
+        const acceptedCount = proposalResult.proposal?.batch.operations.length ?? 0
+        validationSummary = buildEditProposalValidationSummary(rejectedList, acceptedCount)
         if (!proposalResult.ok) {
           doneTitle = name === 'search_replace' ? 'Search replace failed' : 'Edit proposal failed'
-          detail = proposalResult.error
+          detail = `${proposalResult.error}${rejectedList.length > 0 ? ` · ${validationSummary}` : ''}`
           toolContent = JSON.stringify({
             ok: false,
             error: proposalResult.error,
-            rejected: proposalResult.proposal?.rejected ?? [],
+            rejected: rejectedList,
+            validationSummary,
           })
         } else {
           ok = true
           editProposalCreated = true
+          const hadPriorProposal = turnProposalAccum != null
           turnProposalAccum = mergeAgentEditProposals(turnProposalAccum, proposalResult.proposal)
+          if (hadPriorProposal) editProposalComposedInTurn = true
+          if (name === 'propose_file_edits') {
+            const firstOp = proposalResult.proposal?.batch.operations[0]
+            if (firstOp?.path) {
+              activitySubjectPath =
+                resolveAgentWorkspacePath(firstOp.path, ctx) ?? firstOp.path
+            }
+          }
           options.emit({ streamId: ctx.streamId, phase: 'edit_proposal', proposal: turnProposalAccum })
           const count = turnProposalAccum.batch.operations.length
           const rejected = turnProposalAccum.rejected.length
@@ -198,12 +221,13 @@ export async function executeAgentToolCall(
             searchReplaceResolved
               ? ` · composed with prior edit on ${searchReplaceResolved.split(/[/\\]/).filter(Boolean).pop() ?? 'file'}`
               : ''
-          detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${rejected} rejected` : ''}${chainNote}`
+          detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${validationSummary}` : ''}${chainNote}`
           toolContent = JSON.stringify({
             ok: true,
             proposalCreated: true,
             operations: count,
             rejected: turnProposalAccum.rejected,
+            validationSummary,
             message:
               'The proposal is now available in GrokForge for user diff review. Do not repeat the full JSON in the final answer.',
           })
@@ -248,8 +272,11 @@ export async function executeAgentToolCall(
     toolContent,
     doneTitle,
     detail,
+    validationSummary,
     editProposalCreated,
+    editProposalComposedInTurn,
     turnProposalAccum,
+    activitySubjectPath,
     totalToolCharsAdded,
   }
 }

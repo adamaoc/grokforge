@@ -81,15 +81,13 @@ export function AgentOnboardingDialog({
             This project has {rootsLabel}. Each root is a folder GrokForge can read and search — handy when
             code, docs, and apps live in different places on disk.
           </PrimerRow>
-          <PrimerRow icon={<FileDiff size={16} />} title="Proposals, not silent writes">
-            The agent <strong className="font-medium text-zinc-300">proposes</strong> file changes. You review
-            the diff in the editor column and choose <strong className="font-medium text-zinc-300">Apply</strong>{' '}
-            when ready — nothing hits disk until you approve.
+          <PrimerRow icon={<FileDiff size={16} />} title="Trust vs Velocity">
+            <strong className="font-medium text-zinc-300">Trust</strong> keeps review-before-apply — you open the diff and choose Apply.{' '}
+            <strong className="font-medium text-zinc-300">Velocity</strong> auto-applies valid proposals when a turn completes; Undo and Review diff stay on the proposal card. Switch temperament in Settings or the composer chip.
           </PrimerRow>
-          <PrimerRow icon={<Zap size={16} />} title="Fast vs Plan mode">
-            <strong className="font-medium text-zinc-300">Fast</strong> is the default chat loop.{' '}
-            <strong className="font-medium text-zinc-300">Plan</strong> asks for a structured plan (steps and
-            risks) before heavier edits — use the mode control above the composer.
+          <PrimerRow icon={<Zap size={16} />} title="Work vs Plan mode">
+            <strong className="font-medium text-zinc-300">Work</strong> is the default agent loop for edits and follow-ups.{' '}
+            <strong className="font-medium text-zinc-300">Plan</strong> asks for a structured plan (steps and risks) before heavier edits — empty projects start in Plan. Use the mode control above the composer.
           </PrimerRow>
           <PrimerRow icon={<Mic size={16} />} title="Voice → agent chat">
             Voice is great for thinking out loud. When you need file changes, use{' '}

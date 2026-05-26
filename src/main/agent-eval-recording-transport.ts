@@ -9,6 +9,7 @@ export type AgentEvalProviderCall = {
   snapshotId: string
   toolNames: string[]
   systemText: string
+  reasoningEffort?: AgentProviderRequest['reasoningEffort']
 }
 
 function systemTextFromRequest(request: AgentProviderRequest): string {
@@ -31,6 +32,7 @@ function recordFromRequest(
     snapshotId: request.snapshotId,
     toolNames: request.tools.map((t) => t.function.name),
     systemText: systemTextFromRequest(request),
+    reasoningEffort: request.reasoningEffort,
   }
 }
 

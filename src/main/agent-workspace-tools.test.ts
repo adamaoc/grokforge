@@ -26,6 +26,7 @@ import {
   AGENT_TOOL_DEFINITIONS,
   AGENT_SEARCH_MAX_RESULTS,
   buildAgentToolDefinitions,
+  buildToolDefinitionsForTurn,
   filterToolDefinitionsForProfile,
   isLikelySensitivePath,
   executeWorkspaceTool,
@@ -43,11 +44,11 @@ function manifestForRoot(root: string): GrokProjectManifest {
     roots: [{ id: 'root', path: root, type: 'code', label: 'Root' }],
     ignore: ['**/node_modules', '**/.git', '**/ignored'],
     models: {
-      default: 'grok-code-fast-1',
+      default: 'grok-build-0.1',
       planning: 'grok-4.3',
-      execution: 'grok-code-fast-1',
-      reasoning: 'grok-4.20-reasoning',
-      voice: 'grok-voice-think-fast-1.0',
+      execution: 'grok-build-0.1',
+      reasoning: 'grok-4.20-0309-reasoning',
+      voice: 'grok-voice-latest',
     },
     voice: { enabled: true, defaultVoiceMode: 'off', autoListen: false, speakResponses: false },
     context: { alwaysInclude: [] },
@@ -144,6 +145,16 @@ describe('agent workspace read/search tools', () => {
     expect(names).toContain('read_file')
     expect(names).not.toContain('propose_file_edits')
     expect(names).not.toContain('run_command')
+  })
+
+  it('buildToolDefinitionsForTurn merges overrides and profile allowlist', () => {
+    const defs = buildToolDefinitionsForTurn({
+      agentProfileId: 'planner',
+      toolDescriptionOverrides: { search_workspace: 'custom search hint' },
+    })
+    const search = defs.find((d) => d.function.name === 'search_workspace')
+    expect(search?.function.description).toBe('custom search hint')
+    expect(defs.some((d) => d.function.name === 'propose_file_edits')).toBe(false)
   })
 
   it('search_workspace caps results', () => {

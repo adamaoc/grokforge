@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  inferAgentChatModelIntent,
-  resolveAgentChatModelIntent,
-  resolveAgentTurnRouting,
-} from './agent-turn-routing'
+import { resolveAgentChatModelIntent, resolveAgentTurnRouting } from './agent-turn-routing'
 import type { ModelRoutingManifest } from './model-router'
 
 const manifest: ModelRoutingManifest = {
@@ -20,7 +16,7 @@ const fastCtx = { chatMode: 'fast' as const, openTabs: [] }
 const planCtx = { chatMode: 'plan' as const, openTabs: [] }
 
 describe('resolveAgentChatModelIntent', () => {
-  it('forces execution when isApprovedPlanAutoRun without plan workflow flag', () => {
+  it('forces execution when isApprovedPlanAutoRun', () => {
     expect(
       resolveAgentChatModelIntent({
         isApprovedPlanAutoRun: true,
@@ -30,14 +26,23 @@ describe('resolveAgentChatModelIntent', () => {
     ).toBe('execution')
   })
 
-  it('keeps planning model for approve-and-run when planWorkflowUsePlanningModel', () => {
+  it('forces execution when postPlanIncremental without chip', () => {
     expect(
       resolveAgentChatModelIntent({
-        isApprovedPlanAutoRun: true,
-        planWorkflowUsePlanningModel: true,
+        postPlanIncremental: true,
         activeContext: fastCtx,
       }),
-    ).toBe('planning')
+    ).toBe('execution')
+  })
+
+  it('honors explicit chip over postPlanIncremental', () => {
+    expect(
+      resolveAgentChatModelIntent({
+        postPlanIncremental: true,
+        modelIntent: 'chat_default',
+        activeContext: fastCtx,
+      }),
+    ).toBe('chat_default')
   })
 
   it('uses explicit modelIntent when provided', () => {
@@ -73,15 +78,6 @@ describe('resolveAgentChatModelIntent', () => {
       }),
     ).toBe('chat_default')
   })
-
-  it('inferAgentChatModelIntent delegates to resolveAgentChatModelIntent', () => {
-    expect(
-      inferAgentChatModelIntent({
-        modelIntent: 'planning',
-        activeContext: fastCtx,
-      }),
-    ).toBe('planning')
-  })
 })
 
 describe('resolveAgentTurnRouting', () => {
@@ -98,11 +94,11 @@ describe('resolveAgentTurnRouting', () => {
     const routing = resolveAgentTurnRouting(
       {
         models: {
-          default: 'grok-code-fast-1',
+          default: 'grok-build-0.1',
           planning: 'grok-4.3',
-          execution: 'grok-code-fast-1',
-          reasoning: 'grok-4.20-reasoning',
-          voice: 'grok-voice-think-fast-1.0',
+          execution: 'grok-build-0.1',
+          reasoning: 'grok-4.20-0309-reasoning',
+          voice: 'grok-voice-latest',
         },
       },
       { activeContext: planCtx },
@@ -111,6 +107,7 @@ describe('resolveAgentTurnRouting', () => {
     expect(routing.modelId).toBe('grok-4.3')
     expect(routing.harnessProfileKey).toBe('grok_4_3')
     expect(routing.agentProfileId).toBe('planner')
+    expect(routing.reasoningEffort).toBe('medium')
   })
 
   it('keeps planner profile when plan mode uses fast chip', () => {
@@ -127,11 +124,11 @@ describe('resolveAgentTurnRouting', () => {
     const routing = resolveAgentTurnRouting(
       {
         models: {
-          default: 'grok-code-fast-1',
+          default: 'grok-build-0.1',
           planning: 'grok-4.3',
-          execution: 'grok-code-fast-1',
-          reasoning: 'grok-4.20-reasoning',
-          voice: 'grok-voice-think-fast-1.0',
+          execution: 'grok-build-0.1',
+          reasoning: 'grok-4.20-0309-reasoning',
+          voice: 'grok-voice-latest',
         },
       },
       {
@@ -140,6 +137,7 @@ describe('resolveAgentTurnRouting', () => {
       },
     )
     expect(routing.agentProfileId).toBe('executor')
+    expect(routing.reasoningEffort).toBeUndefined()
   })
 
   it('approve-and-run uses execution model and executor profile by default', () => {
@@ -152,17 +150,6 @@ describe('resolveAgentTurnRouting', () => {
     expect(routing.agentProfileId).toBe('executor')
   })
 
-  it('approve-and-run can keep planning model for unified plan workflow', () => {
-    const routing = resolveAgentTurnRouting(manifest, {
-      isApprovedPlanAutoRun: true,
-      planWorkflowUsePlanningModel: true,
-      activeContext: fastCtx,
-    })
-    expect(routing.modelIntent).toBe('planning')
-    expect(routing.modelId).toBe('custom-plan')
-    expect(routing.agentProfileId).toBe('executor')
-  })
-
   it('uses default profile for planning chip on fast mode', () => {
     const routing = resolveAgentTurnRouting(manifest, {
       modelIntent: 'planning',
@@ -170,5 +157,15 @@ describe('resolveAgentTurnRouting', () => {
     })
     expect(routing.modelIntent).toBe('planning')
     expect(routing.agentProfileId).toBe('default')
+  })
+
+  it('postPlanIncremental uses execution model and executor profile', () => {
+    const routing = resolveAgentTurnRouting(manifest, {
+      postPlanIncremental: true,
+      activeContext: fastCtx,
+    })
+    expect(routing.modelIntent).toBe('execution')
+    expect(routing.modelId).toBe('custom-exec')
+    expect(routing.agentProfileId).toBe('executor')
   })
 })

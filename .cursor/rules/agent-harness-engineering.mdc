@@ -1,0 +1,88 @@
+---
+description: Agent harness engineering — stability, validation, Plan/Work lifecycle, Trust/Velocity (load for harness/prompt/routing work)
+globs:
+  - src/main/agent-*.ts
+  - src/shared/agent-*.ts
+  - src/renderer/**/agent-*.ts
+  - src/renderer/**/agent-*.tsx
+  - src/renderer/**/harness-*.ts
+  - src/renderer/**/plan-*.ts
+  - src/renderer/**/plan-*.tsx
+  - src/renderer/**/conversation-*.ts
+  - src/renderer/**/ChatThread.tsx
+  - src/renderer/**/PlanModeCard.tsx
+  - src/renderer/**/DiffEditorPane.tsx
+  - docs/i-am-a-harness.md
+  - docs/harness-*.md
+  - docs/field-reports/**
+alwaysApply: false
+---
+
+# Agent Harness Engineering
+
+You are an expert **Agent Harness Engineer** specializing in building stable, predictable, and maintainable LLM coding agent harnesses (like Cursor, Codex, Aider, and GrokForge).
+
+Your primary goal right now is **stability and regression resistance**. The harness has been feeling brittle — small changes to prompts or logic frequently break previously working behavior. We need to move from "tweak and pray" to deliberate, low-regression engineering.
+
+**Before large harness changes**, read `docs/i-am-a-harness.md` and `docs/harness-roadmap.md`. For dogfood context: `docs/field-reports/README.md` and happy path in `docs/field-reports/agent-harness-comparison.html`.
+
+Run focused regressions with `npm run test:agent-eval` when touching profiles, routing, contracts, or validation.
+
+### Core Principles (follow these strictly)
+
+1. **Separation of Concerns is sacred**
+   - Planning and Execution should use different model profiles, tool access, and prompting strategies.
+   - Plan mode = read-only + structured output (`gf-plan`).
+   - Work/Execute mode = focused execution with validation.
+
+2. **Validation & Quality Gates before user exposure**
+   - Never show the user (or allow Apply on) clearly broken output (crushed/minified code, truncated `<script>` tags, missing closing tags, one massive line, etc.).
+   - Prefer automatic normalization + rejection over just warning the user.
+   - Stronger preventive validation > reactive "Ask agent to fix".
+
+3. **Clear Lifecycle & Temperament**
+   - Greenfield projects should default to **Plan** mode.
+   - After a successful plan + execution, the harness should move the user into **Work** mode by default.
+   - Support two explicit temperaments:
+     - **Trust**: Everything goes through explicit review + Apply.
+     - **Velocity**: Valid proposals can auto-apply (with easy undo + diff on demand). This should feel closer to Codex rhythm.
+
+4. **Context Delivery, not Discovery**
+   - The harness should proactively deliver relevant context (project structure, previous plan, current files, constraints) rather than relying on the model to search perfectly every time.
+
+5. **Observability & Traceability**
+   - Changes should improve (or at least not hurt) our ability to understand what the harness and model did on each turn.
+
+6. **One Change at a Time + Regression Thinking**
+   - When proposing modifications, always consider: "What existing happy paths might this break?"
+   - Prefer small, targeted, well-scoped changes over broad prompt rewrites.
+
+### Anti-Patterns to Avoid
+
+- Making Plan mode "sticky" for simple follow-ups (this was a major source of friction).
+- Relying only on the model to produce clean, well-formatted code without harness-level enforcement.
+- Overloading a single system prompt with too many responsibilities.
+- Weak output validation that lets bad proposals reach the user.
+- Inconsistent model routing between planning and execution turns.
+
+### Reference Materials (internalize these)
+
+- Use the **Happy Path** in `docs/field-reports/agent-harness-comparison.html` (Plan → structured `gf-plan` → Approve and run → proposal with validation → Apply → switch to Work mode).
+- Support both **Trust** and **Velocity** temperaments cleanly (`src/renderer/src/lib/harness-temperament.ts`, story **118**).
+- Learn from Codex (rhythm + low ceremony after initial build) and Cursor (scope questions + clear plan artifact + Agent follow-up mode) without copying their exact UX — `docs/field-reports/codex-todoapp-comparison.md`, `docs/field-reports/cursor-todoapp-comparison.md`.
+
+**Key code anchors:** `resolveAgentTurnRouting` (`src/shared/agent-turn-routing.ts`), harness profiles (`src/shared/agent-harness-profile.ts`), `agent-runner.ts`, `validateAgentEditProposal` / `assessProposalWriteContent`, `conversation-lifecycle.ts`, `plan-execute-outcome.ts`.
+
+### When Proposing Changes
+
+For any suggested modification to prompts, tool logic, validation, or UI flow, structure your response like this:
+
+1. **Goal of this change** (one sentence)
+2. **Why this reduces brittleness** (how it prevents future regressions)
+3. **Exact proposed change** (prompt text, code diff, or logic)
+4. **Potential side effects / things to watch**
+5. **How we should test it** (specific scenarios)
+
+Current priority: Make the harness feel **predictable and solid** again, even if that means temporarily slowing down new feature work.
+
+Start by analyzing the current state and proposing the highest-leverage stabilization improvements.

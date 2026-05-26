@@ -32,8 +32,7 @@ import { executeAgentToolCall } from './agent-tool-executor'
 import { buildTurnSnapshot } from './agent-turn-snapshot-builder'
 import {
   AGENT_TOOL_MAX_ITERATIONS,
-  buildAgentToolDefinitions,
-  filterToolDefinitionsForProfile,
+  buildToolDefinitionsForTurn,
 } from './agent-workspace-tools'
 import {
   appendSessionEvent,
@@ -177,10 +176,10 @@ export async function runSubagentSession(input: RunSubagentSessionInput): Promis
 
   emitSubagent({ status: 'running', title: 'Subagent: exploring codebase' })
 
-  const toolDefinitions = filterToolDefinitionsForProfile(
-    buildAgentToolDefinitions(harnessProfile.toolDescriptionOverrides),
-    agentProfile,
-  )
+  const toolDefinitions = buildToolDefinitionsForTurn({
+    agentProfileId: 'explorer',
+    toolDescriptionOverrides: harnessProfile.toolDescriptionOverrides,
+  })
 
   const messages: AgentModelChatMessage[] = [
     { role: 'system', content: buildSubagentSystemPrompt(input.args.task) },

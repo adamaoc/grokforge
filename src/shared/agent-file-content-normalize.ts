@@ -1,4 +1,4 @@
-import { looksLikeHtmlDocument } from './agent-edit-corrupt-content'
+import { isJammedJavaScriptSource, looksLikeHtmlDocument } from './agent-edit-corrupt-content'
 
 /**
  * Some models return `write_file` / propose_file_edits `content` with JSON-style
@@ -16,6 +16,99 @@ const STMT_START =
 
 /** Lines longer than this usually mean JSX or statements are still crushed together. */
 export const AGENT_LAYOUT_MAX_LINE_CHARS = 160
+
+const HTML_ENTITY_TOKEN_RE = /&#(?:\d+|x[0-9a-f]+);|&(?:quot|apos|lt|gt|amp);/gi
+
+/** Models sometimes emit `lang=&#34;en&#34;` instead of real quotes in tool JSON. */
+export function hasDominantHtmlEntities(content: string): boolean {
+  const matches = content.match(HTML_ENTITY_TOKEN_RE) ?? []
+  return matches.length >= 2
+}
+
+function htmlEntityCount(content: string): number {
+  return (content.match(HTML_ENTITY_TOKEN_RE) ?? []).length
+}
+
+function looksLikeHtmlPath(resolvedPath?: string): boolean {
+  return Boolean(resolvedPath && /\.html?$/i.test(resolvedPath.replace(/\\/g, '/')))
+}
+
+/** Strip UTF-8 BOM if models prepend it in tool JSON. */
+export function stripUtf8Bom(content: string): string {
+  if (!content) return content
+  return content.charCodeAt(0) === 0xfeff ? content.slice(1) : content
+}
+
+/** Remove C0/C1 control chars except tab, LF, CR — they break browsers and diffs. */
+export function stripDisallowedControlCharacters(content: string): string {
+  if (!content) return content
+  return content.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+}
+
+const JSON_UNICODE_ESCAPE_RE = /\\u([0-9a-fA-F]{4})/g
+
+export function hasDominantJsonUnicodeEscapes(content: string): boolean {
+  const matches = content.match(JSON_UNICODE_ESCAPE_RE) ?? []
+  return matches.length >= 2
+}
+
+/** Unescape literal `\\uXXXX` sequences left in tool args after JSON.parse. */
+export function unescapeJsonUnicodeEscapes(content: string): string {
+  if (!hasDominantJsonUnicodeEscapes(content)) return content
+  return content.replace(JSON_UNICODE_ESCAPE_RE, (_, hex: string) =>
+    String.fromCharCode(parseInt(hex, 16)),
+  )
+}
+
+const MOJIBAKE_REPAIRS: readonly [RegExp, string][] = [
+  [/\u00E2\u20AC\u2122/g, "'"],
+  [/\u00E2\u20AC\u02DC/g, "'"],
+  [/\u00E2\u20AC\u0153/g, '"'],
+  [/\u00E2\u20AC\u009D/g, '"'],
+  [/\u00E2\u20AC\u201C/g, '"'],
+  [/\u00E2\u20AC\u201D/g, '"'],
+  [/\u00E2\u20AC\u2014/g, '—'],
+  [/\u00E2\u20AC\u2013/g, '–'],
+  [/\u00C3\u00A9/g, 'é'],
+  [/\u00C3\u00A8/g, 'è'],
+  [/\u00C3\u00A0/g, 'à'],
+]
+
+/** Repair common UTF-8-as-Latin-1 mojibake when patterns are unambiguous. */
+export function repairCommonMojibake(content: string): string {
+  if (!content || !/\u00E2|\u00C3/.test(content)) return content
+  let out = content
+  for (const [pattern, replacement] of MOJIBAKE_REPAIRS) {
+    out = out.replace(pattern, replacement)
+  }
+  return out
+}
+
+export function decodeHtmlEntitiesInAgentContent(
+  content: string,
+  resolvedPath?: string,
+): string {
+  if (!content) return content
+  const isHtml = looksLikeHtmlDocument(content) || looksLikeHtmlPath(resolvedPath)
+  const entityCount = htmlEntityCount(content)
+  const shouldDecode = isHtml ? entityCount >= 1 : hasDominantHtmlEntities(content)
+  if (!shouldDecode) return content
+  let out = content
+  out = out.replace(/&#(\d+);/g, (_, digits: string) => {
+    const code = Number(digits)
+    return Number.isFinite(code) ? String.fromCharCode(code) : _
+  })
+  out = out.replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
+    String.fromCharCode(parseInt(hex, 16)),
+  )
+  out = out
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+  return out
+}
 
 export function hasDominantLiteralEscapedNewlines(content: string): boolean {
   if (!content) return false
@@ -79,6 +172,18 @@ function unescapeLiteralNewlines(content: string): string {
 export function unescapeLiteralNewlinesWhenDominant(content: string): string {
   if (!hasDominantLiteralEscapedNewlines(content)) return content
   return unescapeLiteralNewlines(content)
+}
+
+const COMMENT_SWALLOWED_CODE =
+  /(^|[;{}]\s*|^\s*)\/\/([^\n]*?)(\s+)((?:document\.|window\.|function\s|const\s|let\s|var\s|export\s|import\s|class\s))/gm
+
+/**
+ * Models put live code on the same line as a `//` comment (`// ready document.addEventListener…`),
+ * which comments out the rest of the line and breaks bootstrapping.
+ */
+export function repairCommentSwallowedTrailingCode(content: string): string {
+  if (!content || !/\/\//.test(content)) return content
+  return content.replace(COMMENT_SWALLOWED_CODE, '$1//$2\n$4')
 }
 
 /** Insert line breaks before common statement and comment boundaries. */
@@ -168,6 +273,18 @@ export function reflowHtmlDocumentLineBreaks(content: string): string {
   return out
 }
 
+/** Expand one-line stylesheets for readable diffs (models often minify CSS). */
+export function reflowCssStylesheet(content: string): string {
+  if (!content?.trim()) return content
+  const lines = content.split(/\r?\n/)
+  if (lines.length > 4 && !hasOverlongSourceLines(content, 240)) return content
+  if (!/[{};]/.test(content) || /<[a-z!/]/i.test(content.trimStart())) return content
+  let out = content.trim()
+  out = out.replace(/\}\s*/g, '}\n')
+  out = out.replace(/;\s*(?=[.#\w[@:])/g, ';\n')
+  return out
+}
+
 /** Break crushed interiors of HTML style/script blocks without shredding the whole file. */
 export function reflowHtmlEmbeddedBlocks(content: string): string {
   if (!/<style[\s>]/i.test(content) && !/<script[\s>]/i.test(content)) {
@@ -175,11 +292,78 @@ export function reflowHtmlEmbeddedBlocks(content: string): string {
   }
   return content.replace(HTML_EMBEDDED_BLOCK_RE, (full, tag, attrs, inner) => {
     const trimmed = inner.trim()
-    if (!trimmed || !hasOverlongSourceLines(trimmed, AGENT_LAYOUT_MAX_LINE_CHARS)) {
+    if (!trimmed) return full
+    if (/^script$/i.test(String(tag)) && isJammedJavaScriptSource(trimmed)) {
+      const repaired = repairJammedHtmlScriptInner(inner)
+      return repaired === inner ? full : `<${tag}${attrs ?? ''}>${repaired}</${tag}>`
+    }
+    if (!hasOverlongSourceLines(trimmed, AGENT_LAYOUT_MAX_LINE_CHARS)) {
       return full
     }
     const reflowed = reflowBlockInterior(trimmed)
     return `<${tag}${attrs ?? ''}>\n${reflowed}\n</${tag}>`
+  })
+}
+
+/** Repair crushed JavaScript source (standalone `.js` or inline `<script>` body). */
+export function repairJammedJavaScriptSource(source: string): string {
+  if (!source?.trim()) return source
+  let out = source
+  out = repairCommentSwallowedTrailingCode(out)
+  out = out.replace(/\}\)\s*;\s*\)/g, '});')
+  out = out.replace(/\}\)\s*\/\//g, '});\n//')
+  out = out.replace(/;\}\)\s*\/\//g, ';\n});\n//')
+  out = out.replace(/([a-z0-9])(function\s+\w+\s*\()/gi, '$1\n$2')
+  out = out.replace(/([^\s;}])(function\s+\w+\s*\()/g, '$1\n$2')
+  out = out.replace(/\}(function\s+\w+\s*\()/g, '}\n$1')
+  out = out.replace(
+    /(\}\);\s*)(\/\/[^\n]*?)(\s*)(function\s+)/g,
+    '$1\n$2\n$4',
+  )
+  out = out.replace(/(\}\);\s*)(\/\/[^\n]*?)(function\s+)/g, '$1\n$2\n$3')
+  if (isCollapsedMultiStatementSource(out) || isJammedJavaScriptSource(out)) {
+    out = expandCollapsedSourceLineBreaks(out)
+  }
+  if (hasOverlongSourceLines(out)) {
+    out = reflowBlockInterior(out)
+  }
+  return out
+}
+
+/** Repair crushed interiors of inline `<script>` blocks (todo-app one-liner scripts). */
+export function repairJammedHtmlScriptInner(inner: string): string {
+  return repairJammedJavaScriptSource(inner)
+}
+
+/** True when content looks like standalone JS (not HTML/CSS/markdown). */
+export function looksLikeJavaScriptSource(content: string, resolvedPath?: string): boolean {
+  if (!content?.trim()) return false
+  if (looksLikeHtmlDocument(content) || looksLikeMarkdownDocument(content)) return false
+  if (resolvedPath && /\.(m?js|cjs)$/i.test(resolvedPath.replace(/\\/g, '/'))) return true
+  const t = content.trimStart()
+  if (/^(import|export)\s/m.test(t)) return true
+  if (/\b(function|const|let|var|class)\s/.test(content) && /\b(document\.|window\.|addEventListener)\b/.test(content)) {
+    return true
+  }
+  if (/\bfunction\s+\w+\s*\(/.test(content) && !/<[a-z!/]/i.test(t)) return true
+  return false
+}
+
+/**
+ * Models glue `function init()` onto the same line as `}); // comment…` inside inline scripts.
+ * Example: `}); // … initial renderfunction init() {` → breaks `init` reference at DOMContentLoaded.
+ */
+export function repairCrushedHtmlScriptBlocks(content: string): string {
+  if (!/<script[\s>]/i.test(content)) return content
+  return content.replace(HTML_EMBEDDED_BLOCK_RE, (full, tag, attrs, inner) => {
+    if (!/^script$/i.test(String(tag))) return full
+    const trimmed = inner.trim()
+    if (!trimmed) return full
+    if (!isJammedJavaScriptSource(trimmed) && !hasOverlongSourceLines(trimmed, AGENT_LAYOUT_MAX_LINE_CHARS)) {
+      return full
+    }
+    const out = repairJammedHtmlScriptInner(inner)
+    return out === inner ? full : `<${tag}${attrs ?? ''}>${out}</${tag}>`
   })
 }
 
@@ -203,11 +387,18 @@ function softWrapOverlongLines(
     .join('\n')
 }
 
-export function repairSourceLayout(content: string): string {
+export function repairSourceLayout(content: string, resolvedPath?: string): string {
   if (!content) return content
   let out = content
   if (hasDominantLiteralEscapedNewlines(out)) {
     out = unescapeLiteralNewlines(out)
+  }
+  out = repairCommentSwallowedTrailingCode(out)
+  if (
+    looksLikeJavaScriptSource(out, resolvedPath) &&
+    (isJammedJavaScriptSource(out) || isCollapsedMultiStatementSource(out))
+  ) {
+    out = repairJammedJavaScriptSource(out)
   }
   if (needsSourceLayoutRepair(out)) {
     const lineCount = out.split(/\r?\n/).length
@@ -229,13 +420,21 @@ export function repairSourceLayout(content: string): string {
   }
   if (looksLikeHtmlDocument(out)) {
     out = reflowHtmlDocumentLineBreaks(out)
+  } else {
+    out = reflowCssStylesheet(out)
   }
   if (/<style[\s>]/i.test(out) || /<script[\s>]/i.test(out)) {
     out = reflowHtmlEmbeddedBlocks(out)
+    out = repairCrushedHtmlScriptBlocks(out)
   }
   return out
 }
 
-export function normalizeAgentWriteFileContent(content: string): string {
-  return repairSourceLayout(content)
+export function normalizeAgentWriteFileContent(content: string, resolvedPath?: string): string {
+  let out = stripUtf8Bom(content)
+  out = stripDisallowedControlCharacters(out)
+  out = unescapeJsonUnicodeEscapes(out)
+  out = repairCommonMojibake(out)
+  out = decodeHtmlEntitiesInAgentContent(out, resolvedPath)
+  return repairSourceLayout(out, resolvedPath)
 }

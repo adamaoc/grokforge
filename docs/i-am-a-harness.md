@@ -36,17 +36,17 @@ The model does not “know” your repo, terminal, or diff UI by itself. The har
 
 | Question | Answer |
 | --- | --- |
-| Is there a special “coding-only” Grok model? | **Not anymore** — `grok-code-fast-1` was the dedicated coding SKU; xAI retired it (see [May 15, 2026 model retirement](https://docs.x.ai/developers/migration/may-15-retirement)). |
-| What should we use for coding now? | **`grok-4.3`** — xAI’s current recommendation for agentic coding and tool use. |
+| Is there a special “coding-only” Grok model? | **`grok-build-0.1`** — xAI’s dedicated agentic coding SKU (early access). Legacy slug **`grok-code-fast-1`** redirects to it (see [May 15, 2026 model retirement](https://docs.x.ai/developers/migration/may-15-retirement)). |
+| What should we use for coding now? | **`grok-build-0.1`** for fast execution slots; **`grok-4.3`** for planning and deep tool calling (1M context, configurable **`reasoning_effort`**). |
 | Does the harness pick the model? | **Yes** — via `manifest.models` and `getModelForIntent()` (`chat_default`, `planning`, `execution`, `reasoning`, `voice`). The harness chooses *which* Grok id to call; xAI runs inference. |
 
-**GrokForge today:** new projects intentionally use a **dual-model** manifest: **`grok-code-fast-1`** on **`chat_default`** / **`execution`**, **`grok-4.3`** on **`planning`** (`DUAL_MODEL_FALLBACKS` in `src/shared/model-router.ts`, `app-project-store.ts`) so we can run **separate harness profiles per model** (see **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**). Program index: **[`harness-roadmap.md`](harness-roadmap.md)**.
+**GrokForge today:** new projects intentionally use a **dual-model** manifest: **`grok-build-0.1`** on **`chat_default`** / **`execution`**, **`grok-4.3`** on **`planning`** (`DUAL_MODEL_FALLBACKS` in `src/shared/model-router.ts`, `app-project-store.ts`) so we can run **separate harness profiles per model** (see **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**). Program index: **[`harness-roadmap.md`](harness-roadmap.md)**. Catalog sync: **[121](../project_tasks/post-mvp/121-xai-model-catalog-and-api-sync.md)**.
 
-### xAI redirect for `grok-code-fast-1` (story 102)
+### xAI redirect for `grok-code-fast-1` (stories 102 / 121)
 
-After the [May 15, 2026 retirement](https://docs.x.ai/developers/migration/may-15-retirement), API requests that still send the **`grok-code-fast-1`** slug are **redirected to `grok-4.3`** with **`low` reasoning effort** — not a hard error. Billing uses **`grok-4.3`** pricing. GrokForge **keeps the fast id in manifest** on purpose for harness A/B (`resolveHarnessProfileKey` → `grok_code_fast` vs `grok_4_3`); switch a project to all **`grok-4.3`** in manifest when you want one id end-to-end. Investigation notes: [`docs/harness-102-xai-investigation.md`](harness-102-xai-investigation.md).
+After the [May 15, 2026 retirement](https://docs.x.ai/developers/migration/may-15-retirement), API requests that still send the **`grok-code-fast-1`** slug are **redirected to `grok-build-0.1`** — not a hard error. Billing uses **Grok Build 0.1** pricing. GrokForge **keeps dual ids in manifest** on purpose for harness A/B (`resolveHarnessProfileKey` → `grok_code_fast` vs `grok_4_3`). Investigation notes: [`docs/harness-102-xai-investigation.md`](harness-102-xai-investigation.md).
 
-At turn start, main emits **`turn_started.routing`** `{ modelIntent, modelId, harnessProfileKey }` and stores the same on agent turn traces (dev logs in development).
+At turn start, main emits **`turn_started.routing`** `{ modelIntent, modelId, harnessProfileKey, reasoningEffort? }` and stores the same on agent turn traces (dev logs in development).
 
 **Shipped profiles (103):** `getHarnessProfile` in `src/shared/agent-harness-profile.ts` supplies per-key system sections, tool-loop bias, tool description overrides, and final-answer variants for `grok_code_fast`, `grok_4_3`, and `generic`. Reasoning traces: **preserve** (no strip until xAI message shape is handled in transport).
 

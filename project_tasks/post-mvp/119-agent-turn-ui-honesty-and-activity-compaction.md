@@ -1,6 +1,6 @@
 # 119 — Agent turn UI honesty and activity compaction
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-26).
 
 **Design skill:** Read `.cursor/skills/styleguide-design/SKILL.md` for activity list and toast copy (`@styleguide-design`).
 
@@ -29,11 +29,11 @@
 
 ## Acceptance criteria
 
-- [ ] ToDoApp-style 4× S&R turn shows ≤2 activity rows or one rolled-up row with count.
-- [ ] Greenfield first turn retrieval detail does not use “Found … 0 files” without context.
-- [ ] Eval or unit test: final-answer contract includes merged-edit hint when `mergeAgentEditProposals` ran (or tag in runner eval).
-- [ ] Execute done with visible proposal: at most one prominent apply CTA (card or toast, not both).
-- [ ] `npm run typecheck` and targeted tests pass.
+- [x] ToDoApp-style 4× S&R turn shows ≤2 activity rows or one rolled-up row with count.
+- [x] Greenfield first turn retrieval detail does not use “Found … 0 files” without context.
+- [x] Eval or unit test: final-answer contract includes merged-edit hint when `mergeAgentEditProposals` ran (or tag in runner eval).
+- [x] Execute done with visible proposal: at most one prominent apply CTA (card or toast, not both).
+- [x] `npm run typecheck` and targeted tests pass.
 
 ## Related
 

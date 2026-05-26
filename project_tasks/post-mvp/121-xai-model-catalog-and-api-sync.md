@@ -1,6 +1,6 @@
 # 121 — xAI model catalog and API sync (Grok Build 0.1, Grok 4.3, Voice)
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-26).
 
 **Design skill:** Read [`.cursor/skills/styleguide-design/SKILL.md`](../../.cursor/skills/styleguide-design/SKILL.md) for Settings → Models / Voice copy, TTS voice picker, and any model-id labels in chat chrome.
 

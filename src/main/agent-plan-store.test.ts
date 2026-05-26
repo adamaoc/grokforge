@@ -19,6 +19,7 @@ vi.mock('./app-project-store', async () => {
 })
 
 import {
+  findLatestCompletedPlanArtifact,
   findPlanByThreadMessageId,
   loadPlanArtifact,
   planJsonPath,
@@ -58,5 +59,21 @@ describe('agent-plan-store', () => {
     upsertPlanArtifactFromAssistantMessage(projectId, 'msg-find', validPlanFence)
     const found = findPlanByThreadMessageId(projectId, 'msg-find')
     expect(found?.threadMessageId).toBe('msg-find')
+  })
+
+  it('findLatestCompletedPlanArtifact returns newest approved or superseded', () => {
+    const older = upsertPlanArtifactFromAssistantMessage(projectId, 'msg-old', validPlanFence)!
+    setPlanArtifactStatus(projectId, older.planId, 'approved')
+    const newer = upsertPlanArtifactFromAssistantMessage(projectId, 'msg-new', validPlanFence)!
+    setPlanArtifactStatus(projectId, newer.planId, 'superseded')
+
+    const latest = findLatestCompletedPlanArtifact(projectId)
+    expect(latest?.planId).toBe(newer.planId)
+    expect(latest?.status).toBe('superseded')
+  })
+
+  it('findLatestCompletedPlanArtifact ignores pending plans', () => {
+    upsertPlanArtifactFromAssistantMessage(projectId, 'msg-pending', validPlanFence)
+    expect(findLatestCompletedPlanArtifact(projectId)).toBeNull()
   })
 })

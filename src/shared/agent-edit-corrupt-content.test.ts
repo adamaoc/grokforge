@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AGENT_EDIT_EMPTY_WRITE_REASON,
+  AGENT_EDIT_CORRUPT_ENCODING_REASON,
+  AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON,
+  AGENT_EDIT_HTML_ENTITY_ARTIFACT_REASON,
+  AGENT_EDIT_JAMMED_JS_FILE_REASON,
   assessProposalWriteContent,
+  detectCorruptEncoding,
   detectCorruptSourceLines,
+  detectHtmlEncodingArtifacts,
   detectIncompleteHtmlDocument,
+  detectJammedJavaScriptFile,
+  recordIncompleteHtmlProposalFailure,
+  shouldInjectIncompleteHtmlProposalNudge,
 } from './agent-edit-corrupt-content'
+import { normalizeAgentWriteFileContent } from './agent-file-content-normalize'
 
 const CORRUPT_SAMPLE = `<!DOCTYPE html>
 <html>
@@ -50,6 +61,45 @@ describe('detectCorruptSourceLines', () => {
     ).toBe(false)
   })
 
+  it('rejects empty write_file content', () => {
+    expect(assessProposalWriteContent('   ').ok).toBe(false)
+    expect(assessProposalWriteContent('   ').reason).toBe(AGENT_EDIT_EMPTY_WRITE_REASON)
+  })
+
+  it('tracks incomplete HTML failures for harness nudge threshold', () => {
+    const map = new Map<string, number>()
+    expect(shouldInjectIncompleteHtmlProposalNudge(map)).toBe(false)
+    recordIncompleteHtmlProposalFailure(map, '/proj/index.html')
+    expect(shouldInjectIncompleteHtmlProposalNudge(map)).toBe(true)
+  })
+
+  it('rejects HTML with jammed inline script even when tags close', () => {
+    const jammed = `<!DOCTYPE html><html><head><title>T</title></head><body>
+<script>
+const todos=[];function save(){}function init(){}updateCount();})// xfunction setup(){}
+</script>
+</body></html>`
+    const result = assessProposalWriteContent(jammed)
+    expect(result.ok).toBe(false)
+    expect(result.reason).toMatch(/crushed|jammed|script/i)
+  })
+
+  it('rejects HTML with complete tags but truncated inline script', () => {
+    const truncatedScript = `<!DOCTYPE html>
+<html><head><title>Todo</title></head>
+<body>
+<script>
+(function () {
+  const form = document.getElementById('todo-form');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+</script>
+</body></html>`
+    const result = assessProposalWriteContent(truncatedScript)
+    expect(result.ok).toBe(false)
+    expect(result.reason).toMatch(/script/i)
+  })
+
   it('allows a few isolated closing parens in real JS', () => {
     const js = `function a() {
   return (
@@ -63,5 +113,58 @@ function b() {
 }
 `
     expect(detectCorruptSourceLines(js).corrupt).toBe(false)
+  })
+
+  it('flags orphan parens on script.js with actionable reason', () => {
+    const corruptJs = `function init() {
+)
+)
+)
+);
+)
+)
+`
+    const r = detectCorruptSourceLines(corruptJs, { resolvedPath: '/proj/script.js' })
+    expect(r.corrupt).toBe(true)
+    expect(r.reason).toBe(AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON)
+  })
+
+  it('rejects jammed standalone script.js', () => {
+    const jammed =
+      "const todos=[];function save(){localStorage.setItem('t',JSON.stringify(todos));}function init(){render();}updateCount();})// xfunction setup(){form.addEventListener('submit',onSubmit);}"
+    const r = detectJammedJavaScriptFile(jammed, '/proj/script.js')
+    expect(r.jammed).toBe(true)
+    expect(r.reason).toBe(AGENT_EDIT_JAMMED_JS_FILE_REASON)
+    expect(assessProposalWriteContent(jammed, { resolvedPath: '/proj/script.js' }).ok).toBe(false)
+  })
+
+  it('rejects replacement characters and control bytes', () => {
+    expect(detectCorruptEncoding('hello \uFFFD world').corrupt).toBe(true)
+    expect(assessProposalWriteContent('hello \uFFFD world').reason).toBe(
+      AGENT_EDIT_CORRUPT_ENCODING_REASON,
+    )
+    expect(detectCorruptEncoding('a\u0001b').corrupt).toBe(true)
+  })
+
+  it('rejects HTML with entity artifacts after normalize cannot decode them', () => {
+    const broken = '<html lang=&#34;en&#34;><body>\uFFFD</body></html>'
+    expect(detectHtmlEncodingArtifacts(broken, '/proj/index.html').artifact).toBe(true)
+    expect(assessProposalWriteContent(broken, { resolvedPath: '/proj/index.html' }).ok).toBe(false)
+  })
+
+  it('accepts HTML once entity encoding is normalized to UTF-8 quotes', () => {
+    const raw =
+      '<!DOCTYPE html><html lang=&#34;en&#34;><head><meta charset=&#34;UTF-8&#34;><title>Todo</title></head><body><h1>Hi</h1></body></html>'
+    const normalized = normalizeAgentWriteFileContent(raw, '/proj/index.html')
+    expect(assessProposalWriteContent(normalized, { resolvedPath: '/proj/index.html' }).ok).toBe(true)
+    expect(normalized).toContain('lang="en"')
+    expect(detectHtmlEncodingArtifacts(normalized, '/proj/index.html').artifact).toBe(false)
+  })
+
+  it('flags leftover html entity artifacts with actionable reason', () => {
+    const artifact = '<html lang=&quot;en&quot;><body>Ok</body></html>'
+    const r = detectHtmlEncodingArtifacts(artifact, '/proj/index.html')
+    expect(r.artifact).toBe(true)
+    expect(r.reason).toBe(AGENT_EDIT_HTML_ENTITY_ARTIFACT_REASON)
   })
 })

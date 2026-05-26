@@ -4,9 +4,16 @@ import { GF_PLAN_FENCE } from './gf-plan-contract'
 import {
   buildFinalAnswerContract,
   buildEditIntentToolNudge,
+  buildIncompleteHtmlProposalNudge,
+  buildPartialBatchProposalNudge,
   buildSearchReplaceEscalationNudge,
+  EDIT_INCOMPLETE_HTML_NUDGE_MARKER,
   EDIT_INTENT_TOOL_NUDGE_MARKER,
+  EDIT_PARTIAL_BATCH_NUDGE_MARKER,
   EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
+  MERGED_EDIT_PROPOSAL_HONESTY_MARKER,
+  PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER,
+  shouldInjectPartialBatchProposalNudge,
   isLikelyEditIntent,
 } from './agent-final-answer-contract'
 
@@ -25,6 +32,19 @@ describe('buildFinalAnswerContract', () => {
     expect(content).toContain('propose_file_edits')
     expect(content).toMatch(/Do \*\*not\*\* call `propose_file_edits`/i)
     expect(content).not.toContain(AGENT_TOOL_FENCE_INFO)
+  })
+
+  it('adds post-plan incremental appendix without gf-plan requirement', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'add delete button',
+      editProposalCreated: false,
+      chatMode: 'fast',
+      agentProfileId: 'executor',
+      postPlanIncremental: true,
+    })
+    expect(content).toMatch(/Post-plan incremental/i)
+    expect(content).toMatch(/do \*\*not\*\* output a `gf-plan`/i)
+    expect(content).not.toContain('Final response contract (Plan mode)')
   })
 
   it('adds executor-from-plan appendix on approve-and-run fast turns', () => {
@@ -70,6 +90,21 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toMatch(/rawContent/)
   })
 
+  it('adds HTML script guidance when escalation paths include .html', () => {
+    const nudge = buildSearchReplaceEscalationNudge(['/proj/ToDoApp/index.html'])
+    expect(nudge).toMatch(/index\.html/i)
+    expect(nudge).toMatch(/propose_file_edits/)
+    expect(nudge).toMatch(/script\.js/i)
+  })
+
+  it('builds incomplete HTML nudge with stable marker and closing-tag guidance', () => {
+    const nudge = buildIncompleteHtmlProposalNudge(['/proj/index.html'])
+    expect(nudge).toContain(EDIT_INCOMPLETE_HTML_NUDGE_MARKER)
+    expect(nudge).toContain('index.html')
+    expect(nudge).toMatch(/<\/body>/i)
+    expect(nudge).toMatch(/propose_file_edits/)
+  })
+
   it('adds editToolsFailed appendix when edit tools did not succeed', () => {
     const content = buildFinalAnswerContract({
       userText: 'update overview.md tech stack',
@@ -79,5 +114,59 @@ describe('buildFinalAnswerContract', () => {
     })
     expect(content).toMatch(/Edit tools did not succeed/i)
     expect(content).toMatch(/Do \*\*not\*\* claim any workspace file was updated/i)
+  })
+
+  it('adds merged-edit honesty appendix when proposals composed in-turn', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'patch index.html',
+      editProposalCreated: true,
+      editProposalComposedInTurn: true,
+      chatMode: 'fast',
+    })
+    expect(content).toContain(MERGED_EDIT_PROPOSAL_HONESTY_MARKER)
+    expect(content).toMatch(/one\*\* combined diff review/i)
+    expect(content).toMatch(/Do \*\*not\*\* describe multiple separate diff reviews/i)
+  })
+
+  it('builds partial batch nudge with stable marker and rejected path labels', () => {
+    const nudge = buildPartialBatchProposalNudge(
+      [{ path: '/proj/script.js', reason: 'JavaScript file looks crushed' }],
+      2,
+    )
+    expect(nudge).toContain(EDIT_PARTIAL_BATCH_NUDGE_MARKER)
+    expect(nudge).toContain('script.js')
+    expect(nudge).toMatch(/2 file\(s\) are already in the pending diff review/i)
+    expect(nudge).toMatch(/only the rejected paths/i)
+  })
+
+  it('shouldInjectPartialBatchProposalNudge when execute-from-plan has mixed batch', () => {
+    expect(
+      shouldInjectPartialBatchProposalNudge({
+        acceptedCount: 2,
+        rejected: [{ path: '/proj/script.js', reason: 'corrupt' }],
+        executeFromApprovedPlan: true,
+      }),
+    ).toBe(true)
+    expect(
+      shouldInjectPartialBatchProposalNudge({
+        acceptedCount: 0,
+        rejected: [{ path: '/proj/script.js', reason: 'corrupt' }],
+        executeFromApprovedPlan: true,
+      }),
+    ).toBe(false)
+  })
+
+  it('adds partial-batch honesty appendix when rejections remain at final answer', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'execute the approved plan',
+      editProposalCreated: true,
+      chatMode: 'fast',
+      agentProfileId: 'executor',
+      executeFromApprovedPlan: true,
+      partialBatchRejections: [{ path: '/proj/script.js', reason: 'orphan parens' }],
+    })
+    expect(content).toContain(PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER)
+    expect(content).toMatch(/Do \*\*not\*\* claim the approved plan is fully implemented/i)
+    expect(content).toMatch(/script\.js/)
   })
 })

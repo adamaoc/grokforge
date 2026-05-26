@@ -30,7 +30,7 @@ import {
 const projectId = 'proj-life'
 const routing = {
   modelIntent: 'chat_default' as const,
-  modelId: 'grok-code-fast-1',
+  modelId: 'grok-build-0.1',
   harnessProfileKey: 'grok_code_fast' as const,
   agentProfileId: 'default' as const,
 }

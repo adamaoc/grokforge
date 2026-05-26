@@ -60,6 +60,8 @@ const ToolStepTraceSchema = z.object({
   truncatedInLoop: z.boolean(),
   displayTitle: z.string().optional(),
   errorSnippet: z.string().max(2000).optional(),
+  /** Compact propose_file_edits / search_replace validation outcome (story harness cleanup). */
+  validationSummary: z.string().max(2000).optional(),
   offloaded: z.boolean().optional(),
   originalResultChars: z.number().int().nonnegative().optional(),
   offloadRelPath: z.string().max(512).optional(),

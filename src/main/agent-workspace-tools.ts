@@ -9,7 +9,8 @@ import { rankRetrievalCandidates } from './agent-retrieval'
 import type { AgentChatActiveContext, AgentChatToolName } from '../shared/agent-chat-contract'
 import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
 import type { AgentProfile } from '../shared/agent-profile'
-import { isToolAllowedForProfile } from '../shared/agent-profile'
+import { getAgentProfile, isToolAllowedForProfile } from '../shared/agent-profile'
+import type { AgentProfileId } from '../shared/agent-profile'
 import { isPathUnderProjectAgentOffload } from './agent-offload-store'
 import { isPathUnderProjectAgentPlans } from './agent-plan-store'
 import { isPathUnderProjectChatStaging, toolPathLabelForAgent } from './chat-attachment-staging'
@@ -19,6 +20,9 @@ import { needsSourceLayoutRepair } from '../shared/agent-file-content-normalize'
 import { computeAgentContentHash } from './agent-content-hash'
 
 export const AGENT_TOOL_MAX_ITERATIONS = 8
+
+/** Approve-and-run execute turns — fewer rounds avoids long stalls when edits keep failing. */
+export const APPROVED_PLAN_EXECUTE_MAX_TOOL_ROUNDS = 6
 export const AGENT_TOOL_TOTAL_RESULT_CHARS = AGENT_CONTEXT_BUDGETS.toolTotalResultMaxChars
 export const AGENT_READ_FILE_MAX_CHARS = AGENT_CONTEXT_BUDGETS.toolReadFileMaxChars
 export const AGENT_READ_FILE_DEFAULT_LINES = AGENT_CONTEXT_BUDGETS.readFileDefaultLines
@@ -191,7 +195,7 @@ export const AGENT_TOOL_DEFINITIONS = [
     function: {
       name: 'propose_file_edits',
       description:
-        'Create a first-class GrokForge diff review proposal for workspace file changes. This does not write files; the user reviews and applies the proposal in the app. Each write_file must include complete file text, but prefer minimal edits from current file contents (read the file first). Preserve read_file indentation and line breaks for unchanged sections. Use delete_file for single-file deletes. For several new files in the same task, include all write_file operations in a single call.',
+        'Create a first-class GrokForge diff review proposal for workspace file changes. This does not write files; the user reviews and applies the proposal in the app. Each write_file must include complete file text from read_file rawContent, but prefer minimal edits for unchanged sections. For existing files: call read_file first and set expectedContentHash from contentHash. Rejected proposals return validation reasons (path scope, stale hash, crushed markdown, incomplete HTML, cascade guard). Use delete_file for single-file deletes. For several new files in the same task, include all write_file operations in one call (up to 32 ops).',
       parameters: {
         type: 'object',
         properties: {
@@ -307,6 +311,18 @@ export function filterToolDefinitionsForProfile(
     const name = def.function.name as AgentChatToolName
     return isToolAllowedForProfile(name, profile)
   })
+}
+
+/** Base tool defs + harness overrides + profile allowlist (single entry for agent turns). */
+export function buildToolDefinitionsForTurn(input: {
+  agentProfileId: AgentProfileId
+  toolDescriptionOverrides?: Partial<Record<AgentChatToolName, string>>
+}): AgentToolDefinition[] {
+  const profile = getAgentProfile(input.agentProfileId)
+  return filterToolDefinitionsForProfile(
+    buildAgentToolDefinitions(input.toolDescriptionOverrides),
+    profile,
+  )
 }
 
 function toPosixPath(p: string): string {

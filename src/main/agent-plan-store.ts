@@ -68,6 +68,38 @@ export function loadPlanArtifact(projectId: string, planId: string): StoredPlanA
   }
 }
 
+function completedPlanSortKey(artifact: StoredPlanArtifact): string {
+  return artifact.approvedAt ?? artifact.createdAt
+}
+
+/** Latest approved or superseded plan artifact for post-plan incremental routing (120). */
+export function findLatestCompletedPlanArtifact(projectId: string): StoredPlanArtifact | null {
+  const root = plansRootForProject(projectId)
+  let entries: string[]
+  try {
+    if (!statSync(root).isDirectory()) return null
+    entries = readdirSync(root)
+  } catch {
+    return null
+  }
+  let latest: StoredPlanArtifact | null = null
+  let latestKey = ''
+  let scanned = 0
+  for (const planId of entries) {
+    if (scanned >= MAX_PLANS_SCAN) break
+    scanned += 1
+    const artifact = loadPlanArtifact(projectId, planId)
+    if (!artifact) continue
+    if (artifact.status !== 'approved' && artifact.status !== 'superseded') continue
+    const key = completedPlanSortKey(artifact)
+    if (!latest || key > latestKey) {
+      latest = artifact
+      latestKey = key
+    }
+  }
+  return latest
+}
+
 export function findPlanByThreadMessageId(
   projectId: string,
   threadMessageId: string,

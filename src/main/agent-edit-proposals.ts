@@ -61,6 +61,40 @@ export type ValidateAgentEditProposalOptions = {
   contentSource?: 'search_replace' | 'propose'
 }
 
+/** Compact summary for turn traces and activity detail when validation rejects ops. */
+export function buildEditProposalValidationSummary(
+  rejected: AgentEditProposalPayload['rejected'],
+  acceptedCount: number,
+): string {
+  if (rejected.length === 0) {
+    return acceptedCount > 0 ? `${acceptedCount} file(s) accepted` : 'no operations'
+  }
+  const preview = rejected
+    .slice(0, 3)
+    .map((r) => {
+      const base = r.path.split(/[/\\]/).filter(Boolean).pop() ?? r.path
+      const reason = r.reason.length > 72 ? `${r.reason.slice(0, 69)}…` : r.reason
+      return `${base}: ${reason}`
+    })
+    .join(' · ')
+  const more = rejected.length > 3 ? ` (+${rejected.length - 3} more)` : ''
+  const accepted = acceptedCount > 0 ? `, ${acceptedCount} accepted` : ''
+  return `${rejected.length} rejected${accepted}${more}: ${preview}`
+}
+
+/**
+ * Validation pipeline for `propose_file_edits` / search_replace-derived batches (order matters):
+ * 1. Zod parse (`AgentToolBatchPayloadSchema`)
+ * 2. Per op: resolve path → workspace roots + ignore rules + sensitive path block
+ * 3. write_file: read-before-write guard → disk read → expectedContentHash (missing/stale)
+ * 4. normalizeAgentWriteFileContent (+ layout repair passes)
+ * 5. assessProposalWriteContent (integrity)
+ * 6. search_replace path: destructive shrink check; else crushed-markdown repair/reject
+ * 7. assessEditCascadeGuard (repeated S&R failures + large shrink)
+ * 8. delete_file: hash guard when file exists
+ * Empty accepted ops → `{ ok: false, error: formatProposalValidationError(rejected) }`
+ */
+
 function readDiskHash(resolved: string): string | null {
   if (!existsSync(resolved)) return null
   try {
@@ -160,11 +194,11 @@ export function validateAgentEditProposal(
           : fileExistsOnDisk
             ? resolveExpectedHash(op.expectedContentHash, resolved, ctx.readHashesThisTurn)
             : undefined
-      let normalizedContent = normalizeAgentWriteFileContent(op.content)
-      if (needsSourceLayoutRepair(normalizedContent)) {
-        normalizedContent = normalizeAgentWriteFileContent(normalizedContent)
+      let normalizedContent = normalizeAgentWriteFileContent(op.content, resolved)
+      for (let pass = 0; pass < 2 && needsSourceLayoutRepair(normalizedContent); pass += 1) {
+        normalizedContent = normalizeAgentWriteFileContent(normalizedContent, resolved)
       }
-      const integrity = assessProposalWriteContent(normalizedContent)
+      const integrity = assessProposalWriteContent(normalizedContent, { resolvedPath: resolved })
       if (!integrity.ok) {
         const reason = integrity.reason ?? 'Proposal content failed integrity checks.'
         logProposalValidationDev(resolved, originalOnDisk ?? '', normalizedContent, reason)

@@ -12,11 +12,21 @@ type Props = {
 
 function StatusDot({
   status,
+  isLive = false,
 }: {
   status: AgentSubagentEventPayload['status'] | AgentSubagentEventPayload['activities'][number]['status']
+  isLive?: boolean
 }) {
-  if (status === 'running') {
+  if (status === 'running' && isLive) {
     return <Loader2 className="h-3 w-3 shrink-0 animate-spin text-gf-accent" aria-hidden />
+  }
+  if (status === 'running') {
+    return (
+      <span
+        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-zinc-500"
+        aria-hidden
+      />
+    )
   }
   return (
     <span
@@ -47,7 +57,7 @@ export function SubagentActivityBlock({ subagent, defaultExpanded = false, isLiv
         )}
         <Compass className="h-3.5 w-3.5 shrink-0 text-gf-accent" aria-hidden />
         <span className="min-w-0 flex-1 truncate font-medium">{subagent.title}</span>
-        <StatusDot status={subagent.status} />
+        <StatusDot status={subagent.status} isLive={isLive} />
       </button>
       {expanded ? (
         <div className="border-t border-zinc-800/80 px-3 py-2">
@@ -57,7 +67,7 @@ export function SubagentActivityBlock({ subagent, defaultExpanded = false, isLiv
                 const detail = sanitizeAgentActivityDetail(activity.detail)
                 return (
                   <li key={activity.id} className="flex min-w-0 items-start gap-2">
-                    <StatusDot status={activity.status} />
+                    <StatusDot status={activity.status} isLive={isLive} />
                     <span className="min-w-0">
                       <span
                         className={cn(

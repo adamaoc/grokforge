@@ -47,23 +47,37 @@ export type ResolvePlanWorkflowPhaseInput = {
 
 /** Single source of truth for composer + plan card stepper phases (story 098). */
 export function resolvePlanWorkflowPhase(input: ResolvePlanWorkflowPhaseInput): PlanUiPhase {
+  // Execute lifecycle wins over stale plan-mode busy (approve-and-run gap before turn_started).
+  if (input.executingPlanMessageId) {
+    const stepCount = input.executingPlanStepCount ?? 1
+    const st = getPlanInteraction(input.projectId, input.executingPlanMessageId, stepCount)
+    if (
+      st.runPhase === 'done' ||
+      st.runPhase === 'failed' ||
+      st.runPhase === 'needs_review'
+    ) {
+      return st.runPhase
+    }
+    if (input.busy) return 'executing'
+    if (st.runPhase === 'executing') return 'needs_review'
+    return derivePlanUiPhase(st, { isExecutingThisPlan: false })
+  }
+
   if (input.busy && input.liveChatMode === 'plan') return 'planning'
   if (input.isStreamingPlanFence) return 'planning'
 
-  if (input.executingPlanMessageId) {
-    if (input.busy) return 'executing'
-    const stepCount = input.executingPlanStepCount ?? 1
-    const st = getPlanInteraction(input.projectId, input.executingPlanMessageId, stepCount)
-    return derivePlanUiPhase(st, { isExecutingThisPlan: true })
+  const latest = findLatestPlanInThread(input.messages)
+  if (latest) {
+    const st = getPlanInteraction(input.projectId, latest.messageId, latest.stepCount)
+    const derived = derivePlanUiPhase(st, { isExecutingThisPlan: false })
+    if (input.conversationMode === 'plan') return derived
+    if (derived === 'done' || derived === 'failed' || derived === 'needs_review') {
+      return derived
+    }
   }
 
   if (input.conversationMode === 'plan') {
-    const latest = findLatestPlanInThread(input.messages)
-    if (latest) {
-      const st = getPlanInteraction(input.projectId, latest.messageId, latest.stepCount)
-      return derivePlanUiPhase(st, {})
-    }
-    return 'awaiting_plan'
+    return latest ? derivePlanUiPhase(getPlanInteraction(input.projectId, latest.messageId, latest.stepCount), {}) : 'awaiting_plan'
   }
 
   return 'pending'
@@ -71,7 +85,7 @@ export function resolvePlanWorkflowPhase(input: ResolvePlanWorkflowPhaseInput): 
 
 export type PlanInteractionStatus = 'pending' | 'approved' | 'cancelled' | 'superseded'
 
-export type PlanRunPhase = 'executing' | 'done' | 'failed'
+export type PlanRunPhase = 'executing' | 'done' | 'failed' | 'needs_review'
 
 export type PlanInteractionState = {
   status: PlanInteractionStatus
@@ -89,6 +103,7 @@ export type PlanUiPhase =
   | 'approved_idle'
   | 'executing'
   | 'done'
+  | 'needs_review'
   | 'failed'
   | 'cancelled'
   | 'superseded'
@@ -188,14 +203,22 @@ export function derivePlanUiPhase(
   options: {
     globalPlanningTurn?: boolean
     isExecutingThisPlan?: boolean
+    /** Story 125: stream ended but runPhase not yet patched after approve-and-run. */
+    staleExecutingRunPhase?: boolean
   },
 ): PlanUiPhase {
   if (options.globalPlanningTurn) return 'planning'
   if (state.status === 'cancelled') return 'cancelled'
   if (state.status === 'superseded') return 'superseded'
   if (state.runPhase === 'failed') return 'failed'
+  if (state.runPhase === 'needs_review') return 'needs_review'
   if (state.runPhase === 'done') return 'done'
-  if (state.runPhase === 'executing' || options.isExecutingThisPlan) return 'executing'
+  if (state.runPhase === 'executing') {
+    if (options.isExecutingThisPlan) return 'executing'
+    if (options.staleExecutingRunPhase) return 'needs_review'
+    if (state.status === 'approved') return 'approved_idle'
+  }
+  if (options.isExecutingThisPlan) return 'executing'
   if (state.status === 'pending') return 'pending'
   if (state.status === 'approved') return 'approved_idle'
   return 'pending'
@@ -215,6 +238,8 @@ export function planUiPhaseLabel(phase: PlanUiPhase): string {
       return 'Executing'
     case 'done':
       return 'Done'
+    case 'needs_review':
+      return 'Review changes'
     case 'failed':
       return 'Failed'
     case 'cancelled':

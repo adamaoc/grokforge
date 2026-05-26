@@ -28,7 +28,7 @@ import {
 const projectId = 'proj-receipt-test'
 
 const routingFields = {
-  modelId: 'grok-code-fast-1',
+  modelId: 'grok-build-0.1',
   harnessProfileKey: 'grok_code_fast' as const,
   agentProfileId: 'default' as const,
 }

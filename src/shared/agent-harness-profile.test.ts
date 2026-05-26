@@ -8,6 +8,10 @@ import {
   getHarnessProfile,
   getHarnessProfileForModelId,
 } from './agent-harness-profile'
+import {
+  POST_PLAN_INCREMENTAL_MARKER,
+  SINGLE_FILE_EDIT_BIAS_MARKER,
+} from './post-plan-incremental'
 import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
 
 describe('getHarnessProfile', () => {
@@ -85,11 +89,49 @@ describe('buildHarnessTurnPromptSections', () => {
     expect(sections.join('\n')).toMatch(/Execute approved plan/i)
   })
 
+  it('includes greenfield bootstrap execute sections when empty workspace', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      executeFromApprovedPlan: true,
+      greenfieldWorkspace: true,
+    })
+    const joined = sections.join('\n')
+    expect(joined).toMatch(/one `propose_file_edits`/i)
+    expect(joined).not.toMatch(/one file per/i)
+    expect(joined).toMatch(/script\.js/i)
+    expect(joined).toMatch(/external.*script src/i)
+  })
+
+  it('executor-from-plan discourages inline JS when plan lists multiple paths', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      executeFromApprovedPlan: true,
+    })
+    const joined = sections.join('\n')
+    expect(joined).toMatch(/multiple concrete paths/i)
+    expect(joined).toMatch(/script src="script\.js"/i)
+  })
+
   it('includes execute-from-plan sections for grok_4_3 when executeFromApprovedPlan', () => {
     const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_4_3'), {
       executeFromApprovedPlan: true,
     })
     expect(sections.join('\n')).toMatch(/Execute approved plan/i)
+  })
+
+  it('includes post-plan incremental sections when postPlanIncremental', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      postPlanIncremental: true,
+    })
+    expect(sections.join('\n')).toContain(POST_PLAN_INCREMENTAL_MARKER)
+    expect(sections.join('\n')).toMatch(/do \*\*not\*\* emit a new `gf-plan`/i)
+  })
+
+  it('includes single-file bias when singleFilePrimary', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      singleFilePrimary: true,
+      singleFilePrimaryBasename: 'index.html',
+    })
+    expect(sections.join('\n')).toContain(SINGLE_FILE_EDIT_BIAS_MARKER)
+    expect(sections.join('\n')).toContain('index.html')
   })
 })
 

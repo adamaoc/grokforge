@@ -57,8 +57,16 @@ function isTrivialGreenfieldFile(file: GreenfieldIndexFile): boolean {
   return false
 }
 
+export function nonTrivialIndexFiles(files: GreenfieldIndexFile[]): GreenfieldIndexFile[] {
+  return files.filter((f) => !isTrivialGreenfieldFile(f))
+}
+
+export function countNonTrivialIndexFiles(files: GreenfieldIndexFile[]): number {
+  return nonTrivialIndexFiles(files).length
+}
+
 function countNonTrivialFiles(files: GreenfieldIndexFile[]): number {
-  return files.filter((f) => !isTrivialGreenfieldFile(f)).length
+  return countNonTrivialIndexFiles(files)
 }
 
 function hasPackageJson(packages: GreenfieldIndexPackage[]): boolean {
