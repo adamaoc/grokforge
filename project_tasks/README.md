@@ -158,6 +158,8 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 118 | Work vs Plan mode naming and conversation lifecycle | [`post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md`](post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md) |
 | 119 | Agent turn UI honesty and activity compaction | [`post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md`](post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md) |
 | 120 | Post-plan executor routing and single-file edit bias | [`post-mvp/120-post-plan-executor-routing-and-single-file-edits.md`](post-mvp/120-post-plan-executor-routing-and-single-file-edits.md) |
+| 121 | xAI model catalog and API sync (Grok Build 0.1, Voice) | [`post-mvp/121-xai-model-catalog-and-api-sync.md`](post-mvp/121-xai-model-catalog-and-api-sync.md) |
+| 122 | Dynamic xAI model catalog + Settings picker | [`post-mvp/122-dynamic-xai-model-catalog-and-settings-picker.md`](post-mvp/122-dynamic-xai-model-catalog-and-settings-picker.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
@@ -177,4 +179,6 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **UX / harness polish (post-116):** **118** Work vs Plan lifecycle → **119** activity honesty → **120** post-plan executor routing. **117** renderer stability if reproducible.
 
-*Last progress update: **2026-05-25** — ToDoApp harness debrief: backlog **118–120** (Work/Plan, UI honesty, post-plan routing); **117** stability. Harness wave **102–116** complete.*
+**xAI catalog sync:** **121** Grok Build 0.1 / Grok 4.3 reasoning / Voice defaults — do before large harness changes that assume old redirect behavior. **122** dynamic model list + Settings pickers (after **121**; reduces need for app releases when xAI ships new ids e.g. Grok 5.0).
+
+*Last progress update: **2026-05-26** — Backlog **121–122** (xAI catalog sync + dynamic model picker). **118–120** UX/harness polish; harness wave **102–116** complete.*

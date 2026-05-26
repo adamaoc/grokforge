@@ -309,11 +309,11 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">119 stories</span>
+        <span class="pill">121 stories</span>
         <span class="pill">Done: 109</span>
         <span class="pill">Closed: 6</span>
-        <span class="pill">Post-MVP: 4</span>
-        <span class="pill">Generated 2026-05-25</span>
+        <span class="pill">Post-MVP: 6</span>
+        <span class="pill">Generated 2026-05-26</span>
       </div>
       <div class="story-filters">
         <label>
@@ -8777,6 +8777,258 @@ chatMode (062)
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> debt table if needed, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-121" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">121</span><span class="story-name">xAI model catalog and API sync (Grok Build 0.1, Voice)</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/121-xai-model-catalog-and-api-sync.md">post-mvp/121-xai-model-catalog-and-api-sync.md</a>
+          </div>
+          <h2>121 — xAI model catalog and API sync (Grok Build 0.1, Grok 4.3, Voice)</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> Read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> for Settings → Models / Voice copy, TTS voice picker, and any model-id labels in chat chrome.</p>
+<p><strong>Depends on:</strong> Nothing (research + alignment story). Touches foundations from <a href="102-dual-model-manifest-and-harness-foundation.md"><strong>102</strong></a>, <a href="103-agent-harness-per-model-profiles.md"><strong>103</strong></a>, <a href="113-voice-realtime-harness-profile-alignment.md"><strong>113</strong></a>.</p>
+<p><strong>Blocks:</strong> Optional follow-ups (reasoning effort UI, STT, multimodal chat attachments) — list as separate stories if scoped out here.</p>
+<h3>Why this story exists</h3>
+<p>xAI refreshed their <strong>Models</strong> hub and per-model pages (May 2026). GrokForge still documents and defaults against a <strong>May 15 retirement narrative</strong> where <code>grok-code-fast-1</code> redirected to <strong><code>grok-4.3</code></strong>. The current <a href="https://docs.x.ai/developers/migration/may-15-retirement">migration guide</a> now says <strong><code>grok-code-fast-1</code> → <code>grok-build-0.1</code></strong>, with <strong><code>grok-build-0.1</code></strong> as the dedicated agentic coding SKU (256k context, $1.00 / $2.00 per 1M tokens). That invalidates <a href="../../docs/harness-102-xai-investigation.md"><code>docs/harness-102-xai-investigation.md</code></a> and parts of <strong><code>AGENTS.md</code></strong> / <strong><code>docs/i-am-a-harness.md</code></strong> / <strong><code>docs/harness-roadmap.md</code></strong>.</p>
+<p>We need one audited story to realign <strong>manifest defaults</strong>, <strong>harness profile keys</strong>, <strong>chat-completions request params</strong>, <strong>voice realtime + TTS</strong>, <strong>Settings UX</strong>, and <strong>contributor docs</strong> with the public catalog — without breaking existing projects that still store legacy slugs in <code>manifest.models</code>.</p>
+<h3>Source of truth (reviewed 2026-05-26)</h3>
+<p>Primary links (read in full during implementation; do not rely on memory):</p>
+<p>| Resource | URL | Notes | | --- | --- | --- | | Models hub | <a href="https://docs.x.ai/developers/models">docs.x.ai/developers/models</a> | Pricing table, selection guide, alias rules, <code>logprobs</code> caveat | | Grok 4.3 | <a href="https://docs.x.ai/developers/models/grok-4.3">docs.x.ai/developers/models/grok-4.3</a> | 1M context; function calling + structured outputs; <strong>configurable reasoning</strong>; cached input $0.20 / 1M | | Grok Build 0.1 | <a href="https://docs.x.ai/developers/models/grok-build-0.1">docs.x.ai/developers/models/grok-build-0.1</a> | 256k context; <strong>aliases include <code>grok-code-fast-1</code></strong>; higher-context pricing above 200k (per model page) | | Voice overview | <a href="https://docs.x.ai/developers/model-capabilities/audio/voice">docs.x.ai/developers/model-capabilities/audio/voice</a> | Realtime WebSocket, TTS, STT, custom voices, built-in voice names | | May 15 retirement | <a href="https://docs.x.ai/developers/migration/may-15-retirement">docs.x.ai/developers/migration/may-15-retirement</a> | Redirect matrix; explicit replacements |</p>
+<h4>Catalog summary (for GrokForge)</h4>
+<p><strong>Text / agent chat</strong></p>
+<p>| Model id | Context | Input / 1M | Output / 1M | Role in xAI docs | | --- | --- | --- | --- | --- | | <code>grok-4.3</code> | 1M | $1.25 | $2.50 | Flagship chat + agentic tool calling; reasoning <strong>none / low / medium / high</strong> | | <code>grok-build-0.1</code> | 256k | $1.00 | $2.00 | Fast <strong>agentic coding</strong> (early access); aliases: <code>grok-code-fast-1</code>, <code>grok-code-fast</code>, <code>grok-code-fast-1-0825</code> | | <code>grok-4.20-0309-reasoning</code> | 1M | $1.25 | $2.50 | Listed on models hub (alongside non-reasoning variant) | | <code>grok-4.20-0309-non-reasoning</code> | 1M | $1.25 | $2.50 | Same pricing tier | | <code>grok-4.20-multi-agent-0309</code> | 1M | $1.25 | $2.50 | Multi-agent SKU (evaluate fit vs <code>spawn_subagent</code>) |</p>
+<p><strong>Docs tension to resolve in investigation:</strong> the models hub “which model” blurb currently points <strong>Coding → Grok 4.3</strong>, while the retirement guide recommends <strong><code>grok-build-0.1</code></strong> for code workloads. GrokForge should follow <strong>API redirect + migration guide</strong> for defaults, and document the product copy discrepancy for users.</p>
+<p><strong>Voice</strong></p>
+<p>| Surface | Endpoint | Default / example model | Pricing (hub) | | --- | --- | --- | --- | | Voice Agent (realtime) | <code>wss://api.x.ai/v1/realtime?model=…</code> | Docs example: <code>grok-voice-latest</code> | $3.00 / hr ($0.05 / min) | | TTS | <code>POST /v1/tts</code> | <code>voice_id</code>: <code>eve</code>, <code>ara</code>, <code>rex</code>, <code>sal</code>, <code>leo</code> | $15.00 / 1M characters | | STT | <code>POST /v1/stt</code> (+ streaming WS) | Not integrated in GrokForge | $0.10 / hr REST; $0.20 / hr streaming | | Custom voices | <code>POST /v1/custom-voices</code> | Clone → reuse <code>voice_id</code> in TTS + realtime | — |</p>
+<p><strong>Other APIs (out of scope unless explicitly added)</strong></p>
+<ul>
+<li><strong>Imagine</strong> (image/video) — separate product surface.</li>
+<li><strong>Ephemeral tokens</strong> — for client-side voice without exposing API keys; GrokForge uses main-process Bearer auth (acceptable for desktop).</li>
+</ul>
+<p><strong>Platform notes from models hub</strong></p>
+<ul>
+<li><code>logprobs</code> / <code>top_logprobs</code> <strong>silently ignored</strong> on <code>grok-4.20</code> and newer — confirm we do not depend on them.</li>
+<li>Image input on text models: up to <strong>20 MiB</strong>, <code>jpg</code>/<code>png</code>, unlimited count — future multimodal story.</li>
+<li>Knowledge cutoff called out as <strong>November 2024</strong> for Grok 3 / 4 family (user-facing disclaimer if we add one).</li>
+</ul>
+<h3>Current GrokForge state (gap analysis)</h3>
+<p>| Area | Today | Gap vs xAI May 2026 catalog | | --- | --- | --- | | <strong>Defaults</strong> (<code>DUAL_MODEL_FALLBACKS</code>) | <code>grok-code-fast-1</code> on default/execution; <code>grok-4.3</code> on planning; <code>grok-4.20-reasoning</code> on reasoning; <code>grok-voice-think-fast-1.0</code> on voice | Fast slug is an <strong>alias</strong> of <code>grok-build-0.1</code>, not “retired to 4.3”; voice default may not match <code>grok-voice-latest</code>; reasoning slug may need <code>grok-4.20-0309-reasoning</code> audit | | <strong>Harness profile map</strong> | Only <code>grok-code-fast-1</code> → <code>grok_code_fast</code>, <code>grok-4.3</code> → <code>grok_4_3</code> | Missing explicit <code>grok-build-0.1</code> (and aliases) → same profile key; unknown ids fall through to <code>generic</code> | | <strong>Investigation doc</strong> | <a href="../../docs/harness-102-xai-investigation.md"><code>harness-102-xai-investigation.md</code></a> says fast slug → <code>grok-4.3</code> | <strong>Wrong</strong> per updated migration guide → <code>grok-build-0.1</code> | | <strong>Chat transport</strong> | No <code>reasoning_effort</code> (or equivalent) on completions body | Cannot exploit Grok 4.3 <strong>none/low/medium/high</strong>; cannot mirror redirect defaults intentionally | | <strong>Context budgets</strong> | Conservative char caps in <code>AGENT_CONTEXT_BUDGETS</code> (~28k system, etc.) | Not wrong, but document relationship to <strong>1M</strong> (4.3) vs <strong>256k</strong> (build) windows; optional tiered budgets per resolved model family | | <strong>TTS presets</strong> | <code>TTS_VOICE_PRESETS</code> mixes <code>eve</code> + legacy hash ids (Daniel, James, …) | Docs emphasize five built-ins <strong><code>eve</code> / <code>ara</code> / <code>rex</code> / <code>sal</code> / <code>leo</code></strong>; verify old hash ids still valid or migrate UI | | <strong>Voice realtime</strong> | Uses manifest <code>models.voice</code>; session <code>voice</code> field defaults to <code>eve</code> | Confirm realtime model id; align docs example <code>grok-voice-latest</code>; optional manifest default change + migration note for existing projects | | <strong>Settings</strong> | Free-text per intent slot (<code>default</code>, <code>planning</code>, <code>execution</code>, <code>reasoning</code>, <code>voice</code>) | Add curated presets / doc links; optional “reset to recommended defaults” | | <strong>Subagent</strong> | <code>spawn_subagent</code> allows <code>planning</code> \| <code>reasoning</code> intents | Reconcile with <code>grok-4.20-*</code> skus if reasoning default changes |</p>
+<h3>Investigation checklist (required in PR notes)</h3>
+<ul>
+<li><input type="checkbox" disabled> Live API smoke: <code>grok-code-fast-1</code>, <code>grok-build-0.1</code>, and <code>grok-4.3</code> each return expected model behavior (tool loop sample + logged billing id if visible).</li>
+<li><input type="checkbox" disabled> Confirm <strong>redirect target</strong> for <code>grok-code-fast-1</code> is <code>grok-build-0.1</code> (not <code>grok-4.3</code>) and document pricing ($1/$2 vs $1.25/$2.50).</li>
+<li><input type="checkbox" disabled> Voice: <code>grok-voice-think-fast-1.0</code> vs <code>grok-voice-latest</code> — which is recommended; does old id redirect?</li>
+<li><input type="checkbox" disabled> TTS: verify each built-in voice id; test one legacy hash preset still works or drop from UI.</li>
+<li><input type="checkbox" disabled> Reasoning: request shape for <code>reasoning_effort</code> on <code>grok-4.3</code> (and whether <code>grok-build-0.1</code> accepts effort or fixed internal reasoning).</li>
+<li><input type="checkbox" disabled> Search repo for stale strings: <code>retired</code>, <code>redirect.*grok-4.3</code>, <code>grok-4.20-reasoning</code> (non-dated), voice model names.</li>
+<li><input type="checkbox" disabled> Decide <strong>product default</strong> for new projects: keep dual-id experiment (<code>grok-build-0.1</code> + <code>grok-4.3</code>) vs explicit canonical ids vs all-4.3 with effort flags.</li>
+</ul>
+<h3>Goals</h3>
+<h4>1. Correct the documentation trail</h4>
+<ul>
+<li>Rewrite <a href="../../docs/harness-102-xai-investigation.md"><code>docs/harness-102-xai-investigation.md</code></a> with the <strong>May 2026</strong> redirect matrix (<code>grok-code-fast-1</code> → <code>grok-build-0.1</code>).</li>
+<li>Update <strong><code>AGENTS.md</code></strong>, <strong><code>docs/i-am-a-harness.md</code></strong>, <strong><code>docs/harness-roadmap.md</code></strong> §2 dual-model table (redirect target, pricing, when to use build vs 4.3).</li>
+<li>Add a short <strong>“xAI model catalog”</strong> subsection linking to official docs (or extend <code>README.md</code> dev setup) — no duplicate pricing tables in repo unless we snapshot “last reviewed” date.</li>
+</ul>
+<h4>2. Manifest defaults and profile resolution</h4>
+<ul>
+<li><strong><code>src/shared/model-router.ts</code></strong> — decide and implement defaults:</li>
+<li><strong>Recommended:</strong> <code>chat_default</code> + <code>execution</code> → <code>grok-build-0.1</code> (or keep <code>grok-code-fast-1</code> as alias with comment that API resolves to build).</li>
+<li>Keep <code>planning</code> → <code>grok-4.3</code>.</li>
+<li>Audit <code>reasoning</code> → <code>grok-4.20-0309-reasoning</code> vs keep <code>grok-4.20-reasoning</code> (verify alias/redirect).</li>
+<li>Audit <code>voice</code> → <code>grok-voice-latest</code> (or document why legacy id is kept).</li>
+<li><strong><code>src/shared/agent-harness-profile-contract.ts</code></strong> — map <code>grok-build-0.1</code> and aliases (<code>grok-code-fast-1</code>, <code>grok-code-fast</code>, …) → <code>grok_code_fast</code>; consider renaming profile key to <code>grok_build</code> in a follow-up if copy confuses contributors.</li>
+<li><strong><code>src/main/app-project-store.ts</code></strong>, <strong><code>example.grokproject.json</code></strong> — same defaults as router.</li>
+<li><strong>Existing projects:</strong> no forced rewrite; optional one-time dev toast if manifest uses ids known to redirect with different pricing (investigation outcome).</li>
+</ul>
+<h4>3. Chat completions: reasoning effort (minimal v1)</h4>
+<ul>
+<li>Extend provider request builder / transport (<code>agent-chat-model-transport.ts</code>, turn snapshot) to pass <strong><code>reasoning_effort</code></strong> when profile + model support it, e.g.:</li>
+<li>Plan / planner turns on <code>grok-4.3</code>: <code>low</code> or <code>medium</code> (product choice).</li>
+<li>Fast / executor on <code>grok-build-0.1</code>: per API docs (possibly omit or <code>low</code>).</li>
+<li>Approve-and-run execution: align with executor policy.</li>
+<li>Store chosen effort in turn trace metadata (<code>turn_started.routing</code> or provider round metadata) for debugging.</li>
+<li>Add eval or unit coverage that request JSON includes effort when expected (recording transport).</li>
+</ul>
+<h4>4. Voice + TTS alignment</h4>
+<ul>
+<li><strong><code>voice-realtime.ts</code></strong>: default manifest voice model per investigation; keep main-process Bearer auth (ephemeral tokens non-goal).</li>
+<li><strong><code>tts-read-aloud-contract.ts</code> + Settings</strong>: align preset list with <strong><code>eve</code> / <code>ara</code> / <code>rex</code> / <code>sal</code> / <code>leo</code></strong>; retain custom <code>voice_id</code> from manifest; document deprecated hash presets.</li>
+<li>Manual smoke: voice session start, read-aloud on two voices, handoff to agent chat (<strong>113</strong>).</li>
+</ul>
+<h4>5. Settings and in-app labels</h4>
+<ul>
+<li>Settings → model slots: short helper text per slot (which xAI model, context size, link to docs).</li>
+<li>Optional: “Restore recommended defaults” button (writes manifest via existing save path).</li>
+<li>Chat chrome (<strong>065</strong> / turn context UI): show resolved id; in dev, show <code>harnessProfileKey</code> + <code>reasoning_effort</code> when present.</li>
+</ul>
+<h4>6. Tests and eval</h4>
+<ul>
+<li>Update fixtures that hardcode model ids across <code>src/**/*.test.ts</code>.</li>
+<li>Extend <strong><code>agent-runner-evaluation.test.ts</code></strong> tag for build vs 4.3 routing if defaults change.</li>
+<li>Run <strong><code>npm run test:agent-eval</code></strong> and <strong><code>npm run typecheck</code></strong>.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li><strong>Imagine</strong> image/video generation.</li>
+<li><strong>STT</strong> ingestion (new feature — separate story if wanted).</li>
+<li><strong>Ephemeral voice tokens</strong> (desktop app uses main-process key).</li>
+<li><strong>Multimodal</strong> image attachments in agent chat (separate story; only document limits).</li>
+<li><strong>Web Search / X Search</strong> server tools (xAI-hosted; not GrokForge workspace tools).</li>
+<li>Renaming harness profile keys (<code>grok_code_fast</code> → <code>grok_build</code>) unless zero churn — optional follow-up.</li>
+<li>Changing planner vs executor routing logic (<strong>097</strong>) or post-plan heuristics (<strong>120</strong>).</li>
+</ul>
+<h3>Architecture notes</h3>
+<pre><code>manifest.models.* → getModelForIntent → modelId
+       → resolveHarnessProfileKey(modelId)   // include grok-build-0.1 aliases
+       → harness profile + optional reasoning_effort
+       → AgentProviderRequest → chat completions / voice WS</code></pre>
+<p>Dual-model <strong>product</strong> intent unchanged: <strong>fast coding harness</strong> vs <strong>capable planning harness</strong> — only the <strong>canonical xAI ids and API params</strong> catch up to the catalog.</p>
+<h3>Key files</h3>
+<p>| Area | Files | | --- | --- | | Defaults | <code>src/shared/model-router.ts</code>, <code>src/main/app-project-store.ts</code>, <code>example.grokproject.json</code> | | Profile keys | <code>src/shared/agent-harness-profile-contract.ts</code>, <code>src/shared/agent-harness-profile.ts</code> | | Provider | <code>src/main/agent-chat-model-transport.ts</code>, <code>src/shared/agent-turn-snapshot.ts</code>, <code>src/main/agent-turn-snapshot-builder.ts</code> | | Voice / TTS | <code>src/main/voice-realtime.ts</code>, <code>src/main/tts-read-aloud.ts</code>, <code>src/shared/tts-read-aloud-contract.ts</code> | | UI | <code>src/renderer/src/components/SettingsPage.tsx</code>, <code>ChatTurnContextUi.tsx</code> | | Docs | <code>AGENTS.md</code>, <code>docs/i-am-a-harness.md</code>, <code>docs/harness-roadmap.md</code>, <code>docs/harness-102-xai-investigation.md</code> | | Tests | <code>src/main/model-router.test.ts</code>, <code>src/main/app-project-store.test.ts</code>, <code>src/shared/agent-harness-profile-contract.test.ts</code>, <code>src/main/agent-runner-evaluation.test.ts</code> |</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Investigation section in PR describes redirect behavior for <code>grok-code-fast-1</code>, voice model id, and reasoning slugs (dated 2026-05-26 or later).</li>
+<li><input type="checkbox" disabled> Contributor docs no longer claim fast slug redirects to <code>grok-4.3</code>.</li>
+<li><input type="checkbox" disabled> New projects get defaults consistent with investigation (build + 4.3 dual-model or documented alternative).</li>
+<li><input type="checkbox" disabled> <code>resolveHarnessProfileKey('grok-build-0.1')</code> (and <code>grok-code-fast-1</code>) maps to fast coding profile, not <code>generic</code>.</li>
+<li><input type="checkbox" disabled> At least one agent turn on 4.3 sends <code>reasoning_effort</code> when harness policy says so (verified in test or eval recording).</li>
+<li><input type="checkbox" disabled> TTS UI lists the five documented built-in voices; custom manifest voice still works.</li>
+<li><input type="checkbox" disabled> Voice realtime starts with updated default model id (if changed) without regression on handoff (<strong>113</strong>).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and targeted tests pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><a href="102-dual-model-manifest-and-harness-foundation.md"><strong>102</strong></a>, <a href="103-agent-harness-per-model-profiles.md"><strong>103</strong></a>, <a href="113-voice-realtime-harness-profile-alignment.md"><strong>113</strong></a></li>
+<li><a href="122-dynamic-xai-model-catalog-and-settings-picker.md"><strong>122</strong></a> — long-term: fetch models from xAI API + user pickers (no app release per new model id); <strong>out of scope for 121</strong></li>
+<li><a href="018-handoff-grok-build-and-grok-computer.md"><strong>018</strong></a> (closed — revisit only if xAI ships deep links)</li>
+<li>Future: multimodal chat, STT, reasoning effort user override in composer</li>
+</ul>
+<p><strong>Product note (2026-05-26):</strong> For coding slots, prefer <strong><code>grok-build-0.1</code></strong> (or <code>grok-code-fast-1</code> alias) over treating fast slug as “retired to 4.3” — Build is xAI’s dedicated agentic coding SKU.</p>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> §2, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-122" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">122</span><span class="story-name">Dynamic xAI model catalog + Settings picker</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/122-dynamic-xai-model-catalog-and-settings-picker.md">post-mvp/122-dynamic-xai-model-catalog-and-settings-picker.md</a>
+          </div>
+          <h2>122 — Dynamic xAI model catalog and Settings picker</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> Read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> for Settings → Agent models (comboboxes, recommended badges, offline/refresh states, pricing hints).</p>
+<p><strong>Depends on:</strong> <a href="121-xai-model-catalog-and-api-sync.md"><strong>121</strong></a> (correct hardcoded fallbacks and docs first). Complements <a href="102-dual-model-manifest-and-harness-foundation.md"><strong>102</strong></a> / <a href="097-model-routing-planner-vs-executor.md"><strong>097</strong></a> — routing logic stays; this story changes <strong>how users pick and discover</strong> model ids.</p>
+<p><strong>Blocks:</strong> Nothing required, but reduces urgency of future “bump default model id” releases when xAI ships <strong>Grok 5.0</strong> or renames SKUs.</p>
+<h3>Why this story exists</h3>
+<p>GrokForge today bakes xAI model ids into <strong><code>DUAL_MODEL_FALLBACKS</code></strong>, tests, and harness profile maps. <strong>Settings → Agent models</strong> is <strong>read-only</strong> (<code>AgentModelSlotRow</code> shows manifest values; users cannot change slots in-app). When xAI adds <strong><code>grok-5.0</code></strong>, renames aliases, or promotes <strong>Grok Build</strong> over legacy slugs, we currently need a <strong>new app build</strong> to update defaults and copy — even though the user’s API key may already have access to new models.</p>
+<p>xAI exposes <strong>Inference API model listing</strong> scoped to the authenticating key:</p>
+<p>| Endpoint | Use for GrokForge | | --- | --- | | <a href="https://docs.x.ai/developers/rest-api-reference/inference/models"><code>GET /v1/language-models</code></a> | Rich catalog: canonical <code>id</code>, <strong><code>aliases</code></strong>, modalities, pricing fields, <code>version</code>, <code>fingerprint</code> | | <a href="https://docs.x.ai/developers/rest-api-reference/inference/models"><code>GET /v1/models</code></a> | Lighter list (all model types); fallback if language-models unavailable | | <a href="https://docs.x.ai/developers/rest-api-reference/inference/models"><code>GET /v1/models/{model_id}</code></a> | Validate a manifest id on save / refresh |</p>
+<p>Docs: <a href="https://docs.x.ai/developers/rest-api-reference/inference/models">Inference REST API — Models</a>.</p>
+<p><strong>Product goal:</strong> After <a href="121-xai-model-catalog-and-api-sync.md"><strong>121</strong></a> aligns our <strong>recommended</strong> defaults (e.g. <strong><code>grok-build-0.1</code></strong> for coding / execution), this story lets users <strong>choose any model their key can see</strong> from a live catalog — so when Grok 5.0 appears on the API, power users can select it <strong>without waiting for a GrokForge release</strong>.</p>
+<h3>What a dynamic catalog does and does not solve</h3>
+<p>| Dynamic catalog <strong>does</strong> | Still needs app/harness work <strong>without</strong> a release | | --- | --- | | List model ids + aliases available to the user’s key | <strong>Harness profile content</strong> (prompts, tool bias) for unknown families → <code>generic</code> until mapped | | Populate Settings dropdowns per manifest slot | <strong>Reasoning effort</strong> policy per model capability | | Warn when manifest stores an id not in catalog (retired / ACL) | <strong>Voice</strong> realtime model list may differ endpoint — separate fetch or filter | | Cache catalog offline with TTL; refresh on demand | <strong>New modalities</strong> (e.g. image-in-chat) need feature stories | | Show pricing / context hints from API metadata | <strong>Eval regressions</strong> when default harness profile is <code>generic</code> |</p>
+<p><strong>Grok 5.0 scenario:</strong> User selects <code>grok-5.0</code> in Settings → API calls use that id immediately. Harness uses <strong><code>generic</code></strong> profile (or best-effort pattern match on id prefix) until we ship a <strong><code>grok_5_0</code></strong> profile map update — acceptable tradeoff vs blocking the user entirely.</p>
+<h3>Investigation checklist (PR notes)</h3>
+<ul>
+<li><input type="checkbox" disabled> Call <code>GET /v1/language-models</code> with dev key; capture shape for chat/agent models vs image/video entries.</li>
+<li><input type="checkbox" disabled> Confirm whether <strong>voice</strong> models appear in <code>/v1/models</code> only or a separate voice listing (filter strategy).</li>
+<li><input type="checkbox" disabled> ACL: key with restricted <code>api-key:model:*</code> — catalog matches accessible set.</li>
+<li><input type="checkbox" disabled> Rate limits / caching: safe refresh interval (e.g. 24h TTL + manual “Refresh models”).</li>
+<li><input type="checkbox" disabled> Offline: app starts without network — bundled fallback list from <a href="121-xai-model-catalog-and-api-sync.md"><strong>121</strong></a> defaults still works.</li>
+<li><input type="checkbox" disabled> Alias handling: manifest may store <code>grok-code-fast-1</code> while catalog canonical id is <code>grok-build-0.1</code> — display both; resolve profile via alias map.</li>
+</ul>
+<h3>Goals</h3>
+<h4>1. Main-process catalog service</h4>
+<ul>
+<li>New module e.g. <code>src/main/xai-model-catalog.ts</code> (+ shared DTO <code>src/shared/xai-model-catalog-contract.ts</code>).</li>
+<li>Fetch from <code>https://api.x.ai/v1/language-models</code> (same Bearer resolution as chat: Settings key → env).</li>
+<li>Normalize to <code>XaiLanguageModelEntry[]</code>: <code>{ id, aliases, inputModalities, outputModalities, promptTextTokenPrice, completionTextTokenPrice, longContextThreshold, version, fingerprint }</code>.</li>
+<li>Persist cache under app <code>userData</code> (e.g. <code>xai-model-catalog.json</code>) with <code>fetchedAt</code> + TTL (<strong>24h</strong> default).</li>
+<li>IPC: <strong><code>get-xai-model-catalog</code></strong> <code>{ forceRefresh?: boolean }</code> → <code>{ ok, models, cachedAt, stale? }</code> | <code>{ ok: false, error }</code>.</li>
+<li>Optional: <strong><code>validate-xai-model-id</code></strong> <code>{ modelId }</code> via <code>GET /v1/language-models/{model_id}</code> or membership check.</li>
+</ul>
+<h4>2. Settings UX — editable slots</h4>
+<p>Replace read-only <code>AgentModelSlotRow</code> with per-intent <strong>combobox</strong> (or searchable select):</p>
+<p>| Slot | Intent | Suggested filter (heuristic) | | --- | --- | --- | | Default (Fast chat) | <code>chat_default</code> | Text out + function-calling-capable language models | | Planning | <code>planning</code> | Same; badge “Recommended for plans” on flagship / 1M context ids | | Execution | <code>execution</code> | Prefer <strong>Build</strong> family (<code>grok-build*</code>, <code>grok-code-fast*</code>) | | Reasoning | <code>reasoning</code> | Models with reasoning in name/metadata if API exposes; else full list | | Voice | <code>voice</code> | Voice-capable ids only (investigation) |</p>
+<ul>
+<li>Save via existing <strong><code>save-manifest</code></strong> path (<code>manifest.models.*</code>).</li>
+<li><strong>“Restore GrokForge recommendations”</strong> applies <a href="121-xai-model-catalog-and-api-sync.md"><strong>121</strong></a> defaults (Build + 4.3 + voice).</li>
+<li><strong>“Refresh model list”</strong> forces catalog refetch; toast on failure with offline cache message.</li>
+<li>Show <strong>recommended</strong> ribbon from server-side or shared heuristic (not hardcoded only in app binary — e.g. match <code>id</code> / <code>aliases</code> patterns documented in 121).</li>
+</ul>
+<h4>3. Harness integration (minimal v1)</h4>
+<ul>
+<li><strong><code>resolveHarnessProfileKey</code></strong>: extend alias table from catalog fetch (optional) OR static map in shared code updated rarely; unknown id → <strong><code>generic</code></strong> (unchanged).</li>
+<li>On turn start (dev log): if model id not in last catalog sync, log <code>catalogStale: true</code>.</li>
+<li>Do <strong>not</strong> block turns on catalog fetch failure — manifest id always wins.</li>
+</ul>
+<h4>4. Composer / chat chrome (optional v1)</h4>
+<ul>
+<li>Model chip label: show user-selected id; tooltip “Harness profile: grok_code_fast | generic”.</li>
+<li>Defer composer-level “override model this turn only” to a follow-up unless trivial.</li>
+</ul>
+<h4>5. Security and privacy</h4>
+<ul>
+<li>Catalog fetch <strong>main only</strong> (API key never to renderer).</li>
+<li>Renderer receives sanitized DTO (ids, aliases, display labels, prices — no secrets).</li>
+<li>No arbitrary URLs; fixed <code>api.x.ai</code> base (env override only if we already support one for completions).</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Replacing <a href="121-xai-model-catalog-and-api-sync.md"><strong>121</strong></a> (121 is the one-time doc/default correction).</li>
+<li>Management API (<code>management-api.x.ai</code>) team model ACL editing — different key type.</li>
+<li>Auto-migrating all projects to newest model on every catalog refresh.</li>
+<li>Per-turn model override in composer (follow-up).</li>
+<li>Auto-generating harness profiles from API metadata (research spike only).</li>
+<li>Imagine / video model pickers in agent slots.</li>
+</ul>
+<h3>Architecture sketch</h3>
+<pre><code>flowchart LR
+  subgraph main
+    Catalog[xai-model-catalog.ts]
+    Cache[(userData cache)]
+    IPC[get-xai-model-catalog]
+  end
+  subgraph renderer
+    Settings[SettingsPage comboboxes]
+    Manifest[manifest.models.*]
+  end
+  API[xAI /v1/language-models]
+  Catalog --&gt; API
+  Catalog --&gt; Cache
+  IPC --&gt; Settings
+  Settings --&gt;|save-manifest| Manifest
+  Manifest --&gt;|getModelForIntent| Runner[agent-runner]</code></pre>
+<h3>Key files</h3>
+<p>| Area | Files | | --- | --- | | Catalog | <code>src/main/xai-model-catalog.ts</code> (new), <code>src/shared/xai-model-catalog-contract.ts</code> (new) | | IPC | <code>src/main/main.ts</code>, <code>src/preload/preload.ts</code>, <code>src/shared/preload-api-contract.ts</code> | | Settings | <code>src/renderer/src/components/SettingsPage.tsx</code> | | Routing | <code>src/shared/model-router.ts</code> (offline fallbacks only), <code>src/shared/agent-harness-profile-contract.ts</code> | | Manifest | <code>src/main/manifest.ts</code>, <code>src/main/app-project-store.ts</code> |</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> With valid API key, Settings shows a dropdown of models from <code>GET /v1/language-models</code> for at least <strong>default</strong>, <strong>planning</strong>, and <strong>execution</strong> slots.</li>
+<li><input type="checkbox" disabled> User can select a model id, save manifest, and the next agent turn uses that id (verified via dev routing log / turn trace).</li>
+<li><input type="checkbox" disabled> Catalog cache survives app restart; offline open uses last cache or bundled fallbacks with clear “offline” copy.</li>
+<li><input type="checkbox" disabled> <strong>Restore recommendations</strong> sets Build + 4.3 defaults per 121.</li>
+<li><input type="checkbox" disabled> Manifest id absent from catalog shows non-blocking warning in Settings (not on every chat send).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes; unit tests for catalog parse/normalize and IPC validation.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><a href="121-xai-model-catalog-and-api-sync.md"><strong>121</strong></a> — do first</li>
+<li><a href="102-dual-model-manifest-and-harness-foundation.md"><strong>102</strong></a>, <a href="103-agent-harness-per-model-profiles.md"><strong>103</strong></a>, <a href="097-model-routing-planner-vs-executor.md"><strong>097</strong></a></li>
+<li>xAI <a href="https://docs.x.ai/developers/models">Models hub</a>, <a href="https://docs.x.ai/developers/models/grok-build-0.1">Grok Build 0.1</a></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
     </section>
