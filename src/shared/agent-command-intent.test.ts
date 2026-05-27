@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { commandLikelyMutatesWorkspace, impliesCommandExecution } from './agent-command-intent'
+import { commandLikelyMutatesWorkspace, impliesCommandExecution, isBootstrapScaffoldUserText } from './agent-command-intent'
 
 describe('impliesCommandExecution', () => {
   it('detects install and verify commands', () => {
@@ -24,5 +24,17 @@ describe('commandLikelyMutatesWorkspace', () => {
   it('skips read-only diagnostics', () => {
     expect(commandLikelyMutatesWorkspace('git status')).toBe(false)
     expect(commandLikelyMutatesWorkspace('npm run typecheck')).toBe(false)
+  })
+})
+
+describe('isBootstrapScaffoldUserText', () => {
+  it('matches scaffold/bootstrap phrasing without npm literal', () => {
+    expect(isBootstrapScaffoldUserText('scaffold a Vite React app in this empty folder')).toBe(true)
+    expect(isBootstrapScaffoldUserText('create a full todo app from scratch')).toBe(true)
+  })
+
+  it('does not match incremental feature edits', () => {
+    expect(isBootstrapScaffoldUserText('add delete button to the task list')).toBe(false)
+    expect(isBootstrapScaffoldUserText('fix the CSS padding on the header')).toBe(false)
   })
 })

@@ -90,6 +90,34 @@ describe('shouldRouteIterativeWorkExecutor', () => {
     ).toBe(false)
   })
 
+  it('does not route bootstrap/scaffold user text on populated repo', () => {
+    expect(
+      shouldRouteIterativeWorkExecutor({
+        chatMode: 'fast',
+        userText: 'scaffold a Vite React TypeScript app in this folder',
+        index: indexWithFiles(
+          8,
+          [{ relativePath: 'src/App.tsx', basename: 'App.tsx' }],
+          [{ path: 'package.json', name: 'package.json' }],
+        ),
+      }),
+    ).toBe(false)
+  })
+
+  it('does not route npm create intent', () => {
+    expect(
+      shouldRouteIterativeWorkExecutor({
+        chatMode: 'fast',
+        userText: 'run npm create vite@latest . -- --template react-ts',
+        index: indexWithFiles(
+          8,
+          [{ relativePath: 'src/App.tsx', basename: 'App.tsx' }],
+          [{ path: 'package.json', name: 'package.json' }],
+        ),
+      }),
+    ).toBe(false)
+  })
+
   it('exports stable harness marker', () => {
     expect(WORK_ITERATIVE_EDIT_MARKER).toContain('130')
   })

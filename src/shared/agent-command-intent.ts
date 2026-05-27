@@ -8,6 +8,16 @@ const COMMAND_VERIFY_RE =
 const COMMAND_INSTALL_SCAFFOLD_RE =
   /\b(npm\s+(install|ci|create|init)|pnpm\s+(install|create|dlx)|yarn\s+(install|create)|bun\s+(install|create)|git\s+init|git\s+clone|npx\s+create)\b/i
 
+const BOOTSTRAP_USER_RE =
+  /\b(scaffold|bootstrap|greenfield|from\s+scratch|new\s+project|set\s+up\s+(a\s+)?(vite|react|next|app|project)|create\s+(a\s+)?(vite|react|next|todo|full|new))\b/i
+
+/** Whether user text implies greenfield bootstrap / CLI scaffold (not iterative feature edit). */
+export function isBootstrapScaffoldUserText(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  return impliesCommandExecution(t) || BOOTSTRAP_USER_RE.test(t)
+}
+
 /** Whether user text or plan verification implies install, scaffold, or verify via CLI. */
 export function impliesCommandExecution(text: string): boolean {
   const t = text.trim()

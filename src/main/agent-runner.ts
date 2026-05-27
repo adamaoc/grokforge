@@ -1394,6 +1394,9 @@ async function runAgentTurn(
       agentProfile.canProposeEdits &&
       isLikelyEditIntent(safePayload.userText) &&
       !discoverySaturationNudgeIssued &&
+      !harnessCtx.greenfieldWorkspace &&
+      !commandIntent &&
+      !scaffoldMutatingCommandSucceeded &&
       toolRoundCount >= discoverySaturationMinRounds &&
       lastRoundWasReadOnlyOnly
     if (shouldNudgeDiscoverySaturation) {

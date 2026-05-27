@@ -3,6 +3,7 @@
  * Broader than populated-workspace (129): any non-greenfield repo + edit intent.
  */
 
+import { isBootstrapScaffoldUserText } from './agent-command-intent'
 import { isLikelyEditIntent } from './agent-final-answer-contract'
 import { isReplanRequestUserText } from './post-plan-incremental'
 import {
@@ -27,6 +28,7 @@ export function shouldRouteIterativeWorkExecutor(input: {
   const trimmed = input.userText.trim()
   if (trimmed.length === 0) return false
   if (isReplanRequestUserText(trimmed)) return false
+  if (isBootstrapScaffoldUserText(trimmed)) return false
   if (!isLikelyEditIntent(trimmed)) return false
   if (
     isGreenfieldWorkspace({
