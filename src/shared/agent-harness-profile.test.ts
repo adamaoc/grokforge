@@ -1,16 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { buildFinalAnswerContract } from './agent-final-answer-contract'
-import type { AgentChatToolName } from './agent-chat-contract'
 import {
   appendHarnessProfileToSystemPrompt,
   buildAgentToolLoopSharedSections,
   buildHarnessTurnPromptSections,
-  buildIterativeWorkToolDescriptionOverrides,
   buildVoiceHarnessAppendix,
   getHarnessProfile,
   getHarnessProfileForModelId,
-  WORK_ITERATIVE_SR_QUALITY_MARKER,
 } from './agent-harness-profile'
+import { POST_PLAN_INCREMENTAL_ENFORCEMENT_LINE } from './incremental-work-edit-policy'
 import {
   POST_PLAN_INCREMENTAL_MARKER,
   SINGLE_FILE_EDIT_BIAS_MARKER,
@@ -158,8 +156,12 @@ describe('buildHarnessTurnPromptSections', () => {
     const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
       postPlanIncremental: true,
     })
-    expect(sections.join('\n')).toContain(POST_PLAN_INCREMENTAL_MARKER)
-    expect(sections.join('\n')).toMatch(/do \*\*not\*\* emit a new `gf-plan`/i)
+    const text = sections.join('\n')
+    expect(text).toContain(POST_PLAN_INCREMENTAL_MARKER)
+    expect(text).toMatch(/do \*\*not\*\* emit a new `gf-plan`/i)
+    expect(text).toMatch(
+      /localized \*\*`search_replace`\*\* on existing files \(default\) or \*\*`propose_file_edits`\*\*/i,
+    )
   })
 
   it('includes single-file bias when singleFilePrimary', () => {
@@ -188,7 +190,7 @@ describe('buildHarnessTurnPromptSections', () => {
     expect(sections.join('\n')).toContain('script.js')
     expect(sections.join('\n')).toContain('src/App.tsx')
     expect(sections.join('\n')).toMatch(/do \*\*not\*\* emit a new `gf-plan`/i)
-    expect(sections.join('\n')).toMatch(/localStorage/i)
+    expect(sections.join('\n')).toMatch(/persistence|script\.js/i)
     expect(sections.join('\n')).toMatch(/Do \*\*not\*\* call `read_file` again/i)
   })
 
@@ -198,22 +200,28 @@ describe('buildHarnessTurnPromptSections', () => {
     expect(shared.join('\n')).not.toMatch(/run discovery tools before proposing file changes/i)
   })
 
-  it('includes iterative Work S&R quality sections when iterativeWorkEdit (139)', () => {
+  it('includes merged iterative edit policy when iterativeWorkEdit (144)', () => {
     const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
       iterativeWorkEdit: true,
     })
-    expect(sections.join('\n')).toContain(WORK_ITERATIVE_SR_QUALITY_MARKER)
-    expect(sections.join('\n')).toMatch(/rawContent/i)
-    expect(sections.join('\n')).toMatch(/exactly once/i)
+    const text = sections.join('\n')
+    expect(text).toContain(WORK_ITERATIVE_EDIT_MARKER)
+    expect(text).toMatch(/Default tool \(existing files\)/i)
+    expect(text).toMatch(/search_replace/i)
+    expect(text).toMatch(/propose_file_edits/i)
+    expect(text).not.toContain('## Work iterative search_replace quality')
   })
-})
 
-describe('buildIterativeWorkToolDescriptionOverrides', () => {
-  it('emphasizes rawContent and once-only match for search_replace (139)', () => {
-    const overrides = buildIterativeWorkToolDescriptionOverrides()
-    expect(overrides.search_replace).toMatch(/rawContent/i)
-    expect(overrides.search_replace).toMatch(/exactly once|single-match/i)
-    expect(overrides.search_replace).toMatch(/expectedContentHash/i)
+  it('adds post-plan enforcement line when postPlanIncremental (144)', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      postPlanIncremental: true,
+    })
+    expect(sections.join('\n')).toContain(POST_PLAN_INCREMENTAL_MARKER)
+    expect(sections.join('\n')).toContain(POST_PLAN_INCREMENTAL_ENFORCEMENT_LINE)
+    expect(sections.join('\n')).toMatch(/Conservative edits/i)
+    expect(sections.join('\n')).toMatch(/read_file.*first in this turn/i)
+    expect(sections.join('\n')).toMatch(/Strongly discouraged/i)
+    expect(sections.join('\n')).toMatch(/Structural \/ behavior changes/i)
   })
 })
 

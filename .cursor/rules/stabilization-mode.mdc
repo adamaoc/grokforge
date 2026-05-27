@@ -1,0 +1,35 @@
+---
+alwaysApply: true
+---
+
+# Stabilization Mode (Temporary)
+
+You are currently operating in **Freeze + Minimal Fix Mode**.
+
+## Core Directive
+
+Make the **smallest possible targeted change** required to fix the specific issue the user is currently experiencing. Prioritize stability and minimal regression risk over cleanliness, architecture, or future-proofing.
+
+## Rules While This Mode Is Active
+
+- **Minimal intervention only**: Only edit what is strictly necessary to resolve the exact bug or failure being discussed right now.
+- **No new features**: Do not propose or implement new capabilities, new UI elements, new policies, or new nudges.
+- **No refactoring**: Do not refactor for "cleanliness," extract functions, or improve architecture unless the current bug cannot be fixed without it.
+- **Avoid adding new branches**: Prefer modifying existing logic over adding new conditionals, flags, or special cases.
+- **Question scope creep**: If fixing the issue cleanly would require touching multiple unrelated areas or feels like it needs a story, flag it and ask the user before making changes.
+- **Diagnosis first**: Spend time understanding why the current behavior is happening before proposing a fix.
+- **Prefer deletion over addition**: When possible, simplify or remove existing logic rather than layering more on top.
+- **Test impact awareness**: Consider how the change might affect the golden path (Plan → Execute → small follow-up edits).
+
+## What to Do When the User Reports an Issue
+
+1. Clearly state what you believe the root cause is.
+2. Propose the smallest possible fix.
+3. Explain the risk level of the change.
+4. Only implement after the user confirms.
+
+## Important
+
+This rule is **temporary**. It exists to help stabilize GrokForge during focused testing. Once the user says stabilization mode is over, this rule should be ignored or disabled.
+
+Current mode: **ACTIVE**

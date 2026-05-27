@@ -6,7 +6,7 @@
 import { z } from 'zod'
 import { ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON } from './agent-edit-cascade-guard'
 import type { IterativeEditScopeKind } from './iterative-edit-scope'
-import type { IterativeThrashNudgeKind } from './iterative-work-edit-guards'
+import type { IncrementalEditMidTurnNudgeKind } from './incremental-work-edit-policy'
 
 export const HARNESS_METRICS_MAX_NUDGES = 12 as const
 export const HARNESS_METRICS_MAX_SR_PATHS = 8 as const
@@ -14,23 +14,23 @@ export const HARNESS_METRICS_MAX_SR_FAILURE_REASONS = 4 as const
 
 /** Stable nudge ids persisted on turn traces. */
 export const HARNESS_NUDGE_DISCOVERY_SATURATION = 'discovery_saturation' as const
+/** Story 144: commit_proposal mid-turn nudge (replaces sr_consolidation, one_proposal, edit_scope). */
+export const HARNESS_NUDGE_INCREMENTAL_COMMIT_PROPOSAL = 'iterative_commit_proposal' as const
+export const HARNESS_NUDGE_INCREMENTAL_STOP_REREAD = 'iterative_reread_loop' as const
+/** @deprecated Story 144 — kept for trace compatibility; no longer issued. */
 export const HARNESS_NUDGE_ITERATIVE_SR_CONSOLIDATION = 'iterative_sr_consolidation' as const
-export const HARNESS_NUDGE_ITERATIVE_REREAD_LOOP = 'iterative_reread_loop' as const
-export const HARNESS_NUDGE_ITERATIVE_ONE_PROPOSAL = 'iterative_one_proposal' as const
-export const HARNESS_NUDGE_ITERATIVE_DISCOVERY_AFTER_EDIT = 'iterative_discovery_after_edit' as const
-export const HARNESS_NUDGE_ITERATIVE_EDIT_SCOPE = 'iterative_edit_scope' as const
+export const HARNESS_NUDGE_ITERATIVE_REREAD_LOOP = HARNESS_NUDGE_INCREMENTAL_STOP_REREAD
+export const HARNESS_NUDGE_ITERATIVE_ONE_PROPOSAL = HARNESS_NUDGE_INCREMENTAL_COMMIT_PROPOSAL
 export const HARNESS_NUDGE_SEARCH_REPLACE_ESCALATION = 'search_replace_escalation' as const
-export const HARNESS_NUDGE_LOCALIZED_UI_EDIT_PRE_SAMPLE = 'localized_ui_edit_pre_sample' as const
+export const HARNESS_NUDGE_CREATION_INCREMENTAL_RECOVERY = 'creation_incremental_recovery' as const
 
 export type HarnessNudgeId =
   | typeof HARNESS_NUDGE_DISCOVERY_SATURATION
+  | typeof HARNESS_NUDGE_INCREMENTAL_COMMIT_PROPOSAL
+  | typeof HARNESS_NUDGE_INCREMENTAL_STOP_REREAD
   | typeof HARNESS_NUDGE_ITERATIVE_SR_CONSOLIDATION
-  | typeof HARNESS_NUDGE_ITERATIVE_REREAD_LOOP
-  | typeof HARNESS_NUDGE_ITERATIVE_ONE_PROPOSAL
-  | typeof HARNESS_NUDGE_ITERATIVE_DISCOVERY_AFTER_EDIT
-  | typeof HARNESS_NUDGE_ITERATIVE_EDIT_SCOPE
   | typeof HARNESS_NUDGE_SEARCH_REPLACE_ESCALATION
-  | typeof HARNESS_NUDGE_LOCALIZED_UI_EDIT_PRE_SAMPLE
+  | typeof HARNESS_NUDGE_CREATION_INCREMENTAL_RECOVERY
 
 export const MaxIterationsReasonSchema = z.enum([
   'search_replace_loop',
@@ -208,16 +208,14 @@ export function resolveMaxIterationsReason(
   return 'generic'
 }
 
-export function iterativeThrashKindToHarnessNudgeId(kind: IterativeThrashNudgeKind): HarnessNudgeId {
+export function incrementalEditMidTurnKindToHarnessNudgeId(
+  kind: IncrementalEditMidTurnNudgeKind,
+): HarnessNudgeId {
   switch (kind) {
-    case 'sr_consolidation':
-      return HARNESS_NUDGE_ITERATIVE_SR_CONSOLIDATION
-    case 'reread_loop':
-      return HARNESS_NUDGE_ITERATIVE_REREAD_LOOP
-    case 'one_proposal':
-      return HARNESS_NUDGE_ITERATIVE_ONE_PROPOSAL
-    case 'discovery_after_edit':
-      return HARNESS_NUDGE_ITERATIVE_DISCOVERY_AFTER_EDIT
+    case 'commit_proposal':
+      return HARNESS_NUDGE_INCREMENTAL_COMMIT_PROPOSAL
+    case 'stop_reread':
+      return HARNESS_NUDGE_INCREMENTAL_STOP_REREAD
     default: {
       const _exhaustive: never = kind
       return _exhaustive

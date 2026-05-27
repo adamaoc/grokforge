@@ -143,6 +143,7 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 - **Plan:** **Plan** mode — “Build a static todo app with HTML, CSS, and JS.” Expect `gf-plan` listing `index.html`, `styles.css`, `script.js` and browser verification (serve command in plan field — see **132**).
 - **Execute:** **Approve and run** → multi-file `propose_file_edits` with external `script.js` (not crushed inline JS in HTML); no false **Harness: scaffold strategy conflict** activity (**131**).
 - **Review:** Diff shows real line breaks on HTML/CSS/JS; primary `index.html` passes corrupt-content checks (**124**).
+- **Creation-path recovery:** Two all-rejected `propose_file_edits` on a new path → **Harness: incremental file creation** nudge (minimal file first, then S&R); automated: `recovery:creation_incremental`.
 - **Apply + verify:** Apply batch → run plan verification (`npx --yes serve .` or equivalent) → open in browser and smoke-test UI.
 - **Automated:** `behavior:greenfield_static_plan_execute_happy`, `validation:greenfield_static_html_corruption`, `behavior:greenfield_static_normalized_markdown` in `npm run test:agent-eval` (markdown tag is unit-level in `agent-file-content-normalize.test.ts`).
 
@@ -150,13 +151,17 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 
 ## 16. Non-greenfield Work edit (no replan)
 
+**Note (144):** Todo-style follow-ups after **Approve and run** use **`postPlanIncremental`** routing and share the same enforcement as **`iterativeWorkEdit`** (4 tool rounds max, stop after one `edit_proposal`, one mid-turn consolidate nudge max). Post-plan turns include **POST_PLAN_INCREMENTAL** copy plus the shared turn contract line — not the full **Work iterative edit (harness 130)** appendix.
+
+**Note (S&R-first iterative Work):** Post-plan prompts like “add a remove button” should default to **`search_replace`** on `script.js` / `styles.css` after `read_file` — not a 1-line full-file `propose_file_edits` stub that triggers shrink warnings.
+
 - **Setup A (Vite/React):** Open a scaffolded Vite + React project (`package.json`, `src/App.tsx`). **Work** mode, default chip (no Plan).
 - **Prompt A:** “Replace the home page with a simple task app (backlog, in progress, done).”
 - **Expected A:** `turn_started` → **executor** + **execution** model; system includes **Work iterative edit (harness 130)** and **Populated workspace iterative edit (harness 129)** markers; activity rows titled **Work tool round** that turn **done** after each round (not a wall of “Planning … stopped”).
 - **Setup B (small vanilla):** Open a multi-file vanilla site (`index.html`, `script.js`, …) **without** `package.json` (6+ non-trivial files, not greenfield). **Work** mode.
 - **Prompt B:** “Add a dark mode toggle to the page.”
 - **Expected B:** Same executor routing + harness **130** marker (no greenfield appendix).
-- **Expected (both):** At most ~2 read-only rounds before `propose_file_edits` or `search_replace`; edit proposal appears in chat when the model cooperates.
+- **Expected (both):** At most ~2 read-only rounds before **`search_replace`** (default on existing files) or `propose_file_edits` (new paths / escalation); edit proposal appears in chat when the model cooperates.
 - **Timeout:** Long turns may run up to ~10m budget; if timeout occurs **after** a proposal, chat still shows the diff review and an interrupted hint.
 - **Automated:** `routing:existing_project_no_replan`, `routing:iterative_work_no_replan` in `npm run test:agent-eval`.
 

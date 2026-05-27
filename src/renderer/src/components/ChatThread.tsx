@@ -2031,6 +2031,48 @@ export function ChatThread({
     return () => onRegisterClearPendingAgentProposal?.(null);
   }, [onRegisterClearPendingAgentProposal]);
 
+  useEffect(() => {
+    const path = liveTurnContext?.activeFilePath;
+    if (path && (streamingStreamId || isThinking)) {
+      setAgentFileFocus((prev) =>
+        prev?.reason === "proposal"
+          ? prev
+          : { path, reason: "active", streamId: streamingStreamId ?? undefined },
+      );
+    }
+  }, [liveTurnContext?.activeFilePath, streamingStreamId, isThinking]);
+
+  useEffect(() => {
+    const proposalBusy = isSending || isThinking || !!streamingStreamId;
+    onCompanionSnapshotChange?.({
+      hasPendingProposal:
+        pendingProposal?.uiPhase === "pending" && pendingUniquePaths.length > 0,
+      proposalPaths: pendingUniquePaths,
+      proposalApplied: pendingProposal?.uiPhase === "applied",
+      isLiveTurn: !!(streamingStreamId || isThinking),
+      liveActiveFilePath: liveTurnContext?.activeFilePath ?? null,
+      recentToolPaths: agentActivities
+        .map((a) => a.subjectPath)
+        .filter((p): p is string => Boolean(p))
+        .slice(-6)
+        .reverse(),
+      agentFileFocus,
+      canApplyProposal: hasAnyApplyablePath,
+      proposalBusy,
+    });
+  }, [
+    agentActivities,
+    agentFileFocus,
+    hasAnyApplyablePath,
+    isSending,
+    isThinking,
+    liveTurnContext?.activeFilePath,
+    onCompanionSnapshotChange,
+    pendingProposal?.uiPhase,
+    pendingUniquePaths,
+    streamingStreamId,
+  ]);
+
   const confirmApplyAfterNormalize = useCallback(
     (_batch: ParsedAgentToolBatch): boolean => confirmApplyDespiteSevereSafety(),
     [confirmApplyDespiteSevereSafety],
@@ -2556,47 +2598,6 @@ export function ChatThread({
   );
 
   const busy = isSending || isThinking || !!streamingStreamId;
-
-  useEffect(() => {
-    const path = liveTurnContext?.activeFilePath;
-    if (path && (streamingStreamId || isThinking)) {
-      setAgentFileFocus((prev) =>
-        prev?.reason === "proposal"
-          ? prev
-          : { path, reason: "active", streamId: streamingStreamId ?? undefined },
-      );
-    }
-  }, [liveTurnContext?.activeFilePath, streamingStreamId, isThinking]);
-
-  useEffect(() => {
-    onCompanionSnapshotChange?.({
-      hasPendingProposal:
-        pendingProposal?.uiPhase === "pending" && pendingUniquePaths.length > 0,
-      proposalPaths: pendingUniquePaths,
-      proposalApplied: pendingProposal?.uiPhase === "applied",
-      isLiveTurn: !!(streamingStreamId || isThinking),
-      liveActiveFilePath: liveTurnContext?.activeFilePath ?? null,
-      recentToolPaths: agentActivities
-        .map((a) => a.subjectPath)
-        .filter((p): p is string => Boolean(p))
-        .slice(-6)
-        .reverse(),
-      agentFileFocus,
-      canApplyProposal: hasAnyApplyablePath,
-      proposalBusy: busy,
-    });
-  }, [
-    agentActivities,
-    agentFileFocus,
-    busy,
-    hasAnyApplyablePath,
-    liveTurnContext?.activeFilePath,
-    onCompanionSnapshotChange,
-    pendingProposal?.uiPhase,
-    pendingUniquePaths,
-    streamingStreamId,
-    isThinking,
-  ]);
 
   const activeExecutePlanMessageId = planExecuteStreamActive
     ? executingPlanMessageId

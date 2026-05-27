@@ -17,41 +17,24 @@ export const WORK_ITERATIVE_EDIT_MARKER = '## Work iterative edit (harness 130)'
 /** Surgical edit enforcement appendix (story 135). */
 export const WORK_SURGICAL_EDIT_MARKER = '## Work surgical edit (harness 135)'
 
-/** Pre-sample nudge marker for localized UI edits (story 139). */
-export const LOCALIZED_UI_EDIT_PRE_SAMPLE_MARKER = 'Harness: localized UI edit 139'
+/** Shared conservative edit rules for post-plan and iterative Work follow-ups. */
+export const INCREMENTAL_EDIT_CONSERVATIVE_LINES: readonly string[] = [
+  '**Conservative edits:** This is a **small follow-up** on working code — **add or adjust only what the request needs**; keep every unrelated line identical to `read_file` **`rawContent`**.',
+  'On every **existing** file you change: call `read_file` on that path **first in this turn** (or reuse content from the immediately prior tool round) **before** `propose_file_edits` or `search_replace` — never guess or reconstruct the file from memory.',
+  '**Strongly discouraged:** Full-file rewrites, deleting most of the file, or shrinking a multi-line script/HTML file to one or two lines when the user asked to **add**, **persist**, **fix**, or **tweak** something — GrokForge rejects proposals that remove large sections.',
+  'On follow-up edits to **existing** files, default to **`search_replace`** on a block copied from **`rawContent`** — change only what the request needs; do not drop functions, listeners, or markup the user did not ask to remove.',
+  'A full-file `propose_file_edits` means the **entire current file** from `read_file` plus your **small patch** — not a stub, shortcut, or shortened rewrite that drops existing functions or markup.',
+  '**`.js` full-file writes:** draft readable multi-line source in the tool call (one statement per line). GrokForge rejects crushed one-liners, glued statements, code after `//` on the same line, and orphan `)` lines — match **Agent tool loop** code-layout rules.',
+]
 
-const LOCALIZED_UI_EDIT_RES =
-  /\b(add\s+.*button|remove\s+todo|delete\s+button|click handler)\b/i
-
-function basenameFromPath(path: string): string {
-  const parts = path.split(/[/\\]/).filter(Boolean)
-  return parts[parts.length - 1] ?? path
-}
-
-/** True when user text looks like a small localized UI/handler edit (story 139). */
-export function isLocalizedUiEditIntent(userText: string): boolean {
-  return LOCALIZED_UI_EDIT_RES.test(userText.trim())
-}
-
-export type LocalizedUiEditPreSampleNudgeInput = {
-  activeFilePath?: string | null
-  likelyPathBasename?: string | null
-}
-
-/** One-shot hint before first tool sample on localized iterative Work edits (story 139). */
-export function buildLocalizedUiEditPreSampleNudge(
-  input: LocalizedUiEditPreSampleNudgeInput = {},
-): string {
-  const fromScope = input.likelyPathBasename?.trim()
-  const fromActive = input.activeFilePath?.trim()
-    ? basenameFromPath(input.activeFilePath.trim())
-    : null
-  const targetFile = fromScope || fromActive || 'script.js'
-  return [
-    `## ${LOCALIZED_UI_EDIT_PRE_SAMPLE_MARKER}`,
-    `Localized UI edit — \`read_file\` **${targetFile}** (or the active file), then one precise \`search_replace\` with a multi-line \`old_string\` copied from \`rawContent\`, or \`propose_file_edits\` if the file is short or one long line.`,
-  ].join('\n')
-}
+/** Behavior / DOM-logic follow-ups (remove button, handlers, changing existing functions). */
+export const INCREMENTAL_EDIT_STRUCTURAL_CHANGE_LINES: readonly string[] = [
+  '**Default tool for existing files:** `search_replace` with exact `old_string` from `rawContent`; use `propose_file_edits` only when fallback conditions in the Work iterative edit appendix apply.',
+  '**Structural / behavior changes** (new control wiring, remove/delete, changing an existing function or event flow): keep patches **surgical** — one contiguous block per file from **`rawContent`**. When the ask clearly spans markup and script (e.g. a new button **and** its handler, or title + related styling), **one coordinated pass across 1–2 related files** this turn is fine; split only unrelated multi-feature work (e.g. persistence **plus** a separate restyle).',
+  'After **one** `read_file` per path you will change, patch **one contiguous block** you copied from **`rawContent`** (a full function, listener setup, or list-item template) — not several guessed fragments across the file.',
+  'For `search_replace`: `old_string` must match **exactly** (whitespace included) from the latest `read_file`; include the **whole** function or DOM block you are changing. A failed match **is** a reason to `read_file` again (`startLine` / `maxLines` on that section if helpful), then **one** corrected `search_replace` or **one** full-file `propose_file_edits` — do not chain blind retries.',
+  'When markup and script both need changes, touch **at most 1–2 related paths** (e.g. `index.html` + `script.js`) in one turn — `read_file` each once, then propose coordinated edits; avoid ping-ponging reads/edits across more files.',
+]
 
 export function shouldRouteIterativeWorkExecutor(input: {
   chatMode: 'fast' | 'plan'

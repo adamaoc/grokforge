@@ -387,9 +387,18 @@ export function isUnacceptableCrushedMarkdownProposal(
   return false
 }
 
+const JAVASCRIPT_PROPOSAL_FORMAT_RETRY_HINT =
+  ' For .js files: write_file.content must be multi-line readable source — one statement per line; no minified one-liner; no glued }function or });); no code after // on the same line; no orphan ) lines by themselves.'
+
 export function formatProposalValidationError(
   rejected: Array<{ path: string; reason: string }>,
 ): string {
   if (rejected.length === 0) return 'No proposal operations passed workspace validation.'
-  return rejected.map((r) => `${r.path}: ${r.reason}`).join(' ')
+  const base = rejected.map((r) => `${r.path}: ${r.reason}`).join(' ')
+  const needsJsHint = rejected.some(
+    (r) =>
+      /\.(m?js|cjs)$/i.test(r.path.replace(/\\/g, '/')) &&
+      /crushed|corrupt|orphan|glued/i.test(r.reason),
+  )
+  return needsJsHint ? `${base}${JAVASCRIPT_PROPOSAL_FORMAT_RETRY_HINT}` : base
 }

@@ -1,4 +1,5 @@
 import { ipcMain, type BrowserWindow } from 'electron'
+import { existsSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { z } from 'zod'
 import type { GrokProjectManifest } from './manifest'
@@ -95,7 +96,14 @@ import {
   INCOMPLETE_HTML_MAX_FAILURES_PER_TURN_BEFORE_FORCE_FINAL,
   isIncompleteHtmlProposalError,
   pathsAtIncompleteHtmlNudgeThreshold,
+  isCrushedJavaScriptProposalError,
+  pathsAtCrushedJavaScriptNudgeThreshold,
+  pathsAtCreationIncrementalRecoveryThreshold,
+  recordCrushedJavaScriptProposalFailure,
+  recordCreationIntegrityProposalFailure,
   recordIncompleteHtmlProposalFailure,
+  shouldInjectCreationIncrementalRecoveryNudge,
+  shouldInjectCrushedJavaScriptProposalNudge,
   shouldInjectIncompleteHtmlProposalNudge,
   totalIncompleteHtmlFailures,
 } from '../shared/agent-edit-corrupt-content'
@@ -103,6 +111,8 @@ import {
   buildDiscoverySaturationNudge,
   buildEditIntentToolNudge,
   buildFinalAnswerContract,
+  buildCrushedJavaScriptProposalNudge,
+  buildCreationIncrementalRecoveryNudge,
   buildIncompleteHtmlProposalNudge,
   buildPartialBatchProposalNudge,
   buildPlanVerifyCommandNudge,
@@ -141,7 +151,6 @@ import type { HarnessProfileKey } from '../shared/agent-harness-profile-contract
 import {
   buildAgentToolLoopSharedSections,
   buildAgentToolLoopProfileSections,
-  buildIterativeWorkToolDescriptionOverrides,
   getHarnessProfile,
   type AgentHarnessProfile,
   type HarnessPromptTurnContext,
@@ -179,32 +188,22 @@ import {
   formatRetrievalActivityCopy,
 } from '../shared/agent-activity-display'
 import {
-  buildLocalizedUiEditPreSampleNudge,
-  isLocalizedUiEditIntent,
-  shouldRouteIterativeWorkExecutor,
-} from '../shared/iterative-work-edit'
-import {
-  buildIterativeEditScopeShapeNudge,
-  iterativeScopeShapeNudgeActivityDetail,
-  pickIterativeScopeShapeNudge,
-  resolveIterativeEditScope,
-  type IterativeEditScope,
-} from '../shared/iterative-edit-scope'
-import {
-  buildIterativeEditThrashNudge,
-  iterativeThrashNudgeActivityDetail,
-  pickIterativeThrashNudge,
-  resolveIterativeMaxToolIterations,
-  type IterativeThrashNudgeKind,
-} from '../shared/iterative-work-edit-guards'
+  buildIncrementalEditMidTurnNudge,
+  incrementalEditMidTurnNudgeActivityDetail,
+  INCREMENTAL_EDIT_POLICY,
+  pickIncrementalEditMidTurnNudge,
+  resolveIncrementalMaxToolIterations,
+  type IncrementalEditMidTurnNudgeKind,
+} from '../shared/incremental-work-edit-policy'
+import { shouldRouteIterativeWorkExecutor } from '../shared/iterative-work-edit'
+import { resolveIterativeEditScope, type IterativeEditScope } from '../shared/iterative-edit-scope'
 import {
   classifySearchReplaceFailureReason,
   createHarnessMetricsScratch,
+  HARNESS_NUDGE_CREATION_INCREMENTAL_RECOVERY,
   HARNESS_NUDGE_DISCOVERY_SATURATION,
-  HARNESS_NUDGE_ITERATIVE_EDIT_SCOPE,
-  HARNESS_NUDGE_LOCALIZED_UI_EDIT_PRE_SAMPLE,
   HARNESS_NUDGE_SEARCH_REPLACE_ESCALATION,
-  iterativeThrashKindToHarnessNudgeId,
+  incrementalEditMidTurnKindToHarnessNudgeId,
   logHarnessMetricsIfDev,
   recordEditProposalAtRound,
   recordHarnessNudge,
@@ -793,6 +792,14 @@ type AgentTurnProgress = {
   editProposalCreated: boolean
 }
 
+function isRegularFileOnDisk(resolvedPath: string): boolean {
+  try {
+    return existsSync(resolvedPath) && statSync(resolvedPath).isFile()
+  } catch {
+    return false
+  }
+}
+
 function computeEditToolsFailed(
   userText: string,
   editProposalCreated: boolean,
@@ -1001,12 +1008,10 @@ async function runAgentTurn(
   })
   const harnessProfile = getHarnessProfile(routing.harnessProfileKey)
   const agentProfile = getAgentProfile(routing.agentProfileId)
+  const incrementalEditEnforcement = iterativeWorkEdit || postPlanIncremental
   const turnToolDefinitions = buildToolDefinitionsForTurn({
     agentProfileId: routing.agentProfileId,
-    toolDescriptionOverrides: {
-      ...harnessProfile.toolDescriptionOverrides,
-      ...(iterativeWorkEdit ? buildIterativeWorkToolDescriptionOverrides() : {}),
-    },
+    toolDescriptionOverrides: harnessProfile.toolDescriptionOverrides,
   })
   logTurnRoutingIfDev(
     payload,
@@ -1159,12 +1164,13 @@ async function runAgentTurn(
   const isPlanMode = safePayload.activeContext.chatMode === 'plan'
   const executeFromApprovedPlan = safePayload.isApprovedPlanAutoRun === true
 
-  const iterativeEditScope: IterativeEditScope | undefined = iterativeWorkEdit
-    ? resolveIterativeEditScope({
-        userText: safePayload.userText,
-        activeFilePath: safePayload.activeContext.activeFilePath ?? null,
-      })
-    : undefined
+  const iterativeEditScope: IterativeEditScope | undefined =
+    incrementalEditEnforcement && !executeFromApprovedPlan
+      ? resolveIterativeEditScope({
+          userText: safePayload.userText,
+          activeFilePath: safePayload.activeContext.activeFilePath ?? null,
+        })
+      : undefined
 
   const harnessCtx: HarnessPromptTurnContext = {
     greenfieldWorkspace: greenfield,
@@ -1204,7 +1210,7 @@ async function runAgentTurn(
   )
 
   const threadTrimForIterativeEdit =
-    iterativeWorkEdit &&
+    incrementalEditEnforcement &&
     safePayload.activeContext.chatMode === 'fast' &&
     isLikelyEditIntent(safePayload.userText)
 
@@ -1220,25 +1226,6 @@ async function runAgentTurn(
       ? { threadSnapshotLimit: 24, threadFocusNote: true }
       : undefined,
   )
-  if (
-    iterativeWorkEdit &&
-    isLikelyEditIntent(safePayload.userText) &&
-    isLocalizedUiEditIntent(safePayload.userText)
-  ) {
-    messages.push({
-      role: 'user',
-      content: buildLocalizedUiEditPreSampleNudge({
-        activeFilePath: safePayload.activeContext.activeFilePath ?? null,
-        likelyPathBasename: iterativeEditScope?.likelyPaths[0] ?? null,
-      }),
-    })
-    if (scratch?.harnessMetricsScratch) {
-      recordHarnessNudge(
-        scratch.harnessMetricsScratch,
-        HARNESS_NUDGE_LOCALIZED_UI_EDIT_PRE_SAMPLE,
-      )
-    }
-  }
   pruneStaleAgentOffloads(projectId)
 
   let totalToolChars = 0
@@ -1247,6 +1234,9 @@ async function runAgentTurn(
   let turnProposalAccum: AgentEditProposalPayload | null = null
   const searchReplaceFailuresByPath = new Map<string, number>()
   const incompleteHtmlFailuresByPath = new Map<string, number>()
+  const crushedJavaScriptFailuresByPath = new Map<string, number>()
+  const creationIntegrityFailuresByPath = new Map<string, number>()
+  let creationIncrementalRecoveryIssued = false
 
   const onFinalChunk = scratch
     ? (delta: string) => {
@@ -1254,9 +1244,9 @@ async function runAgentTurn(
       }
     : undefined
 
-  const maxToolIterations = resolveIterativeMaxToolIterations(
+  const maxToolIterations = resolveIncrementalMaxToolIterations(
     resolveMaxToolIterationsForTurn(safePayload, agentProfile),
-    harnessCtx.iterativeWorkEdit === true,
+    incrementalEditEnforcement,
   )
   const toolRoundChatMode = safePayload.activeContext.chatMode
   let toolRoundCount = 0
@@ -1268,7 +1258,8 @@ async function runAgentTurn(
   let searchReplaceEscalationNudgeIssued = false
   let searchReplaceBlockedAfterEscalationCount = 0
   let incompleteHtmlNudgeIssued = false
-  let partialBatchNudgeIssued = false
+  let partialBatchNudgeCount = 0
+  let crushedJavaScriptNudgeIssued = false
   let scaffoldStrategyNudgeIssued = false
   let scaffoldStrategyNudgeActivityId: string | null = null
   let scaffoldStrategyNudgeConflict: ScaffoldConflictKind | null = null
@@ -1283,13 +1274,12 @@ async function runAgentTurn(
   let commandToolSampledThisTurn = false
   const searchReplaceCountByPath = new Map<string, number>()
   const pathsEditedThisTurn = new Set<string>()
-  const iterativeThrashNudgesIssued = new Set<IterativeThrashNudgeKind>()
+  const incrementalEditMidTurnNudgesIssued = new Set<IncrementalEditMidTurnNudgeKind>()
   let editToolsAttemptedThisTurn = false
   let proposeFileEditsAttempted = false
   let readOnlyRoundsAfterFirstEdit = 0
   let rereadLoopDetected = false
   const pathsReadThisTurn = new Set<string>()
-  let iterativeScopeShapeNudgeIssued = false
   let lastRoundSearchReplaceOnScopedPath = false
 
   const syncHarnessMetricsScratch = (): void => {
@@ -1351,7 +1341,7 @@ async function runAgentTurn(
           searchReplaceFailuresByPath,
           incompleteHtmlFailuresByPath,
           executeFromApprovedPlan,
-          harnessCtx.iterativeWorkEdit === true,
+          incrementalEditEnforcement,
         ),
         editProposalComposedInTurn,
         safePayload.activeContext.chatMode,
@@ -1424,7 +1414,7 @@ async function runAgentTurn(
         isLikelyEditIntent(safePayload.userText) &&
         !editIntentToolNudgeIssued &&
         !commandIntent &&
-        !harnessCtx.iterativeWorkEdit
+        !incrementalEditEnforcement
       if (shouldNudgeForEditIntent) {
         editIntentToolNudgeIssued = true
         messages.push({
@@ -1507,7 +1497,7 @@ async function runAgentTurn(
           searchReplaceFailuresByPath,
           userMessageHint: safePayload.userText,
           scaffoldExpectedTemplate,
-          iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true,
+          iterativeWorkEdit: incrementalEditEnforcement,
           searchReplaceEscalationNudgeIssued,
         },
         { emit, approvalRequestId: activityId(), waitForCommandApproval },
@@ -1536,7 +1526,7 @@ async function runAgentTurn(
       if (outcome.editProposalComposedInTurn) editProposalComposedInTurn = true
       if (outcome.turnProposalAccum !== undefined) turnProposalAccum = outcome.turnProposalAccum
 
-      if (harnessCtx.iterativeWorkEdit) {
+      if (incrementalEditEnforcement) {
         if (name === 'search_replace' || name === 'propose_file_edits') {
           editToolsAttemptedThisTurn = true
         }
@@ -1632,6 +1622,59 @@ async function runAgentTurn(
               }
             }
           }
+          for (const r of rejected) {
+            if (r.path && isCrushedJavaScriptProposalError(r.reason)) {
+              recordCrushedJavaScriptProposalFailure(crushedJavaScriptFailuresByPath, r.path)
+            }
+          }
+          const resolveProposalPath = (path: string): string | null =>
+            resolveAgentWorkspacePath(path, {
+              manifest,
+              projectId,
+              activeContext: safePayload.activeContext,
+            })
+          for (const r of rejected) {
+            if (!r.path) continue
+            const resolved = resolveProposalPath(r.path)
+            if (!resolved) continue
+            recordCreationIntegrityProposalFailure(
+              creationIntegrityFailuresByPath,
+              resolved,
+              r.reason ?? parsed.error,
+              isRegularFileOnDisk(resolved),
+            )
+          }
+          if (
+            rejected.length === 0 &&
+            typeof parsed.error === 'string' &&
+            typeof detail === 'string'
+          ) {
+            const pathMatch = detail.match(/^([^:]+):/)
+            if (pathMatch?.[1]) {
+              const resolved = resolveProposalPath(pathMatch[1].trim())
+              if (resolved) {
+                recordCreationIntegrityProposalFailure(
+                  creationIntegrityFailuresByPath,
+                  resolved,
+                  parsed.error,
+                  isRegularFileOnDisk(resolved),
+                )
+              }
+            }
+          }
+          if (
+            rejected.length === 0 &&
+            isCrushedJavaScriptProposalError(parsed.error) &&
+            typeof detail === 'string'
+          ) {
+            const pathMatch = detail.match(/^([^:]+):/)
+            if (pathMatch?.[1]) {
+              recordCrushedJavaScriptProposalFailure(
+                crushedJavaScriptFailuresByPath,
+                pathMatch[1].trim(),
+              )
+            }
+          }
         } catch {
           /* ignore malformed tool JSON */
         }
@@ -1709,7 +1752,7 @@ async function runAgentTurn(
     }
     syncHarnessMetricsScratch()
 
-    if (harnessCtx.iterativeWorkEdit && editToolsAttemptedThisTurn && lastRoundWasReadOnlyOnly) {
+    if (incrementalEditEnforcement && editToolsAttemptedThisTurn && lastRoundWasReadOnlyOnly) {
       readOnlyRoundsAfterFirstEdit += 1
     }
 
@@ -1743,73 +1786,41 @@ async function runAgentTurn(
       )
     }
 
-    const discoverySaturationMinRounds = harnessCtx.iterativeWorkEdit ? 2 : 3
+    const discoverySaturationMinRounds = incrementalEditEnforcement
+      ? INCREMENTAL_EDIT_POLICY.discoverySaturationMinRounds
+      : 3
 
-    if (
-      harnessCtx.iterativeWorkEdit &&
-      !postPlanIncremental &&
-      iterativeEditScope &&
-      !iterativeScopeShapeNudgeIssued
-    ) {
-      const scopeShapeKind = pickIterativeScopeShapeNudge({
-        scope: iterativeEditScope,
-        issued: iterativeScopeShapeNudgeIssued,
-        pathsReadThisTurn,
-        lastRoundSearchReplaceOnScopedPath,
+    if (incrementalEditEnforcement) {
+      const midTurnKind = pickIncrementalEditMidTurnNudge({
+        issued: incrementalEditMidTurnNudgesIssued,
         searchReplaceCountByPath,
-        proposeFileEditsAttempted,
-        editProposalCreated,
-      })
-      if (scopeShapeKind) {
-        iterativeScopeShapeNudgeIssued = true
-        postEscalationToolRounds = 0
-        if (scratch?.harnessMetricsScratch) {
-          recordHarnessNudge(scratch.harnessMetricsScratch, HARNESS_NUDGE_ITERATIVE_EDIT_SCOPE)
-        }
-        emitActivity(payload.streamId, {
-          id: activityId(),
-          title: 'Harness: edit scope',
-          status: 'done',
-          detail: iterativeScopeShapeNudgeActivityDetail(scopeShapeKind),
-        })
-        messages.push({
-          role: 'user',
-          content: buildIterativeEditScopeShapeNudge(scopeShapeKind, iterativeEditScope),
-        })
-        continue
-      }
-    }
-
-    if (harnessCtx.iterativeWorkEdit && !postPlanIncremental) {
-      const thrashKind = pickIterativeThrashNudge({
-        issued: iterativeThrashNudgesIssued,
-        searchReplaceCountByPath,
-        pathsEditedThisTurn,
         toolRoundCount,
         editProposalCreated,
         editToolsAttemptedThisTurn,
         proposeFileEditsAttempted,
-        readOnlyRoundsAfterFirstEdit,
-        discoverySaturationNudgeIssued,
         rereadLoopDetected,
+        iterativeEditScope,
+        pathsReadThisTurn,
+        lastRoundSearchReplaceOnScopedPath,
       })
-      if (thrashKind) {
-        iterativeThrashNudgesIssued.add(thrashKind)
+      if (midTurnKind) {
+        incrementalEditMidTurnNudgesIssued.add(midTurnKind)
+        postEscalationToolRounds = 0
         if (scratch?.harnessMetricsScratch) {
           recordHarnessNudge(
             scratch.harnessMetricsScratch,
-            iterativeThrashKindToHarnessNudgeId(thrashKind),
+            incrementalEditMidTurnKindToHarnessNudgeId(midTurnKind),
           )
         }
         emitActivity(payload.streamId, {
           id: activityId(),
           title: 'Harness: consolidate edits',
           status: 'done',
-          detail: iterativeThrashNudgeActivityDetail(thrashKind),
+          detail: incrementalEditMidTurnNudgeActivityDetail(midTurnKind),
         })
         messages.push({
           role: 'user',
-          content: buildIterativeEditThrashNudge(thrashKind),
+          content: buildIncrementalEditMidTurnNudge(midTurnKind, iterativeEditScope),
         })
         continue
       }
@@ -1844,13 +1855,19 @@ async function runAgentTurn(
         content: buildDiscoverySaturationNudge({
           readOnlyRounds: toolRoundCount,
           activeFilePath: safePayload.activeContext.activeFilePath,
-          iterativeWorkEdit: harnessCtx.iterativeWorkEdit,
+          iterativeWorkEdit: incrementalEditEnforcement,
         }),
       })
       continue
     }
 
-    if (searchReplaceEscalationNudgeIssued || incompleteHtmlNudgeIssued || partialBatchNudgeIssued) {
+    if (
+      searchReplaceEscalationNudgeIssued ||
+      incompleteHtmlNudgeIssued ||
+      creationIncrementalRecoveryIssued ||
+      partialBatchNudgeCount > 0 ||
+      crushedJavaScriptNudgeIssued
+    ) {
       postEscalationToolRounds += 1
     }
 
@@ -1866,11 +1883,11 @@ async function runAgentTurn(
         searchReplaceEscalationNudgeIssued,
         incompleteHtmlNudgeIssued,
         postEscalationToolRounds,
-        iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true,
+        iterativeWorkEdit: incrementalEditEnforcement,
         searchReplaceBlockedAfterEscalationCount,
       })
     ) {
-      const srEscalationOptsForce = { iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true }
+      const srEscalationOptsForce = { iterativeWorkEdit: incrementalEditEnforcement }
       const maxReason = setMaxIterationsReasonOnScratch(scratch, {
         totalSearchReplaceFailures: totalSearchReplaceFailures(searchReplaceFailuresByPath),
         searchReplaceBlockedAfterEscalationCount,
@@ -1879,7 +1896,7 @@ async function runAgentTurn(
         postEscalationToolRounds,
         postEscalationMaxToolRounds: resolvePostEscalationMaxToolRounds(srEscalationOptsForce),
         maxSearchReplaceFailuresPerTurn: resolveSearchReplaceMaxFailuresPerTurn(srEscalationOptsForce),
-        iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true,
+        iterativeWorkEdit: incrementalEditEnforcement,
         forceFinalFromEditFailures: true,
       })
       const totalSrFailures = totalSearchReplaceFailures(searchReplaceFailuresByPath)
@@ -1905,13 +1922,13 @@ async function runAgentTurn(
           searchReplaceFailuresByPath,
           incompleteHtmlFailuresByPath,
           executeFromApprovedPlan,
-          iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true,
+          iterativeWorkEdit: incrementalEditEnforcement,
         }),
       )
       return
     }
 
-    const srEscalationOpts = { iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true }
+    const srEscalationOpts = { iterativeWorkEdit: incrementalEditEnforcement }
     const shouldEscalateSearchReplace =
       !isPlanMode &&
       !editProposalCreated &&
@@ -1939,7 +1956,7 @@ async function runAgentTurn(
         role: 'user',
         content: buildSearchReplaceEscalationNudge(
           pathsAtSearchReplaceEscalationThreshold(searchReplaceFailuresByPath, srEscalationOpts),
-          { iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true },
+          { iterativeWorkEdit: incrementalEditEnforcement },
         ),
       })
       continue
@@ -1970,27 +1987,61 @@ async function runAgentTurn(
       continue
     }
 
+    const shouldNudgeCreationIncremental =
+      !isPlanMode &&
+      agentProfile.canProposeEdits &&
+      !creationIncrementalRecoveryIssued &&
+      shouldInjectCreationIncrementalRecoveryNudge(creationIntegrityFailuresByPath)
+    if (shouldNudgeCreationIncremental) {
+      creationIncrementalRecoveryIssued = true
+      postEscalationToolRounds = 0
+      if (scratch?.harnessMetricsScratch) {
+        recordHarnessNudge(
+          scratch.harnessMetricsScratch,
+          HARNESS_NUDGE_CREATION_INCREMENTAL_RECOVERY,
+        )
+      }
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Harness: incremental file creation',
+        status: 'done',
+        detail:
+          'Repeated full-file proposals for new paths failed validation — build a minimal file first, then extend incrementally.',
+      })
+      messages.push({
+        role: 'user',
+        content: buildCreationIncrementalRecoveryNudge(
+          pathsAtCreationIncrementalRecoveryThreshold(creationIntegrityFailuresByPath),
+        ),
+      })
+      continue
+    }
+
     const partialRejected = turnProposalAccum?.rejected ?? []
     const partialAccepted = turnProposalAccum?.batch.operations.length ?? 0
+    const maxPartialBatchNudges = executeFromApprovedPlan ? 2 : 1
     const shouldNudgePartialBatch =
       !isPlanMode &&
       editProposalCreated &&
       agentProfile.canProposeEdits &&
-      !partialBatchNudgeIssued &&
+      !creationIncrementalRecoveryIssued &&
+      partialBatchNudgeCount < maxPartialBatchNudges &&
       shouldInjectPartialBatchProposalNudge({
         acceptedCount: partialAccepted,
         rejected: partialRejected,
         executeFromApprovedPlan,
       })
     if (shouldNudgePartialBatch) {
-      partialBatchNudgeIssued = true
+      partialBatchNudgeCount += 1
       postEscalationToolRounds = 0
       emitActivity(payload.streamId, {
         id: activityId(),
         title: 'Harness: retry rejected paths',
         status: 'done',
         detail:
-          'Some write_file ops were accepted; others failed validation. Resubmit complete bodies for rejected paths only.',
+          partialBatchNudgeCount > 1
+            ? 'script.js (or other rejected paths) still failed validation — resubmit only rejected paths with multi-line JS.'
+            : 'Some write_file ops were accepted; others failed validation. Resubmit complete bodies for rejected paths only.',
       })
       messages.push({
         role: 'user',
@@ -1999,7 +2050,32 @@ async function runAgentTurn(
       continue
     }
 
-    if (harnessCtx.iterativeWorkEdit && editProposalCreated && !shouldNudgePartialBatch) {
+    const shouldNudgeCrushedJavaScript =
+      !isPlanMode &&
+      agentProfile.canProposeEdits &&
+      !crushedJavaScriptNudgeIssued &&
+      !creationIncrementalRecoveryIssued &&
+      shouldInjectCrushedJavaScriptProposalNudge(crushedJavaScriptFailuresByPath)
+    if (shouldNudgeCrushedJavaScript) {
+      crushedJavaScriptNudgeIssued = true
+      postEscalationToolRounds = 0
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Harness: multi-line JavaScript required',
+        status: 'done',
+        detail:
+          'script.js failed crushed/corrupt validation twice — retry with one full multi-line propose_file_edits body.',
+      })
+      messages.push({
+        role: 'user',
+        content: buildCrushedJavaScriptProposalNudge(
+          pathsAtCrushedJavaScriptNudgeThreshold(crushedJavaScriptFailuresByPath),
+        ),
+      })
+      continue
+    }
+
+    if (incrementalEditEnforcement && editProposalCreated && !shouldNudgePartialBatch) {
       if (scratch?.harnessMetricsScratch) {
         scratch.harnessMetricsScratch.stoppedAfterProposal = true
       }
@@ -2080,9 +2156,9 @@ async function runAgentTurn(
 
   if (scratch) scratch.maxToolIterationsHit = true
   syncHarnessMetricsScratch()
-  const srEscalationOptsMax = { iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true }
+  const srEscalationOptsMax = { iterativeWorkEdit: incrementalEditEnforcement }
   const totalSrFailuresAtMax = totalSearchReplaceFailures(searchReplaceFailuresByPath)
-  if (totalSrFailuresAtMax > 0 || harnessCtx.iterativeWorkEdit) {
+  if (totalSrFailuresAtMax > 0 || incrementalEditEnforcement) {
     setMaxIterationsReasonOnScratch(scratch, {
       totalSearchReplaceFailures: totalSrFailuresAtMax,
       searchReplaceBlockedAfterEscalationCount,
@@ -2091,7 +2167,7 @@ async function runAgentTurn(
       postEscalationToolRounds,
       postEscalationMaxToolRounds: resolvePostEscalationMaxToolRounds(srEscalationOptsMax),
       maxSearchReplaceFailuresPerTurn: resolveSearchReplaceMaxFailuresPerTurn(srEscalationOptsMax),
-      iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true,
+      iterativeWorkEdit: incrementalEditEnforcement,
       discoverySaturationNudgeIssued: discoverySaturationNudgeIssued,
       readOnlyRounds: scratch?.harnessMetricsScratch?.readOnlyRounds,
       maxToolIterationsHit: true,
@@ -2111,7 +2187,7 @@ async function runAgentTurn(
     searchReplaceFailuresByPath,
     incompleteHtmlFailuresByPath,
     executeFromApprovedPlan,
-    iterativeWorkEdit: harnessCtx.iterativeWorkEdit === true,
+    iterativeWorkEdit: incrementalEditEnforcement,
   })
   await completeTurnWithFinalStream(maxHint)
 }
@@ -2147,10 +2223,11 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
         iterativeWorkEdit,
       })
       const agentProfileForTimeout = getAgentProfile(turnRouting.agentProfileId)
+      const incrementalEditEnforcementForTimeout = iterativeWorkEdit || postPlanIncremental
       turnTimeoutMs = resolveAgentTurnTimeoutMs(
-        resolveIterativeMaxToolIterations(
+        resolveIncrementalMaxToolIterations(
           resolveMaxToolIterationsForTurn(payload, agentProfileForTimeout),
-          iterativeWorkEdit,
+          incrementalEditEnforcementForTimeout,
         ),
       )
       const { systemPrompt } = buildChatSystemPrompt(snap.manifest)

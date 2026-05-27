@@ -29,6 +29,13 @@ export const EDIT_INCOMPLETE_HTML_NUDGE_MARKER = 'Harness: incomplete HTML propo
 /** Marker when a multi-file proposal accepted some paths and rejected others (story 124). */
 export const EDIT_PARTIAL_BATCH_NUDGE_MARKER = 'Harness: partial batch proposal recovery'
 
+/** Marker when `.js` proposals failed crushed/corrupt validation twice (follow-up nudge). */
+export const EDIT_CRUSHED_JS_NUDGE_MARKER = 'Harness: crushed JavaScript proposal'
+
+/** Marker when repeated integrity failures on a path not yet on disk — switch to incremental build-up. */
+export const EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER =
+  'Harness: creation path incremental recovery'
+
 /** Marker in final answer when rejected paths remain in the pending proposal (story 124). */
 export const PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER = 'Harness: partial batch proposal honesty'
 
@@ -74,8 +81,8 @@ export function buildSearchReplaceEscalationNudge(
 
   if (iterative) {
     const jsLine = hasJs
-      ? 'Small UI change (button, handler, CSS class): one **`propose_file_edits`** with the **full** file from `read_file` **`rawContent`** (e.g. `script.js`), changing **only** the handler block — do not rewrite unrelated todo logic.'
-      : 'Small localized change: one **`propose_file_edits`** with the **full** file from `read_file` **`rawContent`**, changing only what the user asked.'
+      ? 'After **2** failed `search_replace` on this path: escalate to **one** `propose_file_edits` with the **full** file from `read_file` **`rawContent`** (e.g. `script.js`), changing **only** the handler block — do not rewrite unrelated application logic.'
+      : 'After **2** failed `search_replace`: escalate to **one** `propose_file_edits` with the **full** file from `read_file` **`rawContent`**, changing only what the user asked.'
     const preserveLine =
       hasJs || hasHtml
         ? 'Preserve unchanged functions and markup; GrokForge still blocks destructive shrink (**115**) — send the **complete** correct file, not a stub.'
@@ -110,7 +117,7 @@ export function buildSearchReplaceEscalationNudge(
   }
   const htmlLines = hasHtml
     ? [
-        'For **index.html** (or any HTML with inline `<script>`): do **not** patch the crushed script with `search_replace`. Use one `propose_file_edits` `write_file` with the **entire** file from `rawContent`, fixing the `<script>` block with **one statement per line** (no `}function`, no `}););`, no code after `//` on the same line). Prefer `script.js` + `<script src="script.js">` for new todo apps.',
+        'For **index.html** (or any HTML with inline `<script>`): do **not** patch the crushed script with `search_replace`. Use one `propose_file_edits` `write_file` with the **entire** file from `rawContent`, fixing the `<script>` block with **one statement per line** (no `}function`, no `}););`, no code after `//` on the same line). When the plan lists a separate `.js` path, prefer external `<script src="...">` over a large inline block.',
       ]
     : []
   return [
@@ -186,7 +193,10 @@ export function buildPartialBatchProposalNudge(
   const hasTsx = rejected.some((r) => /\.tsx$/i.test((r.path ?? '').replace(/\\/g, '/')))
   const jsHint = hasJs
     ? [
-        'For **script.js**: submit the **complete** file with **one statement per line** — no crushed one-liners, no orphan `)` lines, no `}function` glue. Prefer a separate file over inline HTML `<script>`.',
+        'For **script.js** (or other `.js`): `write_file.content` must be **multi-line readable source** in the tool call — GrokForge validates before review; crushed one-liners are rejected.',
+        '**Never empty or placeholder-only:** include runnable init, state, DOM/update helpers, and event listeners the app needs.',
+        '**Layout:** one statement per line; `{` / `}` on their own lines for blocks; each `//` comment on its own line with **no code after `//`**; never `}function` / `}););` glue; never a line that is only `)` or `};`.',
+        'Prefer external `<script src="script.js">` in HTML over a large inline `<script>` block.',
       ]
     : []
   const htmlHint = hasHtml
@@ -214,6 +224,54 @@ export function buildPartialBatchProposalNudge(
     ...packageJsonHint,
     ...tsxHint,
     buildHarnessEditRecoveryBrief('partial_batch'),
+  ].join('\n')
+}
+
+/** User message after repeated crushed/corrupt `.js` proposal failures (second attempt). */
+export function buildCrushedJavaScriptProposalNudge(paths: readonly string[]): string {
+  const labels = paths.map(basenameForEscalationPath).filter(Boolean)
+  const pathLine =
+    labels.length > 0
+      ? `Affected file(s): ${labels.join(', ')}.`
+      : 'JavaScript proposal(s) failed validation twice.'
+  return [
+    `## ${EDIT_CRUSHED_JS_NUDGE_MARKER}`,
+    pathLine,
+    'Previous `propose_file_edits` bodies were **rejected** — do **not** resubmit the same crushed one-liner or glued tokens.',
+    'Retry with **one** `propose_file_edits` containing **only** the rejected `.js` path(s). Each `write_file.content` must be the **full** script with **real line breaks**.',
+    '**Required layout (example shape — adapt names/logic to the plan):**',
+    '```javascript',
+    'const STORAGE_KEY = "app-state";',
+    'let items = [];',
+    '',
+    'function loadItems() {',
+    '  return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");',
+    '}',
+    '',
+    'function saveItems() {',
+    '  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));',
+    '}',
+    '```',
+    'Do **not** put multiple statements on one line. Do **not** emit orphan `)` lines. Do not tell the user the script was written until validation passes.',
+  ].join('\n')
+}
+
+/** User message after repeated integrity failures on paths not yet on disk. */
+export function buildCreationIncrementalRecoveryNudge(paths: readonly string[]): string {
+  const labels = paths.map(basenameForEscalationPath).filter(Boolean)
+  const pathLine =
+    labels.length > 0
+      ? `Affected new path(s): ${labels.join(', ')}.`
+      : 'Repeated full-file proposals for new path(s) failed validation.'
+  return [
+    `## ${EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER}`,
+    pathLine,
+    'Repeated **full-file** `propose_file_edits` for **new** path(s) failed validation (incomplete, truncated, or malformed).',
+    '**Change strategy — do not retry the same large full-file write:**',
+    '1. Create a **minimal viable** version of each affected file first — valid structure and the **smallest working subset** the plan needs.',
+    '2. After a minimal file validates, call **`read_file`**, then extend with **`search_replace`** (preferred) or **small scoped** `propose_file_edits` — one logical addition per step.',
+    '3. Do **not** submit another large full-file rewrite for the same path this turn unless a minimal base already exists on disk.',
+    'Do **not** tell the user the file was created until an edit tool returns `ok: true` in this turn.',
   ].join('\n')
 }
 
@@ -247,7 +305,7 @@ export function buildDiscoverySaturationNudge(options?: {
     return [
       `## ${DISCOVERY_SATURATION_NUDGE_MARKER}`,
       rounds,
-      'Follow **Work iterative edit (harness 130)** — proceed to **`propose_file_edits`** or **`search_replace`** now with evidence from files already read.',
+      'Follow **Work iterative edit (harness 130)** — proceed to **`search_replace`** or **`propose_file_edits`** now with evidence from files already read.',
     ].join('\n')
   }
   const activeLine = options?.activeFilePath?.trim()
@@ -537,6 +595,8 @@ function incrementalWorkEditAppendix(input?: {
     '',
     '### Incremental Work edit (final answer)',
     'Do **not** output a `gf-plan` fence or structured replan — implement the small change with edit tools.',
+    'Prefer **`search_replace`** on existing files for localized follow-ups; use **`propose_file_edits`** only for new paths or after failed S&R.',
+    'Do **not** claim the change is ready if the proposal would shrink a working file or omit code from the latest **`read_file` `rawContent`**.',
     'Briefly confirm what you changed after the edit proposal is ready.',
   ].join('\n')
 }
@@ -586,7 +646,7 @@ function buildSlimIterativeFinalAnswerContract(input: AgentFinalAnswerContractIn
     input.editProposalCreated
       ? 'A first-class edit proposal has already been created. Briefly tell the user the diff review is ready; do not claim files were written to disk until they apply.'
       : maybeEdit
-        ? 'Implement the requested change with edit tools before finishing — do **not** output a `gf-plan` fence or replan.'
+        ? 'Implement the requested change with edit tools before finishing — do **not** output a `gf-plan` fence or replan. Prefer **`search_replace`** on existing files for small localized changes.'
         : 'If this is only an explanation, omit edit tools.',
     editToolsFailedAppendix(input.editToolsFailed),
     commandToolsFailedAppendix(input.commandToolsFailed),

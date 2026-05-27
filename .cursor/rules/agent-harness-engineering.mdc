@@ -59,6 +59,7 @@ Run focused regressions with `npm run test:agent-eval` when touching profiles, r
 
 ### Anti-Patterns to Avoid
 
+- **Project- or test-case-specific harness copy** — Do not add instructions tuned to one app type or dogfood fixture (e.g. todo apps) into harness prompts, profiles, or final-answer contracts. Keep guidance general; test-specific behavior belongs only in eval fixtures (`agent-eval-fixtures.ts`, `agent-runner-evaluation.test.ts`).
 - Making Plan mode "sticky" for simple follow-ups (this was a major source of friction).
 - Relying only on the model to produce clean, well-formatted code without harness-level enforcement.
 - Overloading a single system prompt with too many responsibilities.

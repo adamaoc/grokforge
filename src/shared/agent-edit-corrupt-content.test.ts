@@ -15,7 +15,11 @@ import {
   detectHtmlEncodingArtifacts,
   detectIncompleteHtmlDocument,
   detectJammedJavaScriptFile,
+  recordCrushedJavaScriptProposalFailure,
+  recordCreationIntegrityProposalFailure,
   recordIncompleteHtmlProposalFailure,
+  shouldInjectCreationIncrementalRecoveryNudge,
+  shouldInjectCrushedJavaScriptProposalNudge,
   shouldInjectIncompleteHtmlProposalNudge,
 } from './agent-edit-corrupt-content'
 import {
@@ -78,6 +82,27 @@ describe('detectCorruptSourceLines', () => {
     expect(shouldInjectIncompleteHtmlProposalNudge(map)).toBe(false)
     recordIncompleteHtmlProposalFailure(map, '/proj/index.html')
     expect(shouldInjectIncompleteHtmlProposalNudge(map)).toBe(true)
+  })
+
+  it('tracks crushed JavaScript failures for second-attempt harness nudge', () => {
+    const map = new Map<string, number>()
+    expect(shouldInjectCrushedJavaScriptProposalNudge(map)).toBe(false)
+    recordCrushedJavaScriptProposalFailure(map, '/proj/script.js')
+    expect(shouldInjectCrushedJavaScriptProposalNudge(map)).toBe(false)
+    recordCrushedJavaScriptProposalFailure(map, '/proj/script.js')
+    expect(shouldInjectCrushedJavaScriptProposalNudge(map)).toBe(true)
+  })
+
+  it('recordCreationIntegrityProposalFailure counts only integrity rejections on absent paths', () => {
+    const map = new Map<string, number>()
+    recordCreationIntegrityProposalFailure(map, '/proj/new.js', AGENT_EDIT_EMPTY_WRITE_REASON, false)
+    expect(map.get('/proj/new.js')).toBe(1)
+    recordCreationIntegrityProposalFailure(map, '/proj/new.js', 'Path outside workspace roots', false)
+    expect(map.get('/proj/new.js')).toBe(1)
+    recordCreationIntegrityProposalFailure(map, '/proj/existing.js', AGENT_EDIT_EMPTY_WRITE_REASON, true)
+    expect(map.has('/proj/existing.js')).toBe(false)
+    recordCreationIntegrityProposalFailure(map, '/proj/new.js', AGENT_EDIT_JAMMED_JS_FILE_REASON, false)
+    expect(shouldInjectCreationIncrementalRecoveryNudge(map)).toBe(true)
   })
 
   it('rejects HTML with jammed inline script even when tags close', () => {

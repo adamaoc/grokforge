@@ -35,6 +35,10 @@ export const AGENT_EVAL_TAG_VALIDATION_JS_CORRUPTION = 'validation:js_corruption
 /** Partial batch accepted + rejected — harness nudge + honest final answer (124). */
 export const AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH = 'recovery:partial_batch' as const
 
+/** Repeated integrity failures on a new path → incremental build-up nudge. */
+export const AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL =
+  'recovery:creation_incremental' as const
+
 /** Approved plan with verify/install step → model should sample run_command (126). */
 export const AGENT_EVAL_TAG_BEHAVIOR_RUN_COMMAND_PLAN_VERIFY =
   'behavior:run_command_plan_verify' as const
@@ -135,7 +139,7 @@ export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_STOP_AFTER_PROPOSAL =
 export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_SINGLE_FILE =
   'behavior:iterative_edit_scope_single_file' as const
 
-/** Iterative Work single-file scope → prefer propose nudge after S&R (136). */
+/** Iterative Work: no commit_proposal nudge after 1 S&R; nudge after 2 failures (144+). */
 export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_PREFER_PROPOSE_NUDGE =
   'behavior:iterative_edit_scope_prefer_propose_nudge' as const
 
@@ -179,6 +183,7 @@ export type AgentEvalTag =
   | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE
   | typeof AGENT_EVAL_TAG_VALIDATION_JS_CORRUPTION
   | typeof AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH
+  | typeof AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL
   | typeof AGENT_EVAL_TAG_BEHAVIOR_RUN_COMMAND_PLAN_VERIFY
   | typeof AGENT_EVAL_TAG_POLICY_NPM_INSTALL
   | typeof AGENT_EVAL_TAG_POLICY_GIT_STATUS_SAFE

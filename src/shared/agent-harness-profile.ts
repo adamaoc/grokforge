@@ -6,15 +6,18 @@ import type { AgentChatToolName } from './agent-chat-contract'
 import type { HarnessProfileKey } from './agent-harness-profile-contract'
 import { resolveHarnessProfileKey } from './agent-harness-profile-contract'
 import {
+  buildIncrementalEditHarnessSections,
+  POST_PLAN_INCREMENTAL_ENFORCEMENT_LINE,
+} from './incremental-work-edit-policy'
+import {
   POST_PLAN_INCREMENTAL_MARKER,
   SINGLE_FILE_EDIT_BIAS_MARKER,
 } from './post-plan-incremental'
-import { POPULATED_WORK_EDIT_MARKER } from './populated-workspace-edit'
-import { WORK_ITERATIVE_EDIT_MARKER, WORK_SURGICAL_EDIT_MARKER } from './iterative-work-edit'
+import type { IterativeEditScope } from './iterative-edit-scope'
 import {
-  buildIterativeEditScopeSections,
-  type IterativeEditScope,
-} from './iterative-edit-scope'
+  INCREMENTAL_EDIT_CONSERVATIVE_LINES,
+  INCREMENTAL_EDIT_STRUCTURAL_CHANGE_LINES,
+} from './iterative-work-edit'
 import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
 import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from './agent-plan-verification'
 import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER } from './agent-bootstrap-manifest'
@@ -72,7 +75,7 @@ const GREENFIELD_PLAN_SECTIONS: readonly string[] = [
 
 /** Final-answer pointer; detailed edit/search rules live in AGENT_TOOL_LOOP_SHARED. */
 export const EXECUTOR_FROM_PLAN_FINAL_ANSWER_POINTER =
-  'Follow the approved `gf-plan` step order from thread context. Do not replan from scratch. Apply **Agent tool loop** rules above for read-before-edit, `search_replace` vs `propose_file_edits`, and `run_command` approval.'
+  'Follow the approved `gf-plan` step order from thread context. Do not replan from scratch. Apply **Agent tool loop** rules above for read-before-edit, `search_replace` vs `propose_file_edits`, and `run_command` approval. On static bootstrap, every planned path (especially **`script.js`**) must have **complete runnable** content before you finish — not empty placeholders.'
 
 const EXECUTOR_FROM_PLAN_SECTIONS: readonly string[] = [
   '## Execute approved plan (harness 101)',
@@ -80,17 +83,23 @@ const EXECUTOR_FROM_PLAN_SECTIONS: readonly string[] = [
   'Use **Agent tool loop** rules above for discovery, read-before-edit, localized `search_replace`, and `propose_file_edits` for new or multi-file work.',
   'When the plan lists **install, scaffold, git init, or verification** steps (`npm install`, `npm create`, `git init`, `npm run typecheck` / `test` / `build`), call **`run_command`** with a clear `purpose` tied to the plan step — do **not** hand-roll `package.json` or skip CLI steps because file edits are available.',
   'When the approved plan lists **multiple concrete paths** (e.g. `index.html`, `styles.css`, `script.js`), bootstrap **every named file** — do not collapse all JavaScript into a crushed inline `<script>` in HTML unless the plan explicitly specifies a single-file app.',
+  '**`script.js` (and app `.js`) on bootstrap:** never **empty**, placeholder-only, or missing core logic — include **runnable** code the plan describes (state, DOM/render helpers, event listeners, init on `DOMContentLoaded` or equivalent).',
   'For **new HTML files**, send one **complete** document in a single `write_file` (valid `<!DOCTYPE html>`, `<head>`, `<body>`, closing tags). Prefer `<script src="script.js">` when the plan lists a separate JS path — never a one-line stub or truncated opener.',
   'Use **clean UTF-8** in HTML/CSS/JS: real ASCII quotes in attributes (not &#34;, &quot;, or backslash-u escape sequences), include `<meta charset="UTF-8">` in new HTML, and avoid mojibake or special control characters.',
   'Respect plan file paths and verification commands; run `run_command` when the plan or user intent requires install/scaffold/verify (user approval required). Do not claim a command ran without tool result.',
 ]
 
 /** Greenfield execute — multi-file bootstrap is allowed; completeness is enforced by validation, not arbitrary file-count limits. */
-const POST_PLAN_INCREMENTAL_SECTIONS: readonly string[] = [
-  POST_PLAN_INCREMENTAL_MARKER,
-  'An **approved or superseded plan** already exists for this project. This turn is a **small incremental change** in Work mode — do **not** emit a new `gf-plan` or replan from scratch.',
-  'Use read/search tools only as needed, then **`propose_file_edits`** or localized **`search_replace`** for the requested change. Follow the approved plan artifact in context when paths or steps are unclear.',
-]
+function buildPostPlanIncrementalSections(): readonly string[] {
+  return [
+    POST_PLAN_INCREMENTAL_MARKER,
+    'An **approved or superseded plan** already exists for this project. This turn is a **small incremental change** in Work mode — do **not** emit a new `gf-plan` or replan from scratch.',
+    ...INCREMENTAL_EDIT_CONSERVATIVE_LINES,
+    ...INCREMENTAL_EDIT_STRUCTURAL_CHANGE_LINES,
+    'Use read/search tools only as needed, then localized **`search_replace`** on existing files (default) or **`propose_file_edits`** for new paths / escalation after failed S&R. Follow the approved plan artifact in context when paths or steps are unclear.',
+    POST_PLAN_INCREMENTAL_ENFORCEMENT_LINE,
+  ]
+}
 
 const SINGLE_FILE_EDIT_BIAS_SECTIONS: readonly string[] = [
   SINGLE_FILE_EDIT_BIAS_MARKER,
@@ -101,46 +110,6 @@ const SINGLE_FILE_EDIT_BIAS_SECTIONS: readonly string[] = [
 const POPULATED_STACK_HINT_SECTIONS: readonly string[] = [
   'For Vite/React feature work, prefer editing **`src/App.tsx`** and co-located CSS with **localized** `search_replace` or **one** `propose_file_edits` per file — avoid re-reading the whole tree.',
 ]
-
-const WORK_ITERATIVE_EDIT_SECTIONS: readonly string[] = [
-  WORK_ITERATIVE_EDIT_MARKER,
-  WORK_SURGICAL_EDIT_MARKER,
-  POPULATED_WORK_EDIT_MARKER,
-  'This is an **existing project** — do **not** emit a new `gf-plan` or replan from scratch.',
-  '**Turn goal:** One user request → one reviewable edit proposal. Split multi-feature asks across turns.',
-  'If **Active file** is set in context, `read_file` that path first before broad `search_workspace` / `list_directory`.',
-  'Spend at most **two** read-only tool rounds (`read_file`, `list_directory`, `search_workspace`) before the first `propose_file_edits` or `search_replace` on this turn.',
-  'For **localStorage**, **persist**, or **storage** features: prefer **one** `propose_file_edits` on **`script.js`** (or the active file) after **one** `read_file` — not chained `search_replace` across rounds.',
-  'Do **not** call `read_file` again on a path you already edited this turn unless `search_replace` failed on that path.',
-  'After **2** failed `search_replace` on a path, use one full-file `propose_file_edits` from `read_file` **`rawContent`** (harness 116 escalation).',
-  'For large files (~80+ lines), use **localized** `search_replace` or a **minimal** full-file diff — do not rewrite entire components in one crushed dump unless the user asked for a full rewrite.',
-  'Touch at most **2–3 paths** per turn unless the user listed more. One logical change per file.',
-  'Use `read_file` with `startLine` / `maxLines` on large files before editing.',
-  'Call **`run_command`** only when the user or plan implies install, scaffold, git, or verify — not for pure UI or component edits.',
-]
-
-/** Stable marker for eval/tests when iterative Work S&R quality appendix is active (story 139). */
-export const WORK_ITERATIVE_SR_QUALITY_MARKER =
-  '## Work iterative search_replace quality (harness 139)'
-
-const WORK_ITERATIVE_SEARCH_REPLACE_SECTIONS: readonly string[] = [
-  WORK_ITERATIVE_SR_QUALITY_MARKER,
-  'Before your **first** `search_replace` on a path this turn: call `read_file` on that path; copy `old_string` **only** from **`rawContent`** (never from the line-numbered `content` field).',
-  'Include **3–8 complete lines** above and below the change in `old_string`; it must appear **exactly once** in the file.',
-  'Pass **`expectedContentHash`** from the latest `read_file` on that path.',
-  'For **vanilla JS todo apps**: edit the **event listener / render function** block as one contiguous span; for “add remove button”, extend the todo item template and `deleteTodo` handler in **one** patch.',
-  'When the file is **one long line** or **fewer than 20 lines**, skip `search_replace` — use **`propose_file_edits`** with full `rawContent` instead.',
-]
-
-/** Iterative Work tool description overrides (story 139) — merged at turn start in agent-runner. */
-export function buildIterativeWorkToolDescriptionOverrides(): Partial<
-  Record<AgentChatToolName, string>
-> {
-  return {
-    search_replace:
-      'Apply an exact **single-match** text replacement on an existing file and create a diff review proposal (does not write disk until the user applies). Copy `old_string` **verbatim** from `read_file` **`rawContent`** (not the line-numbered `content` field) — spacing and line breaks must match exactly once. Pass `expectedContentHash` from the latest `read_file` `contentHash` on this path. If `old_string` looks like numbered read_file lines, GrokForge strips line-number prefixes (**116**) — still prefer copying from `rawContent`. Prefer `propose_file_edits` when the file is one long line or under ~20 lines.',
-  }
-}
 
 export const GREENFIELD_EXECUTE_CLI_MARKER = 'Harness: greenfield execute CLI'
 
@@ -154,8 +123,8 @@ export const GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS: readonly string[] = [
   'For **package.json** / **tsconfig.json** / **vite.config.***: emit **valid JSON** (double-quoted keys). Minified one-line JSON is acceptable if parseable; invalid JSON is rejected — prefer **`run_command`** (`npm create`, `npm init`) when the plan names a framework CLI.',
   'Each `write_file` must be a **complete**, **multi-line** file (HTML with `</body></html>`, valid CSS, valid JS). Use real line breaks — not one-line stubs.',
   'HTML must use **plain UTF-8 text** in attributes and body copy — no HTML entity encoding (&#34;, &quot;) or JSON-style backslash-u escapes in the file body.',
-  'For vanilla todo apps prefer **index.html + styles.css + script.js** (linked with `<script src="script.js">`) instead of a huge inline `<script>` block.',
-  'In JavaScript: **one statement per line**; no decorative `//` comments; never glue `}function`, `}););//`, or executable code on the same line after `//`.',
+  'In JavaScript (`script.js`, etc.): **one statement per line** with real line breaks — not a one-line stub. No glued `}function` / `}););`, no code after `//` on the same line, no orphan `)` lines; comments on their own lines only.',
+  '**`script.js` must be runnable:** include state, DOM/update helpers, and event wiring the plan describes — never an empty file, a lone `// TODO`, or logic deferred to HTML when the plan lists external JS.',
   'After install/scaffold commands succeed, **`read_file`** new paths before editing; GrokForge refreshes the workspace index when commands create files.',
   'If GrokForge rejects one path in a multi-file proposal, retry with **complete bodies for the failed paths only** — other accepted files are already in the pending review.',
   SCAFFOLD_COMMAND_GUIDANCE_MARKER,
@@ -224,7 +193,8 @@ export const AGENT_TOOL_LOOP_CORE: readonly string[] = [
   'For any **existing** file you modify, you MUST call `read_file` on that path earlier in this same turn before `propose_file_edits` or a write fence. New files do not require a prior read.',
   'Copy `contentHash` from `read_file` into `expectedContentHash` on `search_replace` and `propose_file_edits` write ops for existing files. Re-read if the file may have changed on disk.',
   'Each `write_file` must contain complete file text with **real line breaks** (never one semicolon-separated line for the whole file). Base proposals on `read_file` `rawContent` (not the line-numbered `content` field): preserve indentation and line breaks for unchanged sections. Use `startLine` / `maxLines` when reading large files before editing.',
-  '**Code layout (HTML/CSS/JS/TSX):** **One statement per line** in JavaScript; each `import` on its own line (never `from \'react\'import`). In React/TSX use normal `className="..."` quotes — not `\\"` escapes inside attributes. External `<script src="...">` for vanilla apps when the plan lists a `.js` path.',
+  '**Code layout (HTML/CSS/JS/TSX):** `.js` / `.ts` **`write_file` bodies** must be **readable multi-line source** — **one statement per line**, never a single minified line. Avoid glued tokens (`}function`, `}););`, `[] function`, `const x = 1 return y`). Put each `//` comment on its own line with **no executable code after `//` on the same line**; do not emit orphan `)` or `};` on a line by itself. Each `import` on its own line (never `from \'react\'import`). GrokForge **rejects** crushed scripts before diff review. In React/TSX use normal `className="..."` quotes. External `<script src="...">` when the plan lists a separate `.js` path.',
+  '**Bootstrap / new `.js` files:** `write_file.content` must be **non-empty** and **runnable** — include init, state, render/update helpers, and handlers the feature needs; empty bodies and placeholder-only scripts are rejected.',
   '**Surgical edits:** For existing files **~80+ lines** or several unrelated regions, prefer localized **`search_replace`** or a **minimal** full-file proposal that changes only what the request needs — do not rewrite the entire file in one crushed dump. Split large multi-file work across focused proposals when possible.',
   'When creating **multiple new files** in one task (e.g. bootstrap), prefer **one** `propose_file_edits` call with several `write_file` operations (up to 32), not separate calls per file — but each `write_file` body must still be complete and multi-line.',
   'When the user reports **syntax errors** or broken formatting in an existing file, call `read_file`, then one `propose_file_edits` with the **full** file from `rawContent` — do not loop on `search_replace` against crushed one-line scripts.',
@@ -374,7 +344,7 @@ export function buildHarnessTurnPromptSections(
     !ctx.executeFromApprovedPlan &&
     (profile.key === 'grok_code_fast' || profile.key === 'grok_4_3')
   ) {
-    sections.push(...POST_PLAN_INCREMENTAL_SECTIONS)
+    sections.push(...buildPostPlanIncrementalSections())
   }
   if (ctx.singleFilePrimary && (profile.key === 'grok_code_fast' || profile.key === 'grok_4_3')) {
     const primaryHint = ctx.singleFilePrimaryBasename
@@ -388,17 +358,15 @@ export function buildHarnessTurnPromptSections(
     !ctx.executeFromApprovedPlan &&
     (profile.key === 'grok_code_fast' || profile.key === 'grok_4_3')
   ) {
-    const activeHint = ctx.activeFilePath?.trim()
-      ? `Active file in editor: **${ctx.activeFilePath.trim()}** — read it first when relevant.`
-      : ''
-    sections.push(activeHint, ...WORK_ITERATIVE_EDIT_SECTIONS)
-    if (ctx.iterativeEditScope) {
-      sections.push(...buildIterativeEditScopeSections(ctx.iterativeEditScope))
-    }
+    sections.push(
+      ...buildIncrementalEditHarnessSections({
+        activeFilePath: ctx.activeFilePath,
+        iterativeEditScope: ctx.iterativeEditScope,
+      }),
+    )
     if (ctx.populatedWorkspace) {
       sections.push(...POPULATED_STACK_HINT_SECTIONS)
     }
-    sections.push(...WORK_ITERATIVE_SEARCH_REPLACE_SECTIONS)
   }
   return sections.filter((s) => s.trim().length > 0)
 }

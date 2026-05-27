@@ -309,10 +309,10 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">142 stories</span>
-        <span class="pill">Done: 134</span>
+        <span class="pill">144 stories</span>
+        <span class="pill">Done: 135</span>
         <span class="pill">Closed: 6</span>
-        <span class="pill">Post-MVP: 2</span>
+        <span class="pill">Post-MVP: 3</span>
         <span class="pill">Generated 2026-05-27</span>
       </div>
       <div class="story-filters">
@@ -10945,6 +10945,141 @@ maxIterationsReason?: 'search_replace_loop' | 'discovery_stall' | 'post_escalati
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-144" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">144</span><span class="story-name">Consolidate incremental Work edit policy</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/144-consolidate-incremental-work-edit-policy.md">post-mvp/144-consolidate-incremental-work-edit-policy.md</a>
+          </div>
+          <h2>144 — Consolidate incremental Work edit policy</h2>
+<p><strong>Status:</strong> Done (2026-05-27).</p>
+<p><strong>Design skill:</strong> N/A (harness only).</p>
+<p><strong>Depends on:</strong> <strong>130–140</strong> (done). Does not change routing (<strong>120</strong> / <strong>130</strong>) or validation/cascade guards.</p>
+<h3>Why this story exists</h3>
+<p>Stories <strong>130–140</strong> added overlapping mechanisms for incremental Work edits: static prompt appendices (<strong>130</strong>, <strong>135</strong>, <strong>139</strong>), scope mid-turn nudges (<strong>136</strong>), thrash mid-turn nudges (<strong>135</strong>), turn-start pre-sample (<strong>139</strong>), tool description overrides, and runtime caps that applied only when <code>iterativeWorkEdit</code> — not on the <strong>post-plan incremental</strong> golden path (<code>postPlanIncremental</code>).</p>
+<p>Dogfood showed tool thrashing and stacked harness rows even after cleanup. Root cause: <strong>policy sprawl</strong> across files, not missing routing.</p>
+<h3>Goals</h3>
+<ol>
+<li><strong>One policy module</strong> — <a href="../src/shared/incremental-work-edit-policy.ts"><code>src/shared/incremental-work-edit-policy.ts</code></a>: enforcement flag, constants, merged harness sections, single mid-turn nudge picker (<code>commit_proposal</code> | <code>stop_reread</code>).</li>
+<li><strong>Remove</strong> turn-start pre-sample nudge, tool description overrides, scope mid-turn nudges, and four-kind thrash picker.</li>
+<li><strong>Shared enforcement</strong> — <code>incrementalEditEnforcement = iterativeWorkEdit || postPlanIncremental</code>: 4-round cap, stop-after-proposal, discovery saturation at 2 rounds, per-round tracking.</li>
+<li><strong>Slim runner</strong> — one mid-turn gate in <a href="../src/main/agent-runner.ts"><code>agent-runner.ts</code></a>; pass <code>iterativeWorkEdit: incrementalEditEnforcement</code> to existing S&amp;R escalation helpers only.</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li><code>resolveAgentTurnRouting</code>, <code>shouldRouteIterativeWorkExecutor</code>, <code>shouldRoutePostPlanIncremental</code></li>
+<li><code>validateAgentEditProposal</code>, corrupt content, merge, cascade guard thresholds</li>
+<li>Plan mode, approve-and-run, greenfield/scaffold flows</li>
+<li>Broad <code>agent-runner.ts</code> / <code>ChatThread.tsx</code> refactors</li>
+<li>New harness markers or eval tags</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../src/shared/incremental-work-edit-policy.ts"><code>src/shared/incremental-work-edit-policy.ts</code></a> *(new)*</li>
+<li><a href="../src/shared/iterative-work-edit-guards.ts"><code>src/shared/iterative-work-edit-guards.ts</code></a> — round cap only</li>
+<li><a href="../src/shared/iterative-work-edit.ts"><code>src/shared/iterative-work-edit.ts</code></a> — remove pre-sample API</li>
+<li><a href="../src/shared/iterative-edit-scope.ts"><code>src/shared/iterative-edit-scope.ts</code></a> — turn-start scope only</li>
+<li><a href="../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a></li>
+<li><a href="../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a></li>
+<li><a href="../src/shared/agent-harness-metrics.ts"><code>src/shared/agent-harness-metrics.ts</code></a></li>
+<li>Tests + <a href="../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> note</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> <code>pickIterativeThrashNudge</code> / <code>pickIterativeScopeShapeNudge</code> and pre-sample removed; <code>pickIncrementalEditMidTurnNudge</code> only.</li>
+<li><input type="checkbox" disabled checked> Merged iterative appendix when <code>iterativeWorkEdit</code>; no separate 139 S&amp;R section array; no new markers.</li>
+<li><input type="checkbox" disabled checked> <code>postPlanIncremental</code> gets same 4-round cap and stop-after-proposal (partial-batch exception preserved).</li>
+<li><input type="checkbox" disabled checked> At most one incremental mid-turn nudge per turn (<code>stop_reread</code> → <code>commit_proposal</code>).</li>
+<li><input type="checkbox" disabled checked> Merged copy prefers <code>propose_file_edits</code> after one <code>read_file</code> for persistence/localized/single-file scope.</li>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> green; post-plan stop-after-proposal eval added.</li>
+<li><input type="checkbox" disabled checked> Harness checklist note for Todo post-plan enforcement.</li>
+</ul>
+<h3>Regression risk</h3>
+<p>| Risk | Mitigation | |------|------------| | Post-plan stops too early | Same rule as <strong>135</strong>; partial-batch exception | | Eval marker churn | Keep <code>WORK_ITERATIVE_EDIT_MARKER</code>, <code>ITERATIVE_EDIT_THRASH_NUDGE_MARKER</code> in nudge body | | Runner touch | Minimal diff: <code>incrementalEditEnforcement</code> + delete branches |</p>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="130-work-iterative-edit-harness.md">130</a></strong> routing, <strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong> caps, <strong><a href="136-iterative-edit-scope-and-combine-heuristics.md">136</a></strong> scope, <strong><a href="138-iterative-work-search-replace-escalation.md">138–140</a></strong> S&amp;R escalation</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-145" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">145</span><span class="story-name">Intermittent plan not appearing in UI until project restart</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/145-plan-ui-state-sync-after-execute.md">post-mvp/145-plan-ui-state-sync-after-execute.md</a>
+          </div>
+          <h2>145 — Intermittent plan not appearing in UI until project restart</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Design skill:</strong> <code>@styleguide-design</code> if plan card / stepper UX changes; otherwise N/A (reliability / state sync).</p>
+<p><strong>Depends on:</strong> <strong><a href="109-rpi-plan-artifacts-on-disk.md">109</a></strong> (plans persist on disk), <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong> (plan card + phase stepper), <strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong> (approve-and-run lifecycle).</p>
+<h3>Why this story exists</h3>
+<p>After a plan <strong>finishes executing successfully</strong>, the UI <strong>sometimes</strong> does not show the completed plan or updated plan status until the user <strong>leaves the project and re-opens it</strong>. This occurs roughly <strong>1 in 10</strong> times during dogfood (Plan → Approve and run → execute completes).</p>
+<p><strong>Observed behavior:</strong></p>
+<ul>
+<li>The plan is <strong>correctly created and stored on disk</strong> (<code>userData/workspace-projects/&lt;projectId&gt;/plans/…</code> per <strong>109</strong>).</li>
+<li>The <strong>renderer / chat thread</strong> does not reflect the completed state (plan card, status badge, or “done” phase) until a <strong>full project reload</strong>.</li>
+<li>This appears to be a <strong>frontend state synchronization</strong> issue rather than a backend or harness failure — execution and persistence succeed; only the in-session UI is stale.</li>
+</ul>
+<p><strong>Priority:</strong> Reliability / trust — users may think execute failed or the plan was lost when it is actually on disk.</p>
+<h3>Repro notes (from report)</h3>
+<p>| Item | Detail | | --- | --- | | Flow | Plan mode → valid <code>gf-plan</code> → Approve and run → execute turn completes without error | | Symptom | Plan card / status stuck in <code>executing</code>, <code>approved</code>, or missing; disk has final <code>plan.json</code> | | Workaround | Switch project (recent picker) and re-open same project | | Frequency | ~1 in 10 (intermittent) | | Backend | Plan artifact and chat persistence appear correct after reload |</p>
+<h3>Hypotheses (for implementers)</h3>
+<ol>
+<li><strong>Plan interaction state not updated on <code>agent-chat</code> <code>done</code></strong> — <code>plan-interaction-storage.ts</code> / <code>usePlanExecuteLifecycle</code> miss a terminal transition when events arrive out of order or after a race.</li>
+<li><strong><code>planId</code> not re-fetched after execute</strong> — <code>get-stored-plan-for-message</code> or equivalent IPC not called (or result ignored) when the execute turn ends; UI still binds to pre-run snapshot.</li>
+<li><strong>Chat thread message list vs plan card desync</strong> — assistant line has <code>planId</code> but <code>PlanModeCard</code> props derive from stale local state not invalidated on turn completion.</li>
+<li><strong>Background / unmount edge (</strong>070<strong>)</strong> — project switch or partial unmount drops a late <code>done</code> handler; less likely if repro happens without leaving the app.</li>
+<li><strong>Supersede / status IPC gap</strong> — main updates <code>plan.json</code> <code>status</code> on disk but renderer never receives a push or polling refresh after approve-and-run.</li>
+</ol>
+<h3>Goals</h3>
+<ol>
+<li><strong>Identify root cause</strong> — trace plan UI state from approve-and-run through <code>executing</code> → <code>done</code>; document race or missing invalidation in story file or PR.</li>
+<li><strong>Fix</strong> — plan status and completed plan content reliably appear in the UI when execute finishes, <strong>without</strong> project restart.</li>
+<li><strong>Guard</strong> — regression note or targeted test if a deterministic hook exists (e.g. lifecycle reducer, IPC mock); otherwise document manual repro checklist in PR.</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Changing <code>gf-plan</code> schema, harness routing, or execute-turn prompts.</li>
+<li>New plan-on-disk layout (<strong>109</strong> is done).</li>
+<li>Full chat thread rewrite (<strong>141</strong>).</li>
+</ul>
+<h3>Scope (candidate)</h3>
+<ul>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — agent event handlers, plan binding on turn end</li>
+<li><a href="../../src/renderer/src/components/PlanModeCard.tsx"><code>src/renderer/src/components/PlanModeCard.tsx</code></a> — displayed status vs stored plan</li>
+<li><a href="../../src/renderer/src/hooks/usePlanExecuteLifecycle.ts"><code>src/renderer/src/hooks/usePlanExecuteLifecycle.ts</code></a> — phase transitions</li>
+<li><a href="../../src/renderer/src/lib/plan-interaction-storage.ts"><code>src/renderer/src/lib/plan-interaction-storage.ts</code></a> — persisted per-plan UI phase</li>
+<li><a href="../../src/main/agent-plan-store.ts"><code>src/main/agent-plan-store.ts</code></a> — confirm when <code>status</code> is written vs when renderer is notified (read-only unless IPC gap found)</li>
+<li>IPC: <strong><code>get-stored-plan-for-message</code></strong>, <strong><code>set-stored-plan-status</code></strong>, chat append / <code>planId</code> return paths</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Root cause documented (this file updated or PR description) with the failing transition (e.g. missing <code>done</code> handler, stale <code>planId</code>, no refetch).</li>
+<li><input type="checkbox" disabled> After approve-and-run completes successfully, plan card and status show <strong>completed / done</strong> (or equivalent <strong>098</strong> terminal state) <strong>without</strong> re-opening the project — verified across multiple consecutive runs.</li>
+<li><input type="checkbox" disabled> Disk state and UI state stay consistent: reloading the project is not required to see the same plan the user would see after restart.</li>
+<li><input type="checkbox" disabled> Regression: unit test for lifecycle reducer / storage transition <strong>or</strong> manual checklist added to <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> § plan UX if automation is impractical.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> and <code>npm run test</code> pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong> — Work/Plan lifecycle and trust surfaces</li>
+<li><strong><a href="099-plan-mode-final-contract-and-toast.md">099</a></strong> — plan validation toasts (distinct from post-execute sync)</li>
+<li><strong><a href="117-renderer-black-screen-on-macos-resume.md">117</a></strong> — other intermittent renderer stability</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
     </section>

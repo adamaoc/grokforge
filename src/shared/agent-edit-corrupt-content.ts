@@ -46,7 +46,7 @@ const HTML_ENTITY_ARTIFACT_RE = /=\s*(?:&#(?:\d+|x[0-9a-f]+);|&(?:quot|apos|lt|g
 const JSON_UNICODE_ARTIFACT_RE = /\\u[0-9a-fA-F]{4}/
 
 export const AGENT_EDIT_EMPTY_WRITE_REASON =
-  'write_file.content is empty. Emit the full file body in propose_file_edits — opening the path in the editor before Apply does not create the file on disk.'
+  'write_file.content is empty. Emit the full runnable file body in propose_file_edits — for script.js include init, state, handlers, and DOM logic; opening the path in the editor before Apply does not create the file on disk.'
 
 const MIN_ORPHAN_LINES = 3
 /** Orphan lines must be a meaningful fraction of the file (avoids tiny snippets). */
@@ -86,6 +86,83 @@ export function pathsAtIncompleteHtmlNudgeThreshold(
 export function isIncompleteHtmlProposalError(error: string | undefined): boolean {
   if (!error) return false
   return error.includes(AGENT_EDIT_INCOMPLETE_HTML_REASON.slice(0, 40))
+}
+
+/** Failed crushed/corrupt `.js` proposals on a path before a follow-up harness nudge. */
+export const CRUSHED_JS_FAILURES_BEFORE_NUDGE = 2
+
+export function isJavaScriptProposalPath(path: string): boolean {
+  return /\.(m?js|cjs)$/i.test(path.replace(/\\/g, '/'))
+}
+
+export function isCrushedJavaScriptProposalError(reason: string | undefined): boolean {
+  if (!reason) return false
+  if (reason.includes(AGENT_EDIT_JAMMED_JS_FILE_REASON.slice(0, 24))) return true
+  if (reason.includes(AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON.slice(0, 24))) return true
+  return false
+}
+
+export function recordCrushedJavaScriptProposalFailure(
+  map: Map<string, number>,
+  path: string,
+): void {
+  if (!isJavaScriptProposalPath(path)) return
+  const key = path.replace(/\\/g, '/')
+  map.set(key, (map.get(key) ?? 0) + 1)
+}
+
+export function shouldInjectCrushedJavaScriptProposalNudge(
+  map: ReadonlyMap<string, number>,
+): boolean {
+  for (const [path, count] of map.entries()) {
+    if (isJavaScriptProposalPath(path) && count >= CRUSHED_JS_FAILURES_BEFORE_NUDGE) {
+      return true
+    }
+  }
+  return false
+}
+
+export function pathsAtCrushedJavaScriptNudgeThreshold(
+  map: ReadonlyMap<string, number>,
+): string[] {
+  return [...map.entries()]
+    .filter(
+      ([path, count]) =>
+        isJavaScriptProposalPath(path) && count >= CRUSHED_JS_FAILURES_BEFORE_NUDGE,
+    )
+    .map(([path]) => path)
+}
+
+/** Failed integrity proposals on a path not yet on disk before incremental recovery nudge. */
+export const CREATION_INTEGRITY_FAILURES_BEFORE_NUDGE = 2
+
+export function recordCreationIntegrityProposalFailure(
+  map: Map<string, number>,
+  resolvedPath: string,
+  reason: string | undefined,
+  fileExistsOnDisk: boolean,
+): void {
+  if (fileExistsOnDisk) return
+  if (!isPartialBatchIntegrityRejection(reason)) return
+  const key = resolvedPath.replace(/\\/g, '/')
+  map.set(key, (map.get(key) ?? 0) + 1)
+}
+
+export function shouldInjectCreationIncrementalRecoveryNudge(
+  map: ReadonlyMap<string, number>,
+): boolean {
+  for (const count of map.values()) {
+    if (count >= CREATION_INTEGRITY_FAILURES_BEFORE_NUDGE) return true
+  }
+  return false
+}
+
+export function pathsAtCreationIncrementalRecoveryThreshold(
+  map: ReadonlyMap<string, number>,
+): string[] {
+  return [...map.entries()]
+    .filter(([, count]) => count >= CREATION_INTEGRITY_FAILURES_BEFORE_NUDGE)
+    .map(([path]) => path)
 }
 
 /** Total failed incomplete-HTML proposals in one turn before forcing final answer. */

@@ -90,6 +90,7 @@ Condensed “symptom → harness cause → fix” from product research and ship
 | Iterative Work S&R retry loop burns budget before strategy switch | **116** global thresholds; no hard block after escalation on `iterativeWorkEdit` | [**138**](../project_tasks/post-mvp/138-iterative-work-search-replace-escalation.md) — 1-failure escalate, post-nudge S&R block, force-final at 3 **(done)** |
 | First-attempt `search_replace` misses on localized UI edits (guessed `old_string`) | **138** recovers after failure; generic tool desc and terse not-found errors | [**139**](../project_tasks/post-mvp/139-iterative-work-search-replace-quality-guidance.md) — iterative S&R quality appendix, tool override, pre-sample nudge, richer not-found hints **(done)** |
 | S&R failure loop / `maxToolIterationsHit` opaque in dogfood | Trace has boolean only; escalation state scattered in activity | [**140**](../project_tasks/post-mvp/140-search-replace-failure-loop-observability.md) — `harnessMetrics.searchReplace` + `maxIterationsReason` + budget activity row **(done)** |
+| Iterative Work policy sprawl (130–140); post-plan lacked caps/stop | Parallel nudges, prompts, scope mid-turn, pre-sample, tool overrides | [**144**](../project_tasks/post-mvp/144-consolidate-incremental-work-edit-policy.md) — `incremental-work-edit-policy.ts`, one mid-turn gate, shared `incrementalEditEnforcement` **(done)** |
 
 ---
 

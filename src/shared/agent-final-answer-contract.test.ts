@@ -5,7 +5,11 @@ import {
   buildFinalAnswerContract,
   buildEditIntentToolNudge,
   buildIncompleteHtmlProposalNudge,
+  buildCrushedJavaScriptProposalNudge,
+  buildCreationIncrementalRecoveryNudge,
   buildPartialBatchProposalNudge,
+  EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER,
+  EDIT_CRUSHED_JS_NUDGE_MARKER,
   buildPlanVerifyCommandNudge,
   buildSearchReplaceEscalationNudge,
   COMMAND_TOOLS_FAILED_HONESTY_MARKER,
@@ -109,10 +113,10 @@ describe('buildFinalAnswerContract', () => {
   })
 
   it('adds HTML script guidance when escalation paths include .html', () => {
-    const nudge = buildSearchReplaceEscalationNudge(['/proj/ToDoApp/index.html'])
+    const nudge = buildSearchReplaceEscalationNudge(['/proj/app/index.html'])
     expect(nudge).toMatch(/index\.html/i)
     expect(nudge).toMatch(/propose_file_edits/)
-    expect(nudge).toMatch(/script\.js/i)
+    expect(nudge).toMatch(/<script src/i)
   })
 
   it('builds incomplete HTML nudge with stable marker and closing-tag guidance', () => {
@@ -121,6 +125,14 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toContain('index.html')
     expect(nudge).toMatch(/<\/body>/i)
     expect(nudge).toMatch(/propose_file_edits/)
+  })
+
+  it('builds creation incremental recovery nudge with general incremental strategy', () => {
+    const nudge = buildCreationIncrementalRecoveryNudge(['/proj/app.js'])
+    expect(nudge).toContain(EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER)
+    expect(nudge).toMatch(/minimal viable/i)
+    expect(nudge).toMatch(/search_replace/i)
+    expect(nudge).not.toMatch(/Do not retry with one full multi-line script/i)
   })
 
   it('adds editToolsFailed appendix when edit tools did not succeed', () => {
@@ -164,6 +176,15 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toContain('script.js')
     expect(nudge).toMatch(/2 file\(s\) are already in the pending diff review/i)
     expect(nudge).toMatch(/only the rejected paths/i)
+    expect(nudge).toMatch(/one statement per line/i)
+  })
+
+  it('builds crushed JavaScript nudge with example layout', () => {
+    const nudge = buildCrushedJavaScriptProposalNudge(['/proj/script.js'])
+    expect(nudge).toContain(EDIT_CRUSHED_JS_NUDGE_MARKER)
+    expect(nudge).toContain('script.js')
+    expect(nudge).toMatch(/function loadItems/i)
+    expect(nudge).not.toMatch(/\btodos\b/i)
   })
 
   it('shouldInjectPartialBatchProposalNudge when execute-from-plan has mixed batch', () => {

@@ -181,6 +181,8 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 141 | Conversation-first chat layout and tool activity shell **(done)** | [`post-mvp/141-conversation-first-chat-and-tool-activity-shell.md`](post-mvp/141-conversation-first-chat-and-tool-activity-shell.md) |
 | 142 | UI copy and status hierarchy cleanup **(done)** | [`post-mvp/142-ui-copy-and-status-hierarchy-cleanup.md`](post-mvp/142-ui-copy-and-status-hierarchy-cleanup.md) |
 | 143 | Context panel: agent-aware file companion **(done)** | [`post-mvp/143-context-panel-agent-companion.md`](post-mvp/143-context-panel-agent-companion.md) |
+| 144 | Consolidate incremental Work edit policy **(done)** | [`post-mvp/144-consolidate-incremental-work-edit-policy.md`](post-mvp/144-consolidate-incremental-work-edit-policy.md) |
+| 145 | Intermittent plan not appearing in UI until project restart | [`post-mvp/145-plan-ui-state-sync-after-execute.md`](post-mvp/145-plan-ui-state-sync-after-execute.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
@@ -208,4 +210,4 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **UI/UX — conversation-first:** ~~**141**~~ chat vertical space + collapsible tool activity **(done)** → ~~**142**~~ copy and status hierarchy **(done)** → ~~**143**~~ context panel companion **(done)**. Builds on ~~**125**~~ / ~~**119**~~ activity work **(done)**.
 
-*Last progress update: **2026-05-27** — **139** iterative Work S&R first-attempt quality (139 appendix, tool override, localized UI pre-sample, richer not-found hints).*
+*Last progress update: **2026-05-27** — **145** backlog: intermittent plan UI state sync after execute (disk correct, renderer stale until project reload).*

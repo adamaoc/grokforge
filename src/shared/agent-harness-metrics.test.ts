@@ -4,7 +4,7 @@ import {
   HARNESS_METRICS_MAX_NUDGES,
   HARNESS_METRICS_MAX_SR_PATHS,
   HARNESS_NUDGE_DISCOVERY_SATURATION,
-  HARNESS_NUDGE_ITERATIVE_SR_CONSOLIDATION,
+  HARNESS_NUDGE_INCREMENTAL_COMMIT_PROPOSAL,
   capSearchReplaceByPath,
   classifySearchReplaceFailureReason,
   createHarnessMetricsScratch,
@@ -40,10 +40,10 @@ describe('agent-harness-metrics', () => {
     })
     recordHarnessNudge(scratch, HARNESS_NUDGE_DISCOVERY_SATURATION)
     recordHarnessNudge(scratch, HARNESS_NUDGE_DISCOVERY_SATURATION)
-    recordHarnessNudge(scratch, HARNESS_NUDGE_ITERATIVE_SR_CONSOLIDATION)
+    recordHarnessNudge(scratch, HARNESS_NUDGE_INCREMENTAL_COMMIT_PROPOSAL)
     expect(scratch.nudgesIssued).toEqual([
       HARNESS_NUDGE_DISCOVERY_SATURATION,
-      HARNESS_NUDGE_ITERATIVE_SR_CONSOLIDATION,
+      HARNESS_NUDGE_INCREMENTAL_COMMIT_PROPOSAL,
     ])
     for (let i = 0; i < HARNESS_METRICS_MAX_NUDGES + 5; i += 1) {
       recordHarnessNudge(scratch, `nudge-${i}` as typeof HARNESS_NUDGE_DISCOVERY_SATURATION)
@@ -137,10 +137,10 @@ describe('agent-harness-metrics', () => {
       iterativeWorkEdit: true,
       toolRoundCount: 3,
       editProposalAtRound: 2,
-      nudgesIssued: [HARNESS_NUDGE_DISCOVERY_SATURATION, HARNESS_NUDGE_ITERATIVE_SR_CONSOLIDATION],
+      nudgesIssued: [HARNESS_NUDGE_DISCOVERY_SATURATION, HARNESS_NUDGE_INCREMENTAL_COMMIT_PROPOSAL],
     })
     expect(line).toBe(
-      '[GrokForge] harnessMetrics iterativeWorkEdit=true rounds=3 proposal@round=2 nudges=[discovery_saturation,iterative_sr_consolidation]',
+      '[GrokForge] harnessMetrics iterativeWorkEdit=true rounds=3 proposal@round=2 nudges=[discovery_saturation,iterative_commit_proposal]',
     )
   })
 

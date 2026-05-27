@@ -10,12 +10,9 @@ import type { GrokProjectManifest } from './manifest'
 import { AGENT_TOOL_MAX_ITERATIONS } from './agent-workspace-tools'
 import type { AgentChatModelTransport } from './agent-chat-model-transport'
 import { POPULATED_WORK_EDIT_MARKER } from '../shared/populated-workspace-edit'
-import { WORK_ITERATIVE_EDIT_MARKER, LOCALIZED_UI_EDIT_PRE_SAMPLE_MARKER } from '../shared/iterative-work-edit'
-import { ITERATIVE_EDIT_THRASH_NUDGE_MARKER } from '../shared/iterative-work-edit-guards'
-import {
-  ITERATIVE_EDIT_SCOPE_MARKER,
-  ITERATIVE_EDIT_SCOPE_SHAPE_NUDGE_MARKER,
-} from '../shared/iterative-edit-scope'
+import { WORK_ITERATIVE_EDIT_MARKER } from '../shared/iterative-work-edit'
+import { INCREMENTAL_EDIT_MID_TURN_NUDGE_MARKER } from '../shared/incremental-work-edit-policy'
+import { ITERATIVE_EDIT_SCOPE_MARKER } from '../shared/iterative-edit-scope'
 import { GREENFIELD_HARNESS_MARKER } from '../shared/workspace-greenfield'
 import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from '../shared/agent-plan-verification'
 import {
@@ -54,6 +51,7 @@ import {
   AGENT_EVAL_TAG_PROFILE_GROK_4_3,
   AGENT_EVAL_TAG_PROFILE_GROK_CODE_FAST,
   AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH,
+  AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL,
   AGENT_EVAL_TAG_RECOVERY_SCAFFOLD_PARTIAL,
   AGENT_EVAL_TAG_ROUTING_EXISTING_PROJECT_NO_REPLAN,
   AGENT_EVAL_TAG_ROUTING_ITERATIVE_WORK_NO_REPLAN,
@@ -76,6 +74,7 @@ import { TURN_RECOVERY_HINT_MARKER } from '../shared/agent-turn-receipt-contract
 import type { AgentTurnTraceV1 } from '../shared/agent-turn-trace-contract'
 import {
   EDIT_INTENT_TOOL_NUDGE_MARKER,
+  EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER,
   EDIT_PARTIAL_BATCH_NUDGE_MARKER,
   EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
   EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER,
@@ -88,7 +87,6 @@ import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from '../shared/agent-scaffold-strat
 import {
   GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS,
   GREENFIELD_EXECUTE_CLI_MARKER,
-  WORK_ITERATIVE_SR_QUALITY_MARKER,
 } from '../shared/agent-harness-profile'
 import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER, AGENT_EDIT_INVALID_JSON_MANIFEST_REASON } from '../shared/agent-bootstrap-manifest'
 import { assessProposalWriteContent } from '../shared/agent-edit-corrupt-content'
@@ -1300,6 +1298,109 @@ describe('agent runner evaluation harness', () => {
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 
+  it(`${AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL} — injects incremental recovery after 2 all-rejected failures on new path`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-creation-incremental-'))
+    const projectId = 'eval-creation-incremental'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vanilla todo app',
+        filesLikelyTouched: ['script.js'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create script.js' }],
+        verification: 'Open in browser',
+      },
+    })
+
+    const corruptJs = `function init() {
+)
+)
+);
+)
+`
+    let sampleCount = 0
+    let sawCreationRecoveryBeforeThirdSample = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const hasCreationRecovery = request.messages.some(
+          (m) =>
+            m.role === 'user' &&
+            typeof m.content === 'string' &&
+            m.content.includes(EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER),
+        )
+        if (sampleCount < 3 && hasCreationRecovery) {
+          sawCreationRecoveryBeforeThirdSample = true
+        }
+
+        if (sampleCount <= 2) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: `tc-fail-${sampleCount}`,
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      { op: 'write_file', path: join(root, 'script.js'), content: corruptJs },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        if (sampleCount === 3) {
+          expect(hasCreationRecovery).toBe(true)
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Bootstrap attempted — review harness recovery.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-creation-incremental'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vanilla todo app')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawCreationRecoveryBeforeThirdSample).toBe(false)
+    expect(sampleCount).toBeGreaterThanOrEqual(3)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' && p.activity.title === 'Harness: incremental file creation',
+      ),
+    ).toBe(true)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Harness: multi-line JavaScript required',
+      ),
+    ).toBe(false)
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(false)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
   it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_VITE_SCAFFOLD} — accepts valid package.json and entry file on approve-and-run`, async () => {
     const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-vite-scaffold-127-'))
     const projectId = 'eval-vite-scaffold-127'
@@ -2266,7 +2367,8 @@ describe('agent runner evaluation harness', () => {
       payloads.some(
         (p) =>
           p.phase === 'activity' &&
-          p.activity.title.includes('Finishing turn'),
+          (p.activity.title.includes('Finishing turn') ||
+            p.activity.title.includes('Edit attempts paused')),
       ),
     ).toBe(true)
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
@@ -2941,7 +3043,7 @@ describe('agent runner evaluation harness', () => {
             (m) =>
               m.role === 'user' &&
               typeof m.content === 'string' &&
-              m.content.includes(ITERATIVE_EDIT_THRASH_NUDGE_MARKER),
+              m.content.includes(INCREMENTAL_EDIT_MID_TURN_NUDGE_MARKER),
           )
           thrashNudgeCount += thrashMessages.length
 
@@ -3014,7 +3116,7 @@ describe('agent runner evaluation harness', () => {
 
       expect(thrashNudgeCount).toBe(1)
       const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
-      expect(trace.harnessMetrics?.nudgesIssued).toContain('iterative_sr_consolidation')
+      expect(trace.harnessMetrics?.nudgesIssued).toContain('iterative_commit_proposal')
     })
 
     it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_STOP_AFTER_PROPOSAL} — stops tool_sample after edit proposal`, async () => {
@@ -3645,11 +3747,11 @@ describe('agent runner evaluation harness', () => {
       expect(trace.maxToolIterationsHit).not.toBe(true)
     })
 
-    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_QUALITY_SECTIONS} — system prompt includes 139 S&R quality marker and pre-sample nudge`, async () => {
-      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-quality-139-'))
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_QUALITY_SECTIONS} — merged policy in system prompt without pre-sample user nudge (144)`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-quality-144-'))
       writeFileSync(join(root, 'script.js'), staticTodoValidFiles().js, 'utf8')
       writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
-      const projectId = 'eval-iterative-sr-quality-139'
+      const projectId = 'eval-iterative-sr-quality-144'
       seedSmallVanillaWorkspaceIndex(projectId, root)
 
       let firstSampleUserText = ''
@@ -3670,33 +3772,31 @@ describe('agent runner evaluation harness', () => {
             emitChunk('Added remove button.')
           },
         },
-        payload: baseEvalPayload('eval-iterative-sr-quality-139', 'add remove todo button'),
+        payload: baseEvalPayload('eval-iterative-sr-quality-144', 'add remove todo button'),
       })
       matrixRestores.push(restore)
 
       const sample = getRecords().find((r) => r.phase === 'sample')
-      expect(sample?.systemText).toContain(WORK_ITERATIVE_SR_QUALITY_MARKER)
       expect(sample?.systemText).toContain(WORK_ITERATIVE_EDIT_MARKER)
-      expect(firstSampleUserText).toContain(LOCALIZED_UI_EDIT_PRE_SAMPLE_MARKER)
+      expect(sample?.systemText).toMatch(/rawContent/i)
+      expect(sample?.systemText).not.toContain('## Work iterative search_replace quality')
+      expect(firstSampleUserText).not.toContain('Harness: localized UI edit')
     })
 
-    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE} — search_replace tool description includes rawContent on iterative turn`, async () => {
-      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-tool-override-139-'))
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE} — merged harness copy includes S&R guidance without tool override (144)`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-tool-override-144-'))
       writeFileSync(join(root, 'script.js'), staticTodoValidFiles().js, 'utf8')
       writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
-      const projectId = 'eval-iterative-sr-tool-override-139'
+      const projectId = 'eval-iterative-sr-tool-override-144'
       seedSmallVanillaWorkspaceIndex(projectId, root)
 
-      let srDescription = ''
-      const { restore } = await setupEvalTurn({
+      const { getRecords, restore } = await setupEvalTurn({
         root,
         projectId,
         innerTransport: {
           async sampleChatCompletion(request) {
-            if (!srDescription) {
-              const srTool = request.tools.find((t) => t.function.name === 'search_replace')
-              srDescription = srTool?.function.description ?? ''
-            }
+            const srTool = request.tools.find((t) => t.function.name === 'search_replace')
+            expect(srTool?.function.description).not.toMatch(/Prefer propose_file_edits when the file is one long line/)
             return { content: '', toolCalls: [] }
           },
           async streamFinalAnswer(_request, _signal, emitChunk) {
@@ -3704,14 +3804,14 @@ describe('agent runner evaluation harness', () => {
           },
         },
         payload: baseEvalPayload(
-          'eval-iterative-sr-tool-override-139',
+          'eval-iterative-sr-tool-override-144',
           'add delete button to each todo item',
         ),
       })
       matrixRestores.push(restore)
 
-      expect(srDescription).toMatch(/rawContent/i)
-      expect(srDescription).toMatch(/exactly once|single-match/i)
+      const sample = getRecords().find((r) => r.phase === 'sample')
+      expect(sample?.systemText).toMatch(/rawContent/i)
     })
 
     it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE} — greenfield turn keeps default search_replace description`, async () => {
@@ -3768,29 +3868,25 @@ describe('agent runner evaluation harness', () => {
       expect(sample?.systemText).toContain(WORK_ITERATIVE_EDIT_MARKER)
     })
 
-    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_PREFER_PROPOSE_NUDGE} — S&R after read injects scope shape nudge once`, async () => {
-      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-scope-nudge-136-'))
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_PREFER_PROPOSE_NUDGE} — no commit_proposal after 1 S&R; nudge after 2 failures (144)`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-scope-nudge-144-'))
       const scriptPath = join(root, 'script.js')
       const original = staticTodoValidFiles().js
       writeFileSync(scriptPath, original, 'utf8')
       writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
-      const projectId = 'eval-iterative-scope-nudge-136'
+      const projectId = 'eval-iterative-scope-nudge-144'
       seedSmallVanillaWorkspaceIndex(projectId, root)
       const hash = computeAgentContentHash(original)
 
       let sampleCount = 0
-      let scopeShapeNudgeCount = 0
-      let thrashNudgeCount = 0
+      let midTurnNudgeCount = 0
       const transport: AgentChatModelTransport = {
         async sampleChatCompletion(request) {
           sampleCount += 1
           for (const m of request.messages) {
             if (m.role !== 'user' || typeof m.content !== 'string') continue
-            if (m.content.includes(ITERATIVE_EDIT_SCOPE_SHAPE_NUDGE_MARKER)) {
-              scopeShapeNudgeCount += 1
-            }
-            if (m.content.includes(ITERATIVE_EDIT_THRASH_NUDGE_MARKER)) {
-              thrashNudgeCount += 1
+            if (m.content.includes(INCREMENTAL_EDIT_MID_TURN_NUDGE_MARKER)) {
+              midTurnNudgeCount += 1
             }
           }
 
@@ -3830,14 +3926,34 @@ describe('agent runner evaluation harness', () => {
             }
           }
           if (sampleCount === 3) {
-            expect(scopeShapeNudgeCount).toBe(1)
-            expect(thrashNudgeCount).toBe(0)
+            expect(midTurnNudgeCount).toBe(0)
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-sr-2',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: scriptPath,
+                      old_string: 'ALSO_NOT_ON_DISK',
+                      new_string: 'const y = 2;\n',
+                      expectedContentHash: hash,
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 4) {
+            expect(midTurnNudgeCount).toBe(1)
             return { content: '', toolCalls: [] }
           }
           return { content: '', toolCalls: [] }
         },
         async streamFinalAnswer(_request, _signal, emitChunk) {
-          emitChunk('Use propose_file_edits with full rawContent.')
+          emitChunk('Escalate to propose_file_edits with full rawContent.')
         },
       }
 
@@ -3852,36 +3968,26 @@ describe('agent runner evaluation harness', () => {
       })
       matrixRestores.push(restore)
 
-      expect(scopeShapeNudgeCount).toBe(1)
-      expect(thrashNudgeCount).toBe(0)
+      expect(midTurnNudgeCount).toBe(1)
     })
 
-    it('routing:post_plan_incremental — no iterative thrash nudges on post-plan follow-up', async () => {
-      const root = mkdtempSync(join(tmpdir(), 'gf-eval-post-plan-no-thrash-135-'))
+    it('routing:post_plan_incremental — stops tool_sample after edit proposal on post-plan follow-up (144)', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-post-plan-stop-proposal-144-'))
       const file = join(root, 'src', 'app.ts')
       mkdirSync(dirname(file), { recursive: true })
-      writeFileSync(file, 'export const todos: string[] = [];\n', 'utf8')
+      const original = 'export const todos: string[] = [];\n'
+      writeFileSync(file, original, 'utf8')
       writeFileSync(join(root, 'package.json'), '{"name":"eval-app"}\n', 'utf8')
-      const projectId = 'eval-post-plan-no-thrash-135'
+      const projectId = 'eval-post-plan-stop-proposal-144'
       seedApprovedPlanArtifact(projectId)
       seedPopulatedWorkspaceIndex(projectId, root)
-      const hash = computeAgentContentHash('export const todos: string[] = [];\n')
+      const hash = computeAgentContentHash(original)
+      const updated = `${original}// added\n`
 
       let sampleCount = 0
-      let sawThrashNudge = false
       const transport: AgentChatModelTransport = {
-        async sampleChatCompletion(request) {
+        async sampleChatCompletion() {
           sampleCount += 1
-          if (
-            request.messages.some(
-              (m) =>
-                m.role === 'user' &&
-                typeof m.content === 'string' &&
-                m.content.includes(ITERATIVE_EDIT_THRASH_NUDGE_MARKER),
-            )
-          ) {
-            sawThrashNudge = true
-          }
           if (sampleCount === 1) {
             return {
               content: '',
@@ -3897,44 +4003,53 @@ describe('agent runner evaluation harness', () => {
               ],
             }
           }
-          if (sampleCount === 2 || sampleCount === 3) {
+          if (sampleCount === 2) {
             return {
               content: '',
               toolCalls: [
                 {
-                  id: `tc-sr-${sampleCount}`,
+                  id: 'tc-propose',
                   type: 'function',
                   function: {
-                    name: 'search_replace',
+                    name: 'propose_file_edits',
                     arguments: JSON.stringify({
-                      path: file,
-                      old_string: 'NOT_ON_DISK',
-                      new_string: 'export const todos: string[] = ["a"];\n',
-                      expectedContentHash: hash,
+                      version: 1,
+                      operations: [
+                        {
+                          op: 'write_file',
+                          path: file,
+                          content: updated,
+                          expectedContentHash: hash,
+                        },
+                      ],
                     }),
                   },
                 },
               ],
             }
           }
-          return { content: '', toolCalls: [] }
+          throw new Error('should not sample tools after post-plan edit proposal')
         },
         async streamFinalAnswer(_request, _signal, emitChunk) {
           emitChunk('Added button.')
         },
       }
 
-      const { getRecords, restore } = await setupEvalTurn({
+      const { getRecords, payloads, restore } = await setupEvalTurn({
         root,
         projectId,
         innerTransport: transport,
-        payload: baseEvalPayload('eval-post-plan-no-thrash', 'add delete button'),
+        payload: baseEvalPayload('eval-post-plan-stop-proposal', 'add delete button'),
       })
       matrixRestores.push(restore)
 
-      expect(sawThrashNudge).toBe(false)
+      expect(sampleCount).toBe(2)
+      expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(true)
+      const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
+      expect(trace.harnessMetrics?.stoppedAfterProposal).toBe(true)
+      expect(trace.harnessMetrics?.postPlanIncremental).toBe(true)
       const sample = getRecords().find((r) => r.phase === 'sample')
-      expect(sample?.systemText).not.toContain(ITERATIVE_EDIT_SCOPE_MARKER)
+      expect(sample?.systemText).toContain(POST_PLAN_INCREMENTAL_MARKER)
     })
 
     it(`${AGENT_EVAL_TAG_AGENT_PLANNER} — rejects propose_file_edits when model requests it`, async () => {

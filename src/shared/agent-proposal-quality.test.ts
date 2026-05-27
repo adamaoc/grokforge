@@ -8,6 +8,7 @@ import {
   resolveCrushedMarkdownRejectionReason,
   TITLE_ONLY_MARKDOWN_STUB_REASON,
   tryRepairMarkdownProposalFromDisk,
+  formatProposalValidationError,
 } from './agent-proposal-quality'
 
 describe('isUnacceptableCrushedMarkdownProposal', () => {
@@ -131,5 +132,18 @@ The goal is to provide a lightweight, visual way to track tasks and workflows.`
     )
     const diag = diagnoseMarkdownProposalRepair(original, '# TaskBoard Overview', '/proj/docs/overview.md')
     expect(diag.repairSkipReason).toBe('title_only_stub')
+  })
+})
+
+describe('formatProposalValidationError', () => {
+  it('appends JavaScript layout hint for crushed .js rejections', () => {
+    const msg = formatProposalValidationError([
+      {
+        path: '/proj/script.js',
+        reason: 'JavaScript file looks crushed (statements glued',
+      },
+    ])
+    expect(msg).toMatch(/script\.js:/)
+    expect(msg).toMatch(/one statement per line/i)
   })
 })
