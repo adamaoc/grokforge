@@ -309,10 +309,10 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">126 stories</span>
-        <span class="pill">Done: 116</span>
+        <span class="pill">129 stories</span>
+        <span class="pill">Done: 121</span>
         <span class="pill">Closed: 6</span>
-        <span class="pill">Post-MVP: 4</span>
+        <span class="pill">Post-MVP: 2</span>
         <span class="pill">Generated 2026-05-26</span>
       </div>
       <div class="story-filters">
@@ -9269,10 +9269,10 @@ chatMode (062)
 <p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-126" data-status="post-mvp">
+      <details id="story-126" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">126</span><span class="story-name">Agent terminal command execution (safe, reviewable)</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -9280,7 +9280,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/126-agent-terminal-command-execution.md">post-mvp/126-agent-terminal-command-execution.md</a>
           </div>
           <h2>126 — Agent terminal command execution (safe, reviewable, non-regressing)</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
 <p><strong>Priority:</strong> <strong>Higher than <a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong> — real project init and verification depend on approved commands; scaffolding story assumes this path is reliable.</p>
 <p><strong>Design skill:</strong> Required — read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> (<code>@styleguide-design</code>) for approval cards, activity rows, Settings copy, and temperament-aware affordances.</p>
 <h3>Why this story exists</h3>
@@ -9357,27 +9357,27 @@ chatMode (062)
 <h3>Acceptance criteria</h3>
 <h4>Safety and control</h4>
 <ul>
-<li><input type="checkbox" disabled> Every model-requested command in V1 requires explicit user approval before spawn (no silent runs).</li>
-<li><input type="checkbox" disabled> Hard-deny patterns remain blocked; policy unit tests cover scaffold/install/diagnostic examples.</li>
-<li><input type="checkbox" disabled> Rejected or timed-out commands return clear tool results; model final answer does not claim success.</li>
-<li><input type="checkbox" disabled> Human PTY remains unavailable to the agent (regression test or contract comment in <strong>053</strong> style).</li>
+<li><input type="checkbox" disabled checked> Every model-requested command in V1 requires explicit user approval before spawn (no silent runs).</li>
+<li><input type="checkbox" disabled checked> Hard-deny patterns remain blocked; policy unit tests cover scaffold/install/diagnostic examples.</li>
+<li><input type="checkbox" disabled checked> Rejected or timed-out commands return clear tool results; model final answer does not claim success.</li>
+<li><input type="checkbox" disabled checked> Human PTY remains unavailable to the agent (regression test or contract comment in <strong>053</strong> style).</li>
 </ul>
 <h4>Product behavior</h4>
 <ul>
-<li><input type="checkbox" disabled> Manual: empty folder → plan with “npm install” / “typecheck” → execute turn shows <strong>command approval card</strong> with cwd, purpose, and policy reason.</li>
-<li><input type="checkbox" disabled> Manual: approved <code>npm run typecheck</code> (or equivalent) shows exit code and truncated output in activity; workspace tree reflects new files after <code>npm create</code> when applicable.</li>
-<li><input type="checkbox" disabled> Plan/execute UI surfaces pending command approval when a turn has both proposal and command awaiting user action.</li>
+<li><input type="checkbox" disabled checked> Manual: empty folder → plan with “npm install” / “typecheck” → execute turn shows <strong>command approval card</strong> with cwd, purpose, and policy reason.</li>
+<li><input type="checkbox" disabled checked> Manual: approved <code>npm run typecheck</code> (or equivalent) shows exit code and truncated output in activity; workspace tree reflects new files after <code>npm create</code> when applicable.</li>
+<li><input type="checkbox" disabled checked> Plan/execute UI surfaces pending command approval when a turn has both proposal and command awaiting user action.</li>
 </ul>
 <h4>Non-regression</h4>
 <ul>
-<li><input type="checkbox" disabled> Manual: existing multi-file project — incremental “add button” / CSS tweak still uses <strong>Work</strong> executor + <code>propose_file_edits</code> without extra plan cycles (<strong>120</strong>).</li>
-<li><input type="checkbox" disabled> <code>npm run test:agent-eval</code> passes; no new failures in edit validation / merge / S&amp;R escalation tests.</li>
-<li><input type="checkbox" disabled> Trust and Velocity temperaments: file review/auto-apply behavior unchanged; commands always approval-gated.</li>
+<li><input type="checkbox" disabled checked> Manual: existing multi-file project — incremental “add button” / CSS tweak still uses <strong>Work</strong> executor + <code>propose_file_edits</code> without extra plan cycles (<strong>120</strong>).</li>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> passes; no new failures in edit validation / merge / S&amp;R escalation tests.</li>
+<li><input type="checkbox" disabled checked> Trust and Velocity temperaments: file review/auto-apply behavior unchanged; commands always approval-gated.</li>
 </ul>
 <h4>Docs and bookkeeping</h4>
 <ul>
-<li><input type="checkbox" disabled> <code>AGENTS.md</code> and harness eval checklist describe command approval happy path.</li>
-<li><input type="checkbox" disabled> When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</li>
+<li><input type="checkbox" disabled checked> <code>AGENTS.md</code> and harness eval checklist describe command approval happy path.</li>
+<li><input type="checkbox" disabled checked> When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</li>
 </ul>
 <h3>Related</h3>
 <ul>
@@ -9392,10 +9392,10 @@ chatMode (062)
 <p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> if debt row added, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-127" data-status="post-mvp">
+      <details id="story-127" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">127</span><span class="story-name">Greenfield project scaffolding and initialization</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -9403,7 +9403,7 @@ chatMode (062)
             <a class="story-link" href="post-mvp/127-greenfield-project-scaffolding-and-initialization.md">post-mvp/127-greenfield-project-scaffolding-and-initialization.md</a>
           </div>
           <h2>127 — Greenfield project scaffolding and initialization</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
 <p><strong>Priority:</strong> <strong>Lower than <a href="126-agent-terminal-command-execution.md">126</a></strong> — CLI scaffold/install commands should be dependable first; this story improves multi-file bootstrap and validation either way, but full “<code>npm create vite</code>” success path is <strong>much easier after 126</strong>.</p>
 <p><strong>Design skill:</strong> N/A for harness-only phases; read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> if proposal rejection copy, Plan card scaffold summary, or Settings scaffolding hints change.</p>
 <h3>Why this story exists</h3>
@@ -9430,9 +9430,10 @@ chatMode (062)
 <li>Cap retry fan-out (align with <strong>116</strong> S&amp;R limits) so greenfield turns don’t stall in “thinking.”</li>
 <li>Final-answer contract: honest partial scaffold (“created <code>index.html</code> and <code>styles.css</code>; <code>package.json</code> rejected — fix: …”).</li>
 </ul>
-<h4>4. Work with terminal execution (<strong>126</strong>)</h4>
+<h4>4. Work with terminal execution (<strong>126</strong>) and scaffold strategy (<strong>128</strong>)</h4>
 <ul>
 <li>When <strong>126</strong> is available: executor should <strong><code>run_command</code></strong> for <code>npm create</code>, <code>npm install</code>, <code>git init</code>, then <strong><code>read_file</code></strong> / <strong><code>propose_file_edits</code></strong> only for customization — not reinventing the template tree by hand.</li>
+<li><strong>Do not mix CLI scaffold and hand-written template files in the same turn</strong> — see <strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong> for CLI-first vs file-bootstrap routing.</li>
 <li>When <strong>126</strong> is not yet shipped: still improve file-only scaffold quality; document manual terminal fallback in plan card copy.</li>
 </ul>
 <h4>5. Regression prevention (mandatory)</h4>
@@ -9476,19 +9477,19 @@ chatMode (062)
 <h3>Acceptance criteria</h3>
 <h4>Scaffolding quality</h4>
 <ul>
-<li><input type="checkbox" disabled> Eval: greenfield fixture — approve-and-run with Vite+React+TS plan → valid <code>package.json</code> (parseable) and at least one entry file pass validation without manual user coaching.</li>
-<li><input type="checkbox" disabled> Eval: static HTML/CSS/JS plan → valid separate <code>script.js</code> (non-crushed) passes <strong>124</strong>-style checks.</li>
-<li><input type="checkbox" disabled> Eval: intentionally invalid <code>package.json</code> → rejection reason mentions fix strategy (valid JSON, use <code>npm init</code> / <strong>126</strong> command, full <code>rawContent</code>).</li>
+<li><input type="checkbox" disabled checked> Eval: greenfield fixture — approve-and-run with Vite+React+TS plan → valid <code>package.json</code> (parseable) and at least one entry file pass validation without manual user coaching.</li>
+<li><input type="checkbox" disabled checked> Eval: static HTML/CSS/JS plan → valid separate <code>script.js</code> (non-crushed) passes <strong>124</strong>-style checks.</li>
+<li><input type="checkbox" disabled checked> Eval: intentionally invalid <code>package.json</code> → rejection reason mentions fix strategy (valid JSON, use <code>npm init</code> / <strong>126</strong> command, full <code>rawContent</code>).</li>
 </ul>
 <h4>Recovery and honesty</h4>
 <ul>
-<li><input type="checkbox" disabled> Eval: partial batch (config rejected, markup accepted) → one recovery nudge; final answer does not claim full scaffold complete.</li>
+<li><input type="checkbox" disabled checked> Eval: partial batch (config rejected, markup accepted) → one recovery nudge; final answer does not claim full scaffold complete.</li>
 <li><input type="checkbox" disabled> Manual (Trust): user can Apply successful files while fixing rejected path via follow-up turn without losing prior applied work (<strong>096</strong> undo still works).</li>
 </ul>
 <h4>Non-regression (existing projects)</h4>
 <ul>
-<li><input type="checkbox" disabled> Eval: non-greenfield index + “add localStorage” / “add delete button” → <strong>executor</strong>, no new <code>gf-plan</code> requirement (<strong>120</strong>).</li>
-<li><input type="checkbox" disabled> Manual: mature repo incremental edit — same proposal / S&amp;R / merge behavior as pre-story baseline; <code>npm run test:agent-eval</code> clean.</li>
+<li><input type="checkbox" disabled checked> Eval: non-greenfield index + “add localStorage” / “add delete button” → <strong>executor</strong>, no new <code>gf-plan</code> requirement (<strong>120</strong>).</li>
+<li><input type="checkbox" disabled checked> Manual: mature repo incremental edit — same proposal / S&amp;R / merge behavior as pre-story baseline; <code>npm run test:agent-eval</code> clean.</li>
 </ul>
 <h4>Integration with <strong>126</strong> (when both shipped)</h4>
 <ul>
@@ -9496,8 +9497,8 @@ chatMode (062)
 </ul>
 <h4>Docs and bookkeeping</h4>
 <ul>
-<li><input type="checkbox" disabled> Field report or harness checklist entry for scaffold happy path updated.</li>
-<li><input type="checkbox" disabled> When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</li>
+<li><input type="checkbox" disabled checked> Field report or harness checklist entry for scaffold happy path updated.</li>
+<li><input type="checkbox" disabled checked> When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</li>
 </ul>
 <h3>Related</h3>
 <ul>
@@ -9508,6 +9509,233 @@ chatMode (062)
 <li><strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong> — normalize patterns</li>
 <li><strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong> — Plan → Work lifecycle</li>
 <li>Field reports: <a href="../../docs/field-reports/grokforge-todoapp-comparison.md"><code>docs/field-reports/grokforge-todoapp-comparison.md</code></a></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-128" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">128</span><span class="story-name">Greenfield scaffold strategy routing (CLI vs file-first)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/128-greenfield-scaffold-strategy-routing.md">post-mvp/128-greenfield-scaffold-strategy-routing.md</a>
+          </div>
+          <h2>128 — Greenfield scaffold strategy routing (CLI vs file-first)</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Priority:</strong> <strong>After <a href="126-agent-terminal-command-execution.md">126</a>, alongside or before <a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong> — <strong>126</strong> made CLI scaffolding possible; this story stops the model from <strong>mixing CLI and hand-written files in the same turn</strong>, which dogfood showed is worse than either approach alone. <strong>127</strong> improves bootstrap file quality and recovery; <strong>128</strong> owns <strong>which path to take</strong> and <strong>when not to combine them</strong>.</p>
+<p><strong>Design skill:</strong> N/A for harness-only work; read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> if Plan card or execute outcome copy surfaces scaffold-strategy hints.</p>
+<h3>Why this story exists</h3>
+<p>Story <strong>126</strong> shipped command approval, plan-verify nudges, and executor copy that says “prefer <code>run_command</code> for <code>npm create</code> / <code>npm install</code>.” In practice, models often <strong>do both</strong> in one execute turn:</p>
+<p>| Observed hybrid behavior | Symptom | Why it hurts | |--------------------------|---------|--------------| | <strong><code>npm create</code> + hand-written <code>index.html</code> / <code>package.json</code> in same turn</strong> | Blank or stub <code>index.html</code> proposals; <code>package.json</code> rejected as corrupt/incomplete | CLI template and manual files <strong>fight</strong> for the same paths; validation runs against incomplete stubs before the user approves the command | | <strong>CLI scaffold pending approval + immediate <code>propose_file_edits</code></strong> | User sees command card <strong>and</strong> diff review; disk state unclear | Two write surfaces with no ordering contract — user cannot tell which source of truth “won” | | <strong>Partial CLI success + full-file rewrite of generated tree</strong> | <code>npm create</code> lands files; model proposes crushed one-line overwrites | Wastes generated layout; <strong>124</strong> rejection churn on paths the CLI already created correctly | | <strong>Static HTML plan + <code>npm create vite</code> anyway</strong> | Wrong project shape; missing or duplicate entry files | No <strong>scaffold kind</strong> decision — harness encourages CLI generically without matching plan shape |</p>
+<p>Users report this as <strong>regression-like confusion</strong> after <strong>126</strong>: command tooling is visible, but outcomes are <strong>less predictable</strong> than file-only greenfield bootstrap (<strong>124</strong>) or a clean CLI-first beat (Codex/Cursor field reports).</p>
+<p>Root cause: harness copy <strong>encourages both</strong> <code>run_command</code> and <code>propose_file_edits</code> on greenfield execute without a <strong>mutually exclusive strategy</strong>, turn-phase ordering, or runner guard when both appear in one tool sample.</p>
+<h3>Goals</h3>
+<h4>1. Explicit scaffold strategy in harness prompts</h4>
+<p>Add a <strong>single decision block</strong> (greenfield execute + execute-from-plan) that the model must follow:</p>
+<p>| Strategy | When | Tools this turn / phase | After success | |----------|------|-------------------------|---------------| | <strong><code>cli_scaffold</code></strong> | Plan or user asks for Vite/React/Next/npm template, <code>npm create</code>, <code>npm init</code>, or framework CLI | <strong><code>run_command</code> only</strong> for create/install/init — <strong>no</strong> <code>propose_file_edits</code> / <code>search_replace</code> on template paths until CLI succeeds and index refreshes | <code>read_file</code> generated files; <strong><code>propose_file_edits</code> only for customization</strong> (README, components, styling) | | <strong><code>file_bootstrap</code></strong> | Plan specifies <strong>static</strong> multi-file site (HTML/CSS/JS) with <strong>no</strong> package manager / build step | <strong><code>propose_file_edits</code></strong> for all new paths — <strong>no</strong> <code>npm create</code> / <code>npm init</code> unless user explicitly asked | Optional <strong><code>run_command</code></strong> only for verify (<code>open in browser</code> stays manual) | | <strong><code>cli_then_customize</code></strong> | Approved plan lists CLI step <strong>then</strong> customization files | <strong>Phase 1:</strong> command(s) only. <strong>Phase 2</strong> (after tool success + refresh): edits only | Never interleave command request and full-tree <code>write_file</code> in the <strong>same</strong> tool round |</p>
+<p>Copy should live in <a href="../../src/shared/agent-harness-profile.ts"><code>agent-harness-profile.ts</code></a> (<code>GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS</code>, <code>EXECUTOR_FROM_PLAN_SECTIONS</code>) with a stable eval marker (e.g. <code>SCAFFOLD_STRATEGY_ROUTING_MARKER</code>).</p>
+<h4>2. Lightweight decision heuristic (shared + runner)</h4>
+<p>Extend <a href="../../src/shared/agent-command-intent.ts"><code>agent-command-intent.ts</code></a> and/or <a href="../../src/shared/workspace-greenfield.ts"><code>workspace-greenfield.ts</code></a>:</p>
+<ul>
+<li><strong><code>resolveScaffoldStrategy(input)</code></strong> → <code>'cli_scaffold' | 'file_bootstrap' | 'ambiguous'</code> using:</li>
+<li>approved plan text (<code>npm create</code>, <code>vite</code>, <code>package.json</code> + install step vs static <code>index.html</code> only)</li>
+<li>user message (“scaffold”, “initialize”, “new vite app”, “static todo page”)</li>
+<li>workspace greenfield signal (<strong>101</strong>)</li>
+<li><strong><code>planImpliesCliScaffold(plan)</code></strong> / <strong><code>planImpliesFileBootstrap(plan)</code></strong> — narrow regex + plan <code>filesLikelyTouched</code> heuristics (avoid false positives on “add button” in populated repos).</li>
+</ul>
+<p><strong>Runner (<a href="../../src/main/agent-runner.ts"><code>agent-runner.ts</code></a>):</strong></p>
+<ul>
+<li>When <strong><code>cli_scaffold</code></strong> and first tool sample includes <strong><code>propose_file_edits</code></strong> / <strong><code>search_replace</code></strong> without a prior successful scaffold command this turn → inject <strong>one</strong> mid-turn nudge (<code>buildScaffoldStrategyNudge</code> in <a href="../../src/shared/agent-final-answer-contract.ts"><code>agent-final-answer-contract.ts</code></a>): stop hand-written template files; run CLI first.</li>
+<li>When <strong><code>file_bootstrap</code></strong> and sample includes <strong><code>run_command</code></strong> with <code>npm create</code> / <code>npm init</code> → nudge: use file proposals only unless user asked for CLI.</li>
+<li>When <strong>same tool round</strong> samples both <code>run_command</code> and edit tools on greenfield execute → nudge to <strong>pick one strategy</strong>; prefer CLI when plan names framework CLI, else file bootstrap.</li>
+<li>Optional <strong>soft guard:</strong> if <code>cli_scaffold</code> and command still <strong>awaiting approval</strong>, defer edit-tool execution message to model (document in PR — only if nudge alone insufficient).</li>
+</ul>
+<h4>3. Reduce conflicting same-turn behavior</h4>
+<ul>
+<li>Final-answer contract: if command <strong>awaiting approval</strong> or <strong>rejected</strong>, do not claim scaffold files are ready; if CLI succeeded but edits failed, say which phase completed (<strong>126</strong> command honesty + scaffold phase copy).</li>
+<li>Activity / plan execute UI (<strong>123</strong>): when command approval pending during greenfield execute, surface “CLI scaffold step awaiting approval — file proposals may be premature” (reuse <code>formatPlanExecutePendingSummary</code> pattern from <strong>126</strong>).</li>
+<li>Planner (<strong><a href="../../src/shared/gf-plan-contract.ts"><code>gf-plan-contract.ts</code></a></strong>): optional one-line <strong><code>scaffoldStrategy</code></strong> hint in plan quality copy (<code>cli</code> vs <code>static_files</code>) — structured schema field <strong>only if prompts fail eval</strong>.</li>
+</ul>
+<h4>4. Safety and non-regression (mandatory)</h4>
+<ul>
+<li><strong>Commands still require approval</strong> (<strong>126</strong> / <strong>059</strong>) — no auto-run, no velocity bypass.</li>
+<li><strong>Existing-project Work mode:</strong> heuristic must <strong>not</strong> fire on incremental edits (<strong>120</strong>); gate on <code>isGreenfieldWorkspace()</code> + scaffold intent, not bare <code>npm</code> in user text.</li>
+<li><strong>Post-plan incremental:</strong> no scaffold-strategy nudges when <strong>120</strong> post-plan routing applies.</li>
+<li><strong>Trust / Velocity:</strong> file review semantics unchanged (<strong>118</strong>); strategy routing does not auto-apply commands or files.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-command-intent.ts"><code>src/shared/agent-command-intent.ts</code></a> — <code>resolveScaffoldStrategy</code>, plan/message helpers (or new <code>agent-scaffold-strategy.ts</code> if cleaner)</li>
+<li><a href="../../src/shared/workspace-greenfield.ts"><code>src/shared/workspace-greenfield.ts</code></a> — optional <code>scaffoldIntentFromPlan(plan)</code> helper</li>
+<li><a href="../../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a> — strategy table in greenfield execute / execute-from-plan sections; rebalance fast profile so “bias to propose_file_edits” applies to <strong>file_bootstrap</strong> only</li>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — <code>buildScaffoldStrategyNudge</code>, hybrid-scaffold honesty appendix</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — detect hybrid tool samples; inject nudge; track <code>scaffoldStrategy</code> per turn for final contract</li>
+<li><a href="../../src/shared/gf-plan-contract.ts"><code>src/shared/gf-plan-contract.ts</code></a> — planner copy: declare <code>cli</code> vs <code>static_files</code> in plan when obvious</li>
+<li><a href="../../src/renderer/src/lib/plan-execute-outcome.ts"><code>src/renderer/src/lib/plan-execute-outcome.ts</code></a> — optional pending CLI + file proposal copy (coordinate <strong>126</strong>)</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> — hybrid and strategy-routing fixtures</li>
+<li><a href="../../src/shared/agent-command-intent.test.ts"><code>src/shared/agent-command-intent.test.ts</code></a> / new strategy tests</li>
+<li>Docs: <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> — manual “CLI-only first turn” smoke</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Replacing <strong><code>propose_file_edits</code></strong> with shell heredocs or <code>echo &gt; file</code> for routine edits.</li>
+<li>Auto-running <code>npm create</code> without approval (<strong>126</strong> owns policy).</li>
+<li>Full <strong><code>gf-plan</code> schema</strong> redesign (<code>scaffoldKind</code> enum in JSON) unless prompt + heuristic evals fail.</li>
+<li><strong>127</strong> validation/normalization work (JSON normalize, <code>package.json</code> recovery) — reference, don’t duplicate.</li>
+<li>Blocking edit tools <strong>hard</strong> at the tool-filter layer (prefer nudge + contract first; hard filter only if eval proves nudge insufficient).</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Regression: existing-project edits</strong> | Strategy resolution returns <code>null</code> / no-op when not greenfield + not scaffold intent; eval “add button” fixture (<strong>120</strong>) | | <strong>Regression: static HTML greenfield</strong> | <code>file_bootstrap</code> path must not nudge toward <code>npm create</code>; eval static todo plan | | <strong>Over-correction: CLI-only then stuck</strong> | After successful <code>npm create</code>, nudge toward read + customize; index refresh (<strong>126</strong>) before phase 2 | | <strong>False CLI detection</strong> | Require plan step or user text match; don’t treat “npm run test” in mature repo as scaffold | | <strong>Nudge fatigue</strong> | One mid-turn nudge per strategy conflict type per turn (mirror <strong>116</strong> / <strong>126</strong> caps) |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="126-agent-terminal-command-execution.md">126</a></strong> (command path must exist), <strong>101</strong> (greenfield), <strong>124</strong> (proposal quality), <strong>123</strong> (execute outcome honesty), <strong>120</strong> (routing guards).</li>
+<li><strong>Complements:</strong> <strong><a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong> — <strong>128</strong> = strategy choice; <strong>127</strong> = file quality once strategy is chosen.</li>
+<li><strong>Does not require:</strong> <strong>122</strong> dynamic catalog.</li>
+</ul>
+<h3>Suggested eval / manual tags</h3>
+<p>| Tag | Intent | |-----|--------| | <code>behavior:scaffold_cli_only_first</code> | Vite plan + greenfield execute → first tool sample is <code>run_command</code> only, no <code>propose_file_edits</code> | | <code>behavior:scaffold_file_bootstrap_static</code> | Static HTML plan → <code>propose_file_edits</code> only, no <code>npm create</code> | | <code>behavior:scaffold_hybrid_nudge</code> | Model samples CLI + edits same round → harness injects strategy nudge with marker | | <code>routing:existing_project_no_scaffold_nudge</code> | Populated index + “add CSS” → no scaffold strategy nudge |</p>
+<h3>Acceptance criteria</h3>
+<h4>Strategy selection</h4>
+<ul>
+<li><input type="checkbox" disabled checked> Eval: greenfield + approved plan with <code>npm create vite</code> / Vite in steps → first tool sample contains <strong><code>run_command</code></strong> and <strong>not</strong> <code>propose_file_edits</code> (or nudge fires before final if model mixes).</li>
+<li><input type="checkbox" disabled checked> Eval: greenfield + static HTML/CSS/JS plan (no package manager) → first sample uses <strong><code>propose_file_edits</code></strong> only; no <code>npm create</code> nudge.</li>
+<li><input type="checkbox" disabled checked> Eval: hybrid same-round sample (CLI + edits) → exactly one <strong><code>buildScaffoldStrategyNudge</code></strong> injected; marker present in messages.</li>
+</ul>
+<h4>Recovery and honesty</h4>
+<ul>
+<li><input type="checkbox" disabled checked> Eval: CLI command rejected → final answer does not claim project scaffolded; no “files ready to apply” for template paths.</li>
+<li><input type="checkbox" disabled> Eval: CLI succeeds (mock) → follow-up sample may use <code>read_file</code> + targeted <code>propose_file_edits</code>; harness copy allows customization only.</li>
+<li><input type="checkbox" disabled> Manual: approve-and-run Vite plan → user sees command approval <strong>before</strong> diff review for template files (or model waits until after command).</li>
+</ul>
+<h4>Non-regression</h4>
+<ul>
+<li><input type="checkbox" disabled checked> Eval: non-greenfield + incremental edit intent → <strong>no</strong> scaffold strategy nudge (<strong>120</strong>).</li>
+<li><input type="checkbox" disabled checked> Eval: <strong>126</strong> plan-verify command nudge still fires when appropriate; <strong>124</strong> partial-batch nudge unchanged.</li>
+<li><input type="checkbox" disabled> Manual: mature repo “add delete button” → single <code>propose_file_edits</code> path; no command approval card.</li>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> passes; <code>npm run typecheck</code> clean.</li>
+</ul>
+<h4>Docs and bookkeeping</h4>
+<ul>
+<li><input type="checkbox" disabled checked> <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> — add scaffold strategy smoke (CLI-first vs static file-first).</li>
+<li><input type="checkbox" disabled checked> When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="126-agent-terminal-command-execution.md">126</a></strong> — command execution (shipped; triggered hybrid failure mode)</li>
+<li><strong><a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong> — bootstrap validation and recovery</li>
+<li><strong><a href="101-greenfield-plan-quality.md">101</a></strong> — planner greenfield appendix</li>
+<li><strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong> — crushed HTML/JS rejection</li>
+<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — post-plan routing guards</li>
+<li>Field reports: <a href="../../docs/field-reports/grokforge-todoapp-comparison.md"><code>docs/field-reports/grokforge-todoapp-comparison.md</code></a></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-129" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">129</span><span class="story-name">Iterative work stability (populated workspaces)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/129-iterative-work-stability-populated-workspaces.md">post-mvp/129-iterative-work-stability-populated-workspaces.md</a>
+          </div>
+          <h2>129 — Iterative work stability (populated workspaces)</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Design skill:</strong> N/A (harness + activity UX); optional renderer touch per <a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md"><code>125</code></a>.</p>
+<h3>Why this story exists</h3>
+<p><strong>Dogfood (2026-05-26, Scaffold-Test Vite app):</strong> After greenfield/scaffold quality improved (<strong>127</strong> / <strong>128</strong>), <strong>Work-mode</strong> feature edits on existing projects showed repeated <strong>“Planning tool step stopped”</strong> rows, turn <strong>timeouts</strong> mid-discovery, and no edit proposal despite reasonable prompts.</p>
+<p><strong>120</strong> fixed post-plan incremental follow-ups; this story targets <strong>populated repos without a fresh plan</strong> (e.g. <code>npm create</code> Vite tree + “replace home with task app”).</p>
+<h3>Goals</h3>
+<ol>
+<li><strong>Activity honesty:</strong> Per tool_sample round completes as <strong>Work tool round</strong> (not “Planning”); only still-<code>running</code> rows become stopped on error.</li>
+<li><strong>Turn budget:</strong> Adaptive turn timeout from tool-round cap; <strong>interrupted</strong> receipt + pending-proposal hint when timeout fires after <code>edit_proposal</code>.</li>
+<li><strong>Executor routing:</strong> Populated workspace + edit-intent Work → <strong>executor</strong> + <strong>execution</strong> model (no forced <code>gf-plan</code>).</li>
+<li><strong>Discovery cap:</strong> Harness appendix + one-shot <strong>discovery saturation</strong> nudge after excessive read-only rounds.</li>
+<li><strong>Safety net:</strong> Default profile tool_sample <strong>8192</strong> tokens; trim thread snapshot on populated edit turns.</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Replacing Plan mode or <strong>120</strong> post-plan routing.</li>
+<li>Full thread summarization / multi-turn memory rewrite.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../src/shared/populated-workspace-edit.ts"><code>src/shared/populated-workspace-edit.ts</code></a></li>
+<li><a href="../src/shared/agent-turn-routing.ts"><code>src/shared/agent-turn-routing.ts</code></a>, <a href="../src/shared/agent-profile.ts"><code>src/shared/agent-profile.ts</code></a></li>
+<li><a href="../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a>, <a href="../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a></li>
+<li><a href="../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a></li>
+<li><a href="../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a></li>
+<li><a href="../src/shared/agent-activity-display.ts"><code>src/shared/agent-activity-display.ts</code></a></li>
+<li>Eval: <a href="../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> (<code>routing:existing_project_no_replan</code>)</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Eval: populated repo + incremental edit message → <strong>executor</strong> + <code>POPULATED_WORK_EDIT_MARKER</code> in system prompt.</li>
+<li><input type="checkbox" disabled checked> Work tool round activities mark <strong>done</strong> per round; error clear affects only <code>running</code> rows.</li>
+<li><input type="checkbox" disabled checked> <code>resolveAgentTurnTimeoutMs</code> scales with max tool iterations (cap 10m).</li>
+<li><input type="checkbox" disabled checked> Timeout after proposal → interrupted receipt + user-visible pending-diff hint.</li>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> and unit tests for populated-work routing pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong>, <strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong>, <strong><a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong>, <strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-130" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">130</span><span class="story-name">Work iterative edit harness (non-greenfield stability)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/130-work-iterative-edit-harness.md">post-mvp/130-work-iterative-edit-harness.md</a>
+          </div>
+          <h2>130 — Work iterative edit harness (non-greenfield stability)</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Design skill:</strong> N/A (harness only).</p>
+<h3>Why this story exists</h3>
+<p><strong>129</strong> fixed Work-mode instability on <strong>populated</strong> repos (package.json or large file counts). Dogfood still showed <strong>default</strong> profile and weak incremental guidance on <strong>smaller existing projects</strong> (e.g. vanilla HTML/JS without <code>package.json</code>) and heavy duplicated prompt/nudge text during long edit sessions.</p>
+<h3>Goals</h3>
+<ol>
+<li><strong>Broad routing:</strong> Any <strong>non-greenfield</strong> Work turn with edit intent → <strong>executor</strong> + <strong>execution</strong> model (not only <code>isPopulatedWorkspace</code>).</li>
+<li><strong>Structured harness:</strong> <code>WORK_ITERATIVE_EDIT_MARKER</code> appendix — bounded discovery, surgical edits, one proposal per turn.</li>
+<li><strong>Explore bias:</strong> Replace default “discover before proposing” with <strong>≤2 read-only rounds</strong> on iterative turns.</li>
+<li><strong>Lighter prompts:</strong> Slim final-answer contract and brief mid-turn nudges when iterative appendix is active; keep validation in <code>agent-edit-corrupt-content</code>.</li>
+</ol>
+<h3>Non-goals</h3>
+<ul>
+<li>Replacing <strong>120</strong> post-plan routing or <strong>129</strong> activity/timeout fixes.</li>
+<li>Removing corrupt-content or cascade guards.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../src/shared/iterative-work-edit.ts"><code>src/shared/iterative-work-edit.ts</code></a></li>
+<li><a href="../src/shared/agent-turn-routing.ts"><code>src/shared/agent-turn-routing.ts</code></a>, <a href="../src/shared/agent-profile.ts"><code>src/shared/agent-profile.ts</code></a></li>
+<li><a href="../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a>, <a href="../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a></li>
+<li><a href="../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a></li>
+<li>Eval: <a href="../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> (<code>routing:iterative_work_no_replan</code>)</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Eval: small vanilla repo (no package.json, non-greenfield) + edit message → <strong>executor</strong> + <code>WORK_ITERATIVE_EDIT_MARKER</code>.</li>
+<li><input type="checkbox" disabled checked> Existing <code>routing:existing_project_no_replan</code> still passes with harness 130 sections.</li>
+<li><input type="checkbox" disabled checked> Discovery saturation nudge fires at <strong>2</strong> read-only rounds on iterative turns.</li>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> and unit tests pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="129-iterative-work-stability-populated-workspaces.md">129</a></strong>, <strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong>, <strong><a href="../101-greenfield-plan-quality.md">101</a></strong></li>
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>

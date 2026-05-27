@@ -104,11 +104,60 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 
 ---
 
+## 12. Agent command approval — plan verify / install (126)
+
+- **Setup:** Empty or greenfield workspace; produce a plan with `verification: npm run typecheck` (or install step), **Approve and run**.
+- **Prompt:** Execute turn should request **`run_command`** (not only hand-written `package.json`).
+- **Expected:** Inline **Approve agent command?** card with cwd root, purpose, policy tier; activity shows exit code after approval. Rejected commands must not produce “verified” final-answer claims.
+- **Manual extras:** `git status` (diagnostic tier), `npm install` (network/install banner), soft-risk `rm -rf ./dist` requires checkbox before Approve.
+- **Automated:** `behavior:run_command_plan_verify`, `policy:npm_install`, `policy:git_status_safe` in `npm run test:agent-eval`.
+
+---
+
+## 13. Greenfield scaffold — package.json / multi-file bootstrap (127)
+
+- **Setup:** Empty workspace; produce a **Vite+React+TS** plan with `package.json`, `index.html`, `src/main.tsx` in `filesLikelyTouched`, **Approve and run**.
+- **Expected:** Valid minified `package.json` passes validation (pretty-printed in diff); multi-file plan does **not** inject single-file **120** bias; invalid JSON rejection mentions `npm create` / `run_command`.
+- **Scaffold commands:** Use full non-interactive Vite commands with `--template` (e.g. `npm create vite@latest . -- --template react-ts`); bare `npx create-vite@latest .` is rejected before approval with `suggestedCommand` in tool result.
+- **Post-scaffold verify:** After successful `npm create` / `npx create-vite`, agent should `read_file` on `package.json`, vite config, and entry files — not only `list_directory`; harness injects verification nudge when reads are missing.
+- **Partial recovery:** Invalid `package.json` + valid `index.html` in one batch → recovery nudge with **package.json** hint; final answer does not claim full scaffold complete.
+- **Non-regression:** Populated repo + “add localStorage” in Work mode → **default** profile, no forced `gf-plan`.
+- **Automated:** `behavior:greenfield_vite_scaffold`, `validation:package_json`, `recovery:scaffold_partial`, `routing:existing_project_no_replan` in `npm run test:agent-eval`.
+
+---
+
+## 14. Greenfield scaffold strategy — CLI vs file-first (128)
+
+- **Setup:** Empty workspace; **Vite+React+TS** plan with `npm create` step → **Approve and run**.
+- **Expected:** Harness includes scaffold strategy routing marker; model should sample **`run_command` only** first (no hand-written `package.json` in same round). Hybrid CLI + edits triggers **one** strategy nudge.
+- **Static plan:** HTML/CSS/JS plan without package manager → **`propose_file_edits` only**; no `npm create` nudge.
+- **Non-regression:** Populated repo + “add CSS” → no scaffold strategy nudge.
+- **UI:** When command approval and file review are both pending during execute, footer mentions CLI awaiting approval.
+- **Automated:** `behavior:scaffold_cli_only_first`, `behavior:scaffold_file_bootstrap_static`, `behavior:scaffold_hybrid_nudge`, `routing:existing_project_no_scaffold_nudge` in `npm run test:agent-eval`.
+
+---
+
+## 14. Non-greenfield Work edit (no replan)
+
+- **Setup A (Vite/React):** Open a scaffolded Vite + React project (`package.json`, `src/App.tsx`). **Work** mode, default chip (no Plan).
+- **Prompt A:** “Replace the home page with a simple task app (backlog, in progress, done).”
+- **Expected A:** `turn_started` → **executor** + **execution** model; system includes **Work iterative edit (harness 130)** and **Populated workspace iterative edit (harness 129)** markers; activity rows titled **Work tool round** that turn **done** after each round (not a wall of “Planning … stopped”).
+- **Setup B (small vanilla):** Open a multi-file vanilla site (`index.html`, `script.js`, …) **without** `package.json` (6+ non-trivial files, not greenfield). **Work** mode.
+- **Prompt B:** “Add a dark mode toggle to the page.”
+- **Expected B:** Same executor routing + harness **130** marker (no greenfield appendix).
+- **Expected (both):** At most ~2 read-only rounds before `propose_file_edits` or `search_replace`; edit proposal appears in chat when the model cooperates.
+- **Timeout:** Long turns may run up to ~10m budget; if timeout occurs **after** a proposal, chat still shows the diff review and an interrupted hint.
+- **Automated:** `routing:existing_project_no_replan`, `routing:iterative_work_no_replan` in `npm run test:agent-eval`.
+
+---
+
 ## Related
 
 - Story **063** — eval harness foundation  
 - Story **108** — per-profile matrix tests  
 - Story **115** — edit cascade guard after `search_replace` failures
-- Story **116** — search_replace failure escalation nudge + honest final-answer UX  
+- Story **116** — search_replace failure escalation nudge + honest final-answer UX
+- Story **129** — iterative Work stability on populated workspaces (executor routing, activity honesty, turn budget)
+- Story **130** — Work iterative edit harness (non-greenfield routing, bounded discovery, slim prompts)
 - [`AGENTS.md`](../AGENTS.md) — agent chat + harness eval policy  
 - [`docs/i-am-a-harness.md`](i-am-a-harness.md) — harness design reference

@@ -5,6 +5,8 @@ import {
   AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON,
   AGENT_EDIT_HTML_ENTITY_ARTIFACT_REASON,
   AGENT_EDIT_JAMMED_JS_FILE_REASON,
+  AGENT_EDIT_MALFORMED_JSX_REASON,
+  detectMalformedJsxAttributes,
   assessProposalWriteContent,
   detectCorruptEncoding,
   detectCorruptSourceLines,
@@ -14,7 +16,10 @@ import {
   recordIncompleteHtmlProposalFailure,
   shouldInjectIncompleteHtmlProposalNudge,
 } from './agent-edit-corrupt-content'
-import { normalizeAgentWriteFileContent } from './agent-file-content-normalize'
+import {
+  hasGluedJavaScriptStatements,
+  normalizeAgentWriteFileContent,
+} from './agent-file-content-normalize'
 
 const CORRUPT_SAMPLE = `<!DOCTYPE html>
 <html>
@@ -129,6 +134,38 @@ function b() {
     expect(r.reason).toBe(AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON)
   })
 
+  it('rejects glued imports in App.tsx-style source before normalize', () => {
+    const crushed =
+      "import { useState } from 'react'import './App.css'export default function App() { return null }"
+    expect(detectJammedJavaScriptFile(crushed, '/proj/src/App.tsx').jammed).toBe(true)
+  })
+
+  it('accepts App.tsx-style source after normalize repairs glued imports', () => {
+    const crushed =
+      "import { useState } from 'react'import './App.css'export default function App() { return null }"
+    const normalized = normalizeAgentWriteFileContent(crushed, '/proj/src/App.tsx')
+    expect(hasGluedJavaScriptStatements(normalized)).toBe(false)
+    expect(assessProposalWriteContent(normalized, { resolvedPath: '/proj/src/App.tsx' }).ok).toBe(
+      true,
+    )
+  })
+
+  it('rejects malformed escaped className in TSX', () => {
+    const bad = '<div className=\\"card\\">Hi</div>'
+    expect(detectMalformedJsxAttributes(bad, '/proj/App.tsx').malformed).toBe(true)
+    expect(detectMalformedJsxAttributes(bad, '/proj/App.tsx').reason).toBe(
+      AGENT_EDIT_MALFORMED_JSX_REASON,
+    )
+    expect(assessProposalWriteContent(bad, { resolvedPath: '/proj/App.tsx' }).ok).toBe(false)
+  })
+
+  it('rejects multi-line script with glued statements per line', () => {
+    const crushed = `let todos = [] function loadTodos() {
+const list = document.getElementById('todo-list') list.innerHTML = ''
+}`
+    expect(assessProposalWriteContent(crushed, { resolvedPath: '/proj/script.js' }).ok).toBe(false)
+  })
+
   it('rejects jammed standalone script.js', () => {
     const jammed =
       "const todos=[];function save(){localStorage.setItem('t',JSON.stringify(todos));}function init(){render();}updateCount();})// xfunction setup(){form.addEventListener('submit',onSubmit);}"
@@ -166,5 +203,26 @@ function b() {
     const r = detectHtmlEncodingArtifacts(artifact, '/proj/index.html')
     expect(r.artifact).toBe(true)
     expect(r.reason).toBe(AGENT_EDIT_HTML_ENTITY_ARTIFACT_REASON)
+  })
+
+  it('validation:package_json — rejects invalid new package.json before corrupt JS heuristics', () => {
+    const bad = '{name: todo}'
+    const r = assessProposalWriteContent(bad, {
+      resolvedPath: '/proj/package.json',
+      isNewFile: true,
+    })
+    expect(r.ok).toBe(false)
+    expect(r.reason).toMatch(/npm create|npm init|valid JSON/i)
+  })
+
+  it('validation:package_json — accepts minified valid package.json on new file', () => {
+    const minified = '{"name":"app","private":true}'
+    const normalized = normalizeAgentWriteFileContent(minified, '/proj/package.json')
+    const r = assessProposalWriteContent(normalized, {
+      resolvedPath: '/proj/package.json',
+      isNewFile: true,
+    })
+    expect(r.ok).toBe(true)
+    expect(normalized).toContain('"name": "app"')
   })
 })

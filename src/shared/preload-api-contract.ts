@@ -76,6 +76,7 @@ import type {
 } from './terminal-session-contract'
 import type { TtsReadAloudRequest, TtsReadAloudResult, TtsVerifyVoiceResult } from './tts-read-aloud-contract'
 import type { WorkspaceFsMutateRequest, WorkspaceFsMutateResult } from './workspace-fs-mutation-contract'
+import type { WorkspaceFsChangedPayload } from './workspace-fs-change-contract'
 import type { ClearXaiApiKeyResult, SetXaiApiKeyResult, XaiKeyStatusPayload } from './xai-key-settings-contract'
 import type { StageChatAttachmentPayload, StageChatAttachmentResult } from './chat-attachment-contract'
 
@@ -159,4 +160,5 @@ export type ElectronAPI = {
   onTerminalSessionExit(handler: (payload: TerminalSessionExit) => void): Unsubscribe
   onTerminalSessionError(handler: (payload: TerminalSessionError) => void): Unsubscribe
   onRecentProjectsChanged(handler: (payload: RecentProjectEntry[]) => void): Unsubscribe
+  onWorkspaceFsChanged(handler: (payload: WorkspaceFsChangedPayload) => void): Unsubscribe
 }

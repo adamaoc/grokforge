@@ -3,6 +3,7 @@ import type { AgentChatActivityPayload } from './agent-chat-contract'
 import {
   agentActivityPhaseLabel,
   agentActivityToolLabel,
+  agentToolRoundActivityTitle,
   collapseCompletedMiddleRows,
   compactAgentTurnActivities,
   formatRetrievalActivityCopy,
@@ -60,6 +61,20 @@ describe('agentActivityPhaseLabel', () => {
     expect(agentActivityPhaseLabel('plan')).toBe('Plan · tools')
     expect(agentActivityPhaseLabel('fast')).toBe('Work · tools')
     expect(agentActivityPhaseLabel(undefined)).toBe('Work · tools')
+  })
+})
+
+describe('agentToolRoundActivityTitle', () => {
+  it('uses Work label in fast mode', () => {
+    expect(agentToolRoundActivityTitle('fast', false)).toBe('Work tool round')
+  })
+
+  it('uses Plan label in plan mode', () => {
+    expect(agentToolRoundActivityTitle('plan', false)).toBe('Plan tool round')
+  })
+
+  it('uses execute label for approve-and-run', () => {
+    expect(agentToolRoundActivityTitle('fast', true)).toBe('Executing plan (model)')
   })
 })
 

@@ -89,14 +89,18 @@ function StatusDot({
       />
     )
   }
-  if (status === 'running') {
+  if (status === 'running' || status === 'awaiting_approval') {
     return <Loader2 className="h-3 w-3 shrink-0 animate-spin text-gf-accent" aria-hidden />
   }
   return (
     <span
       className={cn(
         'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full',
-        status === 'error' ? 'bg-red-400' : status === 'interrupted' ? 'bg-amber-400' : 'bg-zinc-500',
+        status === 'error' || status === 'rejected'
+          ? 'bg-red-400'
+          : status === 'timeout' || status === 'interrupted'
+            ? 'bg-amber-400'
+            : 'bg-zinc-500',
       )}
       aria-hidden
     />
@@ -259,8 +263,10 @@ export function AgentTurnToolActivityList({
                     <span
                       className={cn(
                         'min-w-0 truncate text-zinc-300',
-                        activity.status === 'error' && 'text-red-300/90',
-                        activity.status === 'interrupted' && 'text-amber-200/90',
+                        (activity.status === 'error' || activity.status === 'rejected') &&
+                          'text-red-300/90',
+                        (activity.status === 'interrupted' || activity.status === 'timeout') &&
+                          'text-amber-200/90',
                         isCollapsedPlaceholder && 'italic text-zinc-500',
                       )}
                     >

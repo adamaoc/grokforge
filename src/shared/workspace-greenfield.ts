@@ -69,7 +69,7 @@ function countNonTrivialFiles(files: GreenfieldIndexFile[]): number {
   return countNonTrivialIndexFiles(files)
 }
 
-function hasPackageJson(packages: GreenfieldIndexPackage[]): boolean {
+export function hasPackageJson(packages: GreenfieldIndexPackage[]): boolean {
   return packages.some((p) => {
     const path = p.path.replace(/\\/g, '/').toLowerCase()
     const name = (p.name ?? '').toLowerCase()
@@ -97,4 +97,52 @@ export function isGreenfieldWorkspace(input: GreenfieldDetectionInput): boolean 
   }
 
   return countNonTrivialFiles(files) <= GREENFIELD_MAX_NONTRIVIAL_FILES
+}
+
+/** Minimal plan shape for scaffold-intent heuristics (story 127). */
+export type GreenfieldScaffoldPlanHint = {
+  filesLikelyTouched?: readonly string[]
+  steps?: readonly { title?: string }[]
+  verification?: string
+}
+
+const NPM_SCAFFOLD_RE =
+  /\b(npm\s+(create|init)|vite|react|next\.js|create-vite|create-react-app|pnpm\s+create|yarn\s+create)\b/i
+
+const STATIC_BOOTSTRAP_RE =
+  /\b(index\.html|styles\.css|script\.js|static\s+(site|html|page)|vanilla\s+(js|todo))\b/i
+
+/** Plan implies npm/Vite/framework CLI scaffold (127 / 128). */
+export function planImpliesNpmScaffold(plan: GreenfieldScaffoldPlanHint): boolean {
+  const parts = [
+    ...(plan.filesLikelyTouched ?? []),
+    ...(plan.steps ?? []).map((s) => s.title ?? ''),
+    plan.verification ?? '',
+  ].join('\n')
+  if (!parts.trim()) return false
+  return (
+    NPM_SCAFFOLD_RE.test(parts) ||
+    (plan.filesLikelyTouched ?? []).some((p) =>
+      /package\.json|vite\.config|tsconfig\.json/i.test(p.replace(/\\/g, '/')),
+    )
+  )
+}
+
+/** Plan implies static HTML/CSS/JS file bootstrap without package manager. */
+export function planImpliesStaticFileBootstrap(plan: GreenfieldScaffoldPlanHint): boolean {
+  const parts = [
+    ...(plan.filesLikelyTouched ?? []),
+    ...(plan.steps ?? []).map((s) => s.title ?? ''),
+  ].join('\n')
+  if (!parts.trim()) return false
+  const hasStatic = STATIC_BOOTSTRAP_RE.test(parts)
+  const hasPackage =
+    (plan.filesLikelyTouched ?? []).some((p) => /package\.json/i.test(p)) ||
+    NPM_SCAFFOLD_RE.test(parts)
+  return hasStatic && !hasPackage
+}
+
+/** Approved plan names two or more concrete paths — suppress single-file edit bias (127). */
+export function planImpliesMultiFileBootstrap(plan: GreenfieldScaffoldPlanHint): boolean {
+  return (plan.filesLikelyTouched?.length ?? 0) >= 2
 }

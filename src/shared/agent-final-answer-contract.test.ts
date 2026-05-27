@@ -6,13 +6,16 @@ import {
   buildEditIntentToolNudge,
   buildIncompleteHtmlProposalNudge,
   buildPartialBatchProposalNudge,
+  buildPlanVerifyCommandNudge,
   buildSearchReplaceEscalationNudge,
+  COMMAND_TOOLS_FAILED_HONESTY_MARKER,
   EDIT_INCOMPLETE_HTML_NUDGE_MARKER,
   EDIT_INTENT_TOOL_NUDGE_MARKER,
   EDIT_PARTIAL_BATCH_NUDGE_MARKER,
   EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
   MERGED_EDIT_PROPOSAL_HONESTY_MARKER,
   PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER,
+  PLAN_VERIFY_COMMAND_NUDGE_MARKER,
   shouldInjectPartialBatchProposalNudge,
   isLikelyEditIntent,
 } from './agent-final-answer-contract'
@@ -42,7 +45,7 @@ describe('buildFinalAnswerContract', () => {
       agentProfileId: 'executor',
       postPlanIncremental: true,
     })
-    expect(content).toMatch(/Post-plan incremental/i)
+    expect(content).toMatch(/Incremental Work edit/i)
     expect(content).toMatch(/do \*\*not\*\* output a `gf-plan`/i)
     expect(content).not.toContain('Final response contract (Plan mode)')
   })
@@ -168,5 +171,25 @@ describe('buildFinalAnswerContract', () => {
     expect(content).toContain(PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER)
     expect(content).toMatch(/Do \*\*not\*\* claim the approved plan is fully implemented/i)
     expect(content).toMatch(/script\.js/)
+  })
+
+  it('builds plan verify command nudge with stable marker', () => {
+    const nudge = buildPlanVerifyCommandNudge({ verificationHint: 'npm run typecheck' })
+    expect(nudge).toContain(PLAN_VERIFY_COMMAND_NUDGE_MARKER)
+    expect(nudge).toMatch(/run_command/)
+    expect(nudge).toContain('npm run typecheck')
+  })
+
+  it('adds command-tools-failed honesty appendix', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'execute plan with npm install',
+      editProposalCreated: true,
+      chatMode: 'fast',
+      agentProfileId: 'executor',
+      executeFromApprovedPlan: true,
+      commandToolsFailed: true,
+    })
+    expect(content).toContain(COMMAND_TOOLS_FAILED_HONESTY_MARKER)
+    expect(content).toMatch(/Do \*\*not\*\* claim dependencies were installed/i)
   })
 })

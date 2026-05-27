@@ -1,3 +1,15 @@
+import { commandLikelyMutatesWorkspace } from '../shared/agent-command-intent'
+import {
+  assessScaffoldCommand,
+  buildNonEmptyScaffoldTargetWarning,
+  detectScaffoldOutputFailure,
+  extractViteScaffoldTarget,
+  isViteScaffoldCommand,
+  scaffoldCommandHasOverwrite,
+  type ViteTemplateId,
+} from '../shared/agent-scaffold-command'
+import { scheduleWorkspaceFilesystemRefresh } from './workspace-fs-notify'
+import { listScaffoldTargetEntryNames, resolveScaffoldTargetAbsolutePath } from './scaffold-target-fs'
 import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
 import type { GrokProjectManifest } from './manifest'
 import { evaluateAgentCommandRisk } from './run-command-policy'
@@ -27,6 +39,7 @@ export async function executeRunCommandTool(
   options: {
     requestId: string
     manifest: GrokProjectManifest
+    scaffoldExpectedTemplate?: ViteTemplateId | null
   },
 ): Promise<RunCommandToolOutcome> {
   const root = options.manifest.roots.find((r) => r.id === args.rootId)
@@ -45,7 +58,37 @@ export async function executeRunCommandTool(
     }
   }
 
+  const scaffoldAssessment = assessScaffoldCommand({
+    command: args.command,
+    expectedTemplate: options.scaffoldExpectedTemplate ?? null,
+  })
+  if (!scaffoldAssessment.ok) {
+    return {
+      ok: false,
+      displayTitle: 'Scaffold command needs fix',
+      displayDetail: scaffoldAssessment.reason,
+      content: JSON.stringify({
+        ok: false,
+        validation: 'scaffold_command',
+        error: scaffoldAssessment.reason,
+        suggestedCommand: scaffoldAssessment.suggestedCommand,
+        expectedTemplate: scaffoldAssessment.expectedTemplate,
+      }),
+    }
+  }
+
   ctx.emitProgress({ title: 'Command awaiting approval', detail: args.command })
+
+  let approvalWarning: string | undefined
+  if (isViteScaffoldCommand(args.command) && !scaffoldCommandHasOverwrite(args.command)) {
+    const targetRel = extractViteScaffoldTarget(args.command)
+    const entryNames = listScaffoldTargetEntryNames(root.path, targetRel)
+    approvalWarning =
+      buildNonEmptyScaffoldTargetWarning({
+        entryNames,
+        targetLabel: resolveScaffoldTargetAbsolutePath(root.path, targetRel),
+      }) ?? undefined
+  }
 
   const approved = await ctx.askCommandApproval({
     requestId: options.requestId,
@@ -58,6 +101,7 @@ export async function executeRunCommandTool(
       purpose: args.purpose,
       risk: risk.kind,
       policyReason: risk.reason,
+      warning: approvalWarning,
     },
   })
 
@@ -86,6 +130,41 @@ export async function executeRunCommandTool(
   })
 
   if (result.ok) {
+    const commandSucceeded =
+      !result.timedOut && (result.exitCode === 0 || result.exitCode === null) && !result.signal
+    const scaffoldOutputFailure =
+      commandSucceeded && isViteScaffoldCommand(args.command)
+        ? detectScaffoldOutputFailure(result.output)
+        : null
+
+    if (scaffoldOutputFailure) {
+      return {
+        ok: false,
+        displayTitle: 'Scaffold produced no files',
+        displayDetail: scaffoldOutputFailure,
+        content: JSON.stringify({
+          ok: false,
+          scaffoldCancelled: true,
+          command: args.command,
+          rootId: args.rootId,
+          exitCode: result.exitCode,
+          error: scaffoldOutputFailure,
+          output: result.output,
+        }),
+      }
+    }
+
+    const shouldRefreshWorkspace =
+      commandSucceeded && commandLikelyMutatesWorkspace(args.command)
+    if (shouldRefreshWorkspace) {
+      scheduleWorkspaceFilesystemRefresh({
+        projectId: ctx.projectId,
+        manifest: options.manifest,
+        paths: [root.path],
+        notifyRenderer: true,
+        reason: 'agent_command',
+      })
+    }
     return {
       ok: true,
       displayTitle: 'Command finished',
@@ -94,6 +173,7 @@ export async function executeRunCommandTool(
         result.signal ? `signal ${result.signal}` : '',
         result.truncated ? 'output truncated' : '',
         result.timedOut ? 'timed out' : '',
+        shouldRefreshWorkspace ? 'file tree refreshing' : '',
       ]
         .filter(Boolean)
         .join(' · '),

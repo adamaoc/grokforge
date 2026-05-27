@@ -1,6 +1,6 @@
 # 127 — Greenfield project scaffolding and initialization
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-26).
 
 **Priority:** **Lower than [126](126-agent-terminal-command-execution.md)** — CLI scaffold/install commands should be dependable first; this story improves multi-file bootstrap and validation either way, but full “`npm create vite`” success path is **much easier after 126**.
 
@@ -43,9 +43,10 @@ Codex/Cursor comparisons ([`docs/field-reports/codex-todoapp-comparison.md`](../
 - Cap retry fan-out (align with **116** S&R limits) so greenfield turns don’t stall in “thinking.”
 - Final-answer contract: honest partial scaffold (“created `index.html` and `styles.css`; `package.json` rejected — fix: …”).
 
-### 4. Work with terminal execution (**126**)
+### 4. Work with terminal execution (**126**) and scaffold strategy (**128**)
 
 - When **126** is available: executor should **`run_command`** for `npm create`, `npm install`, `git init`, then **`read_file`** / **`propose_file_edits`** only for customization — not reinventing the template tree by hand.
+- **Do not mix CLI scaffold and hand-written template files in the same turn** — see **[128](128-greenfield-scaffold-strategy-routing.md)** for CLI-first vs file-bootstrap routing.
 - When **126** is not yet shipped: still improve file-only scaffold quality; document manual terminal fallback in plan card copy.
 
 ### 5. Regression prevention (mandatory)
@@ -105,19 +106,19 @@ Codex/Cursor comparisons ([`docs/field-reports/codex-todoapp-comparison.md`](../
 
 ### Scaffolding quality
 
-- [ ] Eval: greenfield fixture — approve-and-run with Vite+React+TS plan → valid `package.json` (parseable) and at least one entry file pass validation without manual user coaching.
-- [ ] Eval: static HTML/CSS/JS plan → valid separate `script.js` (non-crushed) passes **124**-style checks.
-- [ ] Eval: intentionally invalid `package.json` → rejection reason mentions fix strategy (valid JSON, use `npm init` / **126** command, full `rawContent`).
+- [x] Eval: greenfield fixture — approve-and-run with Vite+React+TS plan → valid `package.json` (parseable) and at least one entry file pass validation without manual user coaching.
+- [x] Eval: static HTML/CSS/JS plan → valid separate `script.js` (non-crushed) passes **124**-style checks.
+- [x] Eval: intentionally invalid `package.json` → rejection reason mentions fix strategy (valid JSON, use `npm init` / **126** command, full `rawContent`).
 
 ### Recovery and honesty
 
-- [ ] Eval: partial batch (config rejected, markup accepted) → one recovery nudge; final answer does not claim full scaffold complete.
+- [x] Eval: partial batch (config rejected, markup accepted) → one recovery nudge; final answer does not claim full scaffold complete.
 - [ ] Manual (Trust): user can Apply successful files while fixing rejected path via follow-up turn without losing prior applied work (**096** undo still works).
 
 ### Non-regression (existing projects)
 
-- [ ] Eval: non-greenfield index + “add localStorage” / “add delete button” → **executor**, no new `gf-plan` requirement (**120**).
-- [ ] Manual: mature repo incremental edit — same proposal / S&R / merge behavior as pre-story baseline; `npm run test:agent-eval` clean.
+- [x] Eval: non-greenfield index + “add localStorage” / “add delete button” → **executor**, no new `gf-plan` requirement (**120**).
+- [x] Manual: mature repo incremental edit — same proposal / S&R / merge behavior as pre-story baseline; `npm run test:agent-eval` clean.
 
 ### Integration with **126** (when both shipped)
 
@@ -125,8 +126,8 @@ Codex/Cursor comparisons ([`docs/field-reports/codex-todoapp-comparison.md`](../
 
 ### Docs and bookkeeping
 
-- [ ] Field report or harness checklist entry for scaffold happy path updated.
-- [ ] When shipped: update **Status**, [`README.md`](../README.md) post-MVP table, [`docs/harness-roadmap.md`](../../docs/harness-roadmap.md), run **`npm run stories:html`**.
+- [x] Field report or harness checklist entry for scaffold happy path updated.
+- [x] When shipped: update **Status**, [`README.md`](../README.md) post-MVP table, [`docs/harness-roadmap.md`](../../docs/harness-roadmap.md), run **`npm run stories:html`**.
 
 ## Related
 

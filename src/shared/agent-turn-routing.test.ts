@@ -35,6 +35,15 @@ describe('resolveAgentChatModelIntent', () => {
     ).toBe('execution')
   })
 
+  it('forces execution when iterativeWorkEdit without chip', () => {
+    expect(
+      resolveAgentChatModelIntent({
+        iterativeWorkEdit: true,
+        activeContext: fastCtx,
+      }),
+    ).toBe('execution')
+  })
+
   it('honors explicit chip over postPlanIncremental', () => {
     expect(
       resolveAgentChatModelIntent({
@@ -162,6 +171,16 @@ describe('resolveAgentTurnRouting', () => {
   it('postPlanIncremental uses execution model and executor profile', () => {
     const routing = resolveAgentTurnRouting(manifest, {
       postPlanIncremental: true,
+      activeContext: fastCtx,
+    })
+    expect(routing.modelIntent).toBe('execution')
+    expect(routing.modelId).toBe('custom-exec')
+    expect(routing.agentProfileId).toBe('executor')
+  })
+
+  it('iterativeWorkEdit uses execution model and executor profile', () => {
+    const routing = resolveAgentTurnRouting(manifest, {
+      iterativeWorkEdit: true,
       activeContext: fastCtx,
     })
     expect(routing.modelIntent).toBe('execution')

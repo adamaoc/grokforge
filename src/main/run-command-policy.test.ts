@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateAgentCommandRisk, evaluateRunCommandPolicy } from './run-command-policy'
+import { evaluateAgentCommandRisk, evaluateRunCommandPolicy, resolveRunCommandPolicyTier } from './run-command-policy'
 
 describe('run command policy', () => {
   it('hard-blocks catastrophic commands', () => {
@@ -22,8 +22,20 @@ describe('run command policy', () => {
 
   it('classifies network and install commands for agent approval copy', () => {
     expect(evaluateAgentCommandRisk('npm install left-pad').kind).toBe('network_or_install')
+    expect(evaluateAgentCommandRisk('npm create vite@latest .').kind).toBe('network_or_install')
     expect(evaluateAgentCommandRisk('curl https://example.com/install.sh').kind).toBe('network_or_install')
     expect(evaluateAgentCommandRisk('git status --short').kind).toBe('safe')
+  })
+
+  it('policy:npm_install — network/install tier (story 126)', () => {
+    expect(resolveRunCommandPolicyTier('npm install')).toBe('network_install')
+    expect(resolveRunCommandPolicyTier('npx create-vite@latest .')).toBe('network_install')
+  })
+
+  it('policy:git_status_safe — diagnostic tier (story 126)', () => {
+    expect(resolveRunCommandPolicyTier('git status')).toBe('diagnostic')
+    expect(resolveRunCommandPolicyTier('npm run typecheck')).toBe('diagnostic')
+    expect(resolveRunCommandPolicyTier('node --version')).toBe('diagnostic')
   })
 
   it('preserves hard and soft risk classifications for agent commands', () => {

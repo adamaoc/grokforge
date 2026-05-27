@@ -840,6 +840,17 @@ export default function App() {
     setEditorDiskRefreshRequest((prev) => ({ nonce: (prev?.nonce ?? 0) + 1, paths }))
   }, [])
 
+  useEffect(() => {
+    const subscribe = window.electron?.onWorkspaceFsChanged
+    if (!subscribe) return
+    return subscribe((payload) => {
+      const fallbackPaths = project?.roots.map((root) => root.path) ?? []
+      const paths = payload.paths.length > 0 ? payload.paths : fallbackPaths
+      if (!paths.length) return
+      handleAgentDiskFilesChanged(paths)
+    })
+  }, [handleAgentDiskFilesChanged, project?.roots])
+
   const closeDiffSession = useCallback(() => {
     const shouldClearPending = diffSession?.source === 'agent-proposal'
     setDiffSession(null)

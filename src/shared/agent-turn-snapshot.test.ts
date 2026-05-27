@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { AgentModelChatMessage } from './agent-model-message'
 import {
   cloneMessagesForSnapshot,
+  AGENT_CHAT_SAMPLE_MAX_TOKENS_DEFAULT,
   AGENT_CHAT_SAMPLE_MAX_TOKENS_EXECUTOR,
   AGENT_CHAT_SAMPLE_MAX_TOKENS_PLANNER,
   providerRequestFromSnapshot,
@@ -76,6 +77,15 @@ describe('resolveAgentChatSampleMaxTokens', () => {
         minimalSnapshot({ agentProfileId: 'planner', roundKind: 'tool_sample' }),
       ),
     ).toBe(AGENT_CHAT_SAMPLE_MAX_TOKENS_PLANNER)
+  })
+
+  it('uses raised default budget for default profile tool samples (129)', () => {
+    expect(
+      resolveAgentChatSampleMaxTokens(
+        minimalSnapshot({ agentProfileId: 'default', roundKind: 'tool_sample' }),
+      ),
+    ).toBe(AGENT_CHAT_SAMPLE_MAX_TOKENS_DEFAULT)
+    expect(AGENT_CHAT_SAMPLE_MAX_TOKENS_DEFAULT).toBe(8192)
   })
 
   it('is included on provider requests from snapshots', () => {

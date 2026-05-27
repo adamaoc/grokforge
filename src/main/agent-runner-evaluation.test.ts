@@ -9,18 +9,30 @@ import type { AgentChatEventPayload, AgentChatStartPayload } from '../shared/age
 import type { GrokProjectManifest } from './manifest'
 import { AGENT_TOOL_MAX_ITERATIONS } from './agent-workspace-tools'
 import type { AgentChatModelTransport } from './agent-chat-model-transport'
+import { POPULATED_WORK_EDIT_MARKER } from '../shared/populated-workspace-edit'
+import { WORK_ITERATIVE_EDIT_MARKER } from '../shared/iterative-work-edit'
 import { GREENFIELD_HARNESS_MARKER } from '../shared/workspace-greenfield'
 import {
   AGENT_EVAL_TAG_AGENT_EXECUTOR,
   AGENT_EVAL_TAG_AGENT_PLANNER,
   AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE,
+  AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_VITE_SCAFFOLD,
   AGENT_EVAL_TAG_BEHAVIOR_PROACTIVE,
+  AGENT_EVAL_TAG_BEHAVIOR_RUN_COMMAND_PLAN_VERIFY,
+  AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CLI_ONLY_FIRST,
+  AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_FILE_BOOTSTRAP_STATIC,
+  AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_HYBRID_NUDGE,
   AGENT_EVAL_TAG_BEHAVIOR_SINGLE_FILE,
   AGENT_EVAL_TAG_CONTRACT_PLAN,
   AGENT_EVAL_TAG_PROFILE_GROK_4_3,
   AGENT_EVAL_TAG_PROFILE_GROK_CODE_FAST,
   AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH,
+  AGENT_EVAL_TAG_RECOVERY_SCAFFOLD_PARTIAL,
+  AGENT_EVAL_TAG_ROUTING_EXISTING_PROJECT_NO_REPLAN,
+  AGENT_EVAL_TAG_ROUTING_ITERATIVE_WORK_NO_REPLAN,
+  AGENT_EVAL_TAG_ROUTING_EXISTING_PROJECT_NO_SCAFFOLD_NUDGE,
   AGENT_EVAL_TAG_ROUTING_POST_PLAN,
+  AGENT_EVAL_TAG_VALIDATION_PACKAGE_JSON,
 } from '../shared/agent-eval-tags'
 import {
   POST_PLAN_INCREMENTAL_MARKER,
@@ -38,14 +50,21 @@ import {
   EDIT_PARTIAL_BATCH_NUDGE_MARKER,
   EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
   PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER,
+  PLAN_VERIFY_COMMAND_NUDGE_MARKER,
+  SCAFFOLD_STRATEGY_HONESTY_MARKER,
+  SCAFFOLD_STRATEGY_NUDGE_MARKER,
 } from '../shared/agent-final-answer-contract'
-import { GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS } from '../shared/agent-harness-profile'
+import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from '../shared/agent-scaffold-strategy'
+import { GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS, GREENFIELD_EXECUTE_CLI_MARKER } from '../shared/agent-harness-profile'
+import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER, AGENT_EDIT_INVALID_JSON_MANIFEST_REASON } from '../shared/agent-bootstrap-manifest'
 import { AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
 import { computeAgentContentHash } from './agent-content-hash'
 import {
   baseEvalPayload,
   manifestForEvalRoot,
   seedApprovedPlanArtifact,
+  seedPopulatedWorkspaceIndex,
+  seedSmallVanillaWorkspaceIndex,
   seedSingleFileWorkspaceIndex,
   setupEvalTurn,
 } from './agent-eval-fixtures'
@@ -54,6 +73,7 @@ import {
   runAgentTurnJobForEvaluation,
   setAgentChatModelTransportForTesting,
   setAgentChatTargetWindow,
+  setCommandApprovalAutoResponderForTesting,
   setGetCurrentProjectForTesting,
 } from './agent-runner'
 
@@ -684,6 +704,7 @@ describe('agent runner evaluation harness', () => {
     })
 
     expect(systemPrompt).toContain(GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS[0])
+    expect(systemPrompt).toContain(GREENFIELD_EXECUTE_CLI_MARKER)
     expect(systemPrompt).toMatch(/script\.js/i)
     const proposal = payloads.find((p) => p.phase === 'edit_proposal')
     expect(proposal?.phase).toBe('edit_proposal')
@@ -693,6 +714,133 @@ describe('agent runner evaluation harness', () => {
       expect(proposal.proposal.rejected.length).toBe(0)
     }
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_RUN_COMMAND_PLAN_VERIFY} — injects command nudge when verify step skipped`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-cmd-nudge-'))
+    const projectId = 'eval-run-command-nudge-126'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vite React app',
+        filesLikelyTouched: ['package.json'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'npm install dependencies' }],
+        verification: 'npm run typecheck',
+      },
+    })
+
+    let sampleCount = 0
+    let sawNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const joined = request.messages
+          .map((m) => (typeof m.content === 'string' ? m.content : ''))
+          .join('\n')
+        if (joined.includes(PLAN_VERIFY_COMMAND_NUDGE_MARKER)) sawNudge = true
+        if (sampleCount === 1) return { content: '', toolCalls: [] }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Need to run typecheck via run_command.')
+      },
+    }
+
+    const { win } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-run-command-nudge-126'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vite React app')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawNudge).toBe(true)
+    expect(sampleCount).toBeGreaterThanOrEqual(2)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_RUN_COMMAND_PLAN_VERIFY} — samples run_command when model requests verify`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-cmd-sample-'))
+    const projectId = 'eval-run-command-sample-126'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Install deps',
+        filesLikelyTouched: ['package.json'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'npm install' }],
+        verification: 'npm run typecheck',
+      },
+    })
+
+    let sampledRunCommand = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion() {
+        sampledRunCommand = true
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-cmd',
+              type: 'function',
+              function: {
+                name: 'run_command',
+                arguments: JSON.stringify({
+                  rootId: 'root',
+                  command: 'npm run typecheck',
+                  purpose: 'Verify project typechecks per approved plan',
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Typecheck command was rejected in eval.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(setCommandApprovalAutoResponderForTesting(() => false))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-run-command-sample-126'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Install deps')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sampledRunCommand).toBe(true)
+    const activities = payloads.filter((p) => p.phase === 'activity')
+    expect(
+      activities.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Command rejected' &&
+          p.activity.status === 'rejected',
+      ),
+    ).toBe(true)
   })
 
   it(`${AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH} — injects nudge when batch accepts HTML/CSS and rejects script.js`, async () => {
@@ -821,6 +969,517 @@ describe('agent runner evaluation harness', () => {
     if (proposal?.phase === 'edit_proposal') {
       expect(proposal.proposal.batch.operations.length).toBeGreaterThanOrEqual(2)
     }
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_VITE_SCAFFOLD} — accepts valid package.json and entry file on approve-and-run`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-vite-scaffold-127-'))
+    const projectId = 'eval-vite-scaffold-127'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vite React TypeScript todo app',
+        filesLikelyTouched: ['package.json', 'index.html', 'src/main.tsx'],
+        risksUnknowns: [],
+        steps: [
+          { id: '1', title: 'Create package.json and Vite entry files' },
+          { id: '2', title: 'npm install dependencies' },
+        ],
+        verification: 'npm run typecheck',
+      },
+    })
+
+    const packageJson = '{"name":"todo-vite","private":true,"version":"0.0.0","type":"module"}'
+    const indexHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Todo</title></head>
+<body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
+</html>`
+    const mainTsx = `import React from 'react';\nimport ReactDOM from 'react-dom/client';\n\nReactDOM.createRoot(document.getElementById('root')!).render(<h1>Todo</h1>);\n`
+
+    let systemPrompt = ''
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        const first = request.messages[0]
+        systemPrompt = first && typeof first.content === 'string' ? first.content : ''
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-vite',
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [
+                    { op: 'write_file', path: join(root, 'package.json'), content: packageJson },
+                    { op: 'write_file', path: join(root, 'index.html'), content: indexHtml },
+                    { op: 'write_file', path: join(root, 'src', 'main.tsx'), content: mainTsx },
+                  ],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Vite scaffold proposal ready.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-vite-scaffold-127'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vite React TypeScript todo app')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(systemPrompt).toContain(GREENFIELD_SCAFFOLD_MANIFEST_MARKER)
+    expect(systemPrompt).not.toContain(SINGLE_FILE_EDIT_BIAS_MARKER)
+    const proposal = payloads.find((p) => p.phase === 'edit_proposal')
+    expect(proposal?.phase).toBe('edit_proposal')
+    if (proposal?.phase === 'edit_proposal') {
+      expect(proposal.proposal.rejected.length).toBe(0)
+      const paths = proposal.proposal.batch.operations.map((op) => op.path)
+      expect(paths.some((p) => p.endsWith('package.json'))).toBe(true)
+      expect(paths.some((p) => p.endsWith('main.tsx'))).toBe(true)
+    }
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_RECOVERY_SCAFFOLD_PARTIAL} — injects package.json hint when config rejected and HTML accepted`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-scaffold-partial-127-'))
+    const projectId = 'eval-scaffold-partial-127'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vite todo app bootstrap',
+        filesLikelyTouched: ['package.json', 'index.html'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create package.json and index.html' }],
+        verification: 'npm install',
+      },
+    })
+
+    const badPackageJson = '{name: todo, private: true'
+    const indexHtml = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Todo</title></head>
+<body><div id="root"></div></body></html>`
+
+    let sampleCount = 0
+    let sawPartialNudge = false
+    let sawPackageJsonHint = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const partialMsg = request.messages.find(
+          (m) =>
+            m.role === 'user' &&
+            typeof m.content === 'string' &&
+            m.content.includes(EDIT_PARTIAL_BATCH_NUDGE_MARKER),
+        )
+        if (partialMsg && typeof partialMsg.content === 'string') {
+          sawPartialNudge = true
+          if (partialMsg.content.includes('package.json')) sawPackageJsonHint = true
+        }
+
+        if (sampleCount === 1) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-scaffold-partial',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      { op: 'write_file', path: join(root, 'package.json'), content: badPackageJson },
+                      { op: 'write_file', path: join(root, 'index.html'), content: indexHtml },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        const hasHonesty = request.messages.some(
+          (m) =>
+            m.role === 'system' &&
+            typeof m.content === 'string' &&
+            m.content.includes(PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER),
+        )
+        if (sawPartialNudge) expect(hasHonesty).toBe(true)
+        emitChunk('Partial scaffold — package.json needs fix.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-scaffold-partial-127'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vite todo app bootstrap')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawPartialNudge).toBe(true)
+    expect(sawPackageJsonHint).toBe(true)
+    const proposal = payloads.find((p) => p.phase === 'edit_proposal')
+    if (proposal?.phase === 'edit_proposal') {
+      expect(proposal.proposal.rejected.some((r) => r.path?.endsWith('package.json'))).toBe(true)
+      expect(proposal.proposal.rejected[0]?.reason).toMatch(/npm create|npm init|valid JSON/i)
+      expect(proposal.proposal.batch.operations.some((op) => op.path.endsWith('index.html'))).toBe(true)
+    }
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_VALIDATION_PACKAGE_JSON} — rejects invalid new package.json with actionable reason`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-pkg-json-127-'))
+    const projectId = 'eval-pkg-json-127'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Add package.json',
+        filesLikelyTouched: ['package.json'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create package.json' }],
+        verification: 'npm install',
+      },
+    })
+
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion() {
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-bad-pkg',
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [
+                    {
+                      op: 'write_file',
+                      path: join(root, 'package.json'),
+                      content: '{name: broken',
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('package.json rejected.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-pkg-json-127'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Add package.json')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    const proposal = payloads.find((p) => p.phase === 'edit_proposal')
+    if (proposal?.phase === 'edit_proposal') {
+      expect(proposal.proposal.rejected.length).toBe(1)
+      expect(proposal.proposal.rejected[0]?.reason).toContain(
+        AGENT_EDIT_INVALID_JSON_MANIFEST_REASON.slice(0, 20),
+      )
+    }
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CLI_ONLY_FIRST} — Vite plan includes strategy routing and accepts CLI-only first sample`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-cli-only-128-'))
+    const projectId = 'eval-cli-only-128'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vite React TypeScript app',
+        filesLikelyTouched: ['package.json', 'src/main.tsx'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'npm create vite@latest . -- --template react-ts' }],
+        verification: 'npm install',
+      },
+    })
+
+    let systemPrompt = ''
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        const first = request.messages[0]
+        systemPrompt = first && typeof first.content === 'string' ? first.content : ''
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-cli',
+              type: 'function',
+              function: {
+                name: 'run_command',
+                arguments: JSON.stringify({
+                  rootId: 'root',
+                  command: 'npm create vite@latest . -- --template react-ts',
+                  purpose: 'Scaffold Vite React TS project per approved plan',
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Awaiting CLI scaffold approval.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(setCommandApprovalAutoResponderForTesting(() => false))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-cli-only-128'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vite React TypeScript app')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(systemPrompt).toContain(SCAFFOLD_STRATEGY_ROUTING_MARKER)
+    expect(systemPrompt).toMatch(/cli_scaffold/i)
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(false)
+    expect(
+      payloads.some(
+        (p) => p.phase === 'activity' && p.activity.title === 'Command rejected',
+      ),
+    ).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_FILE_BOOTSTRAP_STATIC} — static plan accepts file proposals without npm create nudge`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-file-bootstrap-128-'))
+    const projectId = 'eval-file-bootstrap-128'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Static vanilla todo page',
+        filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create index.html, styles.css, script.js' }],
+        verification: 'Open index.html in browser',
+      },
+    })
+
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Todo</title></head><body><script src="script.js"></script></body></html>`
+    const css = 'body { margin: 0; }\n'
+    const js = 'function init() {}\ninit();\n'
+
+    let sawScaffoldNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sawScaffoldNudge = request.messages.some(
+          (m) =>
+            typeof m.content === 'string' && m.content.includes(SCAFFOLD_STRATEGY_NUDGE_MARKER),
+        )
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-static',
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [
+                    { op: 'write_file', path: join(root, 'index.html'), content: html },
+                    { op: 'write_file', path: join(root, 'styles.css'), content: css },
+                    { op: 'write_file', path: join(root, 'script.js'), content: js },
+                  ],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Static bootstrap ready.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-file-bootstrap-128'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Static vanilla todo page')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawScaffoldNudge).toBe(false)
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_HYBRID_NUDGE} — injects one strategy nudge when CLI and edits sampled together`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-hybrid-128-'))
+    const projectId = 'eval-hybrid-128'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vite React app',
+        filesLikelyTouched: ['package.json', 'index.html'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'npm create vite' }],
+        verification: 'npm install',
+      },
+    })
+
+    let sampleCount = 0
+    let nudgeCount = 0
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        nudgeCount += request.messages.filter(
+          (m) =>
+            typeof m.content === 'string' && m.content.includes(SCAFFOLD_STRATEGY_NUDGE_MARKER),
+        ).length
+        if (sampleCount === 1) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-hybrid-cmd',
+                type: 'function',
+                function: {
+                  name: 'run_command',
+                  arguments: JSON.stringify({
+                    rootId: 'root',
+                    command: 'npm create vite@latest .',
+                    purpose: 'Scaffold Vite project',
+                  }),
+                },
+              },
+              {
+                id: 'tc-hybrid-edit',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      {
+                        op: 'write_file',
+                        path: join(root, 'package.json'),
+                        content: '{"name":"bad"}',
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        const hasHonesty = request.messages.some(
+          (m) =>
+            typeof m.content === 'string' && m.content.includes(SCAFFOLD_STRATEGY_HONESTY_MARKER),
+        )
+        expect(hasHonesty).toBe(true)
+        emitChunk('Hybrid scaffold conflict — CLI first.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(setCommandApprovalAutoResponderForTesting(() => false))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-hybrid-128'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vite React app')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(nudgeCount).toBe(1)
+    expect(sampleCount).toBeGreaterThanOrEqual(2)
+    expect(
+      payloads.some(
+        (p) => p.phase === 'activity' && p.activity.title === 'Harness: scaffold strategy conflict',
+      ),
+    ).toBe(true)
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 
@@ -1265,6 +1924,7 @@ describe('agent runner evaluation harness', () => {
       expect(withTools.length).toBeGreaterThan(0)
       expect(withTools.some((r) => r.toolNames.includes('propose_file_edits'))).toBe(true)
       expect(withTools.some((r) => r.toolNames.includes('search_replace'))).toBe(true)
+      expect(withTools.some((r) => r.toolNames.includes('run_command'))).toBe(true)
     })
 
     it(`${AGENT_EVAL_TAG_CONTRACT_PLAN} — final stream includes gf-plan contract`, async () => {
@@ -1419,6 +2079,136 @@ describe('agent runner evaluation harness', () => {
       const sample = getRecords().find((r) => r.phase === 'sample')
       expect(sample?.systemText).toContain(SINGLE_FILE_EDIT_BIAS_MARKER)
       expect(sample?.systemText).toContain('index.html')
+    })
+
+    it(`${AGENT_EVAL_TAG_ROUTING_EXISTING_PROJECT_NO_REPLAN} — populated repo incremental edit routes executor without gf-plan`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-existing-no-replan-127-'))
+      mkdirSync(join(root, 'src'), { recursive: true })
+      writeFileSync(join(root, 'src', 'app.ts'), 'export const todos: string[] = [];\n', 'utf8')
+      writeFileSync(join(root, 'package.json'), '{"name":"eval-app"}\n', 'utf8')
+      const projectId = 'eval-existing-no-replan-127'
+      seedPopulatedWorkspaceIndex(projectId, root)
+
+      const { payloads, getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transportNoToolsFinal('Added localStorage persistence.'),
+        payload: baseEvalPayload('eval-existing-no-replan', 'add localStorage persistence for todos'),
+      })
+      matrixRestores.push(restore)
+
+      const turnStarted = payloads.find((p) => p.phase === 'turn_started')
+      expect(turnStarted?.phase).toBe('turn_started')
+      if (turnStarted?.phase === 'turn_started') {
+        expect(turnStarted.routing.agentProfileId).toBe('executor')
+        expect(turnStarted.routing.modelIntent).toBe('execution')
+      }
+
+      const sample = getRecords().find((r) => r.phase === 'sample')
+      expect(sample?.systemText).toContain(WORK_ITERATIVE_EDIT_MARKER)
+      expect(sample?.systemText).toContain(POPULATED_WORK_EDIT_MARKER)
+      expect(sample?.systemText).not.toContain(GREENFIELD_HARNESS_MARKER)
+
+      const finals = getRecords().filter((r) => r.phase === 'final')
+      const lastFinal = finals[finals.length - 1]
+      expect(lastFinal?.systemText).toMatch(/Incremental Work edit/i)
+      expect(lastFinal?.systemText).not.toMatch(/Final response contract \(Plan mode\)/i)
+      expect(lastFinal?.systemText).not.toMatch(/exactly one.*```gf-plan/i)
+    })
+
+    it(`${AGENT_EVAL_TAG_ROUTING_ITERATIVE_WORK_NO_REPLAN} — small vanilla repo routes executor with harness 130`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-vanilla-130-'))
+      writeFileSync(join(root, 'index.html'), '<!DOCTYPE html><html></html>\n', 'utf8')
+      writeFileSync(join(root, 'script.js'), 'console.log("app");\n', 'utf8')
+      const projectId = 'eval-iterative-vanilla-130'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+
+      const { payloads, getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transportNoToolsFinal('Added dark mode toggle.'),
+        payload: baseEvalPayload('eval-iterative-vanilla', 'add a dark mode toggle to the page'),
+      })
+      matrixRestores.push(restore)
+
+      const turnStarted = payloads.find((p) => p.phase === 'turn_started')
+      expect(turnStarted?.phase).toBe('turn_started')
+      if (turnStarted?.phase === 'turn_started') {
+        expect(turnStarted.routing.agentProfileId).toBe('executor')
+        expect(turnStarted.routing.modelIntent).toBe('execution')
+      }
+
+      const sample = getRecords().find((r) => r.phase === 'sample')
+      expect(sample?.systemText).toContain(WORK_ITERATIVE_EDIT_MARKER)
+      expect(sample?.systemText).not.toContain(GREENFIELD_HARNESS_MARKER)
+
+      const finals = getRecords().filter((r) => r.phase === 'final')
+      const lastFinal = finals[finals.length - 1]
+      expect(lastFinal?.systemText).toMatch(/Incremental Work edit/i)
+      expect(lastFinal?.systemText).not.toMatch(/exactly one.*```gf-plan/i)
+    })
+
+    it(`${AGENT_EVAL_TAG_ROUTING_EXISTING_PROJECT_NO_SCAFFOLD_NUDGE} — populated repo incremental edit has no scaffold strategy nudge`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-no-scaffold-nudge-128-'))
+      mkdirSync(join(root, 'src'), { recursive: true })
+      writeFileSync(join(root, 'src', 'app.ts'), 'export const todos: string[] = [];\n', 'utf8')
+      writeFileSync(join(root, 'package.json'), '{"name":"eval-app"}\n', 'utf8')
+      const projectId = 'eval-no-scaffold-nudge-128'
+      seedPopulatedWorkspaceIndex(projectId, root)
+
+      const innerTransport = {
+        async sampleChatCompletion() {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-css',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      {
+                        op: 'write_file',
+                        path: join(root, 'src', 'styles.css'),
+                        content: 'body { padding: 1rem; }\n',
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        },
+        async streamFinalAnswer(_request: unknown, _signal: unknown, emitChunk: (delta: string) => void) {
+          emitChunk('Added CSS.')
+        },
+      }
+
+      let sawScaffoldNudge = false
+      const wrappedTransport: AgentChatModelTransport = {
+        async sampleChatCompletion(request) {
+          sawScaffoldNudge = request.messages.some(
+            (m) =>
+              typeof m.content === 'string' && m.content.includes(SCAFFOLD_STRATEGY_NUDGE_MARKER),
+          )
+          return innerTransport.sampleChatCompletion()
+        },
+        async streamFinalAnswer(request, signal, emitChunk) {
+          return innerTransport.streamFinalAnswer(request, signal, emitChunk)
+        },
+      }
+
+      const { restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: wrappedTransport,
+        payload: baseEvalPayload('eval-no-scaffold-nudge', 'add CSS styling'),
+      })
+      matrixRestores.push(restore)
+
+      expect(sawScaffoldNudge).toBe(false)
     })
 
     it(`${AGENT_EVAL_TAG_AGENT_PLANNER} — rejects propose_file_edits when model requests it`, async () => {

@@ -176,7 +176,7 @@ export const AGENT_TOOL_DEFINITIONS = [
     function: {
       name: 'run_command',
       description:
-        'Request a one-shot workspace command such as tests, typecheck, git inspection, or safe diagnostics. GrokForge always asks the user for approval before running it.',
+        'Request a one-shot workspace command such as tests, typecheck, git inspection, npm install, npm create, or git init. GrokForge always asks the user for approval before running it. Include a brief purpose tied to the plan step or user request.',
       parameters: {
         type: 'object',
         properties: {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatPlanExecutePendingSummary,
   hasActionableProposal,
+  hasCommandToolFailure,
   resolvePlanExecuteRunPhase,
   shouldMarkPlanExecuteFailed,
   shouldShowPlanExecutePartialApplyToast,
@@ -176,5 +178,37 @@ describe('shouldShowPlanExecutePartialApplyToast', () => {
         hasRejectedPaths: true,
       }),
     ).toBe(false)
+  })
+})
+
+describe('formatPlanExecutePendingSummary', () => {
+  it('returns hybrid pending copy when CLI and files both await review', () => {
+    expect(
+      formatPlanExecutePendingSummary({
+        pendingFileCount: 2,
+        pendingCommandCount: 1,
+        greenfieldScaffoldHybridPending: true,
+      }),
+    ).toBe(
+      '2 files to review, 1 command awaiting approval — CLI scaffold step awaiting approval; file proposals may be premature',
+    )
+  })
+
+  it('combines file and command pending counts', () => {
+    expect(
+      formatPlanExecutePendingSummary({ pendingFileCount: 2, pendingCommandCount: 1 }),
+    ).toBe('2 files to review, 1 command awaiting approval')
+  })
+
+  it('returns null when nothing pending', () => {
+    expect(formatPlanExecutePendingSummary({ pendingFileCount: 0, pendingCommandCount: 0 })).toBeNull()
+  })
+})
+
+describe('hasCommandToolFailure', () => {
+  it('detects rejected command activity', () => {
+    expect(
+      hasCommandToolFailure([{ status: 'rejected', title: 'Command rejected' }]),
+    ).toBe(true)
   })
 })

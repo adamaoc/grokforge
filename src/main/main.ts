@@ -48,6 +48,10 @@ import {
   setAgentChatTargetWindow,
 } from './agent-runner'
 import { refreshWorkspaceIndex } from './agent-index-store'
+import {
+  scheduleWorkspaceFilesystemRefresh,
+  setWorkspaceFsNotifyTargetWindow,
+} from './workspace-fs-notify'
 import { isGreenfieldWorkspace } from '../shared/workspace-greenfield'
 import type { RefreshProjectIntelligenceResult } from '../shared/agent-chat-contract'
 import {
@@ -135,7 +139,6 @@ let mainWindow: BrowserWindow | null = null
 let currentProject: GrokProjectManifest | null = null
 /** App-side workspace project id (`userData/workspace-projects/<id>/`). */
 let currentProjectId: string | null = null
-let workspaceIndexRefreshTimer: NodeJS.Timeout | null = null
 
 /** True only when electron-vite dev server is active — not merely “unpackaged”. */
 const useDevServer = Boolean(process.env['ELECTRON_RENDERER_URL'])
@@ -175,16 +178,10 @@ function finishOpenProjectSession(stored: StoredWorkspaceProject): OpenProjectRe
 
 function scheduleWorkspaceIndexRefresh(): void {
   if (!currentProject || !currentProjectId) return
-  if (workspaceIndexRefreshTimer) clearTimeout(workspaceIndexRefreshTimer)
-  workspaceIndexRefreshTimer = setTimeout(() => {
-    workspaceIndexRefreshTimer = null
-    if (!currentProject || !currentProjectId) return
-    try {
-      refreshWorkspaceIndex(currentProjectId, currentProject)
-    } catch (e) {
-      console.warn('[GrokForge] failed to refresh workspace index:', e)
-    }
-  }, 750)
+  scheduleWorkspaceFilesystemRefresh({
+    projectId: currentProjectId,
+    manifest: currentProject,
+  })
 }
 
 function isPathWithinWorkspaceRoots(candidate: string): boolean {
@@ -249,12 +246,14 @@ function createWindow() {
     setTerminalSessionTargetWindow(null)
     setGrokStreamTargetWindow(null)
     setAgentChatTargetWindow(null)
+    setWorkspaceFsNotifyTargetWindow(null)
     mainWindow = null
   })
 
   setGrokStreamTargetWindow(mainWindow)
   setAgentChatTargetWindow(mainWindow)
   setTerminalSessionTargetWindow(mainWindow)
+  setWorkspaceFsNotifyTargetWindow(mainWindow)
 }
 
 registerGrokStreamIpc()

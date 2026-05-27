@@ -119,6 +119,8 @@ export type AgentCommandApprovalRequest = {
   purpose: string
   risk: AgentCommandApprovalRisk
   policyReason: string
+  /** Optional harness warning (e.g. non-empty scaffold target). Does not block approval. */
+  warning?: string
 }
 
 export type AgentCommandApprovalResponse = {
@@ -136,7 +138,7 @@ export type AgentChatActivityPayload = {
   tool?: AgentChatToolName | 'retrieval'
   title: string
   detail?: string
-  status: 'running' | 'done' | 'error' | 'interrupted'
+  status: 'running' | 'done' | 'error' | 'interrupted' | 'awaiting_approval' | 'rejected' | 'timeout'
   /** Resolved workspace path for edit tools — groups activity compaction (story 119). */
   subjectPath?: string
   /** Story 112 — nest activity under a child subagent session. */

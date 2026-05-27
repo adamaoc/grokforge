@@ -20,9 +20,6 @@ import {
   Folder,
   X,
   TextCursorInput,
-  AlertTriangle,
-  Play,
-  Ban,
   FileDiff,
   SearchCode,
   Paperclip,
@@ -154,6 +151,8 @@ import {
   hasActionableProposal,
   notifyMissingStructuredPlan,
 } from "@/lib/plan-execute-lifecycle";
+import { formatPlanExecutePendingSummary } from "@/lib/plan-execute-outcome";
+import { AgentCommandApprovalCard } from "@/components/AgentCommandApprovalCard";
 import { usePlanExecuteLifecycle } from "@/hooks/usePlanExecuteLifecycle";
 import { scrollTranscriptToBottom } from "@/lib/chat-transcript-scroll";
 import {
@@ -174,7 +173,7 @@ function terminalizeRunningAgentActivities(
   reason: "done" | "error" | "cancelled" | "interrupted",
 ): AgentChatActivityPayload[] {
   return activities.map((activity) =>
-    activity.status === "running"
+    activity.status === "running" || activity.status === "awaiting_approval"
       ? {
           ...activity,
           status:
@@ -754,23 +753,6 @@ export function ChatThread({
     }));
   }, [pendingUniquePaths, project.roots]);
 
-  const partialExecuteOutcomeSummary = useMemo(() => {
-    if (pendingRejectedPaths.length === 0 || pendingProposal?.uiPhase !== "pending") {
-      return null;
-    }
-    const readyCount = pendingUniquePaths.length;
-    const totalCount = readyCount + pendingRejectedPaths.length;
-    const rejectedNames = pendingRejectedPaths
-      .slice(0, 2)
-      .map((item) => basenamePath(item.path))
-      .join(", ");
-    return `${readyCount} of ${totalCount} planned files ready — ${rejectedNames} rejected`;
-  }, [
-    pendingProposal?.uiPhase,
-    pendingRejectedPaths,
-    pendingUniquePaths.length,
-  ]);
-
   const pendingOpByNormalizedPath = useMemo(() => {
     const out = new Map<string, ParsedAgentToolBatch["operations"][number]>();
     for (const op of pendingWriteBatch?.operations ?? []) {
@@ -1025,6 +1007,37 @@ export function ChatThread({
       startAgentTurnForPlanRef.current(text, opts),
   });
 
+  const partialExecuteOutcomeSummary = useMemo(() => {
+    const pendingSummary = formatPlanExecutePendingSummary({
+      pendingFileCount:
+        pendingProposal?.uiPhase === "pending"
+          ? pendingUniquePaths.length
+          : 0,
+      pendingCommandCount: commandApprovals.length,
+      greenfieldScaffoldHybridPending:
+        planExecuteStreamActive &&
+        commandApprovals.length > 0 &&
+        (pendingProposal?.uiPhase === "pending" ? pendingUniquePaths.length : 0) > 0,
+    });
+    if (pendingSummary) return pendingSummary;
+    if (pendingRejectedPaths.length === 0 || pendingProposal?.uiPhase !== "pending") {
+      return null;
+    }
+    const readyCount = pendingUniquePaths.length;
+    const totalCount = readyCount + pendingRejectedPaths.length;
+    const rejectedNames = pendingRejectedPaths
+      .slice(0, 2)
+      .map((item) => basenamePath(item.path))
+      .join(", ");
+    return `${readyCount} of ${totalCount} planned files ready — ${rejectedNames} rejected`;
+  }, [
+    commandApprovals.length,
+    pendingProposal?.uiPhase,
+    pendingRejectedPaths,
+    pendingUniquePaths.length,
+    planExecuteStreamActive,
+  ]);
+
   /** Pre-turn only — mirrors main `resolveAgentChatModelIntent` for chip / “next turn” preview. */
   const nextSendModelIntent = useMemo((): typeof chatModelIntent => {
     if (planExecuteStreamActive && executingPlanMessageId) return "execution";
@@ -1097,29 +1110,28 @@ export function ChatThread({
       }
       if (p.phase === "activity_clear_running") {
         setAgentActivities((prev) =>
-          prev.map((a) =>
-            a.status === "running"
-              ? {
-                  ...a,
-                  status:
-                    p.reason === "done"
-                      ? "done"
-                      : p.reason === "interrupted"
-                        ? "interrupted"
-                        : p.reason === "cancelled"
-                          ? "error"
-                          : "error",
-                  title:
-                    p.reason === "cancelled"
-                      ? `${a.title} cancelled`
-                      : p.reason === "interrupted"
-                        ? `${a.title} interrupted`
-                        : p.reason === "error"
-                          ? `${a.title} stopped`
-                          : a.title,
-                }
-              : a,
-          ),
+          prev.map((a) => {
+            if (a.status !== "running") return a;
+            return {
+              ...a,
+              status:
+                p.reason === "done"
+                  ? "done"
+                  : p.reason === "interrupted"
+                    ? "interrupted"
+                    : p.reason === "cancelled"
+                      ? "error"
+                      : "error",
+              title:
+                p.reason === "cancelled"
+                  ? `${a.title} cancelled`
+                  : p.reason === "interrupted"
+                    ? `${a.title} interrupted`
+                    : p.reason === "error"
+                      ? `${a.title} stopped`
+                      : a.title,
+            };
+          }),
         );
         return;
       }
@@ -2578,11 +2590,6 @@ export function ChatThread({
     if (normalized === root.normalized) return basenamePath(path);
     return normalized.slice(root.normalized.length + 1);
   };
-  const riskLabel = (request: AgentCommandApprovalRequest) => {
-    if (request.risk === "network_or_install") return "Network/install";
-    if (request.risk === "soft_risk") return "Elevated risk";
-    return "Approval required";
-  };
 
   const showWelcomeSuggestions = useMemo(() => {
     if (!messages || streamingStreamId || isSending || isThinking) return false;
@@ -2975,100 +2982,13 @@ export function ChatThread({
                 </AnimatePresence>
 
                 {commandApprovals.map((request) => (
-                  <div
+                  <AgentCommandApprovalCard
                     key={request.requestId}
-                    className="rounded-xl border border-amber-900/50 bg-amber-950/20 px-3 py-3 text-sm text-zinc-300"
-                  >
-                    <div className="mb-2 flex min-w-0 items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-start gap-2">
-                        <AlertTriangle
-                          size={16}
-                          className="mt-0.5 shrink-0 text-amber-300"
-                          aria-hidden
-                        />
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium text-white">
-                            Approve agent command?
-                          </div>
-                          <div className="mt-0.5 text-xs text-amber-200/90">
-                            {riskLabel(request)}
-                          </div>
-                        </div>
-                      </div>
-                      <span className="shrink-0 rounded-full border border-amber-800/60 px-2 py-0.5 font-mono text-[10px] text-amber-200/90">
-                        {request.timeoutMs}ms
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div>
-                        <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-                          Command
-                        </div>
-                        <pre className="max-h-32 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950/80 px-2 py-2 font-mono text-[11px] leading-relaxed text-zinc-200 custom-scrollbar">
-                          {request.command}
-                        </pre>
-                      </div>
-                      <div className="grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
-                        <div className="min-w-0 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-2 py-1.5">
-                          <div className="text-[10px] uppercase tracking-wide text-zinc-500">
-                            Root
-                          </div>
-                          <div className="truncate text-zinc-300">
-                            {request.rootLabel}
-                          </div>
-                          <div
-                            className="truncate font-mono text-[10px] text-zinc-500"
-                            title={request.rootPath}
-                          >
-                            {request.rootPath}
-                          </div>
-                        </div>
-                        <div className="min-w-0 rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-2 py-1.5">
-                          <div className="text-[10px] uppercase tracking-wide text-zinc-500">
-                            Purpose
-                          </div>
-                          <div className="line-clamp-2 text-zinc-300">
-                            {request.purpose}
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-xs leading-relaxed text-amber-100/80">
-                        {request.policyReason}
-                      </p>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="h-8 rounded-xl"
-                        onClick={() =>
-                          void respondToCommandApproval(request, true)
-                        }
-                      >
-                        <Play size={13} aria-hidden /> Approve
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-xl border-zinc-700"
-                        onClick={() =>
-                          void respondToCommandApproval(request, false)
-                        }
-                      >
-                        <Ban size={13} aria-hidden /> Reject
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 rounded-xl text-zinc-400 hover:bg-zinc-900 hover:text-white"
-                        onClick={() => void copyCommandApproval(request)}
-                      >
-                        <Copy size={13} aria-hidden /> Copy
-                      </Button>
-                    </div>
-                  </div>
+                    request={request}
+                    onApprove={(item) => void respondToCommandApproval(item, true)}
+                    onReject={(item) => void respondToCommandApproval(item, false)}
+                    onCopy={(item) => void copyCommandApproval(item)}
+                  />
                 ))}
 
                 {isThinking &&

@@ -87,6 +87,24 @@ describe('analyzeAgentEditSafety', () => {
     expect(result.severity).not.toBe('severe')
   })
 
+  it('flags glued multi-line todo script as caution or severe', () => {
+    const crushed = `let todos = [] function loadTodos() {
+const list = document.getElementById('todo-list') list.innerHTML = '' todos.forEach((todo) => {
+`
+    const result = analyzeAgentEditSafety({
+      original: null,
+      modified: crushed,
+      status: 'created',
+      resolvedPath: '/proj/script.js',
+    })
+    expect(result.severity).not.toBe('ok')
+    expect(
+      result.hasCollapsedSingleLineSource ||
+        result.hasMessySourceLayout ||
+        result.issues.length > 0,
+    ).toBe(true)
+  })
+
   it('does not flag vanilla bootstrap app.js as crushed', () => {
     const js =
       "const STORAGE_KEY='todos';function loadTodos(){return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}function saveTodos(items){localStorage.setItem(STORAGE_KEY,JSON.stringify(items));}document.addEventListener('DOMContentLoaded',()=>{const form=document.querySelector('#todo-form');form.addEventListener('submit',(e)=>{e.preventDefault();});});"

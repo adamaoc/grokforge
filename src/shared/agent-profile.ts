@@ -83,12 +83,14 @@ export function getAgentProfile(id: AgentProfileId): Readonly<AgentProfile> {
 export function resolveAgentProfileId(
   payload: Pick<AgentChatStartPayload, 'modelIntent' | 'activeContext' | 'isApprovedPlanAutoRun'> & {
     postPlanIncremental?: boolean
+    iterativeWorkEdit?: boolean
   },
 ): AgentProfileId {
   if (payload.activeContext.chatMode === 'plan') return 'planner'
   if (
     payload.isApprovedPlanAutoRun ||
     payload.postPlanIncremental ||
+    payload.iterativeWorkEdit ||
     payload.modelIntent === 'execution'
   ) {
     return 'executor'

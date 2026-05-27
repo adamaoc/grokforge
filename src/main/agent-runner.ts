@@ -16,6 +16,7 @@ import { hasConfiguredXaiApiKey } from './xai-key-store'
 import { AGENT_TOOL_FENCE_INFO } from '../shared/agent-tool-contract'
 import { AgentToolBatchPayloadSchema } from '../shared/agent-tool-schema'
 import { buildGfPlanToolLoopBlock, GF_PLAN_FENCE_NUDGE_PHRASE } from '../shared/gf-plan-contract'
+import { impliesCommandExecution, commandLikelyMutatesWorkspace } from '../shared/agent-command-intent'
 import { shouldIgnoreFsEntry } from './ignore-globs'
 import { isPathWithinWorkspaceRoots } from './workspace-path-guard'
 import { validateAgentEditProposal } from './agent-edit-proposals'
@@ -67,6 +68,7 @@ import {
   replayRetrievalPreviewFromLatestTrace,
 } from './agent-turn-trace-store'
 import type {
+  AgentChatActivityPayload,
   AgentChatCapabilitiesResult,
   AgentChatEventPayload,
   AgentChatStartPayload,
@@ -91,10 +93,13 @@ import {
   totalIncompleteHtmlFailures,
 } from '../shared/agent-edit-corrupt-content'
 import {
+  buildDiscoverySaturationNudge,
   buildEditIntentToolNudge,
   buildFinalAnswerContract,
   buildIncompleteHtmlProposalNudge,
   buildPartialBatchProposalNudge,
+  buildPlanVerifyCommandNudge,
+  buildPostScaffoldVerificationNudge,
   buildSearchReplaceEscalationNudge,
   isLikelyEditIntent,
   shouldInjectPartialBatchProposalNudge,
@@ -127,7 +132,7 @@ import type { AgentProfileId } from '../shared/agent-profile'
 import { getAgentProfile, type AgentProfile } from '../shared/agent-profile'
 import type { HarnessProfileKey } from '../shared/agent-harness-profile-contract'
 import {
-  AGENT_TOOL_LOOP_SHARED,
+  buildAgentToolLoopSharedSections,
   buildAgentToolLoopProfileSections,
   getHarnessProfile,
   type AgentHarnessProfile,
@@ -140,12 +145,40 @@ import {
   shouldRoutePostPlanIncremental,
 } from '../shared/post-plan-incremental'
 import type { StoredPlanArtifact } from '../shared/agent-plan-artifact'
-import { formatRetrievalActivityCopy } from '../shared/agent-activity-display'
+import {
+  detectScaffoldConflict,
+  resolveScaffoldStrategy,
+  type ScaffoldStrategy,
+  shouldInjectScaffoldStrategyNudge,
+} from '../shared/agent-scaffold-strategy'
+import { buildScaffoldStrategyNudge } from '../shared/agent-final-answer-contract'
+import {
+  assessPostScaffoldVerification,
+  inferViteTemplateFromPlan,
+  inferViteTemplateFromText,
+  type ViteTemplateId,
+} from '../shared/agent-scaffold-command'
+import {
+  agentToolRoundActivityDetail,
+  agentToolRoundActivityTitle,
+  formatRetrievalActivityCopy,
+} from '../shared/agent-activity-display'
+import { shouldRouteIterativeWorkExecutor } from '../shared/iterative-work-edit'
+import { isPopulatedWorkspace } from '../shared/populated-workspace-edit'
 import {
   isGreenfieldWorkspace,
+  planImpliesMultiFileBootstrap,
   type GreenfieldIndexSnapshot,
 } from '../shared/workspace-greenfield'
-const AGENT_TURN_TIMEOUT_MS = 300_000
+const AGENT_TURN_TIMEOUT_BASE_MS = 120_000
+const AGENT_TURN_TIMEOUT_PER_ROUND_MS = 45_000
+const AGENT_TURN_TIMEOUT_MAX_MS = 600_000
+const READ_ONLY_DISCOVERY_TOOLS = new Set([
+  'workspace_index',
+  'list_directory',
+  'read_file',
+  'search_workspace',
+])
 const MAX_MODEL_LEN = 128
 const ABORT_USER = 'gf:agent-user-cancel'
 const ABORT_TIMEOUT = 'gf:agent-timeout'
@@ -369,7 +402,13 @@ function emitActivity(
   streamId: string,
   activity: Omit<AgentChatEventPayload & { phase: 'activity' }, 'streamId' | 'phase'>['activity'],
 ): void {
-  trackTurnReceiptActivity(streamId, activity.status)
+  const receiptStatus =
+    activity.status === 'awaiting_approval'
+      ? 'running'
+      : activity.status === 'rejected' || activity.status === 'timeout'
+        ? 'error'
+        : activity.status
+  trackTurnReceiptActivity(streamId, receiptStatus)
   emit({ streamId, phase: 'activity', activity })
 }
 
@@ -420,6 +459,7 @@ function buildInitialMessages(
   harnessProfileKey: HarnessProfileKey,
   harnessCtx: HarnessPromptTurnContext,
   postPlanArtifact: StoredPlanArtifact | null = null,
+  options?: { threadSnapshotLimit?: number; threadFocusNote?: boolean },
 ): AgentModelChatMessage[] {
   const profile = getHarnessProfile(harnessProfileKey)
   const { systemPrompt } = buildChatSystemPrompt(manifest, {
@@ -441,9 +481,10 @@ function buildInitialMessages(
   ]
     .filter(Boolean)
     .join('\n\n')
+  const threadLimit = options?.threadSnapshotLimit ?? 40
   const prior = payload.threadSnapshot
     .filter((m) => m.content.trim())
-    .slice(-40)
+    .slice(-threadLimit)
     .map((m): AgentModelChatMessage => {
       if (m.role === 'system') {
         return { role: 'system', content: m.content }
@@ -455,6 +496,9 @@ function buildInitialMessages(
       ? `\n${buildGfPlanToolLoopBlock({ forbiddenLegacyFenceTag: AGENT_TOOL_FENCE_INFO })}`
       : ''
   const recoveryBlock = consumeTurnRecoveryHint(projectId) ?? ''
+  const threadFocusNote = options?.threadFocusNote
+    ? 'Older thread turns were omitted for focus on this edit — use tools for current file state on disk.'
+    : ''
   let approvedPlanBlock = ''
   if (payload.isApprovedPlanAutoRun && payload.approvedPlanId) {
     const artifact = loadPlanArtifact(projectId, payload.approvedPlanId)
@@ -477,11 +521,12 @@ function buildInitialMessages(
         systemPrompt,
         '',
         '## Agent tool loop',
-        ...AGENT_TOOL_LOOP_SHARED,
+        ...buildAgentToolLoopSharedSections(harnessCtx),
         ...buildAgentToolLoopProfileSections(profile, harnessCtx),
         planModeBlock,
         approvedPlanBlock,
         recoveryBlock,
+        threadFocusNote,
         dynamicContext,
       ]
         .filter(Boolean)
@@ -502,6 +547,10 @@ function finalAnswerContract(
   agentProfileId: AgentProfileId,
   harnessCtx: HarnessPromptTurnContext,
   turnProposalAccum: AgentEditProposalPayload | null,
+  commandToolsFailed: boolean,
+  scaffoldStrategyConflictIssued: boolean,
+  postScaffoldVerificationIncomplete: boolean,
+  postScaffoldMissingPaths: readonly string[],
 ): AgentModelChatMessage {
   return {
     role: 'system',
@@ -515,10 +564,49 @@ function finalAnswerContract(
       agentProfileId,
       executeFromApprovedPlan: harnessCtx.executeFromApprovedPlan,
       postPlanIncremental: harnessCtx.postPlanIncremental,
+      iterativeWorkEdit: harnessCtx.iterativeWorkEdit,
       greenfieldWorkspace: harnessCtx.greenfieldWorkspace,
       partialBatchRejections: turnProposalAccum?.rejected,
+      commandToolsFailed,
+      scaffoldStrategyConflictIssued,
+      postScaffoldVerificationIncomplete,
+      postScaffoldMissingPaths,
     }),
   }
+}
+
+function resolveCommandIntentText(
+  userText: string,
+  executeFromApprovedPlan: boolean,
+  approvedPlanId: string | undefined,
+  projectId: string,
+): { commandIntent: boolean; verificationHint?: string } {
+  const parts: string[] = []
+  if (impliesCommandExecution(userText)) parts.push(userText)
+  if (executeFromApprovedPlan && approvedPlanId) {
+    const artifact = loadPlanArtifact(projectId, approvedPlanId)
+    if (artifact?.plan.verification && impliesCommandExecution(artifact.plan.verification)) {
+      parts.push(artifact.plan.verification)
+    }
+    for (const step of artifact?.plan.steps ?? []) {
+      if (impliesCommandExecution(step.title)) parts.push(step.title)
+    }
+  }
+  const combined = parts.join('\n')
+  return {
+    commandIntent: combined.length > 0,
+    verificationHint: parts[0],
+  }
+}
+
+function computeCommandToolsFailed(input: {
+  commandIntent: boolean
+  commandToolSucceeded: boolean
+  commandToolFailed: boolean
+  planVerifyCommandNudgeIssued: boolean
+}): boolean {
+  if (!input.commandIntent || input.commandToolSucceeded) return false
+  return input.commandToolFailed || input.planVerifyCommandNudgeIssued
 }
 
 function resolvePostPlanRoutingInput(
@@ -535,6 +623,31 @@ function resolvePostPlanRoutingInput(
       userText: payload.userText,
     })
   return { postPlanIncremental, completedPlan }
+}
+
+function resolveMaxToolIterationsForTurn(
+  payload: AgentChatStartPayload,
+  agentProfile: AgentProfile,
+): number {
+  if (payload.isApprovedPlanAutoRun === true) {
+    return Math.min(AGENT_TOOL_MAX_ITERATIONS, APPROVED_PLAN_EXECUTE_MAX_TOOL_ROUNDS)
+  }
+  if (agentProfile.maxToolRounds !== undefined) {
+    return Math.min(AGENT_TOOL_MAX_ITERATIONS, agentProfile.maxToolRounds)
+  }
+  return AGENT_TOOL_MAX_ITERATIONS
+}
+
+/** Adaptive turn budget — room for multi-round tool_sample without always hitting 5m (story 129). */
+export function resolveAgentTurnTimeoutMs(maxToolIterations: number): number {
+  return Math.min(
+    AGENT_TURN_TIMEOUT_MAX_MS,
+    AGENT_TURN_TIMEOUT_BASE_MS + maxToolIterations * AGENT_TURN_TIMEOUT_PER_ROUND_MS,
+  )
+}
+
+type AgentTurnProgress = {
+  editProposalCreated: boolean
 }
 
 function computeEditToolsFailed(
@@ -649,12 +762,30 @@ function sanitizeActiveContext(
   }
 }
 
+let commandApprovalAutoResponder: ((requestId: string) => boolean) | null = null
+
+/**
+ * @internal Vitest — auto-approve/reject model commands without IPC (story 126 eval).
+ */
+export function setCommandApprovalAutoResponderForTesting(
+  responder: ((requestId: string) => boolean) | null,
+): () => void {
+  const prev = commandApprovalAutoResponder
+  commandApprovalAutoResponder = responder
+  return () => {
+    commandApprovalAutoResponder = prev
+  }
+}
+
 async function waitForCommandApproval(
   requestId: string,
   streamId: string,
   signal: AbortSignal,
 ): Promise<boolean> {
   if (signal.aborted) throw signal.reason
+  if (commandApprovalAutoResponder) {
+    return commandApprovalAutoResponder(requestId)
+  }
   return new Promise((resolvePromise, reject) => {
     const cleanup = () => {
       signal.removeEventListener('abort', onAbort)
@@ -679,6 +810,7 @@ async function runAgentTurn(
   payload: AgentChatStartPayload,
   ac: AbortController,
   scratch: TurnTraceScratch | null,
+  turnProgress: AgentTurnProgress,
 ): Promise<void> {
   const snapshot = getCurrentProject()
   const manifest = snapshot.manifest
@@ -689,11 +821,25 @@ async function runAgentTurn(
   }
 
   const { postPlanIncremental, completedPlan } = resolvePostPlanRoutingInput(projectId, payload)
+  const storedIndexForRouting = loadWorkspaceIndex(projectId)
+  const greenfieldIndexForRouting = storedIndexForRouting
+    ? toGreenfieldIndexSnapshot(storedIndexForRouting)
+    : null
+  const iterativeWorkEdit =
+    !payload.modelIntent &&
+    shouldRouteIterativeWorkExecutor({
+      chatMode: payload.activeContext.chatMode,
+      isApprovedPlanAutoRun: payload.isApprovedPlanAutoRun,
+      postPlanIncremental,
+      userText: payload.userText,
+      index: greenfieldIndexForRouting,
+    })
   const routing = resolveAgentTurnRouting(manifest, {
     modelIntent: payload.modelIntent,
     activeContext: payload.activeContext,
     isApprovedPlanAutoRun: payload.isApprovedPlanAutoRun,
     postPlanIncremental,
+    iterativeWorkEdit,
   })
   const harnessProfile = getHarnessProfile(routing.harnessProfileKey)
   const agentProfile = getAgentProfile(routing.agentProfileId)
@@ -813,15 +959,59 @@ async function runAgentTurn(
     detail: retrievalActivityCopy.detail,
     status: 'done',
   })
-  const singleFilePrimary = isSingleFilePrimaryWorkspace(greenfieldIndex)
+  const singleFilePrimaryRaw = isSingleFilePrimaryWorkspace(greenfieldIndex)
   const primaryFile = primaryNonTrivialFile(greenfieldIndex)
+  let singleFilePrimary = singleFilePrimaryRaw
+  let resolvedScaffoldStrategy: ScaffoldStrategy | null = null
+  let scaffoldExpectedTemplate: ViteTemplateId | null = null
+  let approvedPlanForScaffold: StoredPlanArtifact | null = null
+  if (
+    greenfield &&
+    safePayload.isApprovedPlanAutoRun === true &&
+    safePayload.approvedPlanId &&
+    !postPlanIncremental
+  ) {
+    approvedPlanForScaffold = loadPlanArtifact(projectId, safePayload.approvedPlanId)
+    if (approvedPlanForScaffold && planImpliesMultiFileBootstrap(approvedPlanForScaffold.plan)) {
+      singleFilePrimary = false
+    }
+    resolvedScaffoldStrategy = resolveScaffoldStrategy({
+      greenfieldWorkspace: greenfield,
+      executeFromApprovedPlan: true,
+      postPlanIncremental,
+      plan: approvedPlanForScaffold?.plan ?? null,
+      userText: safePayload.userText,
+    })
+    scaffoldExpectedTemplate =
+      inferViteTemplateFromPlan(approvedPlanForScaffold?.plan ?? null) ??
+      inferViteTemplateFromText(safePayload.userText)
+  } else if (
+    greenfield &&
+    safePayload.isApprovedPlanAutoRun === true &&
+    safePayload.approvedPlanId
+  ) {
+    approvedPlanForScaffold = loadPlanArtifact(projectId, safePayload.approvedPlanId)
+    if (approvedPlanForScaffold && planImpliesMultiFileBootstrap(approvedPlanForScaffold.plan)) {
+      singleFilePrimary = false
+    }
+  }
   const harnessCtx: HarnessPromptTurnContext = {
     greenfieldWorkspace: greenfield,
     executeFromApprovedPlan: safePayload.isApprovedPlanAutoRun === true,
     postPlanIncremental,
+    iterativeWorkEdit,
+    populatedWorkspace: isPopulatedWorkspace(greenfieldIndexForRouting),
+    activeFilePath: safePayload.activeContext.activeFilePath ?? null,
     singleFilePrimary,
     singleFilePrimaryBasename: primaryFile?.basename,
+    scaffoldStrategy: resolvedScaffoldStrategy,
+    viteTemplateHint: scaffoldExpectedTemplate,
   }
+
+  const threadTrimForIterativeEdit =
+    iterativeWorkEdit &&
+    safePayload.activeContext.chatMode === 'fast' &&
+    isLikelyEditIntent(safePayload.userText)
 
   const messages = buildInitialMessages(
     manifest,
@@ -831,6 +1021,9 @@ async function runAgentTurn(
     routing.harnessProfileKey,
     harnessCtx,
     postPlanIncremental ? completedPlan : null,
+    threadTrimForIterativeEdit
+      ? { threadSnapshotLimit: 24, threadFocusNote: true }
+      : undefined,
   )
   pruneStaleAgentOffloads(projectId)
 
@@ -849,18 +1042,30 @@ async function runAgentTurn(
 
   const isPlanMode = safePayload.activeContext.chatMode === 'plan'
   const executeFromApprovedPlan = safePayload.isApprovedPlanAutoRun === true
-  const maxToolIterations = executeFromApprovedPlan
-    ? Math.min(AGENT_TOOL_MAX_ITERATIONS, APPROVED_PLAN_EXECUTE_MAX_TOOL_ROUNDS)
-    : agentProfile.maxToolRounds !== undefined
-      ? Math.min(AGENT_TOOL_MAX_ITERATIONS, agentProfile.maxToolRounds)
-      : AGENT_TOOL_MAX_ITERATIONS
+  const maxToolIterations = resolveMaxToolIterationsForTurn(safePayload, agentProfile)
+  const toolRoundChatMode = safePayload.activeContext.chatMode
   let toolRoundCount = 0
+  let discoverySaturationNudgeIssued = false
+  let lastRoundWasReadOnlyOnly = false
   let providerRoundIndex = 0
   let editIntentToolNudgeIssued = false
+  let planVerifyCommandNudgeIssued = false
   let searchReplaceEscalationNudgeIssued = false
   let incompleteHtmlNudgeIssued = false
   let partialBatchNudgeIssued = false
+  let scaffoldStrategyNudgeIssued = false
+  let postScaffoldVerificationNudgeIssued = false
+  let scaffoldMutatingCommandSucceeded = false
   let postEscalationToolRounds = 0
+  let commandToolSucceeded = false
+  let commandToolFailed = false
+  let commandToolSampledThisTurn = false
+  const { commandIntent, verificationHint } = resolveCommandIntentText(
+    safePayload.userText,
+    executeFromApprovedPlan,
+    safePayload.approvedPlanId,
+    projectId,
+  )
 
   const snapshotForProviderRound = (roundKind: 'tool_sample' | 'final_stream') => {
     const snapshot = buildTurnSnapshot({
@@ -890,6 +1095,16 @@ async function runAgentTurn(
     if (extraUserHint) {
       messages.push({ role: 'user', content: extraUserHint })
     }
+    let postScaffoldVerificationIncomplete = false
+    let postScaffoldMissingPaths: string[] = []
+    if (scaffoldMutatingCommandSucceeded) {
+      const verificationReport = assessPostScaffoldVerification({
+        readPaths: Array.from(getAgentTurnReads(payload.streamId)),
+        template: scaffoldExpectedTemplate,
+      })
+      postScaffoldVerificationIncomplete = !verificationReport.complete
+      postScaffoldMissingPaths = [...verificationReport.missingPaths]
+    }
     messages.push(
       finalAnswerContract(
         safePayload.userText,
@@ -907,6 +1122,15 @@ async function runAgentTurn(
         routing.agentProfileId,
         harnessCtx,
         turnProposalAccum,
+        computeCommandToolsFailed({
+          commandIntent,
+          commandToolSucceeded,
+          commandToolFailed,
+          planVerifyCommandNudgeIssued,
+        }),
+        scaffoldStrategyNudgeIssued,
+        postScaffoldVerificationIncomplete,
+        postScaffoldMissingPaths,
       ),
     )
     messages.push({
@@ -923,23 +1147,39 @@ async function runAgentTurn(
 
   for (let i = 0; i < maxToolIterations; i += 1) {
     if (ac.signal.aborted) throw ac.signal.reason
+    const toolRoundActivityId = activityId()
+    const toolRoundTitle = agentToolRoundActivityTitle(toolRoundChatMode, executeFromApprovedPlan)
+    const toolRoundDetail = agentToolRoundActivityDetail(
+      i + 1,
+      maxToolIterations,
+      executeFromApprovedPlan,
+    )
+    const markToolRoundDone = (status: AgentChatActivityPayload['status'] = 'done') => {
+      emitActivity(payload.streamId, {
+        id: toolRoundActivityId,
+        title: toolRoundTitle,
+        status,
+        detail: toolRoundDetail,
+      })
+    }
     emitActivity(payload.streamId, {
-      id: activityId(),
-      title: executeFromApprovedPlan ? 'Executing plan (model)' : 'Planning tool step',
+      id: toolRoundActivityId,
+      title: toolRoundTitle,
       status: 'running',
-      detail: executeFromApprovedPlan
-        ? `Round ${i + 1}/${maxToolIterations} — large file proposals can take up to ~90s`
-        : `Round ${i + 1}/${maxToolIterations}`,
+      detail: toolRoundDetail,
     })
     const sampleSnapshot = snapshotForProviderRound('tool_sample')
     const sampled = await providerSampleFromSnapshot(sampleSnapshot, ac.signal)
     if (sampled.toolCalls.length === 0) {
+      markToolRoundDone()
       const shouldNudgeForEditIntent =
         !isPlanMode &&
         !editProposalCreated &&
         agentProfile.canProposeEdits &&
         isLikelyEditIntent(safePayload.userText) &&
-        !editIntentToolNudgeIssued
+        !editIntentToolNudgeIssued &&
+        !commandIntent &&
+        !harnessCtx.iterativeWorkEdit
       if (shouldNudgeForEditIntent) {
         editIntentToolNudgeIssued = true
         messages.push({
@@ -948,11 +1188,29 @@ async function runAgentTurn(
         })
         continue
       }
+      const shouldNudgeForPlanVerify =
+        !isPlanMode &&
+        agentProfile.canProposeEdits &&
+        commandIntent &&
+        !commandToolSampledThisTurn &&
+        !planVerifyCommandNudgeIssued
+      if (shouldNudgeForPlanVerify) {
+        planVerifyCommandNudgeIssued = true
+        messages.push({
+          role: 'user',
+          content: buildPlanVerifyCommandNudge({ verificationHint }),
+        })
+        continue
+      }
       await completeTurnWithFinalStream()
       return
     }
 
     toolRoundCount += 1
+    const roundToolNames = sampled.toolCalls.map((c) => c.function.name)
+    lastRoundWasReadOnlyOnly =
+      roundToolNames.length > 0 &&
+      roundToolNames.every((name) => READ_ONLY_DISCOVERY_TOOLS.has(name))
 
     messages.push({
       role: 'assistant',
@@ -998,14 +1256,33 @@ async function runAgentTurn(
           manifest,
           searchReplaceFailuresByPath,
           userMessageHint: safePayload.userText,
+          scaffoldExpectedTemplate,
         },
         { emit, approvalRequestId: activityId(), waitForCommandApproval },
       )
 
       const { doneTitle, detail, ok } = outcome
-      if (outcome.editProposalCreated !== undefined) editProposalCreated = outcome.editProposalCreated
+      if (outcome.editProposalCreated !== undefined) {
+        editProposalCreated = outcome.editProposalCreated
+        if (editProposalCreated) turnProgress.editProposalCreated = true
+      }
       if (outcome.editProposalComposedInTurn) editProposalComposedInTurn = true
       if (outcome.turnProposalAccum !== undefined) turnProposalAccum = outcome.turnProposalAccum
+
+      if (name === 'run_command') {
+        commandToolSampledThisTurn = true
+        if (ok) {
+          commandToolSucceeded = true
+          try {
+            const parsed = JSON.parse(outcome.toolContent) as { command?: string }
+            if (typeof parsed.command === 'string' && commandLikelyMutatesWorkspace(parsed.command)) {
+              scaffoldMutatingCommandSucceeded = true
+            }
+          } catch {
+            /* ignore */
+          }
+        } else commandToolFailed = true
+      }
 
       if (
         !ok &&
@@ -1075,6 +1352,20 @@ async function runAgentTurn(
             : {}),
         })
       }
+      let activityStatus: AgentChatActivityPayload['status'] = ok ? 'done' : 'error'
+      if (name === 'run_command') {
+        try {
+          const parsed = JSON.parse(outcome.toolContent) as {
+            rejected?: boolean
+            timedOut?: boolean
+          }
+          if (parsed.rejected) activityStatus = 'rejected'
+          else if (parsed.timedOut) activityStatus = 'timeout'
+          else if (!ok) activityStatus = 'error'
+        } catch {
+          /* ignore malformed tool JSON */
+        }
+      }
       emitActivity(payload.streamId, {
         id,
         tool: isAllowedToolName(name) ? name : undefined,
@@ -1084,7 +1375,7 @@ async function runAgentTurn(
               .filter(Boolean)
               .join(' · ')
           : detail,
-        status: ok ? 'done' : 'error',
+        status: activityStatus,
         ...(outcome.activitySubjectPath ? { subjectPath: outcome.activitySubjectPath } : {}),
       })
       messages.push({ role: 'tool', tool_call_id: call.id, content: providerToolContent })
@@ -1092,6 +1383,38 @@ async function runAgentTurn(
     if (scratch) {
       scratch.editProposalCreated = editProposalCreated
       scratch.totalToolCharsAccumulated = totalToolChars
+    }
+
+    markToolRoundDone()
+
+    const discoverySaturationMinRounds = harnessCtx.iterativeWorkEdit ? 2 : 3
+    const shouldNudgeDiscoverySaturation =
+      !isPlanMode &&
+      !editProposalCreated &&
+      agentProfile.canProposeEdits &&
+      isLikelyEditIntent(safePayload.userText) &&
+      !discoverySaturationNudgeIssued &&
+      toolRoundCount >= discoverySaturationMinRounds &&
+      lastRoundWasReadOnlyOnly
+    if (shouldNudgeDiscoverySaturation) {
+      discoverySaturationNudgeIssued = true
+      postEscalationToolRounds = 0
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Harness: proceed to edits',
+        status: 'done',
+        detail:
+          'Several read-only rounds completed without an edit proposal — switch to propose_file_edits or search_replace.',
+      })
+      messages.push({
+        role: 'user',
+        content: buildDiscoverySaturationNudge({
+          readOnlyRounds: toolRoundCount,
+          activeFilePath: safePayload.activeContext.activeFilePath,
+          iterativeWorkEdit: harnessCtx.iterativeWorkEdit,
+        }),
+      })
+      continue
     }
 
     if (searchReplaceEscalationNudgeIssued || incompleteHtmlNudgeIssued || partialBatchNudgeIssued) {
@@ -1152,6 +1475,7 @@ async function runAgentTurn(
         role: 'user',
         content: buildSearchReplaceEscalationNudge(
           pathsAtSearchReplaceEscalationThreshold(searchReplaceFailuresByPath),
+          { brief: harnessCtx.iterativeWorkEdit === true },
         ),
       })
       continue
@@ -1211,6 +1535,72 @@ async function runAgentTurn(
       continue
     }
 
+    const scaffoldConflict = detectScaffoldConflict(resolvedScaffoldStrategy, sampled.toolCalls, {
+      scaffoldCliSucceededThisTurn: commandToolSucceeded,
+    })
+    if (
+      shouldInjectScaffoldStrategyNudge({
+        strategy: resolvedScaffoldStrategy,
+        greenfieldWorkspace: greenfield,
+        executeFromApprovedPlan,
+        postPlanIncremental,
+        alreadyIssued: scaffoldStrategyNudgeIssued,
+        conflict: scaffoldConflict,
+      })
+    ) {
+      scaffoldStrategyNudgeIssued = true
+      postEscalationToolRounds = 0
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Harness: scaffold strategy conflict',
+        status: 'done',
+        detail:
+          scaffoldConflict === 'hybrid_same_round'
+            ? 'CLI and file edit tools mixed in one round — pick one strategy.'
+            : scaffoldConflict === 'cli_on_static'
+              ? 'Static plan should use file proposals, not npm create.'
+              : 'Run CLI scaffold before hand-written template files.',
+      })
+      messages.push({
+        role: 'user',
+        content: buildScaffoldStrategyNudge(resolvedScaffoldStrategy!, scaffoldConflict!),
+      })
+      continue
+    }
+
+    if (
+      !isPlanMode &&
+      greenfield &&
+      executeFromApprovedPlan &&
+      !postPlanIncremental &&
+      scaffoldMutatingCommandSucceeded &&
+      !postScaffoldVerificationNudgeIssued
+    ) {
+      const verificationReport = assessPostScaffoldVerification({
+        readPaths: Array.from(getAgentTurnReads(payload.streamId)),
+        template: scaffoldExpectedTemplate,
+      })
+      if (!verificationReport.complete) {
+        postScaffoldVerificationNudgeIssued = true
+        postEscalationToolRounds = 0
+        emitActivity(payload.streamId, {
+          id: activityId(),
+          title: 'Harness: verify scaffold output',
+          status: 'done',
+          detail: 'Read package.json and entry files to confirm the scaffold stack.',
+        })
+        messages.push({
+          role: 'user',
+          content: buildPostScaffoldVerificationNudge({
+            template: verificationReport.expectedTemplate,
+            missingPaths: verificationReport.missingPaths,
+            uncheckedSignals: verificationReport.uncheckedSignals,
+          }),
+        })
+        continue
+      }
+    }
+
     if (isPlanMode && toolRoundCount >= 1) {
       await completeTurnWithFinalStream(
         `You have enough workspace context from discovery tools. Provide your final answer now with ${GF_PLAN_FENCE_NUDGE_PHRASE}. Do not request more tools.`,
@@ -1238,15 +1628,33 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
   const snap = getCurrentProject()
   let scratch: TurnTraceScratch | null = null
   let turnRouting: ReturnType<typeof resolveAgentTurnRouting> | null = null
+  const turnProgress: AgentTurnProgress = { editProposalCreated: false }
+  let turnTimeoutMs = AGENT_TURN_TIMEOUT_MAX_MS
   if (snap.projectId && snap.manifest) {
     try {
       const { postPlanIncremental } = resolvePostPlanRoutingInput(snap.projectId, payload)
+      const storedIndex = loadWorkspaceIndex(snap.projectId)
+      const greenfieldIndex = storedIndex ? toGreenfieldIndexSnapshot(storedIndex) : null
+      const iterativeWorkEdit =
+        !payload.modelIntent &&
+        shouldRouteIterativeWorkExecutor({
+          chatMode: payload.activeContext.chatMode,
+          isApprovedPlanAutoRun: payload.isApprovedPlanAutoRun,
+          postPlanIncremental,
+          userText: payload.userText,
+          index: greenfieldIndex,
+        })
       turnRouting = resolveAgentTurnRouting(snap.manifest, {
         modelIntent: payload.modelIntent,
         activeContext: payload.activeContext,
         isApprovedPlanAutoRun: payload.isApprovedPlanAutoRun,
         postPlanIncremental,
+        iterativeWorkEdit,
       })
+      const agentProfileForTimeout = getAgentProfile(turnRouting.agentProfileId)
+      turnTimeoutMs = resolveAgentTurnTimeoutMs(
+        resolveMaxToolIterationsForTurn(payload, agentProfileForTimeout),
+      )
       const { systemPrompt } = buildChatSystemPrompt(snap.manifest)
       scratch = createTurnTraceScratch(snap.projectId, payload, systemPrompt.length, turnRouting)
     } catch {
@@ -1257,16 +1665,18 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
   let traceOutcome: TurnTraceOutcome = 'completed'
   let traceError: string | undefined
 
-  const timeout = setTimeout(() => ac.abort(ABORT_TIMEOUT), AGENT_TURN_TIMEOUT_MS)
+  const timeout = setTimeout(() => ac.abort(ABORT_TIMEOUT), turnTimeoutMs)
   try {
-    await runAgentTurn(payload, ac, scratch)
+    await runAgentTurn(payload, ac, scratch, turnProgress)
   } catch (e) {
     if (ac.signal.aborted) {
       if (ac.signal.reason === ABORT_USER) {
         traceOutcome = 'cancelled'
       } else if (ac.signal.reason === ABORT_TIMEOUT) {
         traceOutcome = 'timeout'
-        traceError = 'Agent turn timed out'
+        traceError = turnProgress.editProposalCreated
+          ? 'Agent turn timed out — a pending diff review is still available in the chat.'
+          : 'Agent turn timed out (turn time budget). Try a smaller change or fewer files per message.'
       } else {
         traceOutcome = 'error'
         traceError =
@@ -1285,13 +1695,29 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
       }
       if (ac.signal.reason === ABORT_USER) {
         finalizeTurnReceipt(payload.streamId, 'cancelled')
+      } else if (ac.signal.reason === ABORT_TIMEOUT && turnProgress.editProposalCreated) {
+        finalizeTurnReceipt(payload.streamId, 'interrupted')
       } else {
         finalizeTurnReceipt(payload.streamId, 'error')
+      }
+      if (ac.signal.reason === ABORT_TIMEOUT && turnProgress.editProposalCreated) {
+        emitActivity(payload.streamId, {
+          id: activityId(),
+          title: 'Turn timed out',
+          status: 'interrupted',
+          detail:
+            'Turn time budget reached. A pending diff review from this turn is still available — apply or discard it before retrying.',
+        })
       }
       emit({
         streamId: payload.streamId,
         phase: 'activity_clear_running',
-        reason: ac.signal.reason === ABORT_USER ? 'cancelled' : 'error',
+        reason:
+          ac.signal.reason === ABORT_USER
+            ? 'cancelled'
+            : ac.signal.reason === ABORT_TIMEOUT && turnProgress.editProposalCreated
+              ? 'interrupted'
+              : 'error',
       })
       emit({
         streamId: payload.streamId,

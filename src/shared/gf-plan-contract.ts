@@ -26,6 +26,7 @@ const GF_PLAN_OUTPUT_CONTRACT_TAIL: readonly string[] = [
   'You may include short readable prose before or after the fence. The JSON must parse as-is.',
   'Do **not** call `propose_file_edits` or propose file writes on this turn — execution happens after the user approves the plan.',
   'Do not put file-write payloads inside the plan JSON; use `propose_file_edits` after approval.',
+  'For install/scaffold/verify steps, name **concrete shell commands** in `verification` and step titles — the executor will call **`run_command`** after user approval (e.g. `npm install`, `npm run typecheck`).',
   'In `filesLikelyTouched` and steps, be explicit about single-file vs multi-file layout. Mention code quality expectations (readable formatting, real line breaks, basic styling for greenfield UI).',
 ]
 
@@ -59,7 +60,9 @@ function planModeProfileQualityLines(
     'Make `filesLikelyTouched` concrete paths or clear relative paths under workspace roots.',
     'In `risksUnknowns`, list assumptions, missing context, and blockers — not generic filler.',
     'Each `steps` entry should be an actionable engineering step with a clear outcome; include at least one verification-oriented step.',
-    '`verification` should name commands or manual checks (e.g. `npm run typecheck`, open UI route, run tests) the executor can run after approval.',
+    '`verification` should name **concrete commands** or manual checks (e.g. `npm install`, `npm run typecheck`, open UI route, run tests) the executor runs via **`run_command`** after approval.',
+    'State **project shape** in the plan summary when obvious: **Vite+React+TS** (npm CLI + `package.json` tree) vs **static HTML/CSS/JS** (no build step).',
+    'When obvious, state **scaffold strategy** in the summary: **`cli`** (npm/Vite CLI first) vs **`static_files`** (HTML/CSS/JS only) — do not mix both in one execute turn.',
     'Do not propose file edits in this turn; structured plan only.',
     greenfieldNote,
   ].filter(Boolean)

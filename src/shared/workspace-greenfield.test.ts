@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { isGreenfieldWorkspace } from './workspace-greenfield'
+import {
+  isGreenfieldWorkspace,
+  planImpliesMultiFileBootstrap,
+  planImpliesNpmScaffold,
+  planImpliesStaticFileBootstrap,
+} from './workspace-greenfield'
 
 function indexFixture(overrides: {
   fileCountScanned?: number
@@ -69,5 +74,35 @@ describe('isGreenfieldWorkspace', () => {
         retrievalMatchCount: 0,
       }),
     ).toBe(false)
+  })
+})
+
+describe('greenfield scaffold plan hints (127)', () => {
+  it('planImpliesNpmScaffold detects Vite package.json plans', () => {
+    expect(
+      planImpliesNpmScaffold({
+        filesLikelyTouched: ['package.json', 'vite.config.ts'],
+        steps: [{ title: 'npm create vite' }],
+      }),
+    ).toBe(true)
+  })
+
+  it('planImpliesStaticFileBootstrap detects vanilla HTML plans without package.json', () => {
+    expect(
+      planImpliesStaticFileBootstrap({
+        filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+        steps: [{ title: 'Create static todo page' }],
+      }),
+    ).toBe(true)
+    expect(
+      planImpliesStaticFileBootstrap({
+        filesLikelyTouched: ['package.json', 'index.html'],
+      }),
+    ).toBe(false)
+  })
+
+  it('planImpliesMultiFileBootstrap when two or more paths listed', () => {
+    expect(planImpliesMultiFileBootstrap({ filesLikelyTouched: ['a.ts'] })).toBe(false)
+    expect(planImpliesMultiFileBootstrap({ filesLikelyTouched: ['a.ts', 'b.ts'] })).toBe(true)
   })
 })

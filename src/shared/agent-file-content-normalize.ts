@@ -1,4 +1,5 @@
 import { isJammedJavaScriptSource, looksLikeHtmlDocument } from './agent-edit-corrupt-content'
+import { isBootstrapManifestPath, normalizeJsonManifestContent } from './agent-bootstrap-manifest'
 
 /**
  * Some models return `write_file` / propose_file_edits `content` with JSON-style
@@ -186,10 +187,52 @@ export function repairCommentSwallowedTrailingCode(content: string): string {
   return content.replace(COMMENT_SWALLOWED_CODE, '$1//$2\n$4')
 }
 
+/** True when statements are glued without semicolons/newlines (`'react'import`, `[] function`). */
+export function hasGluedJavaScriptStatements(content: string): boolean {
+  if (!content || content.length < 40) return false
+  if (/\bfrom\s+['"][^'"]+['"][^\S\n]*(?:import|export)\b/.test(content)) return true
+  if (/['"][^'"]*['"](?:import|export|type|interface)\b/.test(content)) return true
+  if (/\[\]\s+(?:function|const|let|var)\b/.test(content)) return true
+  if (/\]\s+(?:function|const|let|var)\b/.test(content)) return true
+  for (const line of content.split(/\r?\n/)) {
+    if (line.length < 80) continue
+    if (/\]\s+(?:function|const|let|var)\b/.test(line)) return true
+    if (/\bfrom\s+['"][^'"]+['"][^\S\n]*(?:import|export)\b/.test(line)) return true
+    if (/['"][^'"]*['"](?:import|export|type|interface)\b/.test(line)) return true
+    if (/\)\s+(?:document\.|window\.|[a-z_$][\w$]*\s*\.|[a-z_$][\w$]*\s*=)/i.test(line)) {
+      return true
+    }
+  }
+  return false
+}
+
+function expandGluedJavaScriptTokensOnce(content: string): string {
+  let out = content
+  out = out.replace(/\b(from\s+['"][^'"]+['"])([^\S\n]*)(?=import\s)/g, '$1\n')
+  out = out.replace(/\b(from\s+['"][^'"]+['"])([^\S\n]*)(?=export\s)/g, '$1\n')
+  out = out.replace(/(['"][^'"]*['"])(?=(?:import|export|type|interface)\b)/g, '$1\n')
+  out = out.replace(/(\[\])(\s+)(?=function\s|const\s|let\s|var\s)/g, '$1;\n')
+  out = out.replace(/(\])(\s+)(?=function\s|const\s|let\s|var\s)/g, '$1;\n')
+  out = out.replace(/\)\s+(?=document\.|window\.|[a-z_$][\w$]*\s*\.|[a-z_$][\w$]*\s*=)/gi, ')\n')
+  return out
+}
+
+/** Break common glued-token patterns before generic statement expansion. */
+export function expandGluedJavaScriptTokens(content: string): string {
+  if (!content) return content
+  let out = content
+  for (let pass = 0; pass < 6; pass += 1) {
+    const next = expandGluedJavaScriptTokensOnce(out)
+    if (next === out) break
+    out = next
+  }
+  return out
+}
+
 /** Insert line breaks before common statement and comment boundaries. */
 export function expandCollapsedSourceLineBreaks(content: string): string {
   if (!content) return content
-  let out = content
+  let out = expandGluedJavaScriptTokens(content)
   out = out.replace(new RegExp(`;(\\s*)(?=//)`, 'g'), ';\n$1')
   out = out.replace(new RegExp(`;(\\s*)(?=${STMT_START})`, 'g'), ';\n$1')
   out = out.replace(
@@ -308,7 +351,7 @@ export function reflowHtmlEmbeddedBlocks(content: string): string {
 /** Repair crushed JavaScript source (standalone `.js` or inline `<script>` body). */
 export function repairJammedJavaScriptSource(source: string): string {
   if (!source?.trim()) return source
-  let out = source
+  let out = expandGluedJavaScriptTokens(source)
   out = repairCommentSwallowedTrailingCode(out)
   out = out.replace(/\}\)\s*;\s*\)/g, '});')
   out = out.replace(/\}\)\s*\/\//g, '});\n//')
@@ -393,6 +436,9 @@ export function repairSourceLayout(content: string, resolvedPath?: string): stri
   if (hasDominantLiteralEscapedNewlines(out)) {
     out = unescapeLiteralNewlines(out)
   }
+  if (hasGluedJavaScriptStatements(out)) {
+    out = expandGluedJavaScriptTokens(out)
+  }
   out = repairCommentSwallowedTrailingCode(out)
   if (
     looksLikeJavaScriptSource(out, resolvedPath) &&
@@ -436,5 +482,9 @@ export function normalizeAgentWriteFileContent(content: string, resolvedPath?: s
   out = unescapeJsonUnicodeEscapes(out)
   out = repairCommonMojibake(out)
   out = decodeHtmlEntitiesInAgentContent(out, resolvedPath)
+  if (isBootstrapManifestPath(resolvedPath)) {
+    out = normalizeJsonManifestContent(out, resolvedPath)
+    return out
+  }
   return repairSourceLayout(out, resolvedPath)
 }

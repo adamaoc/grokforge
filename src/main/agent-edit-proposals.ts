@@ -198,7 +198,10 @@ export function validateAgentEditProposal(
       for (let pass = 0; pass < 2 && needsSourceLayoutRepair(normalizedContent); pass += 1) {
         normalizedContent = normalizeAgentWriteFileContent(normalizedContent, resolved)
       }
-      const integrity = assessProposalWriteContent(normalizedContent, { resolvedPath: resolved })
+      const integrity = assessProposalWriteContent(normalizedContent, {
+        resolvedPath: resolved,
+        isNewFile: !fileExistsOnDisk,
+      })
       if (!integrity.ok) {
         const reason = integrity.reason ?? 'Proposal content failed integrity checks.'
         logProposalValidationDev(resolved, originalOnDisk ?? '', normalizedContent, reason)

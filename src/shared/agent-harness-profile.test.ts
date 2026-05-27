@@ -3,6 +3,7 @@ import { buildFinalAnswerContract } from './agent-final-answer-contract'
 import type { AgentChatToolName } from './agent-chat-contract'
 import {
   appendHarnessProfileToSystemPrompt,
+  buildAgentToolLoopSharedSections,
   buildHarnessTurnPromptSections,
   buildVoiceHarnessAppendix,
   getHarnessProfile,
@@ -12,7 +13,11 @@ import {
   POST_PLAN_INCREMENTAL_MARKER,
   SINGLE_FILE_EDIT_BIAS_MARKER,
 } from './post-plan-incremental'
+import { POPULATED_WORK_EDIT_MARKER } from './populated-workspace-edit'
+import { WORK_ITERATIVE_EDIT_MARKER } from './iterative-work-edit'
 import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
+import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER } from './agent-bootstrap-manifest'
+import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from './agent-scaffold-strategy'
 
 describe('getHarnessProfile', () => {
   it('returns distinct profiles for grok_code_fast and grok_4_3', () => {
@@ -44,6 +49,11 @@ describe('tool description overrides', () => {
   it('documents search_workspace override on fast profile', () => {
     const overrides = getHarnessProfile('grok_code_fast').toolDescriptionOverrides
     expect(overrides.search_workspace).toMatch(/ripgrep|rg/i)
+  })
+
+  it('documents run_command override on fast profile', () => {
+    const overrides = getHarnessProfile('grok_code_fast').toolDescriptionOverrides
+    expect(overrides.run_command).toMatch(/npm install|typecheck/i)
   })
 })
 
@@ -89,16 +99,36 @@ describe('buildHarnessTurnPromptSections', () => {
     expect(sections.join('\n')).toMatch(/Execute approved plan/i)
   })
 
+  it('includes greenfield planner marker and scaffold manifest guidance', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_4_3'), {
+      greenfieldWorkspace: true,
+    })
+    const joined = sections.join('\n')
+    expect(joined).toContain(GREENFIELD_HARNESS_MARKER)
+    expect(joined).toContain(GREENFIELD_SCAFFOLD_MANIFEST_MARKER)
+    expect(joined).toMatch(/Vite \+ React \+ TS/i)
+  })
+
+  it('includes greenfield execute strategy routing when scaffoldStrategy set', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      executeFromApprovedPlan: true,
+      greenfieldWorkspace: true,
+      scaffoldStrategy: 'cli_scaffold',
+    })
+    const joined = sections.join('\n')
+    expect(joined).toContain(SCAFFOLD_STRATEGY_ROUTING_MARKER)
+    expect(joined).toMatch(/cli_scaffold/i)
+  })
+
   it('includes greenfield bootstrap execute sections when empty workspace', () => {
     const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
       executeFromApprovedPlan: true,
       greenfieldWorkspace: true,
     })
     const joined = sections.join('\n')
-    expect(joined).toMatch(/one `propose_file_edits`/i)
-    expect(joined).not.toMatch(/one file per/i)
+    expect(joined).toMatch(/run_command/i)
+    expect(joined).toMatch(/npm create|npm install/i)
     expect(joined).toMatch(/script\.js/i)
-    expect(joined).toMatch(/external.*script src/i)
   })
 
   it('executor-from-plan discourages inline JS when plan lists multiple paths', () => {
@@ -132,6 +162,24 @@ describe('buildHarnessTurnPromptSections', () => {
     })
     expect(sections.join('\n')).toContain(SINGLE_FILE_EDIT_BIAS_MARKER)
     expect(sections.join('\n')).toContain('index.html')
+  })
+
+  it('includes iterative Work edit sections when iterativeWorkEdit', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      iterativeWorkEdit: true,
+      populatedWorkspace: true,
+      activeFilePath: '/proj/src/App.tsx',
+    })
+    expect(sections.join('\n')).toContain(WORK_ITERATIVE_EDIT_MARKER)
+    expect(sections.join('\n')).toContain(POPULATED_WORK_EDIT_MARKER)
+    expect(sections.join('\n')).toContain('src/App.tsx')
+    expect(sections.join('\n')).toMatch(/do \*\*not\*\* emit a new `gf-plan`/i)
+  })
+
+  it('uses bounded explore rules for iterative Work edits', () => {
+    const shared = buildAgentToolLoopSharedSections({ iterativeWorkEdit: true })
+    expect(shared.join('\n')).toMatch(/at most \*\*two\*\* read-only tool rounds/i)
+    expect(shared.join('\n')).not.toMatch(/run discovery tools before proposing file changes/i)
   })
 })
 

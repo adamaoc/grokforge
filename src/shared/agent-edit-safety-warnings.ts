@@ -1,7 +1,9 @@
 import { isMarkdownOrPlainTextPath } from './agent-markdown-path'
+import { isBootstrapManifestPath } from './agent-bootstrap-manifest'
 import { isJammedJavaScriptSource, looksLikeHtmlDocument } from './agent-edit-corrupt-content'
 import {
   hasDominantLiteralEscapedNewlines,
+  hasGluedJavaScriptStatements,
   isCollapsedMultiStatementSource,
   looksLikeJsxOrTsxSource,
   looksLikeMarkdownDocument,
@@ -34,6 +36,22 @@ export type AgentEditSafetyResult = {
 }
 
 const ADD_INTENT_RE = /\b(add|widget|insert|append)\b/i
+
+/** Valid new JSON manifests (package.json, tsconfig) — minified one-liners are intentional. */
+function isNewJsonManifestBootstrap(
+  path: string | undefined,
+  status: string,
+  content: string,
+): boolean {
+  if (status !== 'created' || !path) return false
+  if (!isBootstrapManifestPath(path)) return false
+  try {
+    JSON.parse(content.trim())
+    return true
+  } catch {
+    return false
+  }
+}
 
 /** New stylesheets are often one minified line — not the JS “crushed statements” failure mode. */
 function isNewStylesheetBootstrap(path: string | undefined, status: string, content: string): boolean {
@@ -74,6 +92,7 @@ function isNewVanillaWebScriptBootstrap(
   if (/\b(import|export)\s/.test(content)) return false
   if (!/\b(document|localStorage|addEventListener|querySelector)\b/.test(content)) return false
   if (isJammedJavaScriptSource(content)) return false
+  if (hasGluedJavaScriptStatements(content)) return false
   return content.length >= 80 && content.length <= 12_000
 }
 
@@ -145,12 +164,16 @@ export function analyzeAgentEditSafety(args: {
 
   const statsLine = formatStatsLine(originalLines, modifiedLines, status)
   const hasLiteralEscapedNewlines = hasDominantLiteralEscapedNewlines(modified)
+  const vanillaBootstrap = isNewVanillaWebScriptBootstrap(args.resolvedPath, status, modified)
   const skipCollapsedForBootstrap =
     isNewStylesheetBootstrap(args.resolvedPath, status, modified) ||
     isNewHtmlBootstrap(args.resolvedPath, status, modified) ||
-    isNewVanillaWebScriptBootstrap(args.resolvedPath, status, modified)
+    vanillaBootstrap ||
+    isNewJsonManifestBootstrap(args.resolvedPath, status, modified)
   const hasCollapsedSingleLineSource =
-    !skipCollapsedForBootstrap && isCollapsedMultiStatementSource(modified)
+    !skipCollapsedForBootstrap &&
+    !hasGluedJavaScriptStatements(modified) &&
+    isCollapsedMultiStatementSource(modified)
   const skipMessyLayoutForMarkdown =
     Boolean(args.resolvedPath && isMarkdownOrPlainTextPath(args.resolvedPath)) &&
     looksLikeMarkdownDocument(modified) &&
@@ -160,6 +183,7 @@ export function analyzeAgentEditSafety(args: {
     isNewStylesheetBootstrap(args.resolvedPath, status, modified)
   const hasMessySourceLayout =
     !hasCollapsedSingleLineSource &&
+    !hasGluedJavaScriptStatements(modified) &&
     !skipMessyLayoutForMarkdown &&
     !skipMessyLayoutForBootstrap &&
     needsSourceLayoutRepair(modified)
@@ -171,6 +195,17 @@ export function analyzeAgentEditSafety(args: {
         'Proposed content has many literal \\n sequences instead of real line breaks. Try “Normalize line breaks” before applying.',
     })
     severity = maxSeverity(severity, 'caution')
+  }
+
+  const hasGluedStatements =
+    !vanillaBootstrap && hasGluedJavaScriptStatements(modified)
+  if (hasGluedStatements) {
+    issues.push({
+      code: 'messy_source_layout',
+      message:
+        'Proposed JavaScript/TypeScript has glued statements on one line (e.g. `from \'react\'import`, `[] function`, or `) list.innerHTML`). Try “Normalize line breaks” or ask the agent to rewrite with one statement per line.',
+    })
+    severity = maxSeverity(severity, 'severe')
   }
 
   if (hasCollapsedSingleLineSource) {

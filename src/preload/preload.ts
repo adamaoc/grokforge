@@ -89,6 +89,7 @@ import type {
   RevertAgentWriteBatchResult,
 } from '../shared/agent-write-history-contract'
 import type { WorkspaceFsMutateRequest, WorkspaceFsMutateResult } from '../shared/workspace-fs-mutation-contract'
+import type { WorkspaceFsChangedPayload } from '../shared/workspace-fs-change-contract'
 import type { AppInfoPayload } from '../shared/app-info-contract'
 import type { StageChatAttachmentPayload, StageChatAttachmentResult } from '../shared/chat-attachment-contract'
 import type { ElectronAPI } from '../shared/preload-api-contract'
@@ -269,6 +270,11 @@ export const electronAPI = {
     const listener = (_event: unknown, payload: RecentProjectEntry[]) => handler(payload)
     ipcRenderer.on('recent-projects-changed', listener)
     return () => ipcRenderer.removeListener('recent-projects-changed', listener)
+  },
+  onWorkspaceFsChanged: (handler: (payload: WorkspaceFsChangedPayload) => void) => {
+    const listener = (_event: unknown, payload: WorkspaceFsChangedPayload) => handler(payload)
+    ipcRenderer.on('workspace-fs-changed', listener)
+    return () => ipcRenderer.removeListener('workspace-fs-changed', listener)
   },
 } satisfies ElectronAPI
 

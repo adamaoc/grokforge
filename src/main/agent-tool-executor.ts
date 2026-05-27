@@ -9,6 +9,7 @@ import { findAccumulatedWriteForPath, mergeAgentEditProposals } from '../shared/
 import type { AgentProfile } from '../shared/agent-profile'
 import { isToolAllowedForProfile } from '../shared/agent-profile'
 import type { GrokProjectManifest } from './manifest'
+import type { ViteTemplateId } from '../shared/agent-scaffold-command'
 import { buildEditProposalValidationSummary, validateAgentEditProposal } from './agent-edit-proposals'
 import { executeRunCommandTool, parseRunCommandToolArgs } from './agent-run-command-tool'
 import {
@@ -50,6 +51,8 @@ export type AgentToolExecutorTurnState = {
   /** Per-turn failed search_replace count by resolved absolute path. */
   searchReplaceFailuresByPath: Map<string, number>
   userMessageHint?: string
+  /** Expected Vite template from approved plan / user text (scaffold command validation). */
+  scaffoldExpectedTemplate?: ViteTemplateId | null
 }
 
 function isAllowedToolName(name: string): name is AgentChatToolName {
@@ -243,6 +246,7 @@ export async function executeAgentToolCall(
       const cmdResult = await executeRunCommandTool(ctx, parsedArgs.data, {
         requestId: options.approvalRequestId,
         manifest: state.manifest,
+        scaffoldExpectedTemplate: state.scaffoldExpectedTemplate ?? null,
       })
       ok = cmdResult.ok
       doneTitle = cmdResult.displayTitle

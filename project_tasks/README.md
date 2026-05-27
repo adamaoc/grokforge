@@ -163,8 +163,11 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 123 | Plan execute review follow-ups **(done)** | [`post-mvp/123-plan-execute-review-follow-ups.md`](post-mvp/123-plan-execute-review-follow-ups.md) |
 | 124 | Greenfield executor code quality and proposal recovery (Phase A) **(done)** | [`post-mvp/124-greenfield-executor-code-quality-and-proposal-recovery.md`](post-mvp/124-greenfield-executor-code-quality-and-proposal-recovery.md) |
 | 125 | Agent turn activity clarity and chat vertical space (Phase B) **(done)** | [`post-mvp/125-agent-turn-activity-clarity-and-chat-vertical-space.md`](post-mvp/125-agent-turn-activity-clarity-and-chat-vertical-space.md) |
-| 126 | Agent terminal command execution (safe, reviewable) | [`post-mvp/126-agent-terminal-command-execution.md`](post-mvp/126-agent-terminal-command-execution.md) |
-| 127 | Greenfield project scaffolding and initialization | [`post-mvp/127-greenfield-project-scaffolding-and-initialization.md`](post-mvp/127-greenfield-project-scaffolding-and-initialization.md) |
+| 126 | Agent terminal command execution (safe, reviewable) **(done)** | [`post-mvp/126-agent-terminal-command-execution.md`](post-mvp/126-agent-terminal-command-execution.md) |
+| 127 | Greenfield project scaffolding and initialization **(done)** | [`post-mvp/127-greenfield-project-scaffolding-and-initialization.md`](post-mvp/127-greenfield-project-scaffolding-and-initialization.md) |
+| 128 | Greenfield scaffold strategy routing (CLI vs file-first) **(done)** | [`post-mvp/128-greenfield-scaffold-strategy-routing.md`](post-mvp/128-greenfield-scaffold-strategy-routing.md) |
+| 129 | Iterative work stability (populated workspaces) **(done)** | [`post-mvp/129-iterative-work-stability-populated-workspaces.md`](post-mvp/129-iterative-work-stability-populated-workspaces.md) |
+| 130 | Work iterative edit harness (non-greenfield stability) **(done)** | [`post-mvp/130-work-iterative-edit-harness.md`](post-mvp/130-work-iterative-edit-harness.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
@@ -186,6 +189,6 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **xAI catalog sync:** ~~**121**~~ Grok Build 0.1 / Grok 4.3 reasoning / Voice defaults — do before large harness changes that assume old redirect behavior. **122** dynamic model list + Settings pickers (after **121**; reduces need for app releases when xAI ships new ids e.g. Grok 5.0).
 
-**Greenfield / CLI (next):** **126** agent terminal command execution (approval UX, plan verify, policy — **higher priority**) → **127** project scaffolding and init (validation, multi-file bootstrap; best with **126** for `npm create` / install).
+**Greenfield / CLI (next):** ~~**126**~~ agent terminal command execution **(done)** → ~~**127**~~ project scaffolding and init **(done)** → ~~**128**~~ scaffold strategy routing **(done)**.
 
-*Last progress update: **2026-05-26** — **125** shipped; **126** / **127** added to post-MVP backlog (command execution before scaffolding).*
+*Last progress update: **2026-05-26** — **128** shipped (CLI vs file-first strategy routing, hybrid nudge, execute UI copy).*

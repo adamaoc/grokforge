@@ -194,7 +194,8 @@ export function cloneMessagesForSnapshot(messages: readonly AgentModelChatMessag
 
 /** Tool-sample completion budget — 1200 truncates full-file propose_file_edits (greenfield HTML). */
 export const AGENT_CHAT_SAMPLE_MAX_TOKENS_PLANNER = 2048
-export const AGENT_CHAT_SAMPLE_MAX_TOKENS_DEFAULT = 4096
+/** Default profile tool_sample budget (story 129 — avoids truncated propose_file_edits on medium React files). */
+export const AGENT_CHAT_SAMPLE_MAX_TOKENS_DEFAULT = 8192
 export const AGENT_CHAT_SAMPLE_MAX_TOKENS_EXECUTOR = 16_384
 export const AGENT_CHAT_SAMPLE_MAX_TOKENS_LEGACY = 1200
 

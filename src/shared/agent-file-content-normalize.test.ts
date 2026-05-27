@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import {
   expandCollapsedSourceLineBreaks,
+  expandGluedJavaScriptTokens,
+  hasGluedJavaScriptStatements,
   hasOverlongSourceLines,
   isCollapsedMultiStatementSource,
   looksLikeJsxOrTsxSource,
@@ -208,6 +210,26 @@ describe('reflowCrushedJsxAndBlocks', () => {
     const out = reflowCrushedJsxAndBlocks(crushed)
     expect(out).toContain('>\n<')
     expect(hasOverlongSourceLines(out)).toBe(false)
+  })
+})
+
+describe('expandGluedJavaScriptTokens', () => {
+  it('splits glued import lines in crushed App.tsx', () => {
+    const crushed =
+      "import { useState } from 'react'import './App.css'type Status = 'backlog'"
+    expect(hasGluedJavaScriptStatements(crushed)).toBe(true)
+    const out = expandGluedJavaScriptTokens(crushed)
+    expect(out).toContain("from 'react'\nimport")
+    expect(out).toContain("./App.css'\ntype")
+    expect(hasGluedJavaScriptStatements(out)).toBe(false)
+  })
+
+  it('splits array literal glued before function', () => {
+    const crushed = 'let todos = [] function loadTodos() { return [] }'
+    expect(hasGluedJavaScriptStatements(crushed)).toBe(true)
+    const out = normalizeAgentWriteFileContent(crushed, '/proj/script.js')
+    expect(out).toMatch(/\[\]\s*;\s*\n\s*function loadTodos/)
+    expect(hasGluedJavaScriptStatements(out)).toBe(false)
   })
 })
 

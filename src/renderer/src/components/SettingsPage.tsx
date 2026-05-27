@@ -465,6 +465,44 @@ export function SettingsPage({
             </div>
           </section>
 
+          <section
+            className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm"
+            aria-labelledby="gf-settings-command-approval-heading"
+          >
+            <h2 id="gf-settings-command-approval-heading" className="text-base font-semibold text-white">
+              Command approval
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+              When the agent calls <span className="font-mono text-xs text-zinc-500">run_command</span>, GrokForge
+              always asks before running a one-shot shell command from a workspace root. This is separate from the
+              human PTY terminal — the agent cannot type into your interactive terminal sessions.
+            </p>
+            <ul className="mt-4 space-y-2 text-sm leading-relaxed text-zinc-400">
+              <li>
+                <strong className="font-medium text-zinc-300">Default:</strong> ask every time — including
+                read-only diagnostics such as <span className="font-mono text-xs">git status</span> or{' '}
+                <span className="font-mono text-xs">npm run typecheck</span>.
+              </li>
+              <li>
+                <strong className="font-medium text-zinc-300">Network / install:</strong> commands like{' '}
+                <span className="font-mono text-xs">npm install</span> or{' '}
+                <span className="font-mono text-xs">npm create</span> show an explicit banner before approval.
+              </li>
+              <li>
+                <strong className="font-medium text-zinc-300">Velocity temperament</strong> auto-applies valid file
+                proposals only — it never auto-runs shell commands.
+              </li>
+              <li>
+                Use <strong className="font-medium text-zinc-300">Copy</strong> on the approval card to paste a
+                command into your own terminal if you prefer to run it manually.
+              </li>
+            </ul>
+            <p className="mt-4 text-xs leading-relaxed text-zinc-500">
+              Trusted-developer tooling: commands run with guardrails (policy blocks, cwd scoped to a root) but are
+              not sandboxed against a determined local attacker or malicious model output.
+            </p>
+          </section>
+
           {project ? (
             <section
               className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm"

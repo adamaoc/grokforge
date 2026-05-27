@@ -122,6 +122,135 @@ export function seedSingleFileWorkspaceIndex(projectId: string, rootPath: string
   writeFileSync(indexPath, JSON.stringify(stored, null, 2), 'utf8')
 }
 
+/** Populated workspace index — non-greenfield mature repo (story 127 routing guard). */
+export function seedPopulatedWorkspaceIndex(projectId: string, rootPath: string): void {
+  const indexPath = workspaceIndexPathForProject(projectId)
+  const relativePaths = ['src/app.ts', 'src/utils.ts', 'src/components/Button.tsx', 'package.json']
+  const files = relativePaths.map((relativePath) => ({
+    rootId: 'root',
+    path: `${rootPath}/${relativePath}`,
+    relativePath,
+    basename: relativePath.split('/').pop() ?? relativePath,
+    ext: relativePath.includes('.') ? `.${relativePath.split('.').pop()}` : '',
+    kinds: (relativePath.endsWith('app.ts') ? ['entrypoint', 'source'] : ['source']) as Array<
+      'entrypoint' | 'source'
+    >,
+    symbols: [] as string[],
+    size: 256,
+  }))
+  const stored: StoredWorkspaceIndex = {
+    version: 2,
+    updatedAt: new Date().toISOString(),
+    rootPaths: [rootPath],
+    ignorePatterns: ['**/node_modules', '**/.git'],
+    summary: {
+      roots: [
+        {
+          rootId: 'root',
+          label: 'Root',
+          path: rootPath,
+          entries: relativePaths,
+          importantFiles: ['src/app.ts', 'package.json'],
+          packageHints: ['package.json'],
+          truncated: false,
+        },
+      ],
+      warnings: [],
+    },
+    intelligence: {
+      version: 1,
+      files,
+      packages: [
+        {
+          rootId: 'root',
+          path: `${rootPath}/package.json`,
+          name: 'eval-app',
+          scripts: ['test', 'build'],
+          dependenciesOfInterest: [],
+          frameworkHints: [],
+          entrypoints: [],
+        },
+      ],
+      stats: {
+        fileCountScanned: files.length,
+        skippedIgnored: 0,
+        skippedGenerated: 0,
+        skippedBinary: 0,
+        skippedSensitive: 0,
+        skippedLarge: 0,
+        errors: [],
+      },
+    },
+    truncated: false,
+    warnings: [],
+  }
+  mkdirSync(dirname(indexPath), { recursive: true })
+  writeFileSync(indexPath, JSON.stringify(stored, null, 2), 'utf8')
+}
+
+/** Small non-greenfield vanilla repo — no package.json, 6+ non-trivial files (story 130). */
+export function seedSmallVanillaWorkspaceIndex(projectId: string, rootPath: string): void {
+  const indexPath = workspaceIndexPathForProject(projectId)
+  const relativePaths = [
+    'index.html',
+    'styles.css',
+    'script.js',
+    'app.js',
+    'utils.js',
+    'config.js',
+  ]
+  const files = relativePaths.map((relativePath) => ({
+    rootId: 'root',
+    path: `${rootPath}/${relativePath}`,
+    relativePath,
+    basename: relativePath.split('/').pop() ?? relativePath,
+    ext: relativePath.includes('.') ? `.${relativePath.split('.').pop()}` : '',
+    kinds: (relativePath === 'index.html' ? ['entrypoint'] : ['source']) as Array<
+      'entrypoint' | 'source'
+    >,
+    symbols: [] as string[],
+    size: 128,
+  }))
+  const stored: StoredWorkspaceIndex = {
+    version: 2,
+    updatedAt: new Date().toISOString(),
+    rootPaths: [rootPath],
+    ignorePatterns: ['**/node_modules', '**/.git'],
+    summary: {
+      roots: [
+        {
+          rootId: 'root',
+          label: 'Root',
+          path: rootPath,
+          entries: relativePaths,
+          importantFiles: ['index.html', 'script.js'],
+          packageHints: [],
+          truncated: false,
+        },
+      ],
+      warnings: [],
+    },
+    intelligence: {
+      version: 1,
+      files,
+      packages: [],
+      stats: {
+        fileCountScanned: files.length,
+        skippedIgnored: 0,
+        skippedGenerated: 0,
+        skippedBinary: 0,
+        skippedSensitive: 0,
+        skippedLarge: 0,
+        errors: [],
+      },
+    },
+    truncated: false,
+    warnings: [],
+  }
+  mkdirSync(dirname(indexPath), { recursive: true })
+  writeFileSync(indexPath, JSON.stringify(stored, null, 2), 'utf8')
+}
+
 export function baseEvalPayload(streamId: string, userText: string): AgentChatStartPayload {
   return {
     streamId,

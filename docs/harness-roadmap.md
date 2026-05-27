@@ -82,6 +82,8 @@ Condensed “symptom → harness cause → fix” from product research and ship
 | Fence + `propose_file_edits` duplicate paths | Legacy compatibility write path | [**114**](../project_tasks/post-mvp/114-deprecate-fenced-agent-tools-protocol.md) (done — fence apply removed; display strip only) |
 | Repeated `search_replace` fail → destructive full-file proposal | No turn policy; prompt-only minimal change (**083**) | [**115**](../project_tasks/post-mvp/115-agent-edit-cascade-guard-after-search-replace-failures.md) — reject shrink proposals after ≥2 S&R failures on same path |
 | S&R retry loop burns tool budget; false “updated on disk” narrative | **115** blocks bad proposals but no mid-turn recovery nudge | [**116**](../project_tasks/post-mvp/116-agent-edit-search-replace-escalation-nudge.md) — escalation nudge, honest final contract, renderer toast |
+| Work turns show “Planning tool step stopped” / timeout on discovery | Misleading round labels; rounds stay `running` until abort; **default** profile on populated repos; 5m flat timeout | [**129**](../project_tasks/post-mvp/129-iterative-work-stability-populated-workspaces.md) — Work tool rounds, executor routing, discovery cap, adaptive timeout |
+| Iterative feature edits unstable on small existing repos; heavy duplicate harness text | Routing only when `package.json` or file count > 12; explore rules conflict with discovery cap | [**130**](../project_tasks/post-mvp/130-work-iterative-edit-harness.md) — `iterativeWorkEdit` routing, harness 130 appendix, slim nudges/final contract |
 
 ---
 
@@ -137,7 +139,7 @@ Logical program order for **102–114**. Status as of **2026-05-19**.
 
 | Layer | What | Where |
 | --- | --- | --- |
-| **Automated** | Mocked agent-loop regressions (profiles, toolsets, contracts, greenfield execute / partial-batch recovery **124**) | `npm run test:agent-eval` → [`agent-runner-evaluation.test.ts`](../src/main/agent-runner-evaluation.test.ts), tags in [`agent-eval-tags.ts`](../src/shared/agent-eval-tags.ts) |
+| **Automated** | Mocked agent-loop regressions (profiles, toolsets, contracts, greenfield execute / partial-batch recovery **124**, command plan-verify **126**, scaffold manifest **127**, scaffold strategy **128**) | `npm run test:agent-eval` → [`agent-runner-evaluation.test.ts`](../src/main/agent-runner-evaluation.test.ts), tags in [`agent-eval-tags.ts`](../src/shared/agent-eval-tags.ts) |
 | **Foundation** | First deterministic eval harness | [**063**](../project_tasks/063-agent-evaluation-suite-and-smartness-regressions.md) |
 | **Manual** | Dual-model smoke flows (plan, execute, cancel, offload, etc.) | [`harness-eval-checklist.md`](harness-eval-checklist.md) |
 

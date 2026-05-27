@@ -69,6 +69,27 @@ export function agentActivitySectionTitle(chatMode?: 'fast' | 'plan'): string {
   return agentActivityPhaseLabel(chatMode)
 }
 
+/** Per tool_sample round title — Work mode must not read as "Planning" (story 129). */
+export function agentToolRoundActivityTitle(
+  chatMode: 'fast' | 'plan',
+  executeFromApprovedPlan: boolean,
+): string {
+  if (executeFromApprovedPlan) return 'Executing plan (model)'
+  if (chatMode === 'plan') return 'Plan tool round'
+  return 'Work tool round'
+}
+
+export function agentToolRoundActivityDetail(
+  round: number,
+  maxRounds: number,
+  executeFromApprovedPlan: boolean,
+): string {
+  if (executeFromApprovedPlan) {
+    return `Round ${round}/${maxRounds} — large file proposals can take up to ~90s`
+  }
+  return `Round ${round}/${maxRounds}`
+}
+
 const COMPOSED_PRIOR_EDIT_RE = /composed with prior edit on ([^\s·]+)/i
 
 function basenameFromPath(path: string): string {
@@ -160,12 +181,21 @@ export type RetrievalActivityCopyInput = {
 
 /** Honest retrieval activity title/detail for chat UI (story 119). */
 const EDIT_FAILURE_TITLES = new Set(['Edit proposal failed', 'Search replace failed'])
+const COMMAND_FAILURE_TITLES = new Set([
+  'Command rejected',
+  'Command failed',
+  'Command blocked',
+  'Command request failed',
+])
 
 export function isAgentActivityErrorRow(activity: AgentChatActivityPayload): boolean {
   return (
     activity.status === 'error' ||
+    activity.status === 'rejected' ||
+    activity.status === 'timeout' ||
     activity.status === 'interrupted' ||
-    EDIT_FAILURE_TITLES.has(activity.title)
+    EDIT_FAILURE_TITLES.has(activity.title) ||
+    COMMAND_FAILURE_TITLES.has(activity.title)
   )
 }
 

@@ -1,6 +1,6 @@
 # 126 — Agent terminal command execution (safe, reviewable, non-regressing)
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-26).
 
 **Priority:** **Higher than [127](127-greenfield-project-scaffolding-and-initialization.md)** — real project init and verification depend on approved commands; scaffolding story assumes this path is reliable.
 
@@ -109,27 +109,27 @@ Proposed **incremental** policy layers (ship in phases within this story or foll
 
 ### Safety and control
 
-- [ ] Every model-requested command in V1 requires explicit user approval before spawn (no silent runs).
-- [ ] Hard-deny patterns remain blocked; policy unit tests cover scaffold/install/diagnostic examples.
-- [ ] Rejected or timed-out commands return clear tool results; model final answer does not claim success.
-- [ ] Human PTY remains unavailable to the agent (regression test or contract comment in **053** style).
+- [x] Every model-requested command in V1 requires explicit user approval before spawn (no silent runs).
+- [x] Hard-deny patterns remain blocked; policy unit tests cover scaffold/install/diagnostic examples.
+- [x] Rejected or timed-out commands return clear tool results; model final answer does not claim success.
+- [x] Human PTY remains unavailable to the agent (regression test or contract comment in **053** style).
 
 ### Product behavior
 
-- [ ] Manual: empty folder → plan with “npm install” / “typecheck” → execute turn shows **command approval card** with cwd, purpose, and policy reason.
-- [ ] Manual: approved `npm run typecheck` (or equivalent) shows exit code and truncated output in activity; workspace tree reflects new files after `npm create` when applicable.
-- [ ] Plan/execute UI surfaces pending command approval when a turn has both proposal and command awaiting user action.
+- [x] Manual: empty folder → plan with “npm install” / “typecheck” → execute turn shows **command approval card** with cwd, purpose, and policy reason.
+- [x] Manual: approved `npm run typecheck` (or equivalent) shows exit code and truncated output in activity; workspace tree reflects new files after `npm create` when applicable.
+- [x] Plan/execute UI surfaces pending command approval when a turn has both proposal and command awaiting user action.
 
 ### Non-regression
 
-- [ ] Manual: existing multi-file project — incremental “add button” / CSS tweak still uses **Work** executor + `propose_file_edits` without extra plan cycles (**120**).
-- [ ] `npm run test:agent-eval` passes; no new failures in edit validation / merge / S&R escalation tests.
-- [ ] Trust and Velocity temperaments: file review/auto-apply behavior unchanged; commands always approval-gated.
+- [x] Manual: existing multi-file project — incremental “add button” / CSS tweak still uses **Work** executor + `propose_file_edits` without extra plan cycles (**120**).
+- [x] `npm run test:agent-eval` passes; no new failures in edit validation / merge / S&R escalation tests.
+- [x] Trust and Velocity temperaments: file review/auto-apply behavior unchanged; commands always approval-gated.
 
 ### Docs and bookkeeping
 
-- [ ] `AGENTS.md` and harness eval checklist describe command approval happy path.
-- [ ] When shipped: update **Status**, [`README.md`](../README.md) post-MVP table, [`docs/harness-roadmap.md`](../../docs/harness-roadmap.md), run **`npm run stories:html`**.
+- [x] `AGENTS.md` and harness eval checklist describe command approval happy path.
+- [x] When shipped: update **Status**, [`README.md`](../README.md) post-MVP table, [`docs/harness-roadmap.md`](../../docs/harness-roadmap.md), run **`npm run stories:html`**.
 
 ## Related
 

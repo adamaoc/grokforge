@@ -21,4 +21,13 @@ describe('run-command policy (019)', () => {
     expect(evaluateRunCommandPolicy('rm -rf ./out', false).kind).toBe('needs_ack')
     expect(evaluateRunCommandPolicy('rm -rf ./out', true).kind).toBe('ok')
   })
+
+  it('policy:npm_install — install commands require approval path but pass backend policy', () => {
+    expect(evaluateRunCommandPolicy('npm install', false).kind).toBe('ok')
+  })
+
+  it('policy:git_status_safe — diagnostic commands pass backend policy', () => {
+    expect(evaluateRunCommandPolicy('git status', false).kind).toBe('ok')
+    expect(evaluateRunCommandPolicy('npm run typecheck', false).kind).toBe('ok')
+  })
 })

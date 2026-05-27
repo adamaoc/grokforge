@@ -14,6 +14,30 @@ export type AgentCommandRisk =
   | { kind: 'network_or_install'; reason: string }
   | { kind: 'safe'; reason: string }
 
+export type RunCommandPolicyTier =
+  | 'hard_deny'
+  | 'soft_risk'
+  | 'network_install'
+  | 'diagnostic'
+  | 'safe'
+
+export function resolveRunCommandPolicyTier(command: string): RunCommandPolicyTier {
+  const policy = evaluateRunCommandPolicy(command, false)
+  if (policy.kind === 'blocked') return 'hard_deny'
+  if (policy.kind === 'needs_ack') return 'soft_risk'
+  const risk = evaluateAgentCommandRisk(command)
+  if (risk.kind === 'network_or_install') return 'network_install'
+  const c = command.trim().toLowerCase()
+  if (
+    /\bgit\s+(status|log|diff|branch|rev-parse)\b/i.test(c) ||
+    /\b(node|npm|pnpm|yarn|bun)\s+(-v|--version)\b/i.test(c) ||
+    /\b(npm|pnpm|yarn|bun)\s+run\s+(typecheck|lint|check|test|build)\b/i.test(c)
+  ) {
+    return 'diagnostic'
+  }
+  return 'safe'
+}
+
 export function evaluateAgentCommandRisk(command: string): AgentCommandRisk {
   const policy = evaluateRunCommandPolicy(command, false)
   if (policy.kind === 'blocked') return { kind: 'blocked', reason: policy.reason }

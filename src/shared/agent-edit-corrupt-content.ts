@@ -1,3 +1,13 @@
+import {
+  AGENT_EDIT_INCOMPLETE_JSON_MANIFEST_REASON,
+  AGENT_EDIT_INVALID_JSON_MANIFEST_REASON,
+  assessJsonManifestContent,
+} from './agent-bootstrap-manifest'
+import {
+  hasGluedJavaScriptStatements,
+  looksLikeJsxOrTsxSource,
+} from './agent-file-content-normalize'
+
 /** Line is only a stray closing paren — common when JSX reflow corrupts HTML/JS. */
 const ORPHAN_CLOSE_PAREN_LINE = /^\s*\)[;]?\s*$/
 
@@ -6,6 +16,9 @@ export const AGENT_EDIT_JAMMED_SCRIPT_REASON =
 
 export const AGENT_EDIT_JAMMED_JS_FILE_REASON =
   'JavaScript file looks crushed (statements glued like }function or });), or code on the same line after //). Retry with one propose_file_edits write_file: the **complete** script body with **one statement per line** — do not use search_replace on crushed text.'
+
+export const AGENT_EDIT_MALFORMED_JSX_REASON =
+  'Proposal JSX/TSX has malformed attributes (escaped className quotes like className=\\"...). Use normal UTF-8 quotes in attributes (className="card") and one statement per line in the script block — retry with a complete file from read_file rawContent.'
 
 export const AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON =
   'JavaScript file looks corrupted (orphan closing parentheses on their own lines). Re-read the plan, then submit one propose_file_edits write_file with the **full** script.js body and real line breaks — not a one-line stub or search_replace patches.'
@@ -96,6 +109,11 @@ function isJavaScriptFilePath(resolvedPath: string | undefined): boolean {
   return /\.(m?js|cjs)$/i.test(resolvedPath.replace(/\\/g, '/'))
 }
 
+function isTypeScriptSourcePath(resolvedPath: string | undefined): boolean {
+  if (!resolvedPath) return false
+  return /\.tsx?$/i.test(resolvedPath.replace(/\\/g, '/'))
+}
+
 export function detectCorruptSourceLines(
   content: string,
   options?: { resolvedPath?: string },
@@ -177,7 +195,25 @@ export function isJammedJavaScriptSource(source: string): boolean {
   if (/[^\n]\/\/[^\n]{4,}?\s+(?:document\.|window\.|function\s|const\s|let\s|var\s)/.test(source)) {
     return true
   }
+  if (hasGluedJavaScriptStatements(source)) return true
   return false
+}
+
+export function detectMalformedJsxAttributes(
+  content: string,
+  resolvedPath?: string,
+): { malformed: boolean; reason?: string } {
+  if (!content.trim()) return { malformed: false }
+  const tsx =
+    isTypeScriptSourcePath(resolvedPath) || looksLikeJsxOrTsxSource(content)
+  if (!tsx) return { malformed: false }
+  if (/className\s*=\s*\\["'{]/.test(content)) {
+    return { malformed: true, reason: AGENT_EDIT_MALFORMED_JSX_REASON }
+  }
+  if (/className\s*=\s*"[^"]*\\"/.test(content)) {
+    return { malformed: true, reason: AGENT_EDIT_MALFORMED_JSX_REASON }
+  }
+  return { malformed: false }
 }
 
 export function detectJammedEmbeddedScript(html: string): {
@@ -198,7 +234,17 @@ export function detectJammedJavaScriptFile(
   content: string,
   resolvedPath?: string,
 ): { jammed: boolean; reason?: string } {
-  if (!isJavaScriptFilePath(resolvedPath)) return { jammed: false }
+  const path = resolvedPath?.replace(/\\/g, '/') ?? ''
+  const isJsOrTs =
+    isJavaScriptFilePath(resolvedPath) || isTypeScriptSourcePath(resolvedPath)
+  if (!isJsOrTs) return { jammed: false }
+  if (content.length < 40) return { jammed: false }
+  if (hasGluedJavaScriptStatements(content)) {
+    const reason = /\.tsx?$/i.test(path)
+      ? AGENT_EDIT_JAMMED_JS_FILE_REASON.replace('JavaScript file', 'TypeScript file')
+      : AGENT_EDIT_JAMMED_JS_FILE_REASON
+    return { jammed: true, reason }
+  }
   if (content.length >= 80 && isJammedJavaScriptSource(content)) {
     return { jammed: true, reason: AGENT_EDIT_JAMMED_JS_FILE_REASON }
   }
@@ -214,7 +260,10 @@ export function isPartialBatchIntegrityRejection(reason: string | undefined): bo
   if (reason.includes(AGENT_EDIT_CORRUPT_CONTENT_REASON.slice(0, 24))) return true
   if (reason.includes(AGENT_EDIT_CORRUPT_ENCODING_REASON.slice(0, 24))) return true
   if (reason.includes(AGENT_EDIT_HTML_ENTITY_ARTIFACT_REASON.slice(0, 24))) return true
+  if (reason.includes(AGENT_EDIT_MALFORMED_JSX_REASON.slice(0, 24))) return true
   if (reason.includes(AGENT_EDIT_EMPTY_WRITE_REASON.slice(0, 20))) return true
+  if (reason.includes(AGENT_EDIT_INVALID_JSON_MANIFEST_REASON.slice(0, 24))) return true
+  if (reason.includes(AGENT_EDIT_INCOMPLETE_JSON_MANIFEST_REASON.slice(0, 24))) return true
   return false
 }
 
@@ -287,7 +336,7 @@ export function detectIncompleteHtmlDocument(content: string): {
 /** Combined integrity gate for write_file proposal content (after normalize). */
 export function assessProposalWriteContent(
   content: string,
-  options?: { resolvedPath?: string },
+  options?: { resolvedPath?: string; isNewFile?: boolean },
 ): {
   ok: boolean
   reason?: string
@@ -295,6 +344,11 @@ export function assessProposalWriteContent(
   if (!content.trim()) {
     return { ok: false, reason: AGENT_EDIT_EMPTY_WRITE_REASON }
   }
+  const manifest = assessJsonManifestContent(content, {
+    resolvedPath: options?.resolvedPath,
+    isNewFile: options?.isNewFile,
+  })
+  if (!manifest.ok) return { ok: false, reason: manifest.reason }
   const encoding = detectCorruptEncoding(content)
   if (encoding.corrupt) return { ok: false, reason: encoding.reason }
   const htmlArtifacts = detectHtmlEncodingArtifacts(content, options?.resolvedPath)
@@ -309,5 +363,7 @@ export function assessProposalWriteContent(
   if (jammedHtml.jammed) return { ok: false, reason: jammedHtml.reason }
   const jammedJs = detectJammedJavaScriptFile(content, options?.resolvedPath)
   if (jammedJs.jammed) return { ok: false, reason: jammedJs.reason }
+  const jsxArtifacts = detectMalformedJsxAttributes(content, options?.resolvedPath)
+  if (jsxArtifacts.malformed) return { ok: false, reason: jsxArtifacts.reason }
   return { ok: true }
 }

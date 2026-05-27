@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import type { BrowserWindow } from 'electron'
 import * as pty from 'node-pty'
 import type { GrokProjectManifest } from './manifest'
+import { ensureNodePtySpawnHelperExecutable } from './node-pty-permissions'
 import {
   TERMINAL_SESSION_DEFAULT_COLS,
   TERMINAL_SESSION_DEFAULT_ROWS,
@@ -192,6 +193,7 @@ export function startTerminalSession(
 
   const shell = raw.shell || defaultShell()
   const sessionId = randomUUID()
+  ensureNodePtySpawnHelperExecutable()
   let proc: PtyProcessLike
   try {
     proc = ptyFactory.spawn(shell, [], {
@@ -202,7 +204,11 @@ export function startTerminalSession(
       env: buildTerminalEnv(),
     })
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Failed to start terminal session'
+    const rawMsg = e instanceof Error ? e.message : 'Failed to start terminal session'
+    const msg =
+      /posix_spawn/i.test(rawMsg)
+        ? `${rawMsg} — try quitting and reopening GrokForge, or run: npm run ensure:node-pty`
+        : rawMsg
     return { ok: false, error: msg, code: 'start_failed' }
   }
 

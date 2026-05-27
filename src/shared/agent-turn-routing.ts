@@ -14,6 +14,8 @@ export type AgentTurnRoutingInput = Pick<
 > & {
   /** Story 120: approved/superseded plan exists + incremental Work follow-up. */
   postPlanIncremental?: boolean
+  /** Story 130: non-greenfield workspace + edit-intent Work follow-up without replan. */
+  iterativeWorkEdit?: boolean
 }
 
 /*
@@ -28,12 +30,13 @@ export type AgentTurnRoutingInput = Pick<
  *   1. `isApprovedPlanAutoRun` → execution
  *   2. explicit `modelIntent` from composer chip (any chatMode)
  *   3. `postPlanIncremental` → execution when chip omitted (story 120)
- *   4. `activeContext.chatMode === 'plan'` with no chip → planning
- *   5. else → chat_default
+ *   4. `iterativeWorkEdit` → execution when chip omitted (story 130)
+ *   5. `activeContext.chatMode === 'plan'` with no chip → planning
+ *   6. else → chat_default
  *
  * Profile precedence (`resolveAgentProfileId` — plan mode wins over execution chip):
  *   1. `activeContext.chatMode === 'plan'` → planner
- *   2. `isApprovedPlanAutoRun` OR `postPlanIncremental` OR `modelIntent === 'execution'` → executor
+ *   2. `isApprovedPlanAutoRun` OR `postPlanIncremental` OR `iterativeWorkEdit` OR `modelIntent === 'execution'` → executor
  *   3. else → default
  *
  * Typical combinations (chatMode = Work/fast unless noted):
@@ -48,6 +51,8 @@ export type AgentTurnRoutingInput = Pick<
  *   Plan mode, planning chip           | planning      | models.planning    | planner
  *   Approve and run (`isApproved…`)    | execution     | models.execution   | executor
  *                                      | (fast ctx)    |                    |
+ *   Work, edit on non-greenfield repo   | execution     | models.execution   | executor
+ *   (no chip, story 130)               |               |                    |
  *
  * Renderer `model` on agent-chat-start is a hint only; xAI uses `routing.modelId` from main.
  */
@@ -62,6 +67,9 @@ export function resolveAgentChatModelIntent(payload: AgentTurnRoutingInput): Age
   }
   if (payload.modelIntent) return payload.modelIntent
   if (payload.postPlanIncremental) {
+    return 'execution'
+  }
+  if (payload.iterativeWorkEdit) {
     return 'execution'
   }
   if (payload.activeContext.chatMode === 'plan') return 'planning'
