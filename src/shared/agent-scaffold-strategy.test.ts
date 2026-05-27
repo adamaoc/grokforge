@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   detectScaffoldConflict,
+  effectiveScaffoldStrategyForConflict,
   isCliScaffoldCommand,
   resolveScaffoldStrategy,
   toolSampleHasEditTools,
@@ -69,24 +70,50 @@ describe('resolveScaffoldStrategy', () => {
   })
 })
 
+describe('effectiveScaffoldStrategyForConflict', () => {
+  const staticPlan = {
+    filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+    steps: [{ title: 'Create static todo page' }],
+  }
+
+  const vitePlan = {
+    filesLikelyTouched: ['package.json', 'vite.config.ts'],
+    steps: [{ title: 'npm create vite' }],
+    verification: 'npm install',
+  }
+
+  it('collapses ambiguous to file_bootstrap for static-only plans', () => {
+    expect(effectiveScaffoldStrategyForConflict('ambiguous', staticPlan)).toBe('file_bootstrap')
+  })
+
+  it('collapses ambiguous to cli_scaffold for npm-only plans', () => {
+    expect(effectiveScaffoldStrategyForConflict('ambiguous', vitePlan)).toBe('cli_scaffold')
+  })
+
+  it('leaves ambiguous when plan does not clearly imply cli or static only', () => {
+    expect(
+      effectiveScaffoldStrategyForConflict('ambiguous', {
+        filesLikelyTouched: ['README.md'],
+        steps: [{ title: 'Set up project structure' }],
+      }),
+    ).toBe('ambiguous')
+  })
+})
+
 describe('detectScaffoldConflict', () => {
-  it('flags hybrid same-round CLI + edits', () => {
+  const editCall = { function: { name: 'propose_file_edits', arguments: '{}' } }
+
+  const runCommand = (command: string) => ({
+    function: {
+      name: 'run_command',
+      arguments: JSON.stringify({ command }),
+    },
+  })
+
+  it('flags hybrid same-round CLI scaffold + edits', () => {
     const conflict = detectScaffoldConflict(
       'cli_scaffold',
-      [
-        {
-          function: {
-            name: 'run_command',
-            arguments: JSON.stringify({ command: 'npm create vite@latest .' }),
-          },
-        },
-        {
-          function: {
-            name: 'propose_file_edits',
-            arguments: '{}',
-          },
-        },
-      ],
+      [runCommand('npm create vite@latest .'), editCall],
       { scaffoldCliSucceededThisTurn: false },
     )
     expect(conflict).toBe('hybrid_same_round')
@@ -94,39 +121,88 @@ describe('detectScaffoldConflict', () => {
 
   it('flags edits before CLI when strategy is cli_scaffold', () => {
     expect(
-      detectScaffoldConflict(
-        'cli_scaffold',
-        [{ function: { name: 'propose_file_edits', arguments: '{}' } }],
-        { scaffoldCliSucceededThisTurn: false },
-      ),
+      detectScaffoldConflict('cli_scaffold', [editCall], {
+        scaffoldCliSucceededThisTurn: false,
+      }),
     ).toBe('edits_before_cli')
   })
 
   it('allows edits after CLI success in cli_then_customize', () => {
     expect(
-      detectScaffoldConflict(
-        'cli_then_customize',
-        [{ function: { name: 'propose_file_edits', arguments: '{}' } }],
-        { scaffoldCliSucceededThisTurn: true },
-      ),
+      detectScaffoldConflict('cli_then_customize', [editCall], {
+        scaffoldCliSucceededThisTurn: true,
+      }),
     ).toBeNull()
   })
 
   it('flags npm create on static file_bootstrap strategy', () => {
     expect(
+      detectScaffoldConflict('file_bootstrap', [runCommand('npm create vite@latest .')], {
+        scaffoldCliSucceededThisTurn: false,
+      }),
+    ).toBe('cli_on_static')
+  })
+
+  it('returns null for file_bootstrap with edits only', () => {
+    expect(
+      detectScaffoldConflict('file_bootstrap', [editCall], {
+        scaffoldCliSucceededThisTurn: false,
+      }),
+    ).toBeNull()
+  })
+
+  it('returns null for file_bootstrap with verify/serve command + edits (131)', () => {
+    for (const command of ['npx serve', 'python -m http.server', 'npm run typecheck']) {
+      expect(
+        detectScaffoldConflict('file_bootstrap', [runCommand(command), editCall], {
+          scaffoldCliSucceededThisTurn: false,
+        }),
+        command,
+      ).toBeNull()
+    }
+  })
+
+  it('flags hybrid when file_bootstrap samples npm create + edits', () => {
+    expect(
       detectScaffoldConflict(
         'file_bootstrap',
-        [
-          {
-            function: {
-              name: 'run_command',
-              arguments: JSON.stringify({ command: 'npm create vite@latest .' }),
-            },
-          },
-        ],
+        [runCommand('npm create vite@latest .'), editCall],
         { scaffoldCliSucceededThisTurn: false },
       ),
-    ).toBe('cli_on_static')
+    ).toBe('hybrid_same_round')
+  })
+
+  it('returns null for ambiguous + static-only plan + edits only (131)', () => {
+    expect(
+      detectScaffoldConflict(
+        'ambiguous',
+        [editCall],
+        {
+          scaffoldCliSucceededThisTurn: false,
+          plan: {
+            filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+            steps: [{ title: 'Create static todo page' }],
+          },
+        },
+      ),
+    ).toBeNull()
+  })
+
+  it('flags edits_before_cli for ambiguous + Vite plan + edits only', () => {
+    expect(
+      detectScaffoldConflict(
+        'ambiguous',
+        [editCall],
+        {
+          scaffoldCliSucceededThisTurn: false,
+          plan: {
+            filesLikelyTouched: ['package.json', 'index.html'],
+            steps: [{ title: 'npm create vite' }],
+            verification: 'npm install',
+          },
+        },
+      ),
+    ).toBe('edits_before_cli')
   })
 })
 
@@ -134,6 +210,8 @@ describe('isCliScaffoldCommand', () => {
   it('detects npm create/init', () => {
     expect(isCliScaffoldCommand('npm create vite@latest .')).toBe(true)
     expect(isCliScaffoldCommand('npm run typecheck')).toBe(false)
+    expect(isCliScaffoldCommand('npx serve')).toBe(false)
+    expect(isCliScaffoldCommand('python -m http.server')).toBe(false)
   })
 })
 

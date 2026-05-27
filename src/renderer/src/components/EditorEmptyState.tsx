@@ -15,6 +15,8 @@ interface EditorEmptyStateProps {
   onOpenSearch?: () => void
   onAskAgent?: () => void
   onCollapseEditorPane?: () => void
+  /** Optional line under “No files open” when the agent recently touched a path (143). */
+  agentContextHint?: string | null
 }
 
 function Keycap({ children, className }: { children: ReactNode; className?: string }) {
@@ -59,6 +61,7 @@ export function EditorEmptyState({
   onOpenSearch,
   onAskAgent,
   onCollapseEditorPane,
+  agentContextHint,
 }: EditorEmptyStateProps) {
   const executionModelId = useMemo(() => getModelForIntent(project, 'execution'), [project])
   const isMac = isMacElectron()
@@ -92,6 +95,9 @@ export function EditorEmptyState({
         <div className="mb-8 flex flex-col items-center">
           <GrokForgeWordmark variant="muted" compact className="opacity-90" />
           <p className="mt-4 text-center text-sm text-zinc-500">No files open</p>
+          {agentContextHint ? (
+            <p className="mt-2 max-w-xs text-center text-xs leading-snug text-zinc-600">{agentContextHint}</p>
+          ) : null}
           {activeRoot ? (
             <p className="mt-1 text-center text-xs text-zinc-600">
               Active root: <span className="text-zinc-400">{activeRoot.label}</span>

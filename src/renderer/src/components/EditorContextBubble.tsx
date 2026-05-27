@@ -13,6 +13,13 @@ import { basenamePath } from '@/lib/workspace-paths'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
+export type EditorContextCompanionBubbleSummary = {
+  headline: string
+  detail?: string
+  actionLabel?: string
+  onAction?: () => void
+}
+
 export interface EditorContextBubbleProps {
   /** When false, bubble is hidden (editor has width). */
   visible: boolean
@@ -23,6 +30,8 @@ export interface EditorContextBubbleProps {
   terminalRunningSessions: number
   onExpandEditor: () => void
   onOpenTerminal?: () => void
+  /** Agent proposal / file focus mini summary when editor is collapsed (143). */
+  companionSummary?: EditorContextCompanionBubbleSummary | null
 }
 
 function mod(isMac: boolean) {
@@ -38,6 +47,7 @@ export function EditorContextBubble({
   terminalRunningSessions,
   onExpandEditor,
   onOpenTerminal,
+  companionSummary,
 }: EditorContextBubbleProps) {
   const [expanded, setExpanded] = useState(true)
 
@@ -78,6 +88,26 @@ export function EditorContextBubble({
 
       {expanded ? (
         <div className="custom-scrollbar max-h-[min(50vh,20rem)] overflow-y-auto px-3 py-2 text-xs text-zinc-300">
+          {companionSummary ? (
+            <section className="mb-3 rounded-xl border border-primary/20 bg-primary/5 px-2.5 py-2">
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-primary/90">
+                Agent file
+              </div>
+              <p className="truncate text-[11px] font-medium text-zinc-200">{companionSummary.headline}</p>
+              {companionSummary.detail ? (
+                <p className="mt-0.5 truncate font-mono text-[10px] text-zinc-500">{companionSummary.detail}</p>
+              ) : null}
+              {companionSummary.actionLabel && companionSummary.onAction ? (
+                <button
+                  type="button"
+                  className="mt-1.5 text-[11px] font-medium text-gf-accent hover:underline"
+                  onClick={companionSummary.onAction}
+                >
+                  {companionSummary.actionLabel}
+                </button>
+              ) : null}
+            </section>
+          ) : null}
           <section className="mb-3">
             <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
               <MessageSquareText size={12} className="text-zinc-600" aria-hidden />

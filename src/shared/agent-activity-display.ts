@@ -1,4 +1,9 @@
-import type { AgentChatActivityPayload, AgentChatToolName } from './agent-chat-contract'
+import type {
+  AgentChatActivityPayload,
+  AgentChatToolName,
+  HarnessInterventionKind,
+} from './agent-chat-contract'
+import type { ScaffoldConflictKind } from './agent-scaffold-strategy'
 
 export const AGENT_ACTIVITY_DETAIL_MAX_CHARS = 200
 
@@ -61,22 +66,53 @@ export function agentActivityToolLabel(
   return TOOL_LABELS[tool]
 }
 
+/** @deprecated Prefer `agentActivitySummaryLabel` — trace-stable section key only. */
 export function agentActivityPhaseLabel(chatMode?: 'fast' | 'plan'): string {
-  return chatMode === 'plan' ? 'Plan · tools' : 'Work · tools'
+  return chatMode === 'plan' ? 'plan_tools' : 'work_tools'
 }
 
 export function agentActivitySectionTitle(chatMode?: 'fast' | 'plan'): string {
   return agentActivityPhaseLabel(chatMode)
 }
 
-/** Per tool_sample round title — Work mode must not read as "Planning" (story 129). */
+export type AgentActivitySummaryLabelInput = {
+  isLive: boolean
+  hasRunning: boolean
+  hasErrors: boolean
+  chatMode?: 'fast' | 'plan'
+}
+
+/** One-line summary title for conversation-first activity strip (story 141; copy finalized in 142). */
+export function agentActivitySummaryLabel(input: AgentActivitySummaryLabelInput): string {
+  if (input.hasErrors) return 'Issue'
+  if (input.isLive && input.hasRunning) return 'Working…'
+  if (input.isLive) return 'Working…'
+  return 'Finished'
+}
+
+/** Step count + optional inline issue chip for collapsed summary strip. */
+export function agentActivitySummaryDetail(
+  stepCount: number,
+  errorSummary?: AgentActivityErrorSummary | null,
+): string {
+  const steps = `${stepCount} step${stepCount === 1 ? '' : 's'}`
+  if (!errorSummary || errorSummary.count <= 0) return steps
+  const issue =
+    errorSummary.count === 1 ? '1 issue' : `${errorSummary.count} issues`
+  return `${steps} · ${issue}`
+}
+
+/** Per tool_sample round title — user-facing step label (story 129 / 142). */
 export function agentToolRoundActivityTitle(
   chatMode: 'fast' | 'plan',
   executeFromApprovedPlan: boolean,
+  round: number,
+  maxRounds: number,
 ): string {
-  if (executeFromApprovedPlan) return 'Executing plan (model)'
-  if (chatMode === 'plan') return 'Plan tool round'
-  return 'Work tool round'
+  const step = `Step ${round} of ${maxRounds}`
+  if (executeFromApprovedPlan) return `Running your plan · ${step}`
+  if (chatMode === 'plan') return `Planning · ${step}`
+  return step
 }
 
 export function agentToolRoundActivityDetail(
@@ -268,6 +304,137 @@ export function collapseCompletedMiddleRows(
   return { activities: out, collapsedCount }
 }
 
+export type { HarnessInterventionKind } from './agent-chat-contract'
+
+export type HarnessInterventionKey =
+  | 'scaffold_strategy'
+  | 'search_replace_escalation'
+  | 'post_scaffold_verify'
+  | 'partial_batch'
+
+const HARNESS_RECOVERED_DETAIL = 'Corrected on retry'
+
+export type HarnessInterventionActivityCopy = {
+  kind: HarnessInterventionKind
+  title: string
+  detail: string
+}
+
+/** Outcome-oriented harness intervention activity copy (story 134). */
+export function harnessInterventionActivityCopy(input: {
+  key: HarnessInterventionKey
+  conflict?: ScaffoldConflictKind | null
+  recovered?: boolean
+}): HarnessInterventionActivityCopy {
+  const recovered = input.recovered === true
+  if (recovered) {
+    return buildRecoveredHarnessInterventionCopy(input.key, input.conflict)
+  }
+  return buildPendingHarnessInterventionCopy(input.key, input.conflict)
+}
+
+function buildRecoveredHarnessInterventionCopy(
+  key: HarnessInterventionKey,
+  conflict: ScaffoldConflictKind | null | undefined,
+): HarnessInterventionActivityCopy {
+  switch (key) {
+    case 'scaffold_strategy':
+      return {
+        kind: 'correction',
+        title:
+          conflict === 'hybrid_same_round'
+            ? 'Scaffold routing: corrected'
+            : conflict === 'edits_before_cli'
+              ? 'Scaffold routing: CLI first'
+              : conflict === 'cli_on_static'
+                ? 'Scaffold routing: file proposals only'
+                : 'Scaffold routing: corrected',
+        detail: HARNESS_RECOVERED_DETAIL,
+      }
+    case 'search_replace_escalation':
+      return {
+        kind: 'correction',
+        title: 'Edit path: full-file proposal',
+        detail: HARNESS_RECOVERED_DETAIL,
+      }
+    case 'post_scaffold_verify':
+      return {
+        kind: 'correction',
+        title: 'Scaffold output: verified',
+        detail: HARNESS_RECOVERED_DETAIL,
+      }
+    case 'partial_batch':
+      return {
+        kind: 'correction',
+        title: 'Edit batch: retry rejected paths',
+        detail: HARNESS_RECOVERED_DETAIL,
+      }
+    default: {
+      const _exhaustive: never = key
+      return _exhaustive
+    }
+  }
+}
+
+function buildPendingHarnessInterventionCopy(
+  key: HarnessInterventionKey,
+  conflict: ScaffoldConflictKind | null | undefined,
+): HarnessInterventionActivityCopy {
+  switch (key) {
+    case 'scaffold_strategy':
+      if (conflict === 'hybrid_same_round') {
+        return {
+          kind: 'correction',
+          title: 'Scaffold routing: one path per round',
+          detail: 'CLI or file edits — model will re-sample',
+        }
+      }
+      if (conflict === 'edits_before_cli') {
+        return {
+          kind: 'correction',
+          title: 'Scaffold routing: CLI first',
+          detail: 'Run scaffold command before hand-written template files',
+        }
+      }
+      if (conflict === 'cli_on_static') {
+        return {
+          kind: 'correction',
+          title: 'Scaffold routing: file proposals only',
+          detail: 'Static plan — use propose_file_edits, not npm create',
+        }
+      }
+      return {
+        kind: 'correction',
+        title: 'Scaffold routing: one path per round',
+        detail: 'Model will re-sample tools',
+      }
+    case 'search_replace_escalation':
+      return {
+        kind: 'correction',
+        title: 'Edit path: full-file proposal',
+        detail:
+          'search_replace failed repeatedly. Re-read rawContent and use propose_file_edits for localized changes.',
+      }
+    case 'post_scaffold_verify':
+      return {
+        kind: 'correction',
+        title: 'Scaffold output: verify files',
+        detail: 'Read package.json and entry files to confirm the scaffold stack.',
+      }
+    case 'partial_batch':
+      return {
+        kind: 'correction',
+        title: 'Edit batch: retry rejected paths',
+        detail:
+          'Some write_file ops were accepted; others failed validation. Resubmit complete bodies for rejected paths only.',
+      }
+    default: {
+      const _exhaustive: never = key
+      return _exhaustive
+    }
+  }
+}
+
 export function formatRetrievalActivityCopy(input: RetrievalActivityCopyInput): {
   title: string
   detail: string
@@ -304,5 +471,26 @@ export function formatRetrievalActivityCopy(input: RetrievalActivityCopyInput): 
   return {
     title: 'Found relevant workspace context',
     detail: parts.join(' · '),
+  }
+}
+
+/** Diagnostic activity when edit tool budget is exhausted (story 140). */
+export function editToolBudgetExhaustedActivityCopy(input: {
+  totalFailures: number
+  topFailurePathBasename?: string
+  escalationIssued?: boolean
+  postEscalationStall?: boolean
+}): HarnessInterventionActivityCopy {
+  const pathPart = input.topFailurePathBasename ? ` on ${input.topFailurePathBasename}` : ''
+  const extras: string[] = []
+  if (input.escalationIssued) extras.push('escalation issued')
+  if (input.postEscalationStall) extras.push('post-escalation retries exhausted')
+  const detail =
+    `${input.totalFailures} search_replace failure(s)${pathPart}` +
+    (extras.length > 0 ? ` · ${extras.join(' · ')}` : '')
+  return {
+    kind: 'info',
+    title: 'Edit attempts paused',
+    detail,
   }
 }

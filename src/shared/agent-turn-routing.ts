@@ -8,6 +8,13 @@ import { resolveHarnessProfileKey } from './agent-harness-profile-contract'
 import { resolveReasoningEffort } from './agent-reasoning-effort'
 import { getModelForIntent, type ModelRoutingManifest } from './model-router'
 
+/** True when the user picked Planning or Execution chip (not implicit Work/Fast default). */
+export function isExplicitComposerModelIntent(
+  modelIntent: AgentChatTextModelIntent | undefined,
+): boolean {
+  return modelIntent === 'planning' || modelIntent === 'execution'
+}
+
 export type AgentTurnRoutingInput = Pick<
   AgentChatStartPayload,
   'modelIntent' | 'activeContext' | 'isApprovedPlanAutoRun'
@@ -28,9 +35,9 @@ export type AgentTurnRoutingInput = Pick<
  *
  * Model intent precedence (`resolveAgentChatModelIntent`):
  *   1. `isApprovedPlanAutoRun` → execution
- *   2. explicit `modelIntent` from composer chip (any chatMode)
- *   3. `postPlanIncremental` → execution when chip omitted (story 120)
- *   4. `iterativeWorkEdit` → execution when chip omitted (story 130)
+ *   2. explicit Planning / Execution chip from composer (not implicit `chat_default`)
+ *   3. `postPlanIncremental` → execution when default chip (story 120)
+ *   4. `iterativeWorkEdit` → execution when default chip (story 130)
  *   5. `activeContext.chatMode === 'plan'` with no chip → planning
  *   6. else → chat_default
  *
@@ -44,10 +51,11 @@ export type AgentTurnRoutingInput = Pick<
  *   Condition                          | modelIntent   | manifest slot      | profile
  *   -----------------------------------|---------------|--------------------|----------
  *   Work, default chip                 | chat_default  | models.default     | default
+ *   Work, default chip + edit (130)    | execution     | models.execution   | executor
  *   Work, planning chip                | planning      | models.planning    | default
  *   Work, execution chip               | execution     | models.execution   | executor
  *   Plan mode, no chip                 | planning      | models.planning    | planner
- *   Plan mode, Fast chip               | chat_default  | models.default     | planner
+ *   Plan mode, default / Fast chip (renderer)  | planning      | models.planning    | planner
  *   Plan mode, planning chip           | planning      | models.planning    | planner
  *   Approve and run (`isApproved…`)    | execution     | models.execution   | executor
  *                                      | (fast ctx)    |                    |
@@ -65,7 +73,12 @@ export function resolveAgentChatModelIntent(payload: AgentTurnRoutingInput): Age
   if (payload.isApprovedPlanAutoRun) {
     return 'execution'
   }
-  if (payload.modelIntent) return payload.modelIntent
+  if (payload.modelIntent === 'planning') {
+    return 'planning'
+  }
+  if (payload.modelIntent === 'execution') {
+    return 'execution'
+  }
   if (payload.postPlanIncremental) {
     return 'execution'
   }

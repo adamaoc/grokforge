@@ -75,4 +75,18 @@ describe('sanitizeTraceForExport', () => {
       expect(json).not.toContain(home)
     }
   })
+
+  it('parses optional harnessMetrics on trace v1', () => {
+    const t = minimalTrace({
+      harnessMetrics: {
+        iterativeWorkEdit: true,
+        toolRoundCount: 3,
+        editProposalAtRound: 2,
+        nudgesIssued: ['discovery_saturation', 'iterative_sr_consolidation'],
+        resolvedEditScope: 'single_file',
+      },
+    })
+    expect(t.harnessMetrics?.iterativeWorkEdit).toBe(true)
+    expect(t.harnessMetrics?.editProposalAtRound).toBe(2)
+  })
 })

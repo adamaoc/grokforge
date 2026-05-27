@@ -1,0 +1,157 @@
+/**
+ * Greenfield plan verification command suggestions (story 132).
+ */
+
+import { impliesCommandExecution } from './agent-command-intent'
+import type { ScaffoldStrategy } from './agent-scaffold-strategy'
+import {
+  planImpliesNpmScaffold,
+  planImpliesStaticFileBootstrap,
+  type GreenfieldScaffoldPlanHint,
+} from './workspace-greenfield'
+
+/** Stable marker for planner appendix + eval fixtures. */
+export const GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER =
+  'Harness: greenfield plan verify commands 132'
+
+const COMMAND_LIKE_TOKEN_RE =
+  /\b(npm\s+(install|ci|run|create|init|test|build|typecheck|lint|check|dev)|pnpm\s+(install|run|create)|yarn\s+(install|run|create)|bun\s+(install|run|create)|npx\s+|python3?\s+-m\s+http\.server|git\s+(init|clone)|vitest|jest|pytest|cargo\s+(test|build)|go\s+(test|build))\b/i
+
+const SERVE_COMMAND_RE =
+  /\b(npx\s+.*serve|python3?\s+-m\s+http\.server|npm\s+run\s+dev)\b/i
+
+const BROWSER_ONLY_VERIFY_RE =
+  /\b(open\s+(in\s+)?(the\s+)?browser|manual(ly)?\s+(test|check|verify)|browser\s+test|ui\s+check)\b/i
+
+export type VerificationCommandSuggestion = {
+  readonly command: string
+  readonly purpose: string
+}
+
+export const STATIC_SERVE_COMMANDS: readonly VerificationCommandSuggestion[] = [
+  {
+    command: 'npx --yes serve . -l 3000',
+    purpose: 'Serve static files locally for browser verification',
+  },
+  {
+    command: 'python3 -m http.server 3000',
+    purpose: 'Serve static files locally (substitute python on Windows if needed)',
+  },
+]
+
+export const NPM_VERIFY_COMMANDS: readonly VerificationCommandSuggestion[] = [
+  { command: 'npm install', purpose: 'Install dependencies from package.json' },
+  { command: 'npm run dev', purpose: 'Start dev server for UI smoke check' },
+  { command: 'npm run typecheck', purpose: 'Verify TypeScript compiles' },
+  { command: 'npm run build', purpose: 'Verify production build succeeds' },
+]
+
+/** Whether text contains a copy-pasteable shell command token. */
+export function verificationHasCommandLikeToken(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  return COMMAND_LIKE_TOKEN_RE.test(t) || impliesCommandExecution(t)
+}
+
+function isStaticStrategy(
+  strategy: ScaffoldStrategy | null | undefined,
+  plan: GreenfieldScaffoldPlanHint,
+): boolean {
+  if (strategy === 'file_bootstrap') return true
+  if (strategy === 'cli_scaffold' || strategy === 'cli_then_customize') return false
+  return planImpliesStaticFileBootstrap(plan)
+}
+
+function isNpmStrategy(
+  strategy: ScaffoldStrategy | null | undefined,
+  plan: GreenfieldScaffoldPlanHint,
+): boolean {
+  if (strategy === 'cli_scaffold' || strategy === 'cli_then_customize') return true
+  if (strategy === 'file_bootstrap') return false
+  return planImpliesNpmScaffold(plan)
+}
+
+function planTextParts(plan: GreenfieldScaffoldPlanHint): string {
+  return [
+    plan.verification ?? '',
+    ...(plan.steps ?? []).map((s) => s.title ?? ''),
+    ...(plan.filesLikelyTouched ?? []),
+  ].join('\n')
+}
+
+/**
+ * Whether execute should steer toward `run_command` because verification lacks runnable commands.
+ * Does not return true when verification already names serve/npm commands (126 handles those via impliesCommandExecution).
+ */
+export function planNeedsVerificationCommand(
+  plan: GreenfieldScaffoldPlanHint,
+  strategy?: ScaffoldStrategy | null,
+): boolean {
+  const verification = (plan.verification ?? '').trim()
+
+  if (isStaticStrategy(strategy ?? null, plan)) {
+    if (!verification) return true
+    if (verificationHasCommandLikeToken(verification)) return false
+    if (BROWSER_ONLY_VERIFY_RE.test(verification)) return true
+    return !verificationHasCommandLikeToken(planTextParts(plan))
+  }
+
+  if (isNpmStrategy(strategy ?? null, plan)) {
+    if (verification && !verificationHasCommandLikeToken(verification)) return true
+    const stepsHaveCmd = (plan.steps ?? []).some((s) =>
+      impliesCommandExecution(s.title ?? ''),
+    )
+    if (stepsHaveCmd && !verificationHasCommandLikeToken(verification)) return true
+  }
+
+  return false
+}
+
+/** Suggest verification commands from plan shape and content. */
+export function suggestVerificationCommands(
+  plan: GreenfieldScaffoldPlanHint,
+  strategy?: ScaffoldStrategy | null,
+): readonly VerificationCommandSuggestion[] {
+  const text = planTextParts(plan)
+
+  if (isStaticStrategy(strategy ?? null, plan)) {
+    return [...STATIC_SERVE_COMMANDS]
+  }
+
+  if (isNpmStrategy(strategy ?? null, plan)) {
+    const out: VerificationCommandSuggestion[] = []
+    if (/\bnpm\s+install\b/i.test(text) || /package\.json/i.test(text)) {
+      out.push(NPM_VERIFY_COMMANDS[0]!)
+    }
+    if (/\bnpm\s+run\s+dev\b/i.test(text) || /\bdev\s+server\b/i.test(text)) {
+      out.push(NPM_VERIFY_COMMANDS[1]!)
+    }
+    if (/\btypecheck\b/i.test(text)) {
+      out.push(NPM_VERIFY_COMMANDS[2]!)
+    }
+    if (/\bbuild\b/i.test(text)) {
+      out.push(NPM_VERIFY_COMMANDS[3]!)
+    }
+    if (out.length === 0) {
+      return NPM_VERIFY_COMMANDS.slice(0, 3)
+    }
+    return out
+  }
+
+  return []
+}
+
+/** Best hint string for plan-verify nudge from plan + suggestions. */
+export function resolveVerificationHint(
+  plan: GreenfieldScaffoldPlanHint,
+  suggestions: readonly VerificationCommandSuggestion[],
+): string | undefined {
+  const verification = (plan.verification ?? '').trim()
+  if (verification && (verificationHasCommandLikeToken(verification) || SERVE_COMMAND_RE.test(verification))) {
+    return verification
+  }
+  if (suggestions[0]) {
+    return suggestions[0].command
+  }
+  return verification || undefined
+}

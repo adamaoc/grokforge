@@ -168,6 +168,19 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 128 | Greenfield scaffold strategy routing (CLI vs file-first) **(done)** | [`post-mvp/128-greenfield-scaffold-strategy-routing.md`](post-mvp/128-greenfield-scaffold-strategy-routing.md) |
 | 129 | Iterative work stability (populated workspaces) **(done)** | [`post-mvp/129-iterative-work-stability-populated-workspaces.md`](post-mvp/129-iterative-work-stability-populated-workspaces.md) |
 | 130 | Work iterative edit harness (non-greenfield stability) **(done)** | [`post-mvp/130-work-iterative-edit-harness.md`](post-mvp/130-work-iterative-edit-harness.md) |
+| 131 | Greenfield scaffold conflict warning hygiene (file-bootstrap false positives) **(done)** | [`post-mvp/131-greenfield-scaffold-conflict-warning-hygiene.md`](post-mvp/131-greenfield-scaffold-conflict-warning-hygiene.md) |
+| 132 | Greenfield plan verification commands (static + npm) **(done)** | [`post-mvp/132-greenfield-plan-verification-commands.md`](post-mvp/132-greenfield-plan-verification-commands.md) |
+| 133 | Greenfield execute quality regression guard (Plan → Execute) **(done)** | [`post-mvp/133-greenfield-execute-quality-regression-guard.md`](post-mvp/133-greenfield-execute-quality-regression-guard.md) |
+| 134 | Harness conflict recovery activity honesty **(done)** | [`post-mvp/134-harness-conflict-recovery-activity-honesty.md`](post-mvp/134-harness-conflict-recovery-activity-honesty.md) |
+| 135 | Iterative Work surgical edit enforcement (low-round, one proposal) **(done)** | [`post-mvp/135-iterative-work-surgical-edit-enforcement.md`](post-mvp/135-iterative-work-surgical-edit-enforcement.md) |
+| 136 | Iterative edit scope and combine heuristics **(done)** | [`post-mvp/136-iterative-edit-scope-and-combine-heuristics.md`](post-mvp/136-iterative-edit-scope-and-combine-heuristics.md) |
+| 137 | Iterative Work edit harness observability **(done)** | [`post-mvp/137-iterative-work-edit-harness-observability.md`](post-mvp/137-iterative-work-edit-harness-observability.md) |
+| 138 | Iterative Work search_replace escalation (fail fast, switch strategy) **(done)** | [`post-mvp/138-iterative-work-search-replace-escalation.md`](post-mvp/138-iterative-work-search-replace-escalation.md) |
+| 139 | Iterative Work search_replace quality guidance (first-attempt success) **(done)** | [`post-mvp/139-iterative-work-search-replace-quality-guidance.md`](post-mvp/139-iterative-work-search-replace-quality-guidance.md) |
+| 140 | search_replace failure loop observability **(done)** | [`post-mvp/140-search-replace-failure-loop-observability.md`](post-mvp/140-search-replace-failure-loop-observability.md) |
+| 141 | Conversation-first chat layout and tool activity shell **(done)** | [`post-mvp/141-conversation-first-chat-and-tool-activity-shell.md`](post-mvp/141-conversation-first-chat-and-tool-activity-shell.md) |
+| 142 | UI copy and status hierarchy cleanup **(done)** | [`post-mvp/142-ui-copy-and-status-hierarchy-cleanup.md`](post-mvp/142-ui-copy-and-status-hierarchy-cleanup.md) |
+| 143 | Context panel: agent-aware file companion **(done)** | [`post-mvp/143-context-panel-agent-companion.md`](post-mvp/143-context-panel-agent-companion.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
@@ -189,6 +202,10 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **xAI catalog sync:** ~~**121**~~ Grok Build 0.1 / Grok 4.3 reasoning / Voice defaults — do before large harness changes that assume old redirect behavior. **122** dynamic model list + Settings pickers (after **121**; reduces need for app releases when xAI ships new ids e.g. Grok 5.0).
 
-**Greenfield / CLI (next):** ~~**126**~~ agent terminal command execution **(done)** → ~~**127**~~ project scaffolding and init **(done)** → ~~**128**~~ scaffold strategy routing **(done)**.
+**Greenfield / CLI (next):** ~~**126**~~ agent terminal command execution **(done)** → ~~**127**~~ project scaffolding and init **(done)** → ~~**128**~~ scaffold strategy routing **(done)** → ~~**131**~~ scaffold conflict warning hygiene **(done)** → ~~**132**~~ plan verification commands **(done)** → ~~**133**~~ execute quality eval guard **(done)** → ~~**134**~~ conflict recovery activity honesty **(done)**.
 
-*Last progress update: **2026-05-26** — **128** shipped (CLI vs file-first strategy routing, hybrid nudge, execute UI copy).*
+**Iterative Work (next):** ~~**130**~~ Work iterative edit harness **(done)** → ~~**135**~~ surgical edit enforcement **(done)** → ~~**136**~~ scope/combine heuristics **(done)** → ~~**137**~~ harness observability **(done)** → ~~**138**~~ S&R escalation **(done)** → ~~**139**~~ S&R first-attempt quality **(done)** → ~~**140**~~ S&R failure observability **(done)**.
+
+**UI/UX — conversation-first:** ~~**141**~~ chat vertical space + collapsible tool activity **(done)** → ~~**142**~~ copy and status hierarchy **(done)** → ~~**143**~~ context panel companion **(done)**. Builds on ~~**125**~~ / ~~**119**~~ activity work **(done)**.
+
+*Last progress update: **2026-05-27** — **139** iterative Work S&R first-attempt quality (139 appendix, tool override, localized UI pre-sample, richer not-found hints).*

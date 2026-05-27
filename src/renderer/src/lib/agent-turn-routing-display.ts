@@ -12,12 +12,15 @@ export function formatAgentProfileLabel(profileId: AgentProfileId): string {
   return PROFILE_LABELS[profileId] ?? profileId
 }
 
-/** Single-line label for execute phase UI (story 098). Dev builds append harness profile + reasoning effort (121). */
+/** Single-line label for execute phase UI (story 098 / 142). Dev builds append harness profile + reasoning effort (121). */
 export function formatAgentTurnRoutingLine(
   routing: AgentChatTurnRouting,
-  options?: { verb?: string },
+  options?: { verb?: string; /** Omit model id when composer already shows routing badge (142). */ compact?: boolean },
 ): string {
   const verb = options?.verb ?? 'Executing'
+  if (options?.compact) {
+    return verb
+  }
   const base = `${verb} · ${routing.modelId} · ${formatAgentProfileLabel(routing.agentProfileId)}`
   if (!import.meta.env.DEV) return base
   const devParts: string[] = [routing.harnessProfileKey]

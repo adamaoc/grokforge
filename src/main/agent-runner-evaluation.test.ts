@@ -10,18 +10,45 @@ import type { GrokProjectManifest } from './manifest'
 import { AGENT_TOOL_MAX_ITERATIONS } from './agent-workspace-tools'
 import type { AgentChatModelTransport } from './agent-chat-model-transport'
 import { POPULATED_WORK_EDIT_MARKER } from '../shared/populated-workspace-edit'
-import { WORK_ITERATIVE_EDIT_MARKER } from '../shared/iterative-work-edit'
+import { WORK_ITERATIVE_EDIT_MARKER, LOCALIZED_UI_EDIT_PRE_SAMPLE_MARKER } from '../shared/iterative-work-edit'
+import { ITERATIVE_EDIT_THRASH_NUDGE_MARKER } from '../shared/iterative-work-edit-guards'
+import {
+  ITERATIVE_EDIT_SCOPE_MARKER,
+  ITERATIVE_EDIT_SCOPE_SHAPE_NUDGE_MARKER,
+} from '../shared/iterative-edit-scope'
 import { GREENFIELD_HARNESS_MARKER } from '../shared/workspace-greenfield'
+import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from '../shared/agent-plan-verification'
 import {
   AGENT_EVAL_TAG_AGENT_EXECUTOR,
   AGENT_EVAL_TAG_AGENT_PLANNER,
   AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE,
+  AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE_STATIC_VERIFY_NUDGE,
+  AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_NPM_VERIFY_COPY,
+  AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_STATIC_VERIFY_COPY,
+  AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_PLAN_EXECUTE_HAPPY,
+  AGENT_EVAL_TAG_VALIDATION_GREENFIELD_STATIC_HTML_CORRUPTION,
   AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_VITE_SCAFFOLD,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_LOCALSTORAGE_LOW_ROUNDS,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_CONSOLIDATION_NUDGE,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_STOP_AFTER_PROPOSAL,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_TRACE_METRICS,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_FAIL_FAST_ESCALATE,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_BLOCKED_AFTER_ESCALATE,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_NO_MAX_ITERATIONS,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_QUALITY_SECTIONS,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE,
+  AGENT_EVAL_TAG_BEHAVIOR_TRACE_SEARCH_REPLACE_FAILURE_METRICS,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_SINGLE_FILE,
+  AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_PREFER_PROPOSE_NUDGE,
   AGENT_EVAL_TAG_BEHAVIOR_PROACTIVE,
   AGENT_EVAL_TAG_BEHAVIOR_RUN_COMMAND_PLAN_VERIFY,
   AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CLI_ONLY_FIRST,
   AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_FILE_BOOTSTRAP_STATIC,
+  AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_FILE_BOOTSTRAP_NO_FALSE_CONFLICT,
+  AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CONFLICT_RECOVERED_FINAL_CONTRACT,
+  AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CONFLICT_UNRECOVERED_HONESTY,
   AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_HYBRID_NUDGE,
+  AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_VERIFY_COMMAND_NOT_HYBRID,
   AGENT_EVAL_TAG_BEHAVIOR_SINGLE_FILE,
   AGENT_EVAL_TAG_CONTRACT_PLAN,
   AGENT_EVAL_TAG_PROFILE_GROK_4_3,
@@ -43,21 +70,33 @@ import type { StoredPlanArtifact } from '../shared/agent-plan-artifact'
 import { buildApprovedPlanExecuteUserText } from '../shared/agent-plan-artifact'
 import { planJsonPath } from './agent-plan-store'
 import { appendTurnReceipt } from './agent-turn-receipt-store'
+import { writeAgentTurnTrace } from './agent-turn-trace-store'
 import { _resetTurnReceiptLifecycleForTesting } from './agent-turn-receipt-lifecycle'
 import { TURN_RECOVERY_HINT_MARKER } from '../shared/agent-turn-receipt-contract'
+import type { AgentTurnTraceV1 } from '../shared/agent-turn-trace-contract'
 import {
   EDIT_INTENT_TOOL_NUDGE_MARKER,
   EDIT_PARTIAL_BATCH_NUDGE_MARKER,
   EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
+  EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER,
   PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER,
   PLAN_VERIFY_COMMAND_NUDGE_MARKER,
   SCAFFOLD_STRATEGY_HONESTY_MARKER,
   SCAFFOLD_STRATEGY_NUDGE_MARKER,
 } from '../shared/agent-final-answer-contract'
 import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from '../shared/agent-scaffold-strategy'
-import { GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS, GREENFIELD_EXECUTE_CLI_MARKER } from '../shared/agent-harness-profile'
+import {
+  GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS,
+  GREENFIELD_EXECUTE_CLI_MARKER,
+  WORK_ITERATIVE_SR_QUALITY_MARKER,
+} from '../shared/agent-harness-profile'
 import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER, AGENT_EDIT_INVALID_JSON_MANIFEST_REASON } from '../shared/agent-bootstrap-manifest'
+import { assessProposalWriteContent } from '../shared/agent-edit-corrupt-content'
 import { AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
+import {
+  ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON,
+  SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION_GUARD,
+} from '../shared/agent-edit-cascade-guard'
 import { computeAgentContentHash } from './agent-content-hash'
 import {
   baseEvalPayload,
@@ -67,6 +106,10 @@ import {
   seedSmallVanillaWorkspaceIndex,
   seedSingleFileWorkspaceIndex,
   setupEvalTurn,
+  staticTodoCrushedIndexHtml,
+  staticTodoPlanV1,
+  staticTodoValidFiles,
+  staticTodoWriteFileOperations,
 } from './agent-eval-fixtures'
 import {
   primeActiveAgentTurn,
@@ -252,6 +295,7 @@ describe('agent runner evaluation harness', () => {
     await runAgentTurnJobForEvaluation(payload)
 
     expect(getSystemPrompt()).toContain(GREENFIELD_HARNESS_MARKER)
+    expect(getSystemPrompt()).toContain(GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER)
     const retrievalDone = payloads.find(
       (p) => p.phase === 'activity' && p.activity.tool === 'retrieval' && p.activity.status === 'done',
     )
@@ -575,6 +619,14 @@ describe('agent runner evaluation harness', () => {
         }
         if (sampleCount === 4) {
           expect(hasEscalation).toBe(true)
+          expect(
+            request.messages.some(
+              (m) =>
+                m.role === 'user' &&
+                typeof m.content === 'string' &&
+                m.content.includes(EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER),
+            ),
+          ).toBe(false)
           const updated = original.replace('Likely React', 'React + TypeScript')
           return {
             content: '',
@@ -625,28 +677,16 @@ describe('agent runner evaluation harness', () => {
 
     expect(sawEscalationOnSample).toBe(true)
     expect(sampleCount).toBeGreaterThanOrEqual(4)
+    expect(sampleCount).toBeGreaterThanOrEqual(
+      SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION_GUARD + 2,
+    )
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 
   it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE} — approve-and-run bootstrap includes script.js in proposal`, async () => {
     const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-gf-exec-'))
     const projectId = 'eval-greenfield-execute-124'
-    const { planId } = seedApprovedPlanArtifact(projectId, {
-      plan: {
-        schemaVersion: 1,
-        summary: 'Vanilla todo app',
-        filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
-        risksUnknowns: [],
-        steps: [{ id: '1', title: 'Create index.html, styles.css, script.js' }],
-        verification: 'Open index.html in browser',
-      },
-    })
-
-    const html = `<!DOCTYPE html>
-<html lang="en"><head><title>Todo</title><link rel="stylesheet" href="styles.css"></head>
-<body><h1>Todo</h1><script src="script.js"></script></body></html>`
-    const css = 'body {\n  font-family: sans-serif;\n  margin: 0;\n}\n'
-    const script = `const STORAGE_KEY = 'todos';\n\nfunction init() {\n  document.addEventListener('DOMContentLoaded', () => {\n    console.log('ready');\n  });\n}\n\ninit();\n`
+    const { planId } = seedApprovedPlanArtifact(projectId, { plan: staticTodoPlanV1 })
 
     let sampleCount = 0
     let systemPrompt = ''
@@ -666,11 +706,7 @@ describe('agent runner evaluation harness', () => {
                   name: 'propose_file_edits',
                   arguments: JSON.stringify({
                     version: AGENT_TOOL_PROTOCOL_VERSION,
-                    operations: [
-                      { op: 'write_file', path: join(root, 'index.html'), content: html },
-                      { op: 'write_file', path: join(root, 'styles.css'), content: css },
-                      { op: 'write_file', path: join(root, 'script.js'), content: script },
-                    ],
+                    operations: staticTodoWriteFileOperations(root),
                   }),
                 },
               },
@@ -768,6 +804,293 @@ describe('agent runner evaluation harness', () => {
 
     expect(sawNudge).toBe(true)
     expect(sampleCount).toBeGreaterThanOrEqual(2)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_STATIC_VERIFY_COPY} — planner prompt includes static verify marker`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-static-verify-copy-'))
+
+    const { win } = createEventSink()
+    setAgentChatTargetWindow(win)
+    const { transport, getSystemPrompt } = transportCaptureSystemThenAnswer('Plan ready.')
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId: 'eval-proj-static-verify-copy',
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-stream-static-verify-copy'
+    primeActiveAgentTurn(streamId)
+    const payload = basePayload(streamId, 'Build a static todo app with HTML CSS and JS')
+    payload.activeContext.chatMode = 'plan'
+    await runAgentTurnJobForEvaluation(payload)
+
+    const prompt = getSystemPrompt()
+    expect(prompt).toContain(GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER)
+    expect(prompt).toMatch(/npx --yes serve/i)
+    expect(prompt).toMatch(/python3 -m http\.server/i)
+    expect(prompt).toMatch(/browser-only/i)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_NPM_VERIFY_COPY} — planner prompt includes npm verify examples`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-npm-verify-copy-'))
+
+    const { win } = createEventSink()
+    setAgentChatTargetWindow(win)
+    const { transport, getSystemPrompt } = transportCaptureSystemThenAnswer('Plan ready.')
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId: 'eval-proj-npm-verify-copy',
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-stream-npm-verify-copy'
+    primeActiveAgentTurn(streamId)
+    const payload = basePayload(streamId, 'Build a Vite React todo app')
+    payload.activeContext.chatMode = 'plan'
+    await runAgentTurnJobForEvaluation(payload)
+
+    const prompt = getSystemPrompt()
+    expect(prompt).toContain(GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER)
+    expect(prompt).toMatch(/npm run typecheck/i)
+    expect(prompt).toMatch(/npm run dev/i)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE_STATIC_VERIFY_NUDGE} — static plan injects serve command nudge`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-static-verify-nudge-'))
+    const projectId = 'eval-static-verify-nudge-132'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vanilla static todo app',
+        filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create index.html, styles.css, script.js' }],
+        verification: 'Open in browser and test the todo app',
+      },
+    })
+
+    let sampleCount = 0
+    let nudgeContent = ''
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const joined = request.messages
+          .map((m) => (typeof m.content === 'string' ? m.content : ''))
+          .join('\n')
+        if (joined.includes(PLAN_VERIFY_COMMAND_NUDGE_MARKER)) {
+          const idx = joined.indexOf(PLAN_VERIFY_COMMAND_NUDGE_MARKER)
+          nudgeContent = joined.slice(idx, idx + 800)
+        }
+        if (sampleCount === 1) return { content: '', toolCalls: [] }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Files created; serve locally to verify.')
+      },
+    }
+
+    const { win } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-static-verify-nudge-132'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vanilla static todo app')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(nudgeContent).toContain(PLAN_VERIFY_COMMAND_NUDGE_MARKER)
+    expect(nudgeContent).toMatch(/npx.*serve|http\.server/i)
+    expect(sampleCount).toBeGreaterThanOrEqual(2)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_PLAN_EXECUTE_HAPPY} — plan marker then execute bootstrap with valid HTML`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-static-plan-exec-133-'))
+    const projectId = 'eval-static-plan-exec-133'
+
+    const { win: winPlan } = createEventSink()
+    setAgentChatTargetWindow(winPlan)
+    const { transport: planTransport, getSystemPrompt: getPlanPrompt } =
+      transportCaptureSystemThenAnswer('Plan ready.')
+    restores.push(setAgentChatModelTransportForTesting(planTransport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const planStreamId = 'eval-static-plan-133'
+    primeActiveAgentTurn(planStreamId)
+    const planPayload = basePayload(planStreamId, 'Build a static todo app with HTML CSS and JS')
+    planPayload.activeContext.chatMode = 'plan'
+    await runAgentTurnJobForEvaluation(planPayload)
+
+    expect(getPlanPrompt()).toContain(GREENFIELD_HARNESS_MARKER)
+    expect(getPlanPrompt()).toContain(GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER)
+
+    const { planId } = seedApprovedPlanArtifact(projectId, { plan: staticTodoPlanV1 })
+    const { html } = staticTodoValidFiles()
+
+    let executeSystemPrompt = ''
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        const first = request.messages[0]
+        executeSystemPrompt = first && typeof first.content === 'string' ? first.content : ''
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-static-bootstrap-133',
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: staticTodoWriteFileOperations(root),
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Static bootstrap ready.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+
+    const streamId = 'eval-static-exec-133'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, staticTodoPlanV1.summary)),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(executeSystemPrompt).toContain(GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS[0])
+    expect(executeSystemPrompt).toContain(GREENFIELD_EXECUTE_CLI_MARKER)
+    expect(executeSystemPrompt).toContain(SCAFFOLD_STRATEGY_ROUTING_MARKER)
+    expect(executeSystemPrompt).toMatch(/file_bootstrap/i)
+    expect(executeSystemPrompt).toMatch(/script\.js/i)
+    expect(
+      payloads.some(
+        (p) => p.phase === 'activity' && p.activity.title === 'Harness: scaffold strategy conflict',
+      ),
+    ).toBe(false)
+
+    const proposal = payloads.find((p) => p.phase === 'edit_proposal')
+    expect(proposal?.phase).toBe('edit_proposal')
+    if (proposal?.phase === 'edit_proposal') {
+      expect(proposal.proposal.rejected.length).toBe(0)
+      const paths = proposal.proposal.batch.operations.map((op) => op.path)
+      expect(paths.some((p) => p.endsWith('index.html'))).toBe(true)
+      expect(paths.some((p) => p.endsWith('styles.css'))).toBe(true)
+      expect(paths.some((p) => p.endsWith('script.js'))).toBe(true)
+      const htmlOp = proposal.proposal.batch.operations.find(
+        (op) => op.op === 'write_file' && op.path.endsWith('index.html'),
+      )
+      if (htmlOp && htmlOp.op === 'write_file') {
+        expect(
+          assessProposalWriteContent(htmlOp.content, { resolvedPath: htmlOp.path }).ok,
+        ).toBe(true)
+      }
+    }
+    expect(assessProposalWriteContent(html, { resolvedPath: join(root, 'index.html') }).ok).toBe(
+      true,
+    )
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  // Expected rejection reason substring: crushed|jammed|script (see agent-edit-corrupt-content.test.ts)
+  it(`${AGENT_EVAL_TAG_VALIDATION_GREENFIELD_STATIC_HTML_CORRUPTION} — rejects crushed one-line index.html`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-static-html-corrupt-133-'))
+    const projectId = 'eval-static-html-corrupt-133'
+    const { planId } = seedApprovedPlanArtifact(projectId, { plan: staticTodoPlanV1 })
+
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion() {
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-crushed-html',
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [
+                    {
+                      op: 'write_file',
+                      path: join(root, 'index.html'),
+                      content: staticTodoCrushedIndexHtml(),
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Proposal needs review.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-static-html-corrupt-133'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, staticTodoPlanV1.summary)),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(false)
+    expect(
+      assessProposalWriteContent(staticTodoCrushedIndexHtml(), {
+        resolvedPath: join(root, 'index.html'),
+      }).ok,
+    ).toBe(false)
+    const failedActivity = payloads.find(
+      (p) =>
+        p.phase === 'activity' &&
+        p.activity.title === 'Edit proposal failed' &&
+        p.activity.status === 'error',
+    )
+    expect(failedActivity).toBeDefined()
+    expect(failedActivity?.phase === 'activity' ? failedActivity.activity.detail : '').toMatch(
+      /crushed|jammed|script/i,
+    )
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 
   it(`${AGENT_EVAL_TAG_BEHAVIOR_RUN_COMMAND_PLAN_VERIFY} — samples run_command when model requests verify`, async () => {
@@ -873,6 +1196,7 @@ describe('agent runner evaluation harness', () => {
 
     let sampleCount = 0
     let sawPartialNudge = false
+    let partialBatchRecovered = false
     const transport: AgentChatModelTransport = {
       async sampleChatCompletion(request) {
         sampleCount += 1
@@ -908,6 +1232,7 @@ describe('agent runner evaluation harness', () => {
         }
         if (sampleCount === 2) {
           expect(hasPartialNudge).toBe(true)
+          partialBatchRecovered = true
           return {
             content: '',
             toolCalls: [
@@ -934,7 +1259,7 @@ describe('agent runner evaluation harness', () => {
             typeof m.content === 'string' &&
             m.content.includes(PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER),
         )
-        if (sawPartialNudge) expect(hasHonesty).toBe(true)
+        if (sawPartialNudge && !partialBatchRecovered) expect(hasHonesty).toBe(true)
         emitChunk('Partial bootstrap — review diff.')
       },
     }
@@ -965,9 +1290,12 @@ describe('agent runner evaluation harness', () => {
         (p) => p.phase === 'activity' && p.activity.title === 'Harness: retry rejected paths',
       ),
     ).toBe(true)
-    const proposal = payloads.find((p) => p.phase === 'edit_proposal')
-    if (proposal?.phase === 'edit_proposal') {
-      expect(proposal.proposal.batch.operations.length).toBeGreaterThanOrEqual(2)
+    const proposals = payloads.filter((p) => p.phase === 'edit_proposal')
+    expect(proposals.length).toBeGreaterThanOrEqual(2)
+    const finalProposal = proposals.at(-1)
+    if (finalProposal?.phase === 'edit_proposal') {
+      expect(finalProposal.proposal.batch.operations.length).toBe(3)
+      expect(finalProposal.proposal.rejected).toHaveLength(0)
     }
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
@@ -1378,7 +1706,176 @@ describe('agent runner evaluation harness', () => {
     })
 
     expect(sawScaffoldNudge).toBe(false)
+    expect(
+      payloads.some(
+        (p) => p.phase === 'activity' && p.activity.title === 'Harness: scaffold strategy conflict',
+      ),
+    ).toBe(false)
     expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_FILE_BOOTSTRAP_NO_FALSE_CONFLICT} — ambiguous user text + static plan + edits only has no conflict activity`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-file-bootstrap-no-conflict-131-'))
+    const projectId = 'eval-file-bootstrap-no-conflict-131'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Static vanilla todo page',
+        filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create index.html, styles.css, script.js' }],
+        verification: 'Open index.html in browser',
+      },
+    })
+
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Todo</title></head><body></body></html>`
+    let sawScaffoldNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sawScaffoldNudge = request.messages.some(
+          (m) =>
+            typeof m.content === 'string' && m.content.includes(SCAFFOLD_STRATEGY_NUDGE_MARKER),
+        )
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-static-ambiguous',
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [
+                    { op: 'write_file', path: join(root, 'index.html'), content: html },
+                  ],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Static bootstrap ready.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-file-bootstrap-no-conflict-131'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(
+        streamId,
+        buildApprovedPlanExecuteUserText(planId, 'Scaffold a static todo page with html/css/js'),
+      ),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawScaffoldNudge).toBe(false)
+    expect(
+      payloads.some(
+        (p) => p.phase === 'activity' && p.activity.title === 'Harness: scaffold strategy conflict',
+      ),
+    ).toBe(false)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_VERIFY_COMMAND_NOT_HYBRID} — serve command + edits on static plan does not trigger strategy nudge`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-verify-not-hybrid-131-'))
+    const projectId = 'eval-verify-not-hybrid-131'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Static vanilla todo page',
+        filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create index.html, styles.css, script.js' }],
+        verification: 'Open index.html in browser',
+      },
+    })
+
+    const html = `<!DOCTYPE html><html lang="en"><head><title>Todo</title></head><body></body></html>`
+    let sawScaffoldNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sawScaffoldNudge = request.messages.some(
+          (m) =>
+            typeof m.content === 'string' && m.content.includes(SCAFFOLD_STRATEGY_NUDGE_MARKER),
+        )
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: 'tc-serve',
+              type: 'function',
+              function: {
+                name: 'run_command',
+                arguments: JSON.stringify({
+                  rootId: 'root',
+                  command: 'npx serve',
+                  purpose: 'Preview static site',
+                }),
+              },
+            },
+            {
+              id: 'tc-static-edits',
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [
+                    { op: 'write_file', path: join(root, 'index.html'), content: html },
+                  ],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Static bootstrap with preview command.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(setCommandApprovalAutoResponderForTesting(() => false))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-verify-not-hybrid-131'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Static vanilla todo page')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawScaffoldNudge).toBe(false)
+    expect(
+      payloads.some(
+        (p) => p.phase === 'activity' && p.activity.title === 'Harness: scaffold strategy conflict',
+      ),
+    ).toBe(false)
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 
@@ -1477,10 +1974,218 @@ describe('agent runner evaluation harness', () => {
     expect(sampleCount).toBeGreaterThanOrEqual(2)
     expect(
       payloads.some(
-        (p) => p.phase === 'activity' && p.activity.title === 'Harness: scaffold strategy conflict',
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title.startsWith('Scaffold routing') &&
+          p.activity.harnessKind === 'correction',
+      ),
+    ).toBe(true)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Harness: scaffold strategy conflict',
+      ),
+    ).toBe(false)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CONFLICT_UNRECOVERED_HONESTY} — strong scaffold honesty when hybrid nudge does not recover`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-hybrid-unrecovered-134-'))
+    const projectId = 'eval-hybrid-unrecovered-134'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'Vite React app',
+        filesLikelyTouched: ['package.json', 'index.html'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'npm create vite' }],
+        verification: 'npm install',
+      },
+    })
+
+    let sampleCount = 0
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion() {
+        sampleCount += 1
+        if (sampleCount === 1) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-hybrid-cmd',
+                type: 'function',
+                function: {
+                  name: 'run_command',
+                  arguments: JSON.stringify({
+                    rootId: 'root',
+                    command: 'npm create vite@latest .',
+                    purpose: 'Scaffold Vite project',
+                  }),
+                },
+              },
+              {
+                id: 'tc-hybrid-edit',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      {
+                        op: 'write_file',
+                        path: join(root, 'package.json'),
+                        content: '{"name":"bad"}',
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        const honesty = request.messages.find(
+          (m) =>
+            typeof m.content === 'string' && m.content.includes(SCAFFOLD_STRATEGY_HONESTY_MARKER),
+        )
+        expect(honesty).toBeDefined()
+        expect(String(honesty?.content)).toMatch(/scaffold strategy conflict/i)
+        emitChunk('Still need CLI scaffold before files are ready.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(setCommandApprovalAutoResponderForTesting(() => false))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-hybrid-unrecovered-134'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Vite React app')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.detail !== 'Corrected on retry' &&
+          p.activity.title.startsWith('Scaffold routing'),
       ),
     ).toBe(true)
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CONFLICT_RECOVERED_FINAL_CONTRACT} — soft final honesty after compliant resample and proposal`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-hybrid-recovered-134-'))
+    const projectId = 'eval-hybrid-recovered-134'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        ...staticTodoPlanV1,
+        verification: 'Open index.html in browser after files are created',
+      },
+    })
+    let sampleCount = 0
+    let finalStreamMessages: readonly { role: string; content?: string | null }[] = []
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion() {
+        sampleCount += 1
+        if (sampleCount === 1) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-cli-on-static',
+                type: 'function',
+                function: {
+                  name: 'run_command',
+                  arguments: JSON.stringify({
+                    rootId: 'root',
+                    command: 'npm create vite@latest .',
+                    purpose: 'Scaffold (should not run on static plan)',
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        if (sampleCount === 2) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-static-only',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: staticTodoWriteFileOperations(root),
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        finalStreamMessages = request.messages
+        emitChunk('Static bootstrap proposal is ready for review.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(setCommandApprovalAutoResponderForTesting(() => false))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-hybrid-recovered-134'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, 'Static todo page')),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(true)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.detail === 'Corrected on retry' &&
+          p.activity.title.startsWith('Scaffold routing'),
+      ),
+    ).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+    const honesty = finalStreamMessages.find(
+      (m) =>
+        typeof m.content === 'string' && m.content.includes(SCAFFOLD_STRATEGY_HONESTY_MARKER),
+    )
+    expect(honesty).toBeDefined()
+    expect(String(honesty?.content)).not.toMatch(/CLI scaffold is not complete/i)
+    expect(String(honesty?.content)).not.toMatch(
+      /detected a \*\*scaffold strategy conflict\*\*/i,
+    )
   })
 
   it('forces final answer after post-escalation rounds without hanging on more search_replace', async () => {
@@ -2093,7 +2798,10 @@ describe('agent runner evaluation harness', () => {
         root,
         projectId,
         innerTransport: transportNoToolsFinal('Added localStorage persistence.'),
-        payload: baseEvalPayload('eval-existing-no-replan', 'add localStorage persistence for todos'),
+        payload: {
+          ...baseEvalPayload('eval-existing-no-replan', 'add localStorage persistence for todos'),
+          modelIntent: 'chat_default',
+        },
       })
       matrixRestores.push(restore)
 
@@ -2127,7 +2835,10 @@ describe('agent runner evaluation harness', () => {
         root,
         projectId,
         innerTransport: transportNoToolsFinal('Added dark mode toggle.'),
-        payload: baseEvalPayload('eval-iterative-vanilla', 'add a dark mode toggle to the page'),
+        payload: {
+          ...baseEvalPayload('eval-iterative-vanilla', 'add a dark mode toggle to the page'),
+          modelIntent: 'chat_default',
+        },
       })
       matrixRestores.push(restore)
 
@@ -2209,6 +2920,1021 @@ describe('agent runner evaluation harness', () => {
       matrixRestores.push(restore)
 
       expect(sawScaffoldNudge).toBe(false)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_CONSOLIDATION_NUDGE} — 2× search_replace same path injects thrash nudge once`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-thrash-135-'))
+      const scriptPath = join(root, 'script.js')
+      const original = staticTodoValidFiles().js
+      writeFileSync(scriptPath, original, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-sr-thrash-135'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash(original)
+
+      let sampleCount = 0
+      let thrashNudgeCount = 0
+      const transport: AgentChatModelTransport = {
+        async sampleChatCompletion(request) {
+          sampleCount += 1
+          const thrashMessages = request.messages.filter(
+            (m) =>
+              m.role === 'user' &&
+              typeof m.content === 'string' &&
+              m.content.includes(ITERATIVE_EDIT_THRASH_NUDGE_MARKER),
+          )
+          thrashNudgeCount += thrashMessages.length
+
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: scriptPath }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-sr-1',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: scriptPath,
+                      old_string: 'NOT_ON_DISK',
+                      new_string: 'const x = 1;\n',
+                      expectedContentHash: hash,
+                    }),
+                  },
+                },
+                {
+                  id: 'tc-sr-2',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: scriptPath,
+                      old_string: 'ALSO_NOT_ON_DISK',
+                      new_string: 'const y = 2;\n',
+                      expectedContentHash: hash,
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 3) {
+            expect(thrashNudgeCount).toBeGreaterThanOrEqual(1)
+            return { content: '', toolCalls: [] }
+          }
+          return { content: '', toolCalls: [] }
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Consolidate edits into one proposal.')
+        },
+      }
+
+      const { restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transport,
+        payload: baseEvalPayload('eval-iterative-sr-thrash', 'add localStorage persistence for todos'),
+      })
+      matrixRestores.push(restore)
+
+      expect(thrashNudgeCount).toBe(1)
+      const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
+      expect(trace.harnessMetrics?.nudgesIssued).toContain('iterative_sr_consolidation')
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_STOP_AFTER_PROPOSAL} — stops tool_sample after edit proposal`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-stop-proposal-135-'))
+      const scriptPath = join(root, 'script.js')
+      const original = staticTodoValidFiles().js
+      writeFileSync(scriptPath, original, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-stop-proposal-135'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash(original)
+      const updated = `${original}\nlocalStorage.setItem(STORAGE_KEY, JSON.stringify(todos));\n`
+
+      let sampleCount = 0
+      const transport: AgentChatModelTransport = {
+        async sampleChatCompletion() {
+          sampleCount += 1
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: scriptPath }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-propose',
+                  type: 'function',
+                  function: {
+                    name: 'propose_file_edits',
+                    arguments: JSON.stringify({
+                      version: AGENT_TOOL_PROTOCOL_VERSION,
+                      operations: [
+                        {
+                          op: 'write_file',
+                          path: scriptPath,
+                          content: updated,
+                          expectedContentHash: hash,
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          throw new Error('should not sample tools after iterative edit proposal')
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Proposal ready for review.')
+        },
+      }
+
+      const { getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transport,
+        payload: baseEvalPayload('eval-iterative-stop-proposal', 'add localStorage persistence'),
+      })
+      matrixRestores.push(restore)
+
+      expect(sampleCount).toBe(2)
+      expect(getRecords().filter((r) => r.phase === 'sample').length).toBe(2)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_LOCALSTORAGE_LOW_ROUNDS} — bounded rounds and one edit proposal`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-localstorage-135-'))
+      const scriptPath = join(root, 'script.js')
+      const original = staticTodoValidFiles().js
+      writeFileSync(scriptPath, original, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-localstorage-135'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash(original)
+      const updated = `${original}\nfunction saveTodos() {\n  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));\n}\n`
+
+      let sampleCount = 0
+      const transport: AgentChatModelTransport = {
+        async sampleChatCompletion() {
+          sampleCount += 1
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: scriptPath }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-propose',
+                  type: 'function',
+                  function: {
+                    name: 'propose_file_edits',
+                    arguments: JSON.stringify({
+                      version: AGENT_TOOL_PROTOCOL_VERSION,
+                      operations: [
+                        {
+                          op: 'write_file',
+                          path: scriptPath,
+                          content: updated,
+                          expectedContentHash: hash,
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          return { content: '', toolCalls: [] }
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Added localStorage persistence.')
+        },
+      }
+
+      const { payloads, getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transport,
+        payload: baseEvalPayload(
+          'eval-iterative-localstorage',
+          'add localStorage persistence for todos',
+        ),
+      })
+      matrixRestores.push(restore)
+
+      const samples = getRecords().filter((r) => r.phase === 'sample')
+      expect(samples.length).toBeLessThanOrEqual(4)
+      const proposals = payloads.filter((p) => p.phase === 'edit_proposal')
+      expect(proposals.length).toBe(1)
+      expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_TRACE_METRICS} — turn trace includes harnessMetrics`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-trace-metrics-137-'))
+      const scriptPath = join(root, 'script.js')
+      const original = staticTodoValidFiles().js
+      writeFileSync(scriptPath, original, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-trace-metrics-137'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash(original)
+      const updated = `${original}\nfunction saveTodos() {\n  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));\n}\n`
+
+      vi.mocked(writeAgentTurnTrace).mockClear()
+
+      let sampleCount = 0
+      const proposeTransport: AgentChatModelTransport = {
+        async sampleChatCompletion() {
+          sampleCount += 1
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: scriptPath }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-propose',
+                  type: 'function',
+                  function: {
+                    name: 'propose_file_edits',
+                    arguments: JSON.stringify({
+                      version: AGENT_TOOL_PROTOCOL_VERSION,
+                      operations: [
+                        {
+                          op: 'write_file',
+                          path: scriptPath,
+                          content: updated,
+                          expectedContentHash: hash,
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          return { content: '', toolCalls: [] }
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Added localStorage persistence.')
+        },
+      }
+
+      const { restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: proposeTransport,
+        payload: baseEvalPayload(
+          'eval-iterative-trace-metrics',
+          'add localStorage persistence for todos',
+        ),
+      })
+      matrixRestores.push(restore)
+
+      expect(writeAgentTurnTrace).toHaveBeenCalled()
+      const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
+      expect(trace.harnessMetrics?.iterativeWorkEdit).toBe(true)
+      expect(trace.harnessMetrics?.editProposalAtRound).toBeLessThanOrEqual(4)
+      expect(trace.harnessMetrics?.toolRoundCount).toBeDefined()
+      expect((trace.harnessMetrics?.nudgesIssued?.length ?? 0)).toBeLessThanOrEqual(12)
+      expect(trace.harnessMetrics?.stoppedAfterProposal).toBe(true)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_TRACE_SEARCH_REPLACE_FAILURE_METRICS} — trace includes S&R failure metrics after escalation`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-sr-failure-metrics-140-'))
+      const scriptPath = join(root, 'script.js')
+      const original = staticTodoValidFiles().js
+      writeFileSync(scriptPath, original, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-sr-failure-metrics-140'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash(original)
+
+      vi.mocked(writeAgentTurnTrace).mockClear()
+
+      let sampleCount = 0
+      const transport: AgentChatModelTransport = {
+        async sampleChatCompletion() {
+          sampleCount += 1
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: scriptPath }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2) {
+            const srFailScript = {
+              path: scriptPath,
+              old_string: 'function NOT_ON_DISK() {}',
+              new_string: 'function removeTodo() {}\n',
+              expectedContentHash: hash,
+            }
+            const htmlPath = join(root, 'index.html')
+            const htmlHash = computeAgentContentHash(staticTodoValidFiles().html)
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-sr-fail-script',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify(srFailScript),
+                  },
+                },
+                {
+                  id: 'tc-sr-fail-html',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: htmlPath,
+                      old_string: '<div id="NOT_ON_DISK"></div>',
+                      new_string: '<button type="button">Remove</button>\n',
+                      expectedContentHash: htmlHash,
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          return { content: '', toolCalls: [] }
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Could not patch script.js — retry with propose_file_edits.')
+        },
+      }
+
+      const { restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transport,
+        payload: baseEvalPayload('eval-sr-failure-metrics-140', 'add remove todo button'),
+      })
+      matrixRestores.push(restore)
+
+      expect(writeAgentTurnTrace).toHaveBeenCalled()
+      const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
+      expect(trace.harnessMetrics?.searchReplace?.totalFailures).toBeGreaterThanOrEqual(2)
+      expect(trace.harnessMetrics?.searchReplace?.escalationIssued).toBe(true)
+      expect(trace.harnessMetrics?.nudgesIssued).toContain('search_replace_escalation')
+      expect(trace.harnessMetrics?.searchReplace?.lastFailureReasons?.length).toBeGreaterThan(0)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_FAIL_FAST_ESCALATE} — escalation after 1 S&R failure before round 3`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-fail-fast-138-'))
+      const scriptPath = join(root, 'script.js')
+      const original = staticTodoValidFiles().js
+      writeFileSync(scriptPath, original, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-sr-fail-fast-138'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash(original)
+
+      let sampleCount = 0
+      let saw138EscalationOnSample = false
+      const transport: AgentChatModelTransport = {
+        async sampleChatCompletion(request) {
+          sampleCount += 1
+          const has138Escalation = request.messages.some(
+            (m) =>
+              m.role === 'user' &&
+              typeof m.content === 'string' &&
+              m.content.includes(EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER),
+          )
+          if (has138Escalation) saw138EscalationOnSample = true
+
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: scriptPath }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-sr-fail',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: scriptPath,
+                      old_string: 'function NOT_ON_DISK() {}',
+                      new_string: 'function removeTodo() {}\n',
+                      expectedContentHash: hash,
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 3) {
+            expect(has138Escalation).toBe(true)
+            return { content: '', toolCalls: [] }
+          }
+          return { content: '', toolCalls: [] }
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Retry with propose_file_edits.')
+        },
+      }
+
+      const { restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transport,
+        payload: baseEvalPayload(
+          'eval-iterative-sr-fail-fast',
+          'add remove todo button',
+        ),
+      })
+      matrixRestores.push(restore)
+
+      expect(saw138EscalationOnSample).toBe(true)
+      expect(sampleCount).toBeLessThanOrEqual(3)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_BLOCKED_AFTER_ESCALATE} — post-escalation S&R blocked with harness reason`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-blocked-138-'))
+      const scriptPath = join(root, 'script.js')
+      const original = staticTodoValidFiles().js
+      writeFileSync(scriptPath, original, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-sr-blocked-138'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash(original)
+
+      let sampleCount = 0
+      const transport: AgentChatModelTransport = {
+        async sampleChatCompletion(request) {
+          sampleCount += 1
+          const has138Escalation = request.messages.some(
+            (m) =>
+              m.role === 'user' &&
+              typeof m.content === 'string' &&
+              m.content.includes(EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER),
+          )
+
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: scriptPath }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-sr-fail',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: scriptPath,
+                      old_string: 'NOT_ON_DISK',
+                      new_string: 'function removeTodo() {}\n',
+                      expectedContentHash: hash,
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 3) {
+            expect(has138Escalation).toBe(true)
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-sr-retry',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: scriptPath,
+                      old_string: 'NOT_ON_DISK_AGAIN',
+                      new_string: 'function removeTodo() {}\n',
+                      expectedContentHash: hash,
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          return { content: '', toolCalls: [] }
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Use propose_file_edits with full script.js.')
+        },
+      }
+
+      const { payloads, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transport,
+        payload: baseEvalPayload(
+          'eval-iterative-sr-blocked',
+          'add remove todo button',
+        ),
+      })
+      matrixRestores.push(restore)
+
+      expect(
+        payloads.some(
+          (p) =>
+            p.phase === 'activity' &&
+            p.activity.title === 'Search replace blocked' &&
+            p.activity.detail?.includes(ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON),
+        ),
+      ).toBe(true)
+      expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_NO_MAX_ITERATIONS} — cooperative propose after 1 S&R fail completes without max iterations`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-no-max-138-'))
+      const scriptPath = join(root, 'script.js')
+      const original = staticTodoValidFiles().js
+      writeFileSync(scriptPath, original, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-sr-no-max-138'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash(original)
+      const updated = `${original}\nfunction removeTodo(id) { todos = todos.filter(t => t.id !== id); renderTodos(); }\n`
+
+      vi.mocked(writeAgentTurnTrace).mockClear()
+
+      let sampleCount = 0
+      const transport: AgentChatModelTransport = {
+        async sampleChatCompletion(request) {
+          sampleCount += 1
+          const has138Escalation = request.messages.some(
+            (m) =>
+              m.role === 'user' &&
+              typeof m.content === 'string' &&
+              m.content.includes(EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER),
+          )
+
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: scriptPath }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-sr-fail',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: scriptPath,
+                      old_string: 'NOT_ON_DISK',
+                      new_string: 'function removeTodo() {}\n',
+                      expectedContentHash: hash,
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 3) {
+            expect(has138Escalation).toBe(true)
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-propose',
+                  type: 'function',
+                  function: {
+                    name: 'propose_file_edits',
+                    arguments: JSON.stringify({
+                      version: AGENT_TOOL_PROTOCOL_VERSION,
+                      operations: [
+                        {
+                          op: 'write_file',
+                          path: scriptPath,
+                          content: updated,
+                          expectedContentHash: hash,
+                        },
+                      ],
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          return { content: '', toolCalls: [] }
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Added remove todo button.')
+        },
+      }
+
+      const { payloads, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transport,
+        payload: baseEvalPayload(
+          'eval-iterative-sr-no-max',
+          'add remove todo button',
+        ),
+      })
+      matrixRestores.push(restore)
+
+      expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(true)
+      expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+      expect(writeAgentTurnTrace).toHaveBeenCalled()
+      const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
+      expect(trace.maxToolIterationsHit).not.toBe(true)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_QUALITY_SECTIONS} — system prompt includes 139 S&R quality marker and pre-sample nudge`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-quality-139-'))
+      writeFileSync(join(root, 'script.js'), staticTodoValidFiles().js, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-sr-quality-139'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+
+      let firstSampleUserText = ''
+      const { getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: {
+          async sampleChatCompletion(request) {
+            if (!firstSampleUserText) {
+              firstSampleUserText = request.messages
+                .filter((m) => m.role === 'user' && typeof m.content === 'string')
+                .map((m) => m.content as string)
+                .join('\n')
+            }
+            return { content: '', toolCalls: [] }
+          },
+          async streamFinalAnswer(_request, _signal, emitChunk) {
+            emitChunk('Added remove button.')
+          },
+        },
+        payload: baseEvalPayload('eval-iterative-sr-quality-139', 'add remove todo button'),
+      })
+      matrixRestores.push(restore)
+
+      const sample = getRecords().find((r) => r.phase === 'sample')
+      expect(sample?.systemText).toContain(WORK_ITERATIVE_SR_QUALITY_MARKER)
+      expect(sample?.systemText).toContain(WORK_ITERATIVE_EDIT_MARKER)
+      expect(firstSampleUserText).toContain(LOCALIZED_UI_EDIT_PRE_SAMPLE_MARKER)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE} — search_replace tool description includes rawContent on iterative turn`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-sr-tool-override-139-'))
+      writeFileSync(join(root, 'script.js'), staticTodoValidFiles().js, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-sr-tool-override-139'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+
+      let srDescription = ''
+      const { restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: {
+          async sampleChatCompletion(request) {
+            if (!srDescription) {
+              const srTool = request.tools.find((t) => t.function.name === 'search_replace')
+              srDescription = srTool?.function.description ?? ''
+            }
+            return { content: '', toolCalls: [] }
+          },
+          async streamFinalAnswer(_request, _signal, emitChunk) {
+            emitChunk('Done.')
+          },
+        },
+        payload: baseEvalPayload(
+          'eval-iterative-sr-tool-override-139',
+          'add delete button to each todo item',
+        ),
+      })
+      matrixRestores.push(restore)
+
+      expect(srDescription).toMatch(/rawContent/i)
+      expect(srDescription).toMatch(/exactly once|single-match/i)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE} — greenfield turn keeps default search_replace description`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-greenfield-sr-desc-139-'))
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-greenfield-sr-desc-139'
+      seedSingleFileWorkspaceIndex(projectId, root)
+
+      let srDescription = ''
+      const { restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: {
+          async sampleChatCompletion(request) {
+            if (!srDescription) {
+              const srTool = request.tools.find((t) => t.function.name === 'search_replace')
+              srDescription = srTool?.function.description ?? ''
+            }
+            return { content: '', toolCalls: [] }
+          },
+          async streamFinalAnswer(_request, _signal, emitChunk) {
+            emitChunk('Done.')
+          },
+        },
+        payload: baseEvalPayload('eval-greenfield-sr-desc-139', 'add a button to the page'),
+      })
+      matrixRestores.push(restore)
+
+      expect(srDescription).not.toMatch(/under ~20 lines/i)
+      expect(srDescription).not.toMatch(/116/i)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_SINGLE_FILE} — system prompt includes scope marker and script.js`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-scope-136-'))
+      writeFileSync(join(root, 'script.js'), staticTodoValidFiles().js, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-scope-136'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+
+      const { getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transportNoToolsFinal('Added localStorage.'),
+        payload: baseEvalPayload(
+          'eval-iterative-scope',
+          'add localStorage persistence for todos',
+        ),
+      })
+      matrixRestores.push(restore)
+
+      const sample = getRecords().find((r) => r.phase === 'sample')
+      expect(sample?.systemText).toContain(ITERATIVE_EDIT_SCOPE_MARKER)
+      expect(sample?.systemText).toContain('script.js')
+      expect(sample?.systemText).toContain(WORK_ITERATIVE_EDIT_MARKER)
+    })
+
+    it(`${AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_PREFER_PROPOSE_NUDGE} — S&R after read injects scope shape nudge once`, async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-iterative-scope-nudge-136-'))
+      const scriptPath = join(root, 'script.js')
+      const original = staticTodoValidFiles().js
+      writeFileSync(scriptPath, original, 'utf8')
+      writeFileSync(join(root, 'index.html'), staticTodoValidFiles().html, 'utf8')
+      const projectId = 'eval-iterative-scope-nudge-136'
+      seedSmallVanillaWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash(original)
+
+      let sampleCount = 0
+      let scopeShapeNudgeCount = 0
+      let thrashNudgeCount = 0
+      const transport: AgentChatModelTransport = {
+        async sampleChatCompletion(request) {
+          sampleCount += 1
+          for (const m of request.messages) {
+            if (m.role !== 'user' || typeof m.content !== 'string') continue
+            if (m.content.includes(ITERATIVE_EDIT_SCOPE_SHAPE_NUDGE_MARKER)) {
+              scopeShapeNudgeCount += 1
+            }
+            if (m.content.includes(ITERATIVE_EDIT_THRASH_NUDGE_MARKER)) {
+              thrashNudgeCount += 1
+            }
+          }
+
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: scriptPath }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-sr-1',
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: scriptPath,
+                      old_string: 'NOT_ON_DISK',
+                      new_string: 'const x = 1;\n',
+                      expectedContentHash: hash,
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 3) {
+            expect(scopeShapeNudgeCount).toBe(1)
+            expect(thrashNudgeCount).toBe(0)
+            return { content: '', toolCalls: [] }
+          }
+          return { content: '', toolCalls: [] }
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Use propose_file_edits with full rawContent.')
+        },
+      }
+
+      const { restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transport,
+        payload: baseEvalPayload(
+          'eval-iterative-scope-nudge',
+          'add localStorage persistence for todos',
+        ),
+      })
+      matrixRestores.push(restore)
+
+      expect(scopeShapeNudgeCount).toBe(1)
+      expect(thrashNudgeCount).toBe(0)
+    })
+
+    it('routing:post_plan_incremental — no iterative thrash nudges on post-plan follow-up', async () => {
+      const root = mkdtempSync(join(tmpdir(), 'gf-eval-post-plan-no-thrash-135-'))
+      const file = join(root, 'src', 'app.ts')
+      mkdirSync(dirname(file), { recursive: true })
+      writeFileSync(file, 'export const todos: string[] = [];\n', 'utf8')
+      writeFileSync(join(root, 'package.json'), '{"name":"eval-app"}\n', 'utf8')
+      const projectId = 'eval-post-plan-no-thrash-135'
+      seedApprovedPlanArtifact(projectId)
+      seedPopulatedWorkspaceIndex(projectId, root)
+      const hash = computeAgentContentHash('export const todos: string[] = [];\n')
+
+      let sampleCount = 0
+      let sawThrashNudge = false
+      const transport: AgentChatModelTransport = {
+        async sampleChatCompletion(request) {
+          sampleCount += 1
+          if (
+            request.messages.some(
+              (m) =>
+                m.role === 'user' &&
+                typeof m.content === 'string' &&
+                m.content.includes(ITERATIVE_EDIT_THRASH_NUDGE_MARKER),
+            )
+          ) {
+            sawThrashNudge = true
+          }
+          if (sampleCount === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'tc-read',
+                  type: 'function',
+                  function: {
+                    name: 'read_file',
+                    arguments: JSON.stringify({ path: file }),
+                  },
+                },
+              ],
+            }
+          }
+          if (sampleCount === 2 || sampleCount === 3) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: `tc-sr-${sampleCount}`,
+                  type: 'function',
+                  function: {
+                    name: 'search_replace',
+                    arguments: JSON.stringify({
+                      path: file,
+                      old_string: 'NOT_ON_DISK',
+                      new_string: 'export const todos: string[] = ["a"];\n',
+                      expectedContentHash: hash,
+                    }),
+                  },
+                },
+              ],
+            }
+          }
+          return { content: '', toolCalls: [] }
+        },
+        async streamFinalAnswer(_request, _signal, emitChunk) {
+          emitChunk('Added button.')
+        },
+      }
+
+      const { getRecords, restore } = await setupEvalTurn({
+        root,
+        projectId,
+        innerTransport: transport,
+        payload: baseEvalPayload('eval-post-plan-no-thrash', 'add delete button'),
+      })
+      matrixRestores.push(restore)
+
+      expect(sawThrashNudge).toBe(false)
+      const sample = getRecords().find((r) => r.phase === 'sample')
+      expect(sample?.systemText).not.toContain(ITERATIVE_EDIT_SCOPE_MARKER)
     })
 
     it(`${AGENT_EVAL_TAG_AGENT_PLANNER} — rejects propose_file_edits when model requests it`, async () => {

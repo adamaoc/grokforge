@@ -6,6 +6,8 @@ import {
   AGENT_EDIT_HTML_ENTITY_ARTIFACT_REASON,
   AGENT_EDIT_JAMMED_JS_FILE_REASON,
   AGENT_EDIT_MALFORMED_JSX_REASON,
+  AGENT_EDIT_INCOMPLETE_TS_REASON,
+  detectIncompleteTypeScriptSource,
   detectMalformedJsxAttributes,
   assessProposalWriteContent,
   detectCorruptEncoding,
@@ -148,6 +150,29 @@ function b() {
     expect(assessProposalWriteContent(normalized, { resolvedPath: '/proj/src/App.tsx' }).ok).toBe(
       true,
     )
+  })
+
+  it('rejects incomplete const type declaration in TSX', () => {
+    const truncated = `import { useState } from 'react'
+
+const COLUMNS: {
+`
+    expect(detectIncompleteTypeScriptSource(truncated, '/proj/src/App.tsx').incomplete).toBe(true)
+    expect(assessProposalWriteContent(truncated, { resolvedPath: '/proj/src/App.tsx' }).ok).toBe(
+      false,
+    )
+    expect(assessProposalWriteContent(truncated, { resolvedPath: '/proj/src/App.tsx' }).reason).toBe(
+      AGENT_EDIT_INCOMPLETE_TS_REASON,
+    )
+  })
+
+  it('rejects glued return on same line as const in TSX', () => {
+    const glued = `function loadTasks() {
+  const saved = localStorage.getItem('tasks')  return saved ? JSON.parse(saved) : []
+}`
+    expect(hasGluedJavaScriptStatements(glued)).toBe(true)
+    expect(detectJammedJavaScriptFile(glued, '/proj/src/App.tsx').jammed).toBe(true)
+    expect(assessProposalWriteContent(glued, { resolvedPath: '/proj/src/App.tsx' }).ok).toBe(false)
   })
 
   it('rejects malformed escaped className in TSX', () => {

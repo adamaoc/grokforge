@@ -88,7 +88,9 @@ export function mergeAgentEditProposals(
     opByKey.set(agentEditProposalPathKey(op.path), op)
   }
 
-  const rejected = dedupeRejected([...accumulated.rejected, ...incoming.rejected])
+  const rejected = dedupeRejected([...accumulated.rejected, ...incoming.rejected]).filter(
+    (item) => !opByKey.has(agentEditProposalPathKey(item.path)),
+  )
   const operations = [...opByKey.values()]
 
   return capProposalOperations({

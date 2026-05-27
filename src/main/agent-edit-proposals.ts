@@ -59,6 +59,8 @@ export type ValidateAgentEditProposalOptions = {
   userMessageHint?: string
   /** Patched full file from search_replace — skip propose-style crushed checks. */
   contentSource?: 'search_replace' | 'propose'
+  /** Iterative Work routing — lower cascade threshold (138). */
+  iterativeWorkEdit?: boolean
 }
 
 /** Compact summary for turn traces and activity detail when validation rejects ops. */
@@ -264,6 +266,7 @@ export function validateAgentEditProposal(
           proposedContent: normalizedContent,
           searchReplaceFailuresByPath: options?.searchReplaceFailuresByPath,
           userMessageHint: options?.userMessageHint,
+          iterativeWorkEdit: options?.iterativeWorkEdit,
         })
         if (cascade.blocked) {
           rejected.push({ path: op.path, reason: cascade.reason ?? 'Edit blocked by harness cascade guard.' })

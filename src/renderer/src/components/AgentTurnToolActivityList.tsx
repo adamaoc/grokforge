@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -14,8 +14,14 @@ import {
 } from 'lucide-react'
 import type { AgentChatActivityPayload, ChatTurnContextV1 } from '@/types'
 import { cn } from '@/lib/utils'
+import { readActivityAlwaysExpand } from '@/lib/chat-activity-panel-prefs'
 import {
-  agentActivitySectionTitle,
+  shouldAutoExpandActivityPanel,
+  shouldCollapseOnTurnEnd,
+} from '@/lib/chat-activity-panel-state'
+import {
+  agentActivitySummaryDetail,
+  agentActivitySummaryLabel,
   agentActivityToolLabel,
   collapseCompletedMiddleRows,
   compactAgentTurnActivities,
@@ -23,6 +29,9 @@ import {
   sanitizeAgentActivityDetail,
   summarizeAgentActivityErrors,
 } from '../../../shared/agent-activity-display'
+import { mapActivityTitleForDisplay } from '@/lib/harness-activity-display-map'
+
+const TURN_END_COLLAPSE_MS = 300
 
 type Props = {
   activities: AgentChatActivityPayload[]
@@ -116,6 +125,7 @@ export function AgentTurnToolActivityList({
   planStepCount,
   completedEditActivities,
 }: Props) {
+  const alwaysExpandPref = useMemo(() => readActivityAlwaysExpand(), [])
   const compactedActivities = useMemo(
     () => compactAgentTurnActivities(activities),
     [activities],
@@ -139,39 +149,96 @@ export function AgentTurnToolActivityList({
     [displayActivities, hasErrors],
   )
 
-  const shouldStartExpanded =
-    defaultExpanded || forceExpanded || (isLive && hasErrors) || (isLive && displayActivities.length >= 3)
-  const [expanded, setExpanded] = useState(shouldStartExpanded)
+  const [expanded, setExpanded] = useState(defaultExpanded || alwaysExpandPref)
+  const prevHasErrorsRef = useRef(hasErrors)
+  const userPinnedExpandRef = useRef(false)
+  const prevIsLiveRef = useRef(isLive)
 
   useEffect(() => {
-    if (forceExpanded || (isLive && hasErrors)) {
+    const hasNewError = hasErrors && !prevHasErrorsRef.current
+    prevHasErrorsRef.current = hasErrors
+
+    if (
+      shouldAutoExpandActivityPanel({
+        isLive,
+        hasNewError,
+        forceExpanded,
+        alwaysExpandPref,
+      })
+    ) {
       setExpanded(true)
     }
-  }, [forceExpanded, hasErrors, isLive])
+  }, [alwaysExpandPref, forceExpanded, hasErrors, isLive])
+
+  useEffect(() => {
+    const wasLive = prevIsLiveRef.current
+    prevIsLiveRef.current = isLive
+
+    if (wasLive && !isLive) {
+      const pinned = userPinnedExpandRef.current
+      userPinnedExpandRef.current = false
+      if (
+        shouldCollapseOnTurnEnd({
+          isLive: false,
+          userPinnedExpand: pinned,
+        })
+      ) {
+        const timer = window.setTimeout(() => {
+          setExpanded(false)
+        }, TURN_END_COLLAPSE_MS)
+        return () => window.clearTimeout(timer)
+      }
+    }
+    return undefined
+  }, [isLive])
 
   if (displayActivities.length === 0) return null
 
   const chatMode = turnContext?.chatMode
   const isPlan = chatMode === 'plan'
-  const sectionTitle = agentActivitySectionTitle(chatMode)
   const hasRunning =
     isLive &&
     displayActivities.some(
       (activity) => effectiveActivityStatus(activity.status, isLive) === 'running',
     )
 
+  const summaryLabel = agentActivitySummaryLabel({
+    isLive,
+    hasRunning,
+    hasErrors,
+    chatMode,
+  })
+  const summaryDetail = agentActivitySummaryDetail(
+    displayActivities.length,
+    errorSummary,
+  )
+
+  const handleToggle = () => {
+    setExpanded((open) => {
+      const next = !open
+      if (isLive) {
+        userPinnedExpandRef.current = next
+      }
+      return next
+    })
+  }
+
   return (
     <div
       className={cn(
-        'mb-1.5 rounded-xl border px-3 py-1.5 text-xs',
-        isPlan ? 'border-blue-400/25 bg-blue-950/20' : 'border-zinc-800 bg-zinc-900/60',
+        'mb-1.5 rounded-xl border px-3 py-1 text-xs',
+        hasErrors
+          ? 'border-amber-900/50 bg-amber-950/20'
+          : isPlan
+            ? 'border-blue-400/20 bg-blue-950/15'
+            : 'border-zinc-800/80 bg-zinc-900/40',
       )}
       data-agent-activity-list=""
     >
       <button
         type="button"
         className="flex w-full items-center justify-between gap-3 text-left"
-        onClick={() => setExpanded((open: boolean) => !open)}
+        onClick={handleToggle}
         aria-expanded={expanded}
       >
         <span className="flex min-w-0 items-center gap-2">
@@ -180,25 +247,26 @@ export function AgentTurnToolActivityList({
           ) : (
             <ChevronRight className="h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden />
           )}
-          {hasRunning ? (
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gf-accent" aria-hidden />
+          {isLive && hasRunning ? (
+            <span
+              className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-gf-accent/80"
+              aria-hidden
+            />
           ) : null}
-          <span className="font-medium text-zinc-300">{sectionTitle}</span>
+          <span className="font-medium text-zinc-300">{summaryLabel}</span>
           {isPlan ? (
-            <span className="rounded-md border border-blue-400/30 bg-blue-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-200/90">
+            <span className="rounded-md border border-blue-400/25 bg-blue-400/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-200/80">
               Plan
             </span>
           ) : null}
-          <span className="font-mono text-[10px] text-zinc-500">
-            {displayActivities.length} step{displayActivities.length === 1 ? '' : 's'}
-          </span>
+          <span className="font-mono text-[10px] text-zinc-500">{summaryDetail}</span>
         </span>
         <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-zinc-500">
           {expanded ? 'Hide' : 'Show'}
         </span>
       </button>
 
-      {errorSummary && errorSummary.count > 0 ? (
+      {errorSummary && errorSummary.count > 0 && expanded ? (
         <p
           className="mt-1 rounded-md border border-amber-900/50 bg-amber-950/30 px-2 py-1 text-[10px] text-amber-200/90"
           data-agent-activity-error-summary=""
@@ -228,7 +296,8 @@ export function AgentTurnToolActivityList({
       planStepCount > 0 &&
       completedEditActivities != null &&
       isLive &&
-      turnContext?.chatMode === 'fast' ? (
+      turnContext?.chatMode === 'fast' &&
+      expanded ? (
         <p className="mt-1 text-[10px] text-zinc-500">
           Execution progress (best-effort): step{' '}
           {Math.min(completedEditActivities, planStepCount)} of {planStepCount}
@@ -236,12 +305,16 @@ export function AgentTurnToolActivityList({
       ) : null}
 
       {expanded ? (
-        <ul className="mt-1.5 space-y-1 border-t border-zinc-800/80 pt-1.5">
+        <ul className="custom-scrollbar mt-1.5 max-h-[min(40vh,280px)] space-y-1 overflow-y-auto border-t border-zinc-800/80 pt-1.5">
           {displayActivities.map((activity) => {
             const toolLabel = agentActivityToolLabel(activity.tool)
             const detail = sanitizeAgentActivityDetail(activity.detail)
             const isCollapsedPlaceholder = activity.id.startsWith('collapsed-')
-            const isErrorRow = isAgentActivityErrorRow(activity)
+            const isHarnessCorrection = activity.harnessKind === 'correction'
+            const isErrorRow = !isHarnessCorrection && isAgentActivityErrorRow(activity)
+            const { displayTitle, technicalTitle } = mapActivityTitleForDisplay(
+              activity.title,
+            )
             return (
               <li key={activity.id} className="flex min-w-0 items-start gap-2">
                 {isCollapsedPlaceholder ? (
@@ -269,15 +342,20 @@ export function AgentTurnToolActivityList({
                           'text-amber-200/90',
                         isCollapsedPlaceholder && 'italic text-zinc-500',
                       )}
+                      title={technicalTitle}
                     >
-                      {activity.title}
+                      {displayTitle}
                     </span>
                   </div>
                   {detail && !isCollapsedPlaceholder ? (
                     <div
                       className={cn(
-                        'mt-0.5 font-mono text-[10px] text-zinc-500',
-                        isErrorRow ? 'line-clamp-4 text-amber-200/80' : 'line-clamp-2',
+                        'mt-0.5 font-mono text-[10px]',
+                        isHarnessCorrection
+                          ? 'line-clamp-2 text-zinc-500'
+                          : isErrorRow
+                            ? 'line-clamp-4 text-amber-200/80'
+                            : 'line-clamp-2 text-zinc-500',
                       )}
                     >
                       {detail}

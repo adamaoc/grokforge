@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { AgentChatActivityPayload } from './agent-chat-contract'
 import {
   agentActivityPhaseLabel,
+  agentActivitySummaryDetail,
+  agentActivitySummaryLabel,
   agentActivityToolLabel,
   agentToolRoundActivityTitle,
   collapseCompletedMiddleRows,
   compactAgentTurnActivities,
   formatRetrievalActivityCopy,
+  harnessInterventionActivityCopy,
   isAgentActivityErrorRow,
   sanitizeAgentActivityDetail,
   summarizeAgentActivityErrors,
@@ -57,24 +60,71 @@ describe('agentActivityToolLabel', () => {
 })
 
 describe('agentActivityPhaseLabel', () => {
-  it('distinguishes plan vs fast', () => {
-    expect(agentActivityPhaseLabel('plan')).toBe('Plan · tools')
-    expect(agentActivityPhaseLabel('fast')).toBe('Work · tools')
-    expect(agentActivityPhaseLabel(undefined)).toBe('Work · tools')
+  it('uses trace-stable section keys', () => {
+    expect(agentActivityPhaseLabel('plan')).toBe('plan_tools')
+    expect(agentActivityPhaseLabel('fast')).toBe('work_tools')
+    expect(agentActivityPhaseLabel(undefined)).toBe('work_tools')
+  })
+})
+
+describe('agentActivitySummaryLabel', () => {
+  it('shows Working while live', () => {
+    expect(
+      agentActivitySummaryLabel({
+        isLive: true,
+        hasRunning: true,
+        hasErrors: false,
+      }),
+    ).toBe('Working…')
+  })
+
+  it('shows Issue when errors', () => {
+    expect(
+      agentActivitySummaryLabel({
+        isLive: true,
+        hasRunning: false,
+        hasErrors: true,
+      }),
+    ).toBe('Issue')
+  })
+
+  it('shows Finished when done without errors', () => {
+    expect(
+      agentActivitySummaryLabel({
+        isLive: false,
+        hasRunning: false,
+        hasErrors: false,
+      }),
+    ).toBe('Finished')
+  })
+})
+
+describe('agentActivitySummaryDetail', () => {
+  it('formats step count', () => {
+    expect(agentActivitySummaryDetail(1)).toBe('1 step')
+    expect(agentActivitySummaryDetail(3)).toBe('3 steps')
+  })
+
+  it('appends issue count when present', () => {
+    expect(
+      agentActivitySummaryDetail(5, { count: 2, labels: ['foo.ts'] }),
+    ).toBe('5 steps · 2 issues')
   })
 })
 
 describe('agentToolRoundActivityTitle', () => {
-  it('uses Work label in fast mode', () => {
-    expect(agentToolRoundActivityTitle('fast', false)).toBe('Work tool round')
+  it('uses step label in fast mode', () => {
+    expect(agentToolRoundActivityTitle('fast', false, 2, 6)).toBe('Step 2 of 6')
   })
 
-  it('uses Plan label in plan mode', () => {
-    expect(agentToolRoundActivityTitle('plan', false)).toBe('Plan tool round')
+  it('uses planning step label in plan mode', () => {
+    expect(agentToolRoundActivityTitle('plan', false, 1, 4)).toBe('Planning · Step 1 of 4')
   })
 
   it('uses execute label for approve-and-run', () => {
-    expect(agentToolRoundActivityTitle('fast', true)).toBe('Executing plan (model)')
+    expect(agentToolRoundActivityTitle('fast', true, 3, 8)).toBe(
+      'Running your plan · Step 3 of 8',
+    )
   })
 })
 
@@ -185,6 +235,40 @@ describe('collapseCompletedMiddleRows', () => {
     expect(collapsedCount).toBeGreaterThan(0)
     expect(collapsed.some((row) => row.title.includes('collapsed'))).toBe(true)
     expect(collapsed.some((row) => row.status === 'error')).toBe(true)
+  })
+})
+
+describe('harnessInterventionActivityCopy', () => {
+  it('maps scaffold hybrid nudge to correction kind without conflict in title', () => {
+    const copy = harnessInterventionActivityCopy({
+      key: 'scaffold_strategy',
+      conflict: 'hybrid_same_round',
+      recovered: false,
+    })
+    expect(copy.kind).toBe('correction')
+    expect(copy.title).not.toMatch(/conflict/i)
+    expect(copy.title).toContain('Scaffold routing')
+    expect(copy.detail).toMatch(/re-sample/i)
+  })
+
+  it('uses recovered detail when scaffold strategy complies on retry', () => {
+    const copy = harnessInterventionActivityCopy({
+      key: 'scaffold_strategy',
+      conflict: 'hybrid_same_round',
+      recovered: true,
+    })
+    expect(copy.kind).toBe('correction')
+    expect(copy.detail).toBe('Corrected on retry')
+    expect(copy.title).toMatch(/corrected/i)
+  })
+
+  it('maps search_replace escalation to correction framing', () => {
+    const copy = harnessInterventionActivityCopy({
+      key: 'search_replace_escalation',
+      recovered: false,
+    })
+    expect(copy.kind).toBe('correction')
+    expect(copy.title).toContain('full-file proposal')
   })
 })
 

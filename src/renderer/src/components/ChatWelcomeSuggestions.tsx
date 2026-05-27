@@ -13,7 +13,7 @@ type ChatWelcomeSuggestionsProps = {
 export function ChatWelcomeSuggestions({ onSelectPrompt }: ChatWelcomeSuggestionsProps) {
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Try asking</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Suggestions</p>
       <div className="flex flex-col gap-2">
         {EXAMPLE_PROMPTS.map((prompt) => (
           <Button

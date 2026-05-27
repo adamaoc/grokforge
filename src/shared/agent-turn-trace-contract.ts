@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AgentTurnHarnessMetricsSchema } from './agent-harness-metrics'
 
 export const AGENT_TURN_TRACE_SCHEMA_VERSION = 1 as const
 
@@ -98,6 +99,8 @@ export const AgentTurnTraceV1Schema = z.object({
   assistantStreamChars: z.number().int().nonnegative(),
   maxToolIterationsHit: z.boolean().optional(),
   providerRounds: z.array(ProviderRoundTraceSchema).max(32).optional(),
+  /** Compact harness observability — iterative Work routing, nudges, round counts (137). */
+  harnessMetrics: AgentTurnHarnessMetricsSchema.optional(),
 })
 
 export type AgentTurnTraceV1 = z.infer<typeof AgentTurnTraceV1Schema>

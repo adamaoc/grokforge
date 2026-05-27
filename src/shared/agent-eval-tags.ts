@@ -79,6 +79,94 @@ export const AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_FILE_BOOTSTRAP_STATIC =
 export const AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_HYBRID_NUDGE =
   'behavior:scaffold_hybrid_nudge' as const
 
+/** Hybrid nudge → compliant resample → soft final contract (134). */
+export const AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CONFLICT_RECOVERED_FINAL_CONTRACT =
+  'behavior:scaffold_conflict_recovered_final_contract' as const
+
+/** Hybrid nudge → no recovery → strong honesty appendix (134). */
+export const AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CONFLICT_UNRECOVERED_HONESTY =
+  'behavior:scaffold_conflict_unrecovered_honesty' as const
+
+/** Static HTML plan + file-only samples → no scaffold conflict activity (131). */
+export const AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_FILE_BOOTSTRAP_NO_FALSE_CONFLICT =
+  'behavior:scaffold_file_bootstrap_no_false_conflict' as const
+
+/** file_bootstrap + verify/serve command + edits same round → no strategy nudge (131). */
+export const AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_VERIFY_COMMAND_NOT_HYBRID =
+  'behavior:scaffold_verify_command_not_hybrid' as const
+
+/** Empty workspace + static todo intent → planner prompt includes static verify marker (132). */
+export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_STATIC_VERIFY_COPY =
+  'behavior:greenfield_plan_static_verify_copy' as const
+
+/** Static approved plan + execute with edits but no run_command → nudge cites serve command (132). */
+export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE_STATIC_VERIFY_NUDGE =
+  'behavior:greenfield_execute_static_verify_nudge' as const
+
+/** Vite plan → verification mentions npm run / typecheck in planner contract (132). */
+export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_NPM_VERIFY_COPY =
+  'behavior:greenfield_plan_npm_verify_copy' as const
+
+/** Empty workspace static Todo: plan marker → approve-and-run → valid HTML/CSS/JS proposal (133). */
+export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_PLAN_EXECUTE_HAPPY =
+  'behavior:greenfield_static_plan_execute_happy' as const
+
+/** Glued one-line README.md normalizes to real newlines (133). */
+export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_NORMALIZED_MARKDOWN =
+  'behavior:greenfield_static_normalized_markdown' as const
+
+/** Crushed one-line index.html with jammed inline script rejected (133). */
+export const AGENT_EVAL_TAG_VALIDATION_GREENFIELD_STATIC_HTML_CORRUPTION =
+  'validation:greenfield_static_html_corruption' as const
+
+/** Iterative Work localStorage ask → bounded tool rounds + one edit proposal (135). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_LOCALSTORAGE_LOW_ROUNDS =
+  'behavior:iterative_work_localstorage_low_rounds' as const
+
+/** Iterative Work 2× search_replace same path → consolidation thrash nudge (135). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_CONSOLIDATION_NUDGE =
+  'behavior:iterative_work_sr_consolidation_nudge' as const
+
+/** Iterative Work edit proposal emitted → no further tool_sample (135). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_STOP_AFTER_PROPOSAL =
+  'behavior:iterative_work_stop_after_proposal' as const
+
+/** Iterative Work localStorage ask → scope marker + script.js hint in system prompt (136). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_SINGLE_FILE =
+  'behavior:iterative_edit_scope_single_file' as const
+
+/** Iterative Work single-file scope → prefer propose nudge after S&R (136). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_PREFER_PROPOSE_NUDGE =
+  'behavior:iterative_edit_scope_prefer_propose_nudge' as const
+
+/** Iterative Work turn trace includes harnessMetrics (137). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_TRACE_METRICS =
+  'behavior:iterative_work_trace_metrics' as const
+
+/** Iterative Work: S&R escalation after 1 failure per path (138). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_FAIL_FAST_ESCALATE =
+  'behavior:iterative_work_sr_fail_fast_escalate' as const
+
+/** Iterative Work: post-escalation S&R blocked; harness reason returned (138). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_BLOCKED_AFTER_ESCALATE =
+  'behavior:iterative_work_sr_blocked_after_escalate' as const
+
+/** Iterative Work: remove-todo style turn completes without maxToolIterationsHit (138). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_NO_MAX_ITERATIONS =
+  'behavior:iterative_work_sr_no_max_iterations' as const
+
+/** Iterative Work: harness includes S&R quality marker on iterative turn (139). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_QUALITY_SECTIONS =
+  'behavior:iterative_work_sr_quality_sections' as const
+
+/** Iterative Work: search_replace tool description override on iterative turn (139). */
+export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE =
+  'behavior:iterative_work_sr_tool_override' as const
+
+/** Turn trace includes searchReplace failure metrics after S&R loop (140). */
+export const AGENT_EVAL_TAG_BEHAVIOR_TRACE_SEARCH_REPLACE_FAILURE_METRICS =
+  'behavior:trace_search_replace_failure_metrics' as const
+
 export type AgentEvalTag =
   | typeof AGENT_EVAL_TAG_PROFILE_GROK_CODE_FAST
   | typeof AGENT_EVAL_TAG_PROFILE_GROK_4_3
@@ -103,3 +191,25 @@ export type AgentEvalTag =
   | typeof AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CLI_ONLY_FIRST
   | typeof AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_FILE_BOOTSTRAP_STATIC
   | typeof AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_HYBRID_NUDGE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CONFLICT_RECOVERED_FINAL_CONTRACT
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_CONFLICT_UNRECOVERED_HONESTY
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_FILE_BOOTSTRAP_NO_FALSE_CONFLICT
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_VERIFY_COMMAND_NOT_HYBRID
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_STATIC_VERIFY_COPY
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE_STATIC_VERIFY_NUDGE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_NPM_VERIFY_COPY
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_PLAN_EXECUTE_HAPPY
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_NORMALIZED_MARKDOWN
+  | typeof AGENT_EVAL_TAG_VALIDATION_GREENFIELD_STATIC_HTML_CORRUPTION
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_LOCALSTORAGE_LOW_ROUNDS
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_CONSOLIDATION_NUDGE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_STOP_AFTER_PROPOSAL
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_SINGLE_FILE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_EDIT_SCOPE_PREFER_PROPOSE_NUDGE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_TRACE_METRICS
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_FAIL_FAST_ESCALATE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_BLOCKED_AFTER_ESCALATE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_NO_MAX_ITERATIONS
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_QUALITY_SECTIONS
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_TRACE_SEARCH_REPLACE_FAILURE_METRICS

@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
+import { cn } from '@/lib/utils'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type { editor as MonacoEditor } from 'monaco-editor'
 import { Save, PanelRightClose } from 'lucide-react'
@@ -95,6 +96,10 @@ interface EditorPaneProps {
   onAskAgent?: () => void
   /** Collapse the editor ResizablePanel (same affordance as sidebar `PanelLeftClose`). */
   onCollapseEditorPane?: () => void
+  /** Conversation-linked strip above Monaco / diff (story 143). */
+  contextCompanion?: ReactNode
+  contextCompanionHighlight?: boolean
+  agentEmptyHint?: string | null
 }
 
 export function EditorPane({
@@ -119,7 +124,14 @@ export function EditorPane({
   onOpenSearch,
   onAskAgent,
   onCollapseEditorPane,
+  contextCompanion,
+  contextCompanionHighlight = false,
+  agentEmptyHint,
 }: EditorPaneProps) {
+  const editorShellClass = cn(
+    'flex min-h-0 flex-1 flex-col bg-zinc-950',
+    contextCompanionHighlight && 'ring-1 ring-inset ring-primary/25',
+  )
   const [fileContents, setFileContents] = useState<Record<string, string>>({})
   const [isDirty, setIsDirty] = useState<Record<string, boolean>>({})
   const [pendingClosePath, setPendingClosePath] = useState<string | null>(null)
@@ -383,7 +395,8 @@ export function EditorPane({
 
   if (diffSession) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col bg-zinc-950">
+      <div className={editorShellClass}>
+        {contextCompanion}
         <div className="gf-no-drag flex shrink-0 flex-col gap-2 border-b border-zinc-800 bg-zinc-950 px-4 py-2.5">
           <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -489,18 +502,23 @@ export function EditorPane({
 
   if (openFiles.length === 0) {
     return (
-      <EditorEmptyState
-        project={project}
-        activeRoot={activeRoot}
-        onOpenSearch={onOpenSearch}
-        onAskAgent={onAskAgent}
-        onCollapseEditorPane={onCollapseEditorPane}
-      />
+      <div className={editorShellClass}>
+        {contextCompanion}
+        <EditorEmptyState
+          project={project}
+          activeRoot={activeRoot}
+          onOpenSearch={onOpenSearch}
+          onAskAgent={onAskAgent}
+          onCollapseEditorPane={onCollapseEditorPane}
+          agentContextHint={agentEmptyHint}
+        />
+      </div>
     )
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-zinc-950">
+    <div className={editorShellClass}>
+      {contextCompanion}
       <div className="gf-no-drag flex min-h-0 shrink-0 items-stretch">
         <div className="min-w-0 flex-1 overflow-hidden">
           <EditorTabBar

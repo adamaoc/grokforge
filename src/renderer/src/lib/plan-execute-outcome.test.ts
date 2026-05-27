@@ -3,6 +3,7 @@ import {
   formatPlanExecutePendingSummary,
   hasActionableProposal,
   hasCommandToolFailure,
+  hasRecoveredScaffoldStrategyActivity,
   resolvePlanExecuteRunPhase,
   shouldMarkPlanExecuteFailed,
   shouldShowPlanExecutePartialApplyToast,
@@ -181,7 +182,41 @@ describe('shouldShowPlanExecutePartialApplyToast', () => {
   })
 })
 
+describe('hasRecoveredScaffoldStrategyActivity', () => {
+  it('detects recovered scaffold routing correction rows', () => {
+    expect(
+      hasRecoveredScaffoldStrategyActivity([
+        {
+          harnessKind: 'correction',
+          title: 'Scaffold routing: corrected',
+          detail: 'Corrected on retry',
+        },
+      ]),
+    ).toBe(true)
+    expect(
+      hasRecoveredScaffoldStrategyActivity([
+        {
+          harnessKind: 'correction',
+          title: 'Scaffold routing: one path per round',
+          detail: 'CLI or file edits — model will re-sample',
+        },
+      ]),
+    ).toBe(false)
+  })
+})
+
 describe('formatPlanExecutePendingSummary', () => {
+  it('omits hybrid alarm when scaffold strategy already recovered', () => {
+    expect(
+      formatPlanExecutePendingSummary({
+        pendingFileCount: 2,
+        pendingCommandCount: 1,
+        greenfieldScaffoldHybridPending: true,
+        scaffoldStrategyRecovered: true,
+      }),
+    ).toBe('2 files to review, 1 command awaiting approval')
+  })
+
   it('returns hybrid pending copy when CLI and files both await review', () => {
     expect(
       formatPlanExecutePendingSummary({

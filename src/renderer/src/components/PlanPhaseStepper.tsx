@@ -59,10 +59,18 @@ type Props = {
   phase: PlanUiPhase
   routing?: AgentChatTurnRouting | null
   compact?: boolean
+  /** When true, omit model id line — badge elsewhere shows routing (142). */
+  hideRoutingDetail?: boolean
   className?: string
 }
 
-export function PlanPhaseStepper({ phase, routing, compact = false, className }: Props) {
+export function PlanPhaseStepper({
+  phase,
+  routing,
+  compact = false,
+  hideRoutingDetail = false,
+  className,
+}: Props) {
   const activeIdx = stepIndex(phase)
   const failed = phase === 'failed'
 
@@ -104,7 +112,7 @@ export function PlanPhaseStepper({ phase, routing, compact = false, className }:
           )
         })}
       </ol>
-      {phase === 'executing' && routing ? (
+      {phase === 'executing' && routing && !hideRoutingDetail ? (
         <p
           className={cn(
             'mt-2 text-center font-mono text-zinc-500',

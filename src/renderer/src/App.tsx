@@ -13,6 +13,14 @@ import { useDefaultLayout, usePanelRef, type Layout } from 'react-resizable-pane
 import { Sidebar } from '@/components/Sidebar'
 import { ChatThread } from '@/components/ChatThread'
 import { EditorPane } from '@/components/EditorPane'
+import { AgentContextCompanion } from '@/components/AgentContextCompanion'
+import {
+  buildAgentContextCompanionView,
+  EMPTY_AGENT_CONTEXT_COMPANION_SNAPSHOT,
+  type AgentContextCompanionActions,
+  type AgentContextCompanionSnapshot,
+} from '@/lib/agent-context-companion'
+import type { EditorContextCompanionBubbleSummary } from '@/components/EditorContextBubble'
 import { VoiceControls } from '@/components/VoiceControls'
 import { useVoiceSession } from '@/hooks/useVoiceSession'
 import { ProjectHeader } from '@/components/ProjectHeader'
@@ -280,6 +288,16 @@ function ProjectWorkspaceShell({
   const editorPanelRef = usePanelRef()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [editorPaneCollapsed, setEditorPaneCollapsed] = useState(false)
+  const [companionSnapshot, setCompanionSnapshot] = useState<AgentContextCompanionSnapshot>(
+    EMPTY_AGENT_CONTEXT_COMPANION_SNAPSHOT,
+  )
+  const companionActionsRef = useRef<AgentContextCompanionActions | null>(null)
+  const registerContextCompanionActions = useCallback(
+    (actions: AgentContextCompanionActions | null) => {
+      companionActionsRef.current = actions
+    },
+    [],
+  )
   const [terminalRunningCount, setTerminalRunningCount] = useState(0)
   const [chatAttachments, setChatAttachments] = useState<AgentChatAttachment[]>([])
   const [pinnedContext, setPinnedContext] = useState<AgentContextPin[]>([])
@@ -439,6 +457,64 @@ function ProjectWorkspaceShell({
     },
     [ensureEditorPaneExpanded, onOpenDiffSession],
   )
+
+  const companionView = useMemo(
+    () =>
+      buildAgentContextCompanionView({
+        snapshot: companionSnapshot,
+        activeFile,
+        diffSession,
+        activeFileDirty: activeFile ? Boolean(dirtyFiles[activeFile]) : false,
+      }),
+    [activeFile, companionSnapshot, diffSession, dirtyFiles],
+  )
+
+  const companionActions = useMemo(
+    (): AgentContextCompanionActions => ({
+      onReviewDiff: () => companionActionsRef.current?.onReviewDiff?.(),
+      onApplyAll: () => companionActionsRef.current?.onApplyAll?.(),
+      onDiscard: () => companionActionsRef.current?.onDiscard?.(),
+      onOpenFile: (path) => openFileWithEditorPane(path),
+    }),
+    [openFileWithEditorPane],
+  )
+
+  const contextCompanionNode = companionView ? (
+    <AgentContextCompanion
+      view={companionView}
+      actions={companionActions}
+      proposalBusy={companionSnapshot.proposalBusy}
+      canApplyProposal={companionSnapshot.canApplyProposal}
+      proposalApplied={companionSnapshot.proposalApplied}
+    />
+  ) : null
+
+  const editorAgentEmptyHint =
+    companionView?.kind === 'idle_empty' ? (companionView.detail ?? null) : null
+
+  const collapsedCompanionBubble = useMemo((): EditorContextCompanionBubbleSummary | null => {
+    if (!companionView) return null
+    if (companionView.kind === 'proposal') {
+      return {
+        headline: companionView.headline,
+        detail: companionView.detail,
+        actionLabel: 'Review diff',
+        onAction: () => companionActionsRef.current?.onReviewDiff?.(),
+      }
+    }
+    if (companionView.primaryPath) {
+      return {
+        headline: companionView.headline,
+        detail: companionView.detail,
+        actionLabel: companionView.kind === 'live' ? 'Open file' : undefined,
+        onAction:
+          companionView.kind === 'live'
+            ? () => openFileWithEditorPane(companionView.primaryPath!)
+            : undefined,
+      }
+    }
+    return null
+  }, [companionView, openFileWithEditorPane])
 
   const openSearchResultWithEditorPane = useCallback(
     (path: string, line: number) => {
@@ -644,6 +720,9 @@ function ProjectWorkspaceShell({
                           onStopVoiceForHandoff={onStopVoiceForHandoff}
                           onRegisterClearPendingAgentProposal={onRegisterClearPendingAgentProposal}
                           onUpdateDiffSessionActions={onUpdateDiffSessionActions}
+                          editorPaneCollapsed={editorPaneCollapsed}
+                          onCompanionSnapshotChange={setCompanionSnapshot}
+                          onRegisterContextCompanionActions={registerContextCompanionActions}
                         />
                       </div>
                     </ResizablePanel>
@@ -688,6 +767,9 @@ function ProjectWorkspaceShell({
                         onOpenSearch={openSearchWorkspace}
                         onAskAgent={focusChatComposer}
                         onCollapseEditorPane={handleCollapseEditorPane}
+                        contextCompanion={contextCompanionNode}
+                        contextCompanionHighlight={companionView?.showProposalAccent}
+                        agentEmptyHint={editorAgentEmptyHint}
                       />
                       <SearchPanel
                         project={project}
@@ -710,6 +792,7 @@ function ProjectWorkspaceShell({
                       requestAnimationFrame(() => syncEditorPaneCollapsed())
                     }}
                     onOpenTerminal={() => setTerminalOpen(true)}
+                    companionSummary={collapsedCompanionBubble}
                   />
                 </div>
               </ResizablePanel>

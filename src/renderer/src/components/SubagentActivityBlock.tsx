@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, Compass, Loader2 } from 'lucide-react'
 import type { AgentSubagentEventPayload } from '@/types'
 import { cn } from '@/lib/utils'
 import { sanitizeAgentActivityDetail } from '../../../shared/agent-activity-display'
+import { mapActivityTitleForDisplay } from '@/lib/harness-activity-display-map'
 
 type Props = {
   subagent: AgentSubagentEventPayload
@@ -40,14 +41,14 @@ function StatusDot({
 }
 
 export function SubagentActivityBlock({ subagent, defaultExpanded = false, isLive = false }: Props) {
-  const [expanded, setExpanded] = useState(defaultExpanded || isLive || subagent.status === 'running')
+  const [expanded, setExpanded] = useState(defaultExpanded)
 
   return (
-    <div className="mb-2 rounded-lg border border-zinc-800/90 bg-zinc-900/50">
+    <div className="mb-1.5 rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-3 py-1 text-xs">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-zinc-300 hover:bg-zinc-800/40"
+        className="flex w-full items-center gap-2 text-left text-zinc-300"
         aria-expanded={expanded}
       >
         {expanded ? (
@@ -60,11 +61,14 @@ export function SubagentActivityBlock({ subagent, defaultExpanded = false, isLiv
         <StatusDot status={subagent.status} isLive={isLive} />
       </button>
       {expanded ? (
-        <div className="border-t border-zinc-800/80 px-3 py-2">
+        <div className="mt-1 border-t border-zinc-800/80 pt-1.5">
           {subagent.activities.length > 0 ? (
-            <ul className="space-y-1.5 text-xs text-zinc-400">
+            <ul className="custom-scrollbar max-h-[min(40vh,280px)] space-y-1.5 overflow-y-auto text-xs text-zinc-400">
               {subagent.activities.map((activity) => {
                 const detail = sanitizeAgentActivityDetail(activity.detail)
+                const { displayTitle, technicalTitle } = mapActivityTitleForDisplay(
+                  activity.title,
+                )
                 return (
                   <li key={activity.id} className="flex min-w-0 items-start gap-2">
                     <StatusDot status={activity.status} isLive={isLive} />
@@ -74,8 +78,9 @@ export function SubagentActivityBlock({ subagent, defaultExpanded = false, isLiv
                           activity.status === 'error' && 'text-red-300/90',
                           activity.status === 'interrupted' && 'text-amber-200/90',
                         )}
+                        title={technicalTitle}
                       >
-                        {activity.title}
+                        {displayTitle}
                       </span>
                       {detail ? <span className="ml-1 text-zinc-500">· {detail}</span> : null}
                     </span>

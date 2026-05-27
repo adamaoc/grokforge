@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isLocalizedUiEditIntent,
   shouldRouteIterativeWorkExecutor,
   WORK_ITERATIVE_EDIT_MARKER,
 } from './iterative-work-edit'
@@ -120,5 +121,17 @@ describe('shouldRouteIterativeWorkExecutor', () => {
 
   it('exports stable harness marker', () => {
     expect(WORK_ITERATIVE_EDIT_MARKER).toContain('130')
+  })
+})
+
+describe('isLocalizedUiEditIntent', () => {
+  it('matches localized UI edit phrases (139)', () => {
+    expect(isLocalizedUiEditIntent('add a remove todo button')).toBe(true)
+    expect(isLocalizedUiEditIntent('add delete button to each item')).toBe(true)
+    expect(isLocalizedUiEditIntent('fix the click handler')).toBe(true)
+  })
+
+  it('does not match broad refactor asks', () => {
+    expect(isLocalizedUiEditIntent('refactor entire app')).toBe(false)
   })
 })

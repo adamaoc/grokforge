@@ -67,6 +67,19 @@ describe('mergeAgentEditProposals', () => {
     expect(merged.batch.operations[0]?.op === 'write_file' && merged.batch.operations[0].content).toBe('v2')
   })
 
+  it('clears rejected entries when the same path is later accepted in the batch', () => {
+    const first = proposal(['/proj/App.css'], [
+      { path: '/proj/App.tsx', reason: 'orphan closing parentheses' },
+    ])
+    const second = proposal(['/proj/App.tsx'])
+    const merged = mergeAgentEditProposals(first, second)
+    expect(merged.batch.operations.map((o) => o.path)).toEqual([
+      '/proj/App.css',
+      '/proj/App.tsx',
+    ])
+    expect(merged.rejected).toHaveLength(0)
+  })
+
   it('concatenates and dedupes rejected entries', () => {
     const a = proposal([], [{ path: '/bad', reason: 'outside roots' }])
     const b = proposal([], [

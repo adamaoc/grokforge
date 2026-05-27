@@ -13,6 +13,50 @@ export const SEARCH_REPLACE_MAX_FAILURES_PER_TURN_BEFORE_FORCE_FINAL = 6
 /** Tool rounds allowed after the escalation nudge before forcing final answer without a proposal. */
 export const POST_ESCALATION_MAX_TOOL_ROUNDS = 2
 
+/** Iterative Work (138): escalate after one failed search_replace per path. */
+export const ITERATIVE_SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION = 1
+
+/** Iterative Work (138): total S&R failures before force-final. */
+export const ITERATIVE_SEARCH_REPLACE_MAX_FAILURES_PER_TURN = 3
+
+/** Iterative Work (138): post-escalation tool rounds before force-final. */
+export const ITERATIVE_POST_ESCALATION_MAX_TOOL_ROUNDS = 1
+
+/** Iterative Work (138): blocked S&R attempts after escalation before force-final. */
+export const ITERATIVE_SEARCH_REPLACE_BLOCKED_BEFORE_FORCE_FINAL = 2
+
+export type SearchReplaceEscalationOptions = {
+  iterativeWorkEdit?: boolean
+}
+
+export function resolveSearchReplaceFailuresBeforeEscalation(
+  options?: SearchReplaceEscalationOptions,
+): number {
+  return options?.iterativeWorkEdit === true
+    ? ITERATIVE_SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION
+    : SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION_GUARD
+}
+
+export function resolveSearchReplaceMaxFailuresPerTurn(
+  options?: SearchReplaceEscalationOptions,
+): number {
+  return options?.iterativeWorkEdit === true
+    ? ITERATIVE_SEARCH_REPLACE_MAX_FAILURES_PER_TURN
+    : SEARCH_REPLACE_MAX_FAILURES_PER_TURN_BEFORE_FORCE_FINAL
+}
+
+export function resolvePostEscalationMaxToolRounds(
+  options?: SearchReplaceEscalationOptions,
+): number {
+  return options?.iterativeWorkEdit === true
+    ? ITERATIVE_POST_ESCALATION_MAX_TOOL_ROUNDS
+    : POST_ESCALATION_MAX_TOOL_ROUNDS
+}
+
+/** Reason returned when iterative Work blocks repeat search_replace after escalation (138). */
+export const ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON =
+  'GrokForge blocked further search_replace — use propose_file_edits with rawContent from read_file.'
+
 export const AGENT_EDIT_CASCADE_GUARD_REASON =
   'Blocked: multiple search_replace failures on this file, and this proposal would remove a large portion of the file.'
 
@@ -57,10 +101,12 @@ export function searchReplaceFailureCount(
 /** True when any path in the turn has reached the escalation / cascade threshold. */
 export function shouldInjectSearchReplaceEscalation(
   failuresByPath: ReadonlyMap<string, number> | undefined,
+  options?: SearchReplaceEscalationOptions,
 ): boolean {
   if (!failuresByPath) return false
+  const threshold = resolveSearchReplaceFailuresBeforeEscalation(options)
   for (const count of failuresByPath.values()) {
-    if (count >= SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION_GUARD) return true
+    if (count >= threshold) return true
   }
   return false
 }
@@ -68,11 +114,13 @@ export function shouldInjectSearchReplaceEscalation(
 /** Path keys (normalized) at or above the escalation threshold. */
 export function pathsAtSearchReplaceEscalationThreshold(
   failuresByPath: ReadonlyMap<string, number> | undefined,
+  options?: SearchReplaceEscalationOptions,
 ): string[] {
   if (!failuresByPath) return []
+  const threshold = resolveSearchReplaceFailuresBeforeEscalation(options)
   const out: string[] = []
   for (const [pathKey, count] of failuresByPath) {
-    if (count >= SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION_GUARD) out.push(pathKey)
+    if (count >= threshold) out.push(pathKey)
   }
   return out
 }
@@ -84,6 +132,20 @@ export function totalSearchReplaceFailures(
   let total = 0
   for (const count of failuresByPath.values()) total += count
   return total
+}
+
+/** True when iterative Work should hard-block search_replace on a path after escalation nudge (138). */
+export function shouldBlockSearchReplaceAfterEscalation(input: {
+  iterativeWorkEdit?: boolean
+  searchReplaceEscalationNudgeIssued?: boolean
+  failuresByPath: ReadonlyMap<string, number> | undefined
+  resolvedAbsolutePath: string
+}): boolean {
+  if (input.iterativeWorkEdit !== true || input.searchReplaceEscalationNudgeIssued !== true) {
+    return false
+  }
+  const threshold = resolveSearchReplaceFailuresBeforeEscalation({ iterativeWorkEdit: true })
+  return searchReplaceFailureCount(input.failuresByPath, input.resolvedAbsolutePath) >= threshold
 }
 
 /** Aligns with dramatic_shrink caution threshold in agent-edit-safety-warnings. */
@@ -124,12 +186,16 @@ export function assessEditCascadeGuard(input: {
   proposedContent: string
   searchReplaceFailuresByPath?: ReadonlyMap<string, number>
   userMessageHint?: string
+  iterativeWorkEdit?: boolean
 }): CascadeGuardAssessment {
   if (input.userMessageHint?.trim() && FULL_FILE_REWRITE_INTENT_RE.test(input.userMessageHint)) {
     return { blocked: false }
   }
   const failures = searchReplaceFailureCount(input.searchReplaceFailuresByPath, input.resolvedPath)
-  if (failures < SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION_GUARD) {
+  const escalationThreshold = resolveSearchReplaceFailuresBeforeEscalation({
+    iterativeWorkEdit: input.iterativeWorkEdit,
+  })
+  if (failures < escalationThreshold) {
     return { blocked: false }
   }
   const original = input.originalOnDisk

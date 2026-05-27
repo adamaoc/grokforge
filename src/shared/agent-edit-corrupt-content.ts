@@ -20,6 +20,9 @@ export const AGENT_EDIT_JAMMED_JS_FILE_REASON =
 export const AGENT_EDIT_MALFORMED_JSX_REASON =
   'Proposal JSX/TSX has malformed attributes (escaped className quotes like className=\\"...). Use normal UTF-8 quotes in attributes (className="card") and one statement per line in the script block — retry with a complete file from read_file rawContent.'
 
+export const AGENT_EDIT_INCOMPLETE_TS_REASON =
+  'TypeScript file looks truncated (const/type declaration missing an initializer). Re-read rawContent and submit one propose_file_edits with the **complete** file — one statement per line, no glued return/const on the same line.'
+
 export const AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON =
   'JavaScript file looks corrupted (orphan closing parentheses on their own lines). Re-read the plan, then submit one propose_file_edits write_file with the **full** script.js body and real line breaks — not a one-line stub or search_replace patches.'
 
@@ -199,6 +202,26 @@ export function isJammedJavaScriptSource(source: string): boolean {
   return false
 }
 
+export function detectIncompleteTypeScriptSource(
+  content: string,
+  resolvedPath?: string,
+): { incomplete: boolean; reason?: string } {
+  const path = resolvedPath?.replace(/\\/g, '/') ?? ''
+  if (!isTypeScriptSourcePath(resolvedPath) && !/\.tsx?$/i.test(path)) {
+    return { incomplete: false }
+  }
+  for (const line of content.split(/\r?\n/)) {
+    const t = line.trim()
+    if (/^const\s+\w+\s*:\s*\{?\s*$/.test(t)) {
+      return { incomplete: true, reason: AGENT_EDIT_INCOMPLETE_TS_REASON }
+    }
+    if (/^const\s+\w+\s*:\s*[A-Za-z_[\]<>, |]+\s*$/.test(t) && !t.includes('=')) {
+      return { incomplete: true, reason: AGENT_EDIT_INCOMPLETE_TS_REASON }
+    }
+  }
+  return { incomplete: false }
+}
+
 export function detectMalformedJsxAttributes(
   content: string,
   resolvedPath?: string,
@@ -363,6 +386,8 @@ export function assessProposalWriteContent(
   if (jammedHtml.jammed) return { ok: false, reason: jammedHtml.reason }
   const jammedJs = detectJammedJavaScriptFile(content, options?.resolvedPath)
   if (jammedJs.jammed) return { ok: false, reason: jammedJs.reason }
+  const incompleteTs = detectIncompleteTypeScriptSource(content, options?.resolvedPath)
+  if (incompleteTs.incomplete) return { ok: false, reason: incompleteTs.reason }
   const jsxArtifacts = detectMalformedJsxAttributes(content, options?.resolvedPath)
   if (jsxArtifacts.malformed) return { ok: false, reason: jsxArtifacts.reason }
   return { ok: true }

@@ -309,11 +309,11 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">129 stories</span>
-        <span class="pill">Done: 121</span>
+        <span class="pill">142 stories</span>
+        <span class="pill">Done: 134</span>
         <span class="pill">Closed: 6</span>
         <span class="pill">Post-MVP: 2</span>
-        <span class="pill">Generated 2026-05-26</span>
+        <span class="pill">Generated 2026-05-27</span>
       </div>
       <div class="story-filters">
         <label>
@@ -9739,6 +9739,1212 @@ chatMode (062)
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-131" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">131</span><span class="story-name">Greenfield scaffold conflict warning hygiene (file-bootstrap false positives)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/131-greenfield-scaffold-conflict-warning-hygiene.md">post-mvp/131-greenfield-scaffold-conflict-warning-hygiene.md</a>
+          </div>
+          <h2>131 — Greenfield scaffold conflict warning hygiene (file-bootstrap false positives)</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Priority:</strong> <strong>First</strong> among <strong>131–134</strong> — dogfood (2026-05-26, clean greenfield Todo static HTML Plan → Execute) showed a <strong>“Harness: scaffold strategy conflict”</strong> activity row even when the run was a successful <strong>file-only bootstrap</strong> with <strong>no CLI scaffold step</strong> and no user-visible hybrid behavior. That erodes trust in <strong>128</strong> and feels like a regression after scaffold-strategy routing shipped.</p>
+<p><strong>Design skill:</strong> N/A (harness + activity copy); read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> only if conflict recovery UI changes surface in chat.</p>
+<h3>Why this story exists</h3>
+<p>Story <strong>128</strong> introduced <code>resolveScaffoldStrategy()</code>, <code>detectScaffoldConflict()</code>, and a mid-turn <strong><code>buildScaffoldStrategyNudge</code></strong> with a visible activity title <strong><code>Harness: scaffold strategy conflict</code></strong>. The intent was to stop <strong>CLI + hand-written template files in the same round</strong> on greenfield execute.</p>
+<p>Recent dogfood on a <strong>clean static Todo app</strong> (Plan mode → Approve and run → multi-file <code>index.html</code> / CSS / JS, <strong>no</strong> <code>npm create</code> / <code>package.json</code>):</p>
+<p>| Observed | Expected for <code>file_bootstrap</code> | |----------|------------------------------| | Activity row <strong>“Harness: scaffold strategy conflict”</strong> appeared during execute | <strong>No</strong> scaffold-strategy nudge when the model follows file-bootstrap only | | User had to interpret an internal harness conflict while the run was otherwise healthy | Warnings only when the harness <strong>actually</strong> blocked or corrected harmful hybrid sampling | | No CLI approval card; static files applied successfully | <code>detectScaffoldConflict</code> should not treat benign patterns as <code>cli_on_static</code> or <code>hybrid_same_round</code> |</p>
+<p>Likely false-positive sources (verify in PR):</p>
+<ul>
+<li><strong><code>hybrid_same_round</code></strong> when the model samples a <strong>non-scaffold</strong> <code>run_command</code> (e.g. <code>npx serve</code>, <code>python -m http.server</code>, <code>open</code>) in the same round as <code>propose_file_edits</code> — <code>toolSampleHasRunCommand</code> is true but <code>isCliScaffoldCommand</code> is false; conflict detection may still fire on <code>ambiguous</code> strategy.</li>
+<li><strong><code>ambiguous</code></strong> from plan heuristics (<code>planImpliesNpmScaffold</code> + <code>planImpliesStaticFileBootstrap</code> both true) → nudge on any edit+cmd round even when commands are verify-only.</li>
+<li><strong><code>cli_on_static</code></strong> when <code>file_bootstrap</code> is resolved but a verify/install command appears before edits complete (should be allowed or classified separately).</li>
+<li>Activity title always says <strong>“conflict”</strong> even when the nudge is informational and the next sample recovers immediately (<strong>134</strong> may refine copy; <strong>131</strong> owns <strong>when</strong> to fire).</li>
+</ul>
+<h3>Goals</h3>
+<h4>1. Narrow conflict detection for <code>file_bootstrap</code></h4>
+<ul>
+<li>Extend <a href="../../src/shared/agent-scaffold-strategy.ts"><code>detectScaffoldConflict</code></a> (or helpers) so <strong><code>file_bootstrap</code></strong> only flags:</li>
+<li><strong><code>cli_on_static</code></strong> when <code>run_command</code> is a <strong>mutating scaffold</strong> command (<code>npm create</code>, <code>npm init</code>, <code>create-vite</code>, etc. per <strong>128</strong> <code>CLI_SCAFFOLD_CMD_RE</code>) — <strong>not</strong> verify/serve/open helpers.</li>
+<li><strong><code>hybrid_same_round</code></strong> only when the same round includes <strong>scaffold-class</strong> CLI <strong>and</strong> edit tools — not verify-only <code>run_command</code> + edits.</li>
+<li>When strategy is <strong><code>ambiguous</code></strong>, prefer <strong>plan step analysis</strong> (<code>planImpliesStaticFileBootstrap</code> vs <code>planImpliesNpmScaffold</code>) before injecting a conflict nudge; if plan is clearly static-only, resolve to <strong><code>file_bootstrap</code></strong> for conflict purposes.</li>
+</ul>
+<h4>2. Suppress or downgrade noise when strategy is already honored</h4>
+<ul>
+<li>If the tool sample is <strong>edits-only</strong> and strategy is <strong><code>file_bootstrap</code></strong> → <strong>no</strong> nudge.</li>
+<li>If the tool sample is <strong>CLI scaffold-only</strong> and strategy is <strong><code>cli_scaffold</code></strong> / <strong><code>cli_then_customize</code></strong> phase 1 → <strong>no</strong> nudge.</li>
+<li>Optional: track <strong>recovery</strong> — if the nudge was injected and the <strong>next</strong> sample complies, do not re-emit the activity row on subsequent rounds (one nudge per conflict <strong>kind</strong> per turn remains; <strong>128</strong>).</li>
+</ul>
+<h4>3. Activity and eval honesty</h4>
+<ul>
+<li>Rename or subtitle activity when the harness is <strong>correcting</strong> vs <strong>blocking</strong> (e.g. “Scaffold strategy: use file proposals only” vs generic “conflict”) — coordinate with <strong>134</strong> if split.</li>
+<li>Eval: static greenfield plan → execute with <strong>only</strong> <code>propose_file_edits</code> samples → <strong>zero</strong> <code>Harness: scaffold strategy conflict</code> activities.</li>
+<li>Eval: static plan + same-round <code>run_command</code> with <code>npx serve</code> or <code>python -m http.server</code> + edits → <strong>no</strong> scaffold-strategy nudge (verify commands are not scaffold).</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-scaffold-strategy.ts"><code>src/shared/agent-scaffold-strategy.ts</code></a> — conflict kinds, <code>detectScaffoldConflict</code>, optional <code>isVerifyOrServeCommand(command)</code></li>
+<li><a href="../../src/shared/agent-command-intent.ts"><code>src/shared/agent-command-intent.ts</code></a> — reuse or share command classification with <strong>126</strong> verify/install tiers if helpful</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — gating <code>shouldInjectScaffoldStrategyNudge</code>, activity title/detail</li>
+<li><a href="../../src/shared/agent-scaffold-strategy.test.ts"><code>src/shared/agent-scaffold-strategy.test.ts</code></a> — false-positive matrix</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> — tag <code>behavior:scaffold_file_bootstrap_no_false_conflict</code></li>
+<li><a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> — static Todo dogfood row: no conflict activity on happy path</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Removing hybrid detection for true <strong>128</strong> failures (Vite plan + <code>propose_file_edits</code> + <code>npm create</code> same round).</li>
+<li>Auto-running verify commands without approval (<strong>126</strong>).</li>
+<li>Planner changes to verification copy (<strong>132</strong>).</li>
+<li>Hard tool-filter blocking of edit tools (<strong>128</strong> non-goal remains).</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Under-warning on real hybrids</strong> | Keep existing <code>behavior:scaffold_hybrid_nudge</code> eval; add static false-positive fixtures | | <strong>Verify command misclassified as scaffold</strong> | Unit tests for <code>npx serve</code>, <code>python -m http.server</code>, <code>npm run typecheck</code> vs <code>npm create</code> | | <strong>Ambiguous plans</strong> | Fall back to current nudge only when both CLI scaffold and static paths appear in <strong>steps</strong> / <code>filesLikelyTouched</code> |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong> (strategy resolution), <strong><a href="126-agent-terminal-command-execution.md">126</a></strong> (command taxonomy), <strong><a href="101-greenfield-plan-quality.md">101</a></strong> (static vs npm plan shape).</li>
+<li><strong>Complements:</strong> <strong><a href="134-harness-conflict-recovery-activity-honesty.md">134</a></strong> (copy when nudge does fire).</li>
+</ul>
+<h3>Suggested eval / manual tags</h3>
+<p>| Tag | Intent | |-----|--------| | <code>behavior:scaffold_file_bootstrap_no_false_conflict</code> | Static HTML plan + file-only samples → no scaffold conflict activity | | <code>behavior:scaffold_verify_command_not_hybrid</code> | <code>file_bootstrap</code> + serve/typecheck command + edits same round → no strategy nudge | | <code>behavior:scaffold_hybrid_nudge</code> | *(regression)* Vite plan + <code>npm create</code> + <code>propose_file_edits</code> same round → nudge still fires |</p>
+<h3>Acceptance criteria</h3>
+<h4>False-positive elimination</h4>
+<ul>
+<li><input type="checkbox" disabled> Eval: greenfield + approved <strong>static</strong> Todo plan (<code>index.html</code>, <code>styles.css</code>, <code>script.js</code>, no <code>package.json</code>) → tool samples with <strong>only</strong> <code>propose_file_edits</code> → <strong>no</strong> activity titled <code>Harness: scaffold strategy conflict</code>.</li>
+<li><input type="checkbox" disabled> Eval: <code>file_bootstrap</code> + same-round <code>run_command</code> with <strong><code>npx serve</code></strong> or <strong><code>python -m http.server</code></strong> + <code>propose_file_edits</code> → <strong>no</strong> scaffold-strategy nudge.</li>
+<li><input type="checkbox" disabled> Unit: <code>detectScaffoldConflict('file_bootstrap', …)</code> returns <code>null</code> for verify/serve commands without CLI scaffold commands.</li>
+</ul>
+<h4>Regression (true conflicts)</h4>
+<ul>
+<li><input type="checkbox" disabled> Eval: <code>behavior:scaffold_hybrid_nudge</code> (<strong>128</strong>) still passes — Vite plan + hybrid sample → exactly one nudge with <code>SCAFFOLD_STRATEGY_NUDGE_MARKER</code>.</li>
+<li><input type="checkbox" disabled> Eval: <code>cli_on_static</code> still fires when <code>file_bootstrap</code> and <code>npm create</code> appear in the same round.</li>
+</ul>
+<h4>Docs and quality</h4>
+<ul>
+<li><input type="checkbox" disabled> Manual: greenfield static Todo Plan → Execute — user does <strong>not</strong> see scaffold strategy conflict on a clean successful run.</li>
+<li><input type="checkbox" disabled> <code>npm run test:agent-eval</code> and <code>npm run typecheck</code> clean.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong> — scaffold strategy routing (shipped)</li>
+<li><strong><a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong> — file bootstrap quality</li>
+<li><strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong> — activity honesty patterns</li>
+<li>Field report context: greenfield Todo dogfood (2026-05-26)</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-132" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">132</span><span class="story-name">Greenfield plan verification commands (static + npm)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/132-greenfield-plan-verification-commands.md">post-mvp/132-greenfield-plan-verification-commands.md</a>
+          </div>
+          <h2>132 — Greenfield plan verification commands (static + npm)</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Priority:</strong> <strong>Second</strong> among <strong>131–134</strong> — after <strong>131</strong> reduces execute-time noise. Dogfood (2026-05-26, greenfield static Todo) produced a workable app, but the plan’s <strong>final verification step</strong> was effectively manual (“open in browser and test”) with <strong>no concrete command</strong> the executor could run via <strong><code>run_command</code></strong> after approval. Story <strong>101</strong> required verification in plans; <strong>126</strong> added executor verify nudges — this story closes the gap for <strong>static file-bootstrap</strong> and tightens <strong>npm</strong> greenfield plans.</p>
+<p><strong>Design skill:</strong> Read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> if <code>PlanModeCard</code> surfaces verification commands or copy-to-terminal affordances.</p>
+<h3>Why this story exists</h3>
+<p>| Surface | Current behavior | Dogfood gap | |---------|------------------|-------------| | <strong>Planner</strong> (<code>GREENFIELD_PLAN_SECTIONS</code>, <code>gf-plan-contract</code>) | Asks for “concrete commands” in <code>verification</code> | Static Todo plan ended with <strong>browser-only</strong> manual check | | <strong>Executor</strong> (<code>buildPlanVerifyCommandNudge</code>, <strong>126</strong>) | Nudges <code>npm install</code>, <code>typecheck</code>, <code>build</code> | Examples are <strong>npm-centric</strong>; static plans get weak or no suggested verify | | <strong>Approve-and-run UX</strong> | User sees plan steps in <code>PlanModeCard</code> | Last step not actionable in GrokForge (no command card, no copy-paste command) |</p>
+<p>Users comparing to Codex/Cursor expect the <strong>last plan step</strong> to name something runnable (local static server, <code>npm run dev</code>, <code>npm run typecheck</code>) — not only “open <code>index.html</code> in a browser.”</p>
+<h3>Goals</h3>
+<h4>1. Planner: verification templates by project shape</h4>
+<p>Extend greenfield planner copy in <a href="../../src/shared/agent-harness-profile.ts"><code>agent-harness-profile.ts</code></a> and <a href="../../src/shared/gf-plan-contract.ts"><code>gf-plan-contract.ts</code></a>:</p>
+<p>| Plan shape | Required in <code>verification</code> string | Example step title | |------------|-----------------------------------|--------------------| | <strong>Static HTML/CSS/JS</strong> (<code>file_bootstrap</code>) | At least one <strong>approved <code>run_command</code></strong> candidate | <code>npx --yes serve . -l 3000</code> or <code>python3 -m http.server 3000</code> — then manual UI check in browser | | <strong>npm / Vite / React</strong> (<code>cli_scaffold</code> or <code>cli_then_customize</code>) | <code>npm install</code> (if needed), then <code>npm run dev</code> or <code>npm run build</code> / <code>typecheck</code> | Match <strong>126</strong> command harness | | <strong>All</strong> | Forbid verification-only steps that are <strong>only</strong> “open in browser” without a preceding serve/build command when files are local static assets | Harness rejects vague final step in eval (soft) or nudge planner via contract |</p>
+<p>Add a stable eval marker (e.g. <code>GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER</code>) in planner appendix text.</p>
+<h4>2. Shared helper: suggest verification commands from plan</h4>
+<p>New or extended module (e.g. <a href="../../src/shared/agent-plan-verification.ts"><code>agent-plan-verification.ts</code></a>):</p>
+<ul>
+<li><strong><code>suggestVerificationCommands(plan, scaffoldStrategy?)</code></strong> → readonly <code>{ command, purpose, tier }[]</code> using:</li>
+<li><code>plan.verification</code>, step titles, <code>filesLikelyTouched</code></li>
+<li><code>resolveScaffoldStrategy</code> / <code>planImpliesStaticFileBootstrap</code> (<strong>128</strong>)</li>
+<li>Static defaults: <code>npx --yes serve . -l 3000</code>, <code>python3 -m http.server 3000</code> (document platform caveats in harness copy, not auto-run).</li>
+<li>npm defaults: <code>npm install</code>, <code>npm run dev</code>, <code>npm run typecheck</code>, <code>npm run build</code> as appropriate.</li>
+</ul>
+<h4>3. Executor: static-aware plan-verify nudge</h4>
+<ul>
+<li>When <strong><code>buildPlanVerifyCommandNudge</code></strong> fires on greenfield execute-from-plan, include <strong>static-appropriate</strong> examples when strategy is <strong><code>file_bootstrap</code></strong> (not only npm examples).</li>
+<li>Optional mid-turn nudge: approved plan’s <code>verification</code> mentions “browser” but no <code>run_command</code> yet → inject one nudge with <strong>suggested serve command</strong> from helper (mirror <strong>126</strong> cap: once per turn).</li>
+</ul>
+<h4>4. Renderer (optional, small)</h4>
+<ul>
+<li><strong><code>PlanModeCard</code></strong>: show <code>verification</code> commands in a monospace block with “suggested for execute” label when parseable from plan JSON.</li>
+<li>No in-app browser preview (per <strong>118</strong> non-goals).</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a> — <code>GREENFIELD_PLAN_SECTIONS</code> verification bullets</li>
+<li><a href="../../src/shared/gf-plan-contract.ts"><code>src/shared/gf-plan-contract.ts</code></a> — planner contract lines for static vs npm verification</li>
+<li><a href="../../src/shared/agent-plan-verification.ts"><code>src/shared/agent-plan-verification.ts</code></a> *(new)* — suggestion helper + tests</li>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — <code>buildPlanVerifyCommandNudge</code> static branch</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — pass verification hints from approved plan artifact</li>
+<li><a href="../../src/renderer/src/components/PlanModeCard.tsx"><code>src/renderer/src/components/PlanModeCard.tsx</code></a> — optional display</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> — planner prompt contains marker; execute nudge includes serve example for static plan</li>
+<li><a href="../../src/shared/agent-harness-profile.test.ts"><code>src/shared/agent-harness-profile.test.ts</code></a> / <code>gf-plan-contract.test.ts</code></li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>In-app browser or live preview (<strong>118</strong>).</li>
+<li>Auto-running verify without user approval (<strong>126</strong>).</li>
+<li>Changing <code>gf-plan</code> JSON schema with a structured <code>verificationCommands[]</code> unless prompt + helper fail eval (<strong>101</strong> optional v2 pattern).</li>
+<li>Fixing false-positive scaffold conflict warnings (<strong>131</strong>).</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Suggest commands that fail on Windows</strong> | Prefer cross-platform <code>npx serve</code> / <code>python -m http.server</code>; document in plan that user may substitute | | <strong>Over-nudging on every static execute</strong> | Gate on plan <code>verification</code> lacking a command-like token; once per turn | | <strong>Conflicts with file_bootstrap “no npm create”</strong> | Suggestions are <strong>serve/verify</strong> only, not scaffold |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="101-greenfield-plan-quality.md">101</a></strong>, <strong><a href="126-agent-terminal-command-execution.md">126</a></strong>, <strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong>, <strong><a href="109-rpi-plan-artifacts-on-disk.md">109</a></strong> (approved plan text available at execute).</li>
+<li><strong>Soft dependency:</strong> <strong><a href="131-greenfield-scaffold-conflict-warning-hygiene.md">131</a></strong> — verify commands in same round as edits should not trigger scaffold conflict after <strong>131</strong>.</li>
+</ul>
+<h3>Suggested eval / manual tags</h3>
+<p>| Tag | Intent | |-----|--------| | <code>behavior:greenfield_plan_static_verify_copy</code> | Empty workspace + static todo intent → planner prompt includes static verify marker | | <code>behavior:greenfield_execute_static_verify_nudge</code> | Static approved plan + execute with edits but no <code>run_command</code> → nudge cites serve command | | <code>behavior:greenfield_plan_npm_verify_copy</code> | Vite plan → verification mentions <code>npm run</code> / <code>typecheck</code> |</p>
+<h3>Acceptance criteria</h3>
+<h4>Planner</h4>
+<ul>
+<li><input type="checkbox" disabled checked> Eval or unit: greenfield planner sections include <strong><code>GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER</code></strong> (or agreed marker) with static <strong>and</strong> npm examples.</li>
+<li><input type="checkbox" disabled checked> <code>gf-plan</code> contract text requires a <strong>command-shaped</strong> verification string for greenfield (not browser-only).</li>
+</ul>
+<h4>Executor</h4>
+<ul>
+<li><input type="checkbox" disabled checked> Eval: static file-bootstrap approved plan → execute turn with zero <code>run_command</code> → <strong><code>buildPlanVerifyCommandNudge</code></strong> (or successor) mentions <strong><code>npx serve</code></strong> or <strong><code>python -m http.server</code></strong>.</li>
+<li><input type="checkbox" disabled checked> Eval: npm/Vite plan → verify nudge still mentions <code>npm install</code> / <code>typecheck</code> / <code>build</code> (<strong>126</strong> regression).</li>
+</ul>
+<h4>Manual</h4>
+<ul>
+<li><input type="checkbox" disabled> Plan mode: “static todo app” → <code>gf-plan</code> <code>verification</code> field includes at least one copy-pasteable shell command.</li>
+<li><input type="checkbox" disabled> Approve and run: user can approve a <strong>serve</strong> or <strong>npm run dev</strong> command when plan names it (optional if model omits — nudge should steer).</li>
+</ul>
+<h4>Quality</h4>
+<ul>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> and unit tests pass; <code>npm run typecheck</code> clean.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="101-greenfield-plan-quality.md">101</a></strong> — greenfield planner appendix</li>
+<li><strong><a href="126-agent-terminal-command-execution.md">126</a></strong> — <code>run_command</code> + plan-verify nudge</li>
+<li><strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong> — <code>file_bootstrap</code> vs CLI</li>
+<li><strong><a href="131-greenfield-scaffold-conflict-warning-hygiene.md">131</a></strong> — verify+edit same round</li>
+<li><strong><a href="123-plan-execute-review-follow-ups.md">123</a></strong> — execute outcome copy</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-133" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">133</span><span class="story-name">Greenfield execute quality regression guard (Plan → Execute)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/133-greenfield-execute-quality-regression-guard.md">post-mvp/133-greenfield-execute-quality-regression-guard.md</a>
+          </div>
+          <h2>133 — Greenfield execute quality regression guard (Plan → Execute)</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Priority:</strong> <strong>Third</strong> among <strong>131–134</strong> — dogfood showed <strong>acceptable</strong> output on one static Todo run; recent harness work (<strong>124</strong>, <strong>127</strong>, <strong>100</strong>, normalize/corrupt guards) must <strong>stay enforced</strong> on the <strong>approve-and-run</strong> path so greenfield Plan → Execute does not drift. This story is <strong>eval + contract tightening</strong>, not new product features.</p>
+<p><strong>Design skill:</strong> N/A (harness/tests).</p>
+<h3>Why this story exists</h3>
+<p>Greenfield quality is split across multiple shipped stories:</p>
+<p>| Story | What it guards | |-------|----------------| | <strong>124</strong> | Crushed HTML/JS, partial-batch recovery nudges | | <strong>127</strong> | Multi-file bootstrap, JSON/manifest validation on new paths | | <strong>100</strong> | <code>normalizeAgentWriteFileContent</code>, proposal quality rejection | | <strong>128</strong> | CLI vs file strategy (hybrid conflicts) | | <strong>130</strong> | Iterative Work on *non*-greenfield repos |</p>
+<p>Dogfood (2026-05-26) succeeded once, but there is <strong>no dedicated eval fixture</strong> for the full <strong>Plan (static Todo) → Approve and run → merged proposal → valid HTML/JS</strong> happy path after <strong>127</strong>/<strong>128</strong>/<strong>130</strong>. Follow-up friction (scaffold warning, manual verify) masked whether formatting/normalization regressions would reappear on the next run.</p>
+<h3>Goals</h3>
+<h4>1. Canonical static greenfield eval fixture</h4>
+<p>Add tagged cases in <a href="../../src/main/agent-runner-evaluation.test.ts"><code>agent-runner-evaluation.test.ts</code></a>:</p>
+<p>| Tag | Scenario | |-----|----------| | <code>behavior:greenfield_static_plan_execute_happy</code> | Empty index → plan prompt has <strong>101</strong> marker → approve-and-run with static plan artifact → <code>propose_file_edits</code> for <code>index.html</code> + assets → proposal passes validation (no corrupt-content reject on primary HTML) | | <code>behavior:greenfield_static_normalized_markdown</code> | If plan includes <code>README.md</code>, normalized content has real newlines (not one-line glue) |</p>
+<p>Use <a href="../../src/main/agent-eval-recording-transport.ts"><code>createRecordingTransport</code></a> + fixtures in <a href="../../src/main/agent-eval-fixtures.ts"><code>agent-eval-fixtures.ts</code></a>; store minimal approved <code>gf-plan</code> JSON inline or under <code>src/main/fixtures/</code> if needed.</p>
+<h4>2. Assert harness sections on execute-from-plan</h4>
+<p>On greenfield execute turns, system prompt (or snapshot metadata) must include:</p>
+<ul>
+<li><code>GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS</code> / <strong>101</strong> execute marker when workspace empty</li>
+<li><strong>124</strong> / <strong>127</strong>-relevant quality lines (no crushed script tags; full-file <code>rawContent</code> discipline)</li>
+<li><strong>128</strong> <code>SCAFFOLD_STRATEGY_ROUTING_MARKER</code> with <strong><code>file_bootstrap</code></strong> strategy for static plans</li>
+</ul>
+<p>Failure = regression in <a href="../../src/shared/agent-harness-profile.ts"><code>agent-harness-profile.ts</code></a> wiring.</p>
+<h4>3. Proposal validation assertions</h4>
+<p>For the happy-path fixture, after <code>validateAgentEditProposal</code> (or eval mock of tool results):</p>
+<ul>
+<li>Primary <code>index.html</code> does not trigger <code>assessProposalWriteContent</code> corrupt flags for truncated <code>&lt;script&gt;</code> (<strong>124</strong>)</li>
+<li>Optional: one-line glued markdown stub still <strong>rejected</strong> when model sends bad <code>README.md</code> (negative sub-fixture)</li>
+</ul>
+<h4>4. Document manual smoke in harness checklist</h4>
+<p><a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> — add <strong>Greenfield static Todo</strong> section: Plan → verify field has command (<strong>132</strong>) → Execute → diff review → Apply → open served URL.</p>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a></li>
+<li><a href="../../src/main/agent-eval-fixtures.ts"><code>src/main/agent-eval-fixtures.ts</code></a></li>
+<li><a href="../../src/shared/agent-eval-tags.ts"><code>src/shared/agent-eval-tags.ts</code></a> — new tags</li>
+<li><a href="../../src/shared/agent-edit-corrupt-content.test.ts"><code>src/shared/agent-edit-corrupt-content.test.ts</code></a> — only if new edge cases found</li>
+<li><a href="../../src/shared/agent-file-content-normalize.test.ts"><code>src/shared/agent-file-content-normalize.test.ts</code></a> — static HTML/JS samples</li>
+<li><a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a></li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>New normalization algorithms (fix in <strong>100</strong> / <strong>127</strong> if eval fails).</li>
+<li>Scaffold conflict false positives (<strong>131</strong>).</li>
+<li>Planner verification templates (<strong>132</strong>).</li>
+<li>Vite CLI scaffold eval (<strong>127</strong> already has partial coverage — extend only if gap found).</li>
+</ul>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong>101</strong>, <strong>124</strong>, <strong>127</strong>, <strong>128</strong>, <strong>108</strong> (eval harness).</li>
+<li><strong>Best after:</strong> <strong>131</strong> (happy path should not emit conflict activity).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Eval <code>behavior:greenfield_static_plan_execute_happy</code> passes in <code>npm run test:agent-eval</code>.</li>
+<li><input type="checkbox" disabled checked> Eval asserts execute prompt includes greenfield execute + scaffold strategy markers for static approved plan.</li>
+<li><input type="checkbox" disabled checked> Negative sub-case: intentionally crushed one-line <code>index.html</code> proposal is <strong>rejected</strong> with corrupt/quality reason (document expected error substring).</li>
+<li><input type="checkbox" disabled checked> Existing <strong>124</strong> / <strong>127</strong> / <strong>128</strong> eval tags still pass (no regressions).</li>
+<li><input type="checkbox" disabled checked> Harness checklist updated with static Todo smoke steps.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> clean.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong></li>
+<li><strong><a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong></li>
+<li><strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong></li>
+<li><strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong></li>
+<li><strong><a href="132-greenfield-plan-verification-commands.md">132</a></strong> — manual checklist cross-link</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-134" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">134</span><span class="story-name">Harness conflict recovery activity honesty</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/134-harness-conflict-recovery-activity-honesty.md">post-mvp/134-harness-conflict-recovery-activity-honesty.md</a>
+          </div>
+          <h2>134 — Harness conflict recovery activity honesty</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Priority:</strong> <strong>Fourth</strong> among <strong>131–134</strong> — complements <strong>131</strong> (fewer false conflicts) by making <strong>remaining</strong> harness interventions understandable when recovery succeeds. Dogfood noted <strong>internal conflict markers</strong> during plan execution that feel alarming even when the turn completes successfully (proposal merged, files valid).</p>
+<p><strong>Design skill:</strong> Read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> for activity row titles, subtitles, and toast tone (<code>@styleguide-design</code>).</p>
+<h3>Why this story exists</h3>
+<p><strong>119</strong> improved merged-proposal and retrieval honesty; <strong>128</strong> added scaffold-strategy nudges with activity title <strong><code>Harness: scaffold strategy conflict</code></strong>. Other mid-turn interventions use similar patterns:</p>
+<p>| Marker / activity | When it fires | User perception when recovery works | |-----------------|---------------|-------------------------------------| | <code>Harness: scaffold strategy conflict</code> | <strong>128</strong> hybrid / edits-before-cli | “Something broke” though next sample may comply | | <code>Harness: search_replace escalation</code> (<strong>116</strong>) | Repeated S&amp;R failures | Long “thinking” then success — unclear that harness helped | | <code>SCAFFOLD_STRATEGY_HONESTY_MARKER</code> in final answer | After conflict nudge | Assistant may <strong>apologize for conflict</strong> even when proposal is fine | | <code>POST_SCAFFOLD_VERIFICATION_HONESTY_MARKER</code> | CLI succeeded, reads incomplete | May overstate risk if user only needed static files |</p>
+<p>Goal: <strong>distinguish intervention vs failure</strong> — show what the harness did, collapse or soften copy when the turn <strong>recovers</strong>, and avoid final-answer guilt when <code>edit_proposal</code> succeeded after a nudge.</p>
+<h3>Goals</h3>
+<h4>1. Activity row semantics (renderer + shared display)</h4>
+<ul>
+<li>Introduce shared helpers in <a href="../../src/shared/agent-activity-display.ts"><code>agent-activity-display.ts</code></a> (or extend existing) for harness intervention rows:</li>
+<li><strong>Kind:</strong> <code>correction</code> | <code>blocked</code> | <code>info</code></li>
+<li><strong>Title:</strong> outcome-oriented (e.g. “Scaffold routing: CLI first” vs “Scaffold strategy conflict”)</li>
+<li><strong>Subtitle:</strong> one line — what happens next (“Model will re-sample tools”)</li>
+<li>When a nudge is followed by a <strong>compliant</strong> tool sample in the same turn, update the earlier activity row to <strong><code>done</code></strong> with subtitle <strong>“Corrected on retry”</strong> (or roll up per <strong>119</strong> compaction rules).</li>
+</ul>
+<h4>2. Final-answer contract: recovery-aware honesty</h4>
+<p>In <a href="../../src/shared/agent-final-answer-contract.ts"><code>agent-final-answer-contract.ts</code></a>:</p>
+<ul>
+<li><strong><code>scaffoldStrategyHonestyAppendix</code></strong>: if <code>scaffoldStrategyConflictIssued</code> but <code>editProposalCreated</code> and command not failed, use <strong>short</strong> appendix (“Harness redirected tool order; review the proposal below”) — not “CLI scaffold is not complete” when static file-bootstrap succeeded without CLI.</li>
+<li><strong><code>scaffoldStrategyConflictIssued</code> + successful recovery</strong>: omit alarmist language; do not require the model to mention “conflict” to the user.</li>
+<li>Align <strong>116</strong> escalation marker behavior: if escalation nudge fired then <code>propose_file_edits</code> succeeded, final answer should not claim S&amp;R is the only path.</li>
+</ul>
+<h4>3. Runner state for recovery</h4>
+<p>In <a href="../../src/main/agent-runner.ts"><code>agent-runner.ts</code></a>, track per turn:</p>
+<ul>
+<li><code>scaffoldStrategyNudgeIssued</code> + <strong>subsequent sample complied</strong> → <code>scaffoldStrategyRecovered = true</code></li>
+<li>Pass recovery flags into <code>buildFinalAnswerContract</code> and activity <code>emitActivity</code> updates.</li>
+</ul>
+<h4>4. Tests</h4>
+<ul>
+<li>Unit: display helper maps <strong>128</strong> nudge → <code>correction</code> kind.</li>
+<li>Eval: hybrid nudge → second sample CLI-only → final system contract does <strong>not</strong> include “Do not claim scaffold ready” when CLI mock succeeded and proposal exists (fixture in <strong>128</strong> suite, extended).</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-activity-display.ts"><code>src/shared/agent-activity-display.ts</code></a></li>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> + tests</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — recovery flags, activity updates</li>
+<li><a href="../../src/renderer/src/components/AgentTurnToolActivityList.tsx"><code>src/renderer/src/components/AgentTurnToolActivityList.tsx</code></a> — render kind/subtitle if not already generic</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> — recovery contract tag</li>
+<li>Optional: <a href="../../src/renderer/src/lib/plan-execute-outcome.ts"><code>src/renderer/src/lib/plan-execute-outcome.ts</code></a> — align pending CLI + recovered messaging (<strong>123</strong>)</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Removing mid-turn nudges entirely.</li>
+<li>Changing when nudges fire (<strong>131</strong> owns false positives).</li>
+<li>Full activity timeline redesign (<strong>125</strong>).</li>
+<li>New IPC events.</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Hiding real failures</strong> | Keep strong honesty when <code>commandToolsFailed</code> or no <code>edit_proposal</code> | | <strong>Over-updating activities</strong> | Only patch rows in the active turn buffer | | <strong>Regression on hybrid eval</strong> | <strong>128</strong> <code>behavior:scaffold_hybrid_nudge</code> still expects nudge; assert recovered final copy only in recovery fixture |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong>, <strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="123-plan-execute-review-follow-ups.md">123</a></strong>.</li>
+<li><strong>Best after:</strong> <strong><a href="131-greenfield-scaffold-conflict-warning-hygiene.md">131</a></strong> — fewer spurious conflicts means recovery copy is tested on real interventions only.</li>
+</ul>
+<h3>Suggested eval / manual tags</h3>
+<p>| Tag | Intent | |-----|--------| | <code>behavior:scaffold_conflict_recovered_final_contract</code> | Nudge → compliant resample → final contract soft honesty | | <code>behavior:scaffold_conflict_unrecovered_honesty</code> | Nudge → still hybrid → strong honesty remains |</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Activity: after scaffold strategy nudge + compliant retry, user sees <strong>correction</strong> framing (title/subtitle), not only “conflict”.</li>
+<li><input type="checkbox" disabled checked> Eval: recovery fixture — <code>SCAFFOLD_STRATEGY_HONESTY_MARKER</code> appendix does not tell user scaffold is incomplete when <code>edit_proposal</code> exists and strategy was <code>file_bootstrap</code>.</li>
+<li><input type="checkbox" disabled checked> Eval: unrecovered hybrid — strong honesty appendix still present (<strong>128</strong> regression).</li>
+<li><input type="checkbox" disabled checked> Manual: greenfield execute with one harness correction → assistant final message does not prominently apologize for “conflict” when diff review is ready.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and targeted tests pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong></li>
+<li><strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong></li>
+<li><strong><a href="131-greenfield-scaffold-conflict-warning-hygiene.md">131</a></strong></li>
+<li><strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-135" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">135</span><span class="story-name">Iterative Work surgical edit enforcement (low-round, one proposal)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/135-iterative-work-surgical-edit-enforcement.md">post-mvp/135-iterative-work-surgical-edit-enforcement.md</a>
+          </div>
+          <h2>135 — Iterative Work surgical edit enforcement (low-round, one proposal)</h2>
+<p><strong>Status:</strong> Done (2026-05-26).</p>
+<p><strong>Priority:</strong> <strong>First</strong> among <strong>135–137</strong> — dogfood (2026-05-26, same Todo app, <strong>Work mode</strong>, “add localStorage persistence”) succeeded but felt <strong>fragmented</strong>: many tool rounds, collapsed activity steps, repeated <strong><code>search_replace</code></strong> across rounds, and a <strong>read → edit → read</strong> loop. Story <strong>130</strong> added routing + prompt copy (<code>WORK_ITERATIVE_EDIT_MARKER</code>, ≤2 read-only rounds, one proposal per turn) but <strong>did not strongly constrain</strong> runtime behavior — the model still thrashed until an <code>edit_proposal</code> appeared.</p>
+<p><strong>Design skill:</strong> N/A (harness); read <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> if activity titles change for edit-thrash nudges.</p>
+<h3>Why this story exists</h3>
+<p>| Observed (Work mode, incremental feature) | <strong>130</strong> intent vs reality | |-------------------------------------------|---------------------------| | High tool-round count with multiple collapsed “Work tool round” steps | Executor <strong><code>maxToolRounds: 6</code></strong> unchanged for <code>iterativeWorkEdit</code> | | Several incremental <code>search_replace</code> calls over multiple rounds | Prompt says prefer localized S&amp;R or one proposal — <strong>no mid-turn guard</strong> when S&amp;R repeats without merging | | Read → edit → read on same path (indecisive) | <code>read_file</code> required before edit (<strong>082</strong>) but no “stop re-reading, commit proposal” nudge | | “One proposal per turn” not felt by user | <strong><code>mergeAgentEditProposals</code></strong> composes in main, yet model keeps sampling tools after partial success | | Discovery saturation at <strong>2</strong> read-only rounds fired weakly or late | Nudge is one-shot; model can return to read-only after first edit failure |</p>
+<p>Routing into iterative Work (<strong>129</strong> / <strong>130</strong>) works; this story makes the harness <strong>enforce</strong> low-round, surgical editing — not only suggest it in static prompt text.</p>
+<h3>Goals</h3>
+<h4>1. Tighter turn budget for iterative Work</h4>
+<ul>
+<li>When <code>iterativeWorkEdit === true</code>, cap tool iterations below default executor <strong>6</strong> (e.g. <strong>4</strong> via <code>resolveMaxToolIterationsForTurn</code> or profile override) — document tradeoff in PR (complex multi-file asks may need follow-up turn).</li>
+<li>After <strong><code>edit_proposal</code></strong> is emitted and at least one op accepted (or pending review), <strong>stop further tool_sample rounds</strong> on iterative Work turns unless a partial-batch rejection nudge is still required (<strong>124</strong>). Force final answer stream (mirror post-escalation cap pattern from <strong>116</strong>).</li>
+</ul>
+<h4>2. Mid-turn anti-thrash nudges (runner)</h4>
+<p>Add shared builders in <a href="../../src/shared/agent-final-answer-contract.ts"><code>agent-final-answer-contract.ts</code></a> (or new <a href="../../src/shared/iterative-work-edit-guards.ts"><code>iterative-work-edit-guards.ts</code></a>):</p>
+<p>| Trigger | Nudge intent | |---------|----------------| | <strong>≥2</strong> <code>search_replace</code> on the <strong>same path</strong> this turn without <code>propose_file_edits</code> | Combine into one larger <code>old_string</code> or one <code>propose_file_edits</code> with full <code>rawContent</code> | | <strong><code>read_file</code></strong> on path <strong>P</strong> after <strong><code>search_replace</code></strong> / edit on <strong>P</strong> in same turn (re-read loop) | Stop re-reading; finalize proposal or one corrective patch | | <strong>≥3</strong> tool rounds with edits but <strong>no</strong> <code>edit_proposal</code> yet | “One proposal per turn” — use <code>propose_file_edits</code> now | | Second <strong>read-only-only</strong> round <strong>after</strong> first edit tool attempt | Discovery saturation variant: “you already read; edit now” |</p>
+<p>Each nudge: <strong>once per kind per turn</strong>, stable marker for eval (e.g. <code>ITERATIVE_EDIT_THRASH_NUDGE_MARKER</code>), brief activity title (coordinate <strong>134</strong> tone — “Harness: consolidate edits” not “conflict”).</p>
+<h4>3. Stronger harness copy (130 v2)</h4>
+<p>Extend <a href="../../src/shared/agent-harness-profile.ts"><code>WORK_ITERATIVE_EDIT_SECTIONS</code></a> in <a href="../../src/shared/iterative-work-edit.ts"><code>iterative-work-edit.ts</code></a>:</p>
+<ul>
+<li><strong>localStorage / persistence / single-concern</strong> features: prefer <strong>one</strong> <code>propose_file_edits</code> on <code>script.js</code> (or active file) after one <code>read_file</code> — not chained S&amp;R across rounds.</li>
+<li>Explicit: <strong>do not</strong> call <code>read_file</code> again on a path you already edited this turn unless <code>search_replace</code> failed.</li>
+<li>Cross-link <strong>116</strong> escalation: after <strong>2</strong> S&amp;R failures, full-file proposal is mandatory.</li>
+</ul>
+<p>Bump marker comment to <strong>harness 135</strong> while keeping <code>WORK_ITERATIVE_EDIT_MARKER</code> stable for eval or add <code>WORK_SURGICAL_EDIT_MARKER</code> sub-line.</p>
+<h4>4. Eval fixtures</h4>
+<ul>
+<li>Tag <code>behavior:iterative_work_localstorage_low_rounds</code>: vanilla Todo tree + “add localStorage” → recording transport asserts ≤<strong>4</strong> tool_sample rounds and exactly <strong>one</strong> <code>edit_proposal</code> event (or merged proposal once).</li>
+<li>Tag <code>behavior:iterative_work_sr_consolidation_nudge</code>: mock 2× S&amp;R same path → one thrash nudge injected.</li>
+<li>Regression: <code>routing:iterative_work_no_replan</code> (<strong>130</strong>) still passes.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/iterative-work-edit.ts"><code>src/shared/iterative-work-edit.ts</code></a> — optional scope classifier hooks (or defer detail to <strong>136</strong>)</li>
+<li><a href="../../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a> — strengthened sections</li>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — new nudges + slim final contract when proposal exists</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — per-turn counters (reads/edits per path), early exit after proposal, nudge injection, max iterations</li>
+<li><a href="../../src/shared/agent-profile.ts"><code>src/shared/agent-profile.ts</code></a> — optional <code>maxToolRounds</code> when iterative (if not handled only in runner)</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a></li>
+<li><a href="../../src/shared/iterative-work-edit.test.ts"><code>src/shared/iterative-work-edit.test.ts</code></a></li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Replacing <strong><code>search_replace</code></strong> with always full-file rewrite (localized patches remain valid).</li>
+<li>Greenfield Plan → Execute (<strong>131–134</strong>).</li>
+<li>Changing <strong>120</strong> post-plan incremental routing.</li>
+<li>Renderer activity compaction redesign (<strong>119</strong> / <strong>125</strong>) — only titles for new nudge rows.</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Legitimate multi-file features need &gt;4 rounds</strong> | Cap applies only <code>iterativeWorkEdit</code>; user can send follow-up turn; eval uses single-file localStorage | | <strong>Early stop before partial-batch retry</strong> | Exception when <code>turnProposalAccum.rejected.length &gt; 0</code> and retry nudge not yet issued | | <strong>Over-nudging</strong> | One nudge per kind; prefer strongest single nudge when multiple triggers fire |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="130-work-iterative-edit-harness.md">130</a></strong>, <strong><a href="129-iterative-work-stability-populated-workspaces.md">129</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong>, <strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong> (proposal merge).</li>
+<li><strong>Complements:</strong> <strong><a href="136-iterative-edit-scope-and-combine-heuristics.md">136</a></strong> (when to prefer single proposal).</li>
+<li><strong>Informs:</strong> <strong><a href="137-iterative-work-edit-harness-observability.md">137</a></strong> (metrics for thrash).</li>
+</ul>
+<h3>Suggested eval / manual tags</h3>
+<p>| Tag | Intent | |-----|--------| | <code>behavior:iterative_work_localstorage_low_rounds</code> | localStorage ask → bounded rounds + one proposal | | <code>behavior:iterative_work_sr_consolidation_nudge</code> | 2× S&amp;R same path → consolidation nudge | | <code>behavior:iterative_work_stop_after_proposal</code> | Proposal emitted → no further tool_sample | | <code>routing:iterative_work_no_replan</code> | *(regression)* <strong>130</strong> |</p>
+<h3>Acceptance criteria</h3>
+<h4>Enforcement</h4>
+<ul>
+<li><input type="checkbox" disabled> Eval: iterative Work + “add localStorage” (static Todo fixture) → <strong>≤4</strong> tool_sample rounds and <strong>one</strong> <code>edit_proposal</code> phase (merged ops count as one).</li>
+<li><input type="checkbox" disabled> Eval: after mock <code>edit_proposal</code> success on iterative turn → <strong>no</strong> additional tool_sample in same turn (unless partial-batch rejection path).</li>
+<li><input type="checkbox" disabled> Eval: 2× <code>search_replace</code> same path → exactly one consolidation nudge with agreed marker.</li>
+</ul>
+<h4>Prompt / routing regression</h4>
+<ul>
+<li><input type="checkbox" disabled> Eval: non-greenfield edit message → still <strong>executor</strong> + iterative marker (<strong>130</strong>).</li>
+<li><input type="checkbox" disabled> Eval: post-plan “add button” → <strong>no</strong> iterative thrash nudges (<strong>120</strong>).</li>
+</ul>
+<h4>Manual</h4>
+<ul>
+<li><input type="checkbox" disabled> Work mode on Todo app: localStorage feature → user sees <strong>fewer</strong> collapsed tool rounds than pre-135 dogfood; one combined diff review.</li>
+<li><input type="checkbox" disabled> <code>npm run test:agent-eval</code> and <code>npm run typecheck</code> clean.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="130-work-iterative-edit-harness.md">130</a></strong> — routing + appendix (shipped)</li>
+<li><strong><a href="129-iterative-work-stability-populated-workspaces.md">129</a></strong> — populated workspace stability</li>
+<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong></li>
+<li><strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong></li>
+<li>Field report: Todo app Work-mode localStorage run (2026-05-26)</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-136" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">136</span><span class="story-name">Iterative edit scope and combine heuristics</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/136-iterative-edit-scope-and-combine-heuristics.md">post-mvp/136-iterative-edit-scope-and-combine-heuristics.md</a>
+          </div>
+          <h2>136 — Iterative edit scope and combine heuristics</h2>
+<p><strong>Status:</strong> Done (2026-05-27).</p>
+<p><strong>Priority:</strong> <strong>Second</strong> among <strong>135–137</strong> — complements <strong>135</strong> enforcement with <strong>detection</strong>: infer when the user’s ask fits <strong>one file / one proposal</strong> and guide the model before thrash accumulates. Dogfood localStorage on a vanilla Todo app is a <strong>single-concern, 1–2 path</strong> change (<code>script.js</code>, maybe <code>index.html</code>) — ideal for <strong>one</strong> <code>read_file</code> + <strong>one</strong> <code>propose_file_edits</code>, not many rounds of <code>search_replace</code>.</p>
+<p><strong>Design skill:</strong> N/A (harness).</p>
+<h3>Why this story exists</h3>
+<p><strong>130</strong> tells the model “one proposal per turn” in prose. The harness does not <strong>compute</strong> scope from the user message or early tool pattern:</p>
+<p>| Signal available | Unused today | |------------------|--------------| | User text: “localStorage”, “persist”, “save todos” | No <code>narrowEditScope</code> hint in system prompt | | Active file in UI context | Mentioned in <strong>130</strong> appendix but not passed as <strong>mandatory first read</strong> in runner | | First <code>read_file</code> already returned <code>rawContent</code> | Model still re-reads and patches incrementally | | Multiple S&amp;R on same file | <strong>mergeAgentEditProposals</strong> composes for UI — model not nudged <strong>before</strong> round 3 |</p>
+<p><strong>135</strong> adds hard caps and thrash nudges; <strong>136</strong> adds <strong>proactive</strong> guidance so the model chooses the right edit <strong>shape</strong> early.</p>
+<h3>Goals</h3>
+<h4>1. <code>resolveIterativeEditScope(input)</code> (shared)</h4>
+<p>New module <a href="../../src/shared/iterative-edit-scope.ts"><code>iterative-edit-scope.ts</code></a>:</p>
+<pre><code>type IterativeEditScope = {
+  kind: 'single_file' | 'few_files' | 'broad'
+  likelyPaths: readonly string[]  // basenames or hints, not absolute unless from context
+  preferFullFileProposal: boolean
+  rationale: string  // for harness copy, not shown to user raw
+}</code></pre>
+<p>Heuristics (deterministic, testable):</p>
+<p>| Input | <code>kind</code> | <code>preferFullFileProposal</code> | |-------|--------|----------------------------| | Persistence/storage/API-hook verbs + 1–2 path hints | <code>single_file</code> | <strong>true</strong> for <code>.js</code> / <code>script.js</code> | | “add button”, “fix typo”, CSS tweak | <code>single_file</code> | false — localized S&amp;R OK | | “refactor”, “across the app”, many paths in message | <code>broad</code> | false — may need multi-path proposal | | <code>activeFilePath</code> set + short user message | <code>single_file</code> | true when file &amp;lt; ~200 lines (optional line count from last read) |</p>
+<p>Export marker <code>ITERATIVE_EDIT_SCOPE_MARKER</code> for eval.</p>
+<h4>2. Inject scope block at turn start</h4>
+<p>When <code>iterativeWorkEdit</code>, append compact section to harness turn prompt (<a href="../../src/shared/agent-harness-profile.ts"><code>buildHarnessTurnPromptSections</code></a>):</p>
+<ul>
+<li>“<strong>Resolved scope:</strong> single-file — implement localStorage in <code>script.js</code> with <strong>one</strong> <code>propose_file_edits</code> after <code>read_file</code>.”</li>
+<li>Do <strong>not</strong> emit new <code>gf-plan</code>.</li>
+</ul>
+<h4>3. Early combine recommendation (mid-turn)</h4>
+<p>In runner, after first successful <code>read_file</code> on scoped path:</p>
+<ul>
+<li>If scope is <code>single_file</code> + <code>preferFullFileProposal</code> and first tool sample is <code>search_replace</code> → inject <strong>one</strong> user nudge: use <code>propose_file_edits</code> with full <code>rawContent</code> instead (<strong>135</strong> may share builder).</li>
+<li>If <strong>two</strong> paths read but scope is <code>single_file</code> → nudge to drop unrelated paths.</li>
+</ul>
+<p>Coordinate with <strong>135</strong> so only one mid-turn “shape” nudge fires (priority: scope → consolidation → discovery saturation).</p>
+<h4>4. Tests and eval</h4>
+<ul>
+<li>Unit: <code>resolveIterativeEditScope('add localStorage for todos')</code> → <code>single_file</code>, <code>preferFullFileProposal: true</code>.</li>
+<li>Eval: <code>behavior:iterative_edit_scope_single_file</code> — system prompt contains scope marker + <code>script.js</code> hint for Todo fixture.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/iterative-edit-scope.ts"><code>src/shared/iterative-edit-scope.ts</code></a> *(new)* + tests</li>
+<li><a href="../../src/shared/iterative-work-edit.ts"><code>src/shared/iterative-work-edit.ts</code></a> — wire <code>shouldRouteIterativeWorkExecutor</code> exports if needed</li>
+<li><a href="../../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a> — scope section builder</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — pass <code>activeContext.activeFilePath</code>, inject scope + early nudge</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a></li>
+<li><a href="../../src/shared/agent-turn-routing.ts"><code>src/shared/agent-turn-routing.ts</code></a> — only if routing metadata should expose scope for traces (<strong>137</strong>)</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>ML classification of user intent.</li>
+<li>Automatic application of proposals (<strong>118</strong> temperament unchanged).</li>
+<li>Changing merge logic in <a href="../../src/shared/agent-edit-proposal-merge.ts"><code>agent-edit-proposal-merge.ts</code></a> — consume outcomes, don’t rewrite merge.</li>
+<li>Greenfield flows.</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Wrong scope blocks valid multi-file work</strong> | <code>broad</code> fallback when message lists ≥3 paths or “refactor” | | <strong>Conflicts with 135 nudges</strong> | Document nudge priority in runner; eval both stories together | | <strong>Active file wrong root</strong> | Scope hints use basename; absolute path only from context when validated |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="130-work-iterative-edit-harness.md">130</a></strong>, <strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> (single-file bias pattern).</li>
+<li><strong>Best with:</strong> <strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong> shipped or in same PR wave — shared nudge builders.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Unit tests cover localStorage, typo fix, and multi-file refactor messages.</li>
+<li><input type="checkbox" disabled checked> Eval: iterative Work + localStorage → turn system sections include <code>ITERATIVE_EDIT_SCOPE_MARKER</code> and single-file guidance.</li>
+<li><input type="checkbox" disabled checked> Eval: <code>search_replace</code> as first edit on <code>single_file</code> + <code>preferFullFileProposal</code> → full-file proposal nudge (once).</li>
+<li><input type="checkbox" disabled checked> Regression: post-plan incremental edit does not get iterative scope block (<strong>120</strong>).</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and tests pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong></li>
+<li><strong><a href="130-work-iterative-edit-harness.md">130</a></strong></li>
+<li><strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong> — full-file quality</li>
+<li><strong><a href="../082-agent-read-before-write.md">082</a></strong> — read before write (if story exists; else agent-tool-loop rules)</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-137" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">137</span><span class="story-name">Iterative Work edit harness observability</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/137-iterative-work-edit-harness-observability.md">post-mvp/137-iterative-work-edit-harness-observability.md</a>
+          </div>
+          <h2>137 — Iterative Work edit harness observability</h2>
+<p><strong>Status:</strong> Done (2026-05-27).</p>
+<p><strong>Priority:</strong> <strong>Third</strong> among <strong>135–137</strong> — dogfood showed thrashy Work-mode edits that <strong>eventually</strong> succeeded; without metrics it is hard to tell whether <strong>135</strong>/<strong>136</strong> improved behavior or merely changed prompts. This story adds <strong>trace + dev-visible summaries</strong> so harness engineers can diagnose under-constrained iterative turns quickly.</p>
+<p><strong>Design skill:</strong> N/A; optional minimal renderer dev panel only if already patterned elsewhere — prefer trace file + logs.</p>
+<h3>Why this story exists</h3>
+<p>Today <a href="../../src/shared/agent-turn-trace-contract.ts"><code>AgentTurnTraceV1</code></a> records <code>toolSteps</code>, <code>editProposalCreated</code>, and <code>maxToolIterationsHit</code> but <strong>not</strong>:</p>
+<ul>
+<li>Whether <strong><code>iterativeWorkEdit</code></strong> routing was active</li>
+<li><strong>Read-only vs edit</strong> round counts</li>
+<li>Which <strong>harness nudges</strong> fired (discovery saturation, S&amp;R escalation, scaffold, iterative thrash — post-<strong>135</strong>)</li>
+<li>Per-path <strong><code>search_replace</code></strong> count and <strong>re-read</strong> detection outcome</li>
+<li><strong>Time-to-proposal</strong> (tool round index when first <code>edit_proposal</code> emitted)</li>
+</ul>
+<p>When a Todo localStorage turn uses <strong>6</strong> tool rounds, we cannot answer from traces alone: “did iterative guidance apply?” or “which nudge failed to change behavior?”</p>
+<h3>Goals</h3>
+<h4>1. <code>harnessMetrics</code> on turn trace (schema v1 extension)</h4>
+<p>Extend <a href="../../src/shared/agent-turn-trace-contract.ts"><code>agent-turn-trace-contract.ts</code></a> with optional object (backward compatible):</p>
+<pre><code>harnessMetrics?: {
+  iterativeWorkEdit?: boolean
+  postPlanIncremental?: boolean
+  toolRoundCount?: number
+  readOnlyRounds?: number
+  searchReplaceCountByPath?: Record&lt;string, number&gt;  // capped keys
+  nudgesIssued?: string[]  // marker ids, max 12
+  editProposalAtRound?: number
+  stoppedAfterProposal?: boolean
+  resolvedEditScope?: 'single_file' | 'few_files' | 'broad'  // from 136 when present
+}</code></pre>
+<p>Populate in <a href="../../src/main/agent-runner.ts"><code>agent-runner.ts</code></a> at turn end (same path as trace persist <strong>061</strong>).</p>
+<h4>2. Development logging</h4>
+<p>When <code>logSelection</code> / existing dev harness logging is enabled:</p>
+<ul>
+<li>One line per turn: <code>iterativeWorkEdit=true rounds=5 proposal@round=4 nudges=[discovery_saturation, iterative_sr_consolidation]</code></li>
+<li>Do <strong>not</strong> log file contents or API keys.</li>
+</ul>
+<h4>3. Eval assertion helper</h4>
+<p>In <a href="../../src/shared/agent-eval-tags.ts"><code>agent-eval-tags.ts</code></a>, document tags that assert on <code>harnessMetrics</code> (used by <strong>135</strong> evals):</p>
+<ul>
+<li><code>behavior:iterative_work_trace_metrics</code> — after localStorage fixture, trace shows <code>iterativeWorkEdit: true</code>, <code>editProposalAtRound &lt;= 4</code>, <code>nudgesIssued</code> length bounded.</li>
+</ul>
+<h4>4. Harness checklist + field-report template</h4>
+<p><a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> — section <strong>Iterative Work edits</strong>:</p>
+<ol>
+<li>Open last turn trace (Settings / dev path if exposed, or <code>userData/.../agent-traces/</code>).</li>
+<li>Confirm <code>harnessMetrics.iterativeWorkEdit</code> and <code>editProposalAtRound</code>.</li>
+<li>Compare before/after <strong>135</strong> on same Todo localStorage prompt.</li>
+</ol>
+<p>Optional: one row in <a href="../../docs/field-reports/README.md"><code>docs/field-reports/README.md</code></a> pointing to metrics — only if checklist is insufficient.</p>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-turn-trace-contract.ts"><code>src/shared/agent-turn-trace-contract.ts</code></a> + contract tests</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — accumulate metrics during loop</li>
+<li><a href="../../src/main/agent-turn-trace-store.ts"><code>src/main/agent-turn-trace-store.ts</code></a> — persist if separate from runner</li>
+<li><a href="../../src/shared/agent-eval-tags.ts"><code>src/shared/agent-eval-tags.ts</code></a></li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a> — metrics assertions</li>
+<li><a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a></li>
+<li>Optional: <a href="../../src/main/main.ts"><code>src/main/main.ts</code></a> IPC <code>get-last-agent-turn-trace</code> already exists — verify renderer/types re-export</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Full analytics dashboard or Datadog integration.</li>
+<li>User-facing “why so many steps?” UI (<strong>125</strong> activity clarity is separate).</li>
+<li>Changing receipt JSONL schema (<strong>110</strong>) unless a single optional <code>harnessSummary</code> string is trivial — prefer trace file.</li>
+</ul>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong> (traces), <strong><a href="130-work-iterative-edit-harness.md">130</a></strong>.</li>
+<li><strong>Best after:</strong> <strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong> — nudge marker list stabilizes; <strong>136</strong> optional field <code>resolvedEditScope</code>.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Completed iterative Work turn trace includes <code>harnessMetrics.iterativeWorkEdit: true</code> and <code>toolRoundCount</code>.</li>
+<li><input type="checkbox" disabled checked> When <strong>135</strong> consolidation nudge fires, <code>nudgesIssued</code> contains agreed marker id.</li>
+<li><input type="checkbox" disabled checked> Eval: <code>behavior:iterative_work_trace_metrics</code> passes against recording fixture.</li>
+<li><input type="checkbox" disabled checked> Dev log line emitted when harness debug logging enabled (test via mock logger or env gate).</li>
+<li><input type="checkbox" disabled checked> Harness checklist updated; <code>npm run typecheck</code> and contract tests pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong></li>
+<li><strong><a href="136-iterative-edit-scope-and-combine-heuristics.md">136</a></strong></li>
+<li><strong><a href="../061-agent-turn-trace-for-debugging.md">061</a></strong> — turn traces (if numbered)</li>
+<li><strong><a href="110-agent-turn-receipts-and-interrupted-boundaries.md">110</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-138" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">138</span><span class="story-name">Iterative Work search_replace escalation (fail fast, switch strategy)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/138-iterative-work-search-replace-escalation.md">post-mvp/138-iterative-work-search-replace-escalation.md</a>
+          </div>
+          <h2>138 — Iterative Work search_replace escalation (fail fast, switch strategy)</h2>
+<p><strong>Status:</strong> Done (2026-05-27).</p>
+<p><strong>Priority:</strong> <strong>First</strong> among <strong>138–140</strong> — dogfood (2026-05-26, Work mode, “add remove todo button” on existing Todo app): multiple <strong><code>search_replace</code></strong> attempts on <strong><code>script.js</code></strong>, several failures, model <strong>kept retrying</strong> similar patches, only <strong>late</strong> fallback to <strong><code>propose_file_edits</code></strong>, an <strong>oversized</strong> final proposal, and <strong><code>maxToolIterationsHit</code></strong>. Story <strong>116</strong> added global escalation at <strong>≥2</strong> failures per path and force-final at <strong>6</strong> total failures — but iterative Work turns still <strong>burn the full executor budget</strong> before recovery feels clean.</p>
+<p><strong>Design skill:</strong> N/A (harness); optional activity copy per <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a>.</p>
+<h3>Why this story exists</h3>
+<p>| Observed (“remove todo” button) | Current harness (<strong>116</strong> / <strong>130</strong>) | |---------------------------------|-------------------------------------| | Many <code>search_replace</code> rounds on one file | Escalation nudge fires once at 2 failures; model may <strong>ignore</strong> and retry S&amp;R | | Same <code>old_string</code> class of errors | No <strong>hard stop</strong> on further <code>search_replace</code> for that path after escalation | | Late <code>propose_file_edits</code> with full file | Nudge asks for full <code>rawContent</code> but does not require <strong>minimal</strong> diff for localized UI | | <code>maxToolIterationsHit</code> | <strong>6</strong> failures + <strong>2</strong> post-escalation rounds still allows thrash on <code>iterativeWorkEdit</code> | | Small localized ask | Same thresholds as large refactors — no <strong>iterative Work</strong> profile |</p>
+<p><strong>130</strong> / <strong>135</strong> target round count and one proposal per turn; <strong>138</strong> owns <strong><code>search_replace</code> failure → strategy switch</strong> on <strong><code>iterativeWorkEdit</code></strong> turns specifically.</p>
+<h3>Goals</h3>
+<h4>1. Stricter thresholds when <code>iterativeWorkEdit</code></h4>
+<p>In <a href="../../src/shared/agent-edit-cascade-guard.ts"><code>agent-edit-cascade-guard.ts</code></a> (or <a href="../../src/shared/iterative-work-edit.ts"><code>iterative-work-edit.ts</code></a>):</p>
+<p>| Constant | Default (<strong>116</strong>) | Iterative Work | |----------|-------------------|----------------| | Failures before escalation nudge | <strong>2</strong> per path | <strong>1</strong> per path (or <strong>2</strong> with identical error signature — see below) | | Total failures before force-final | <strong>6</strong> | <strong>3</strong> (tunable) | | Post-escalation tool rounds | <strong>2</strong> | <strong>1</strong> — next sample must be <code>propose_file_edits</code> or final |</p>
+<p><code>shouldInjectSearchReplaceEscalation</code> gains optional <code>{ iterativeWorkEdit: boolean }</code>.</p>
+<h4>2. Post-escalation: block or reject repeat <code>search_replace</code></h4>
+<p>After <code>searchReplaceEscalationNudgeIssued</code> on an iterative turn:</p>
+<ul>
+<li><strong>Soft guard (preferred):</strong> tool result for <code>search_replace</code> on paths at escalation threshold returns <code>ok: false</code> with reason: “GrokForge blocked further search_replace — use propose_file_edits with rawContent from read_file.”</li>
+<li><strong>Runner:</strong> do not count blocked calls toward successful edit progress; do count toward force-final if model disobeys <strong>twice</strong>.</li>
+</ul>
+<p>Optional: allow <strong>one</strong> more S&amp;R only if <code>contentHash</code> matches fresh <code>read_file</code> in the same round (document if too complex — start with hard block).</p>
+<h4>3. Escalation nudge v2 for iterative Work</h4>
+<p>Extend <a href="../../src/shared/agent-final-answer-contract.ts"><code>buildSearchReplaceEscalationNudge</code></a>:</p>
+<ul>
+<li><strong><code>iterativeWorkEdit: true</code></strong> branch (beyond existing <code>brief</code>):</li>
+<li>“Small UI change (button, handler, CSS class): one <strong><code>propose_file_edits</code></strong> with <strong>full</strong> <code>script.js</code> from <code>rawContent</code>, changing <strong>only</strong> the remove-handler block — do not rewrite unrelated todo logic.”</li>
+<li>Forbid another <code>search_replace</code> on this path this turn.</li>
+<li>Marker stable for eval: keep <code>EDIT_SEARCH_REPLACE_ESCALATION_MARKER</code>; add sub-line <code>Harness: iterative search_replace escalation 138</code>.</li>
+</ul>
+<h4>4. Minimal full-file proposal hint (validation-adjacent)</h4>
+<p>When escalating on <strong><code>.js</code></strong> / <strong><code>.html</code></strong> under iterative Work, inject harness line (not validator change): proposal should preserve unchanged functions; <strong>115</strong> shrink guard still applies — goal is <strong>correct complete file</strong>, not stub.</p>
+<p>Coordinate <strong>124</strong> — do not weaken corrupt-content rejection.</p>
+<h4>5. Eval fixtures</h4>
+<ul>
+<li><code>behavior:iterative_work_sr_fail_fast_escalate</code>: mock 1× S&amp;R fail on <code>script.js</code> → escalation nudge before round 3.</li>
+<li><code>behavior:iterative_work_sr_blocked_after_escalate</code>: post-nudge S&amp;R → blocked tool result; model samples <code>propose_file_edits</code>.</li>
+<li><code>behavior:iterative_work_sr_no_max_iterations</code>: “remove todo button” fixture → turn completes without <code>maxToolIterationsHit</code> when recording transport cooperates.</li>
+<li>Regression: <strong>116</strong> eval on non-iterative path unchanged (threshold <strong>2</strong>).</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-edit-cascade-guard.ts"><code>src/shared/agent-edit-cascade-guard.ts</code></a> — iterative thresholds helpers</li>
+<li><a href="../../src/shared/agent-final-answer-contract.ts"><code>src/shared/agent-final-answer-contract.ts</code></a> — escalation copy</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — pass <code>iterativeWorkEdit</code>, block repeat S&amp;R, force-final thresholds</li>
+<li><a href="../../src/main/agent-search-replace-tool.ts"><code>src/main/agent-search-replace-tool.ts</code></a> — blocked-after-escalation result (or guard in executor wrapper)</li>
+<li><a href="../../src/main/agent-tool-executor.ts"><code>src/main/agent-tool-executor.ts</code></a> — if block lives in dispatch layer</li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a></li>
+<li><a href="../../src/shared/agent-edit-cascade-guard.test.ts"><code>src/shared/agent-edit-cascade-guard.test.ts</code></a></li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Fuzzy / whitespace-normalized matching (<strong>116</strong> non-goal).</li>
+<li>Removing <strong>115</strong> shrink cascade.</li>
+<li>Replacing all iterative S&amp;R with full-file proposals (<strong>139</strong> improves first-attempt success).</li>
+<li>General <strong>135</strong> round caps (reference; implement together if one PR).</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Legitimate second S&amp;R after re-read</strong> | Allow one S&amp;R after new <code>read_file</code> in same turn <strong>before</strong> escalation only | | <strong>False block on non-iterative</strong> | Gate all new logic on <code>harnessCtx.iterativeWorkEdit</code> | | <strong>Regression on markdown S&amp;R</strong> | Eval non-iterative <strong>116</strong> fixture |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong>, <strong><a href="130-work-iterative-edit-harness.md">130</a></strong>, <strong><a href="085-agent-search-replace-tool.md">085</a></strong>.</li>
+<li><strong>Complements:</strong> <strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong>, <strong><a href="136-iterative-edit-scope-and-combine-heuristics.md">136</a></strong>.</li>
+<li><strong>Informs:</strong> <strong><a href="140-search-replace-failure-loop-observability.md">140</a></strong>.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Eval: iterative Work + 1 S&amp;R failure on <code>script.js</code> → escalation nudge injected (iterative threshold).</li>
+<li><input type="checkbox" disabled checked> Eval: post-escalation S&amp;R on same path → blocked or rejected with harness reason; next successful path is <code>propose_file_edits</code>.</li>
+<li><input type="checkbox" disabled checked> Eval: iterative fixture completes without <code>maxToolIterationsHit</code> when model follows nudge (recording transport).</li>
+<li><input type="checkbox" disabled checked> Eval: non-iterative turn still escalates at <strong>2</strong> failures (<strong>116</strong> regression).</li>
+<li><input type="checkbox" disabled> Manual: “add remove todo button” → user sees escalation activity <strong>before</strong> long S&amp;R streak; one reviewable proposal without iteration cap toast.</li>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> and <code>npm run typecheck</code> clean.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong> — global escalation (shipped)</li>
+<li><strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong> — low-round enforcement</li>
+<li><strong><a href="130-work-iterative-edit-harness.md">130</a></strong></li>
+<li>Dogfood: remove-todo button Work-mode run (2026-05-26)</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-139" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">139</span><span class="story-name">Iterative Work search_replace quality guidance (first-attempt success)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/139-iterative-work-search-replace-quality-guidance.md">post-mvp/139-iterative-work-search-replace-quality-guidance.md</a>
+          </div>
+          <h2>139 — Iterative Work search_replace quality guidance (first-attempt success)</h2>
+<p><strong>Status:</strong> Done (2026-05-27).</p>
+<p><strong>Priority:</strong> <strong>Second</strong> among <strong>138–140</strong> — dogfood “remove todo button” failed <strong><code>search_replace</code></strong> repeatedly because <code>old_string</code> likely did not match disk/<code>rawContent</code> (guessed handlers, wrong whitespace, line-number field misuse). <strong>116</strong> escalates <strong>after</strong> failure; <strong>138</strong> forces switch sooner. <strong>139</strong> reduces <strong>first-attempt</strong> failures so iterative Work rarely enters the failure loop.</p>
+<p><strong>Design skill:</strong> N/A (harness prompts + tool descriptions).</p>
+<h3>Why this story exists</h3>
+<p>The harness tells models to use <code>search_replace</code> with exact <code>old_string</code> (<strong>AGENT_TOOL_LOOP_CORE</strong>), but iterative Work turns lack <strong>action-specific</strong> guidance:</p>
+<p>| Gap | Symptom on small UI edits | |-----|---------------------------| | No checklist before first S&amp;R | <code>old_string</code> from memory or numbered <code>content</code> field | | Tool description is generic | Model patches wrong function or minified one-line script | | No pattern for “add button / remove handler” | Multiple tries tweaking overlapping regions | | Error payload is terse | Model retries with minor edits instead of re-copying <code>rawContent</code> |</p>
+<p><strong>130</strong> appendix mentions localized S&amp;R for large files but not <strong>how</strong> to build a reliable <code>old_string</code> for vanilla JS todo apps.</p>
+<h3>Goals</h3>
+<h4>1. Iterative Work S&amp;R appendix (harness profile)</h4>
+<p>Add <code>WORK_ITERATIVE_SEARCH_REPLACE_SECTIONS</code> in <a href="../../src/shared/agent-harness-profile.ts"><code>agent-harness-profile.ts</code></a> (included when <code>iterativeWorkEdit</code>):</p>
+<ol>
+<li><strong>Before first <code>search_replace</code>:</strong> <code>read_file</code> target path; copy <code>old_string</code> <strong>only</strong> from <strong><code>rawContent</code></strong> (never from <code>content</code> line numbers).</li>
+<li><strong>Context window:</strong> include <strong>3–8 complete lines</strong> above and below the change; <code>old_string</code> must appear <strong>exactly once</strong> in the file.</li>
+<li><strong><code>contentHash</code>:</strong> pass through from latest <code>read_file</code> on that path.</li>
+<li><strong>Vanilla JS todo apps:</strong> prefer editing the <strong>event listener / render function</strong> block as one contiguous span; for “add remove button”, extend the todo item template and <code>deleteTodo</code> handler in <strong>one</strong> patch.</li>
+<li><strong>When file is one long line or &amp;lt;20 lines:</strong> skip S&amp;R — use <strong><code>propose_file_edits</code></strong> immediately (<strong>138</strong> aligns).</li>
+</ol>
+<p>Stable marker: <code>WORK_ITERATIVE_SR_QUALITY_MARKER</code> (eval).</p>
+<h4>2. Executor tool description override</h4>
+<p>In <a href="../../src/shared/agent-harness-profile.ts"><code>agent-harness-profile.ts</code></a> <code>toolDescriptionOverrides</code> for <code>search_replace</code> when <code>iterativeWorkEdit</code>:</p>
+<ul>
+<li>Emphasize verbatim copy, once-only match, and <code>rawContent</code>.</li>
+<li>Link to line-number strip behavior (<strong>116</strong>) if <code>old_string</code> looks like numbered lines.</li>
+</ul>
+<p>Wire through <a href="../../src/main/agent-workspace-tools.ts"><code>agent-workspace-tools.ts</code></a> / snapshot builder (<strong>105</strong>) so override applies to xAI <code>tools</code> array on iterative turns only.</p>
+<h4>3. Pre-edit intent hint (runner, optional)</h4>
+<p>When <code>iterativeWorkEdit</code> + <code>isLikelyEditIntent</code> + message matches <strong>localized UI</strong> regex (<code>add\s+.*button</code>, <code>remove\s+todo</code>, <code>delete\s+button</code>, <code>click handler</code>):</p>
+<ul>
+<li>Inject <strong>one</strong> system or user hint <strong>before first tool sample</strong> (not after failure): “Localized UI edit — read <code>script.js</code> (or active file), then one precise <code>search_replace</code> with multi-line <code>old_string</code> from <code>rawContent</code>, or <code>propose_file_edits</code> if the file is short.”</li>
+</ul>
+<p>Once per turn; coordinate with <strong>136</strong> scope resolver (prefer single file).</p>
+<h4>4. Richer <code>search_replace</code> not-found errors</h4>
+<p>In <a href="../../src/main/agent-search-replace-tool.ts"><code>agent-search-replace-tool.ts</code></a> / <a href="../../src/shared/agent-search-replace.ts"><code>agent-search-replace.ts</code></a>:</p>
+<ul>
+<li>On not found: include <strong><code>rawContent</code> hint</strong> (already partial in <strong>116</strong>), plus <strong>first 120 chars</strong> of closest line or “0 matches / N substring matches” if cheap to compute.</li>
+<li>Do <strong>not</strong> implement fuzzy apply — guidance only.</li>
+</ul>
+<h4>5. Eval / unit tests</h4>
+<ul>
+<li>Unit: iterative harness sections contain <code>WORK_ITERATIVE_SR_QUALITY_MARKER</code>.</li>
+<li>Eval: iterative Work + “add delete button” → first tool_sample system/tools include SR quality override text.</li>
+<li>Manual checklist row in <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a>.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-harness-profile.ts"><code>src/shared/agent-harness-profile.ts</code></a></li>
+<li><a href="../../src/shared/iterative-work-edit.ts"><code>src/shared/iterative-work-edit.ts</code></a> — optional <code>isLocalizedUiEditIntent(userText)</code> helper</li>
+<li><a href="../../src/shared/agent-search-replace.ts"><code>src/shared/agent-search-replace.ts</code></a></li>
+<li><a href="../../src/main/agent-search-replace-tool.ts"><code>src/main/agent-search-replace-tool.ts</code></a></li>
+<li><a href="../../src/main/agent-turn-snapshot-builder.ts"><code>src/main/agent-turn-snapshot-builder.ts</code></a> — tool overrides on snapshot</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — pre-edit hint injection</li>
+<li><a href="../../src/shared/agent-harness-profile.test.ts"><code>src/shared/agent-harness-profile.test.ts</code></a></li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a></li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Changing S&amp;R matching algorithm to fuzzy/LSP (<strong>085</strong> scope).</li>
+<li><strong>138</strong> post-failure blocks (separate story).</li>
+<li><strong>137</strong>/<strong>140</strong> metrics (separate).</li>
+<li>Auto-generating <code>old_string</code> from AST.</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Prompt bloat</strong> | Iterative-only sections; slim default tool loop unchanged | | <strong>Over-biasing to full-file proposal</strong> | Copy says “short file → propose_file_edits”; <strong>139</strong> still allows S&amp;R when file is multi-line |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="130-work-iterative-edit-harness.md">130</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="085-agent-search-replace-tool.md">085</a></strong>, <strong><a href="103-agent-harness-per-model-profiles.md">103</a></strong>.</li>
+<li><strong>Best with:</strong> <strong><a href="138-iterative-work-search-replace-escalation.md">138</a></strong> — success path + failure path together in dogfood.</li>
+<li><strong>Related:</strong> <strong><a href="136-iterative-edit-scope-and-combine-heuristics.md">136</a></strong>.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Eval: <code>iterativeWorkEdit</code> turn includes <code>WORK_ITERATIVE_SR_QUALITY_MARKER</code> in harness sections.</li>
+<li><input type="checkbox" disabled checked> Eval: tool definition for <code>search_replace</code> on iterative turn mentions <code>rawContent</code> and once-only match (snapshot or transport assertion).</li>
+<li><input type="checkbox" disabled checked> Unit: <code>isLocalizedUiEditIntent('add a remove todo button')</code> true; <code>refactor entire app</code> false.</li>
+<li><input type="checkbox" disabled checked> Manual: remove-todo button request → first S&amp;R succeeds <strong>or</strong> fails once with error hint sufficient to succeed on second read+patch without hitting max iterations.</li>
+<li><input type="checkbox" disabled checked> Non-iterative Work/default profile tool descriptions unchanged (spot-check eval).</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and tests pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="138-iterative-work-search-replace-escalation.md">138</a></strong></li>
+<li><strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong></li>
+<li><strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-140" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">140</span><span class="story-name">search_replace failure loop observability</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/140-search-replace-failure-loop-observability.md">post-mvp/140-search-replace-failure-loop-observability.md</a>
+          </div>
+          <h2>140 — search_replace failure loop observability</h2>
+<p><strong>Status:</strong> Done (2026-05-27).</p>
+<p><strong>Priority:</strong> <strong>Third</strong> among <strong>138–140</strong> — when the remove-todo Work turn hit <strong><code>maxToolIterationsHit</code></strong>, it was unclear <strong>how many</strong> S&amp;R failures occurred, whether <strong>116</strong> escalation fired, or if the model ignored the nudge. <strong>137</strong> plans generic iterative metrics; <strong>140</strong> specializes <strong>edit-tool failure diagnostics</strong> for harness debugging and dogfood comparisons.</p>
+<p><strong>Design skill:</strong> N/A.</p>
+<h3>Why this story exists</h3>
+<p>| Question after dogfood | Answerable today? | |------------------------|-------------------| | How many <code>search_replace</code> failures on <code>script.js</code>? | Only via scattered activity rows | | Did escalation nudge inject? | Must search message log | | Did model retry S&amp;R after escalation? | Not in turn trace | | Why <code>maxToolIterationsHit</code>? | Trace has boolean, not reason enum |</p>
+<p>Without structured data, <strong>138</strong>/<strong>139</strong> improvements cannot be validated across releases.</p>
+<h3>Goals</h3>
+<h4>1. Extend turn trace <code>harnessMetrics</code> (align with <strong>137</strong>)</h4>
+<p>Add to <a href="../../src/shared/agent-turn-trace-contract.ts"><code>agent-turn-trace-contract.ts</code></a> <code>harnessMetrics</code> (or nested <code>editToolMetrics</code>):</p>
+<pre><code>searchReplace?: {
+  failuresByPath: Record&lt;string, number&gt;  // capped entries
+  totalFailures: number
+  escalationIssued: boolean
+  escalationAtFailureCount?: number
+  blockedAfterEscalationCount?: number  // story 138
+  lastFailureReasons?: string[]  // max 4 snippets, e.g. &quot;not_found&quot;
+}
+maxIterationsReason?: 'search_replace_loop' | 'discovery_stall' | 'post_escalation_stall' | 'generic'</code></pre>
+<p>Populate in <a href="../../src/main/agent-runner.ts"><code>agent-runner.ts</code></a> from <code>searchReplaceFailuresByPath</code> and nudge flags.</p>
+<h4>2. Activity summary row on force-final / max iterations</h4>
+<p>When <code>shouldForceFinalForRepeatedEditFailures</code> or max iterations hit on iterative Work:</p>
+<ul>
+<li>Emit one <strong><code>done</code></strong> activity: “Harness: edit tool budget exhausted (N search_replace failures on script.js)” with link to escalation state — coordinate <strong>134</strong> tone (diagnostic, not alarmist).</li>
+</ul>
+<h4>3. Development log line</h4>
+<p>Single structured log when turn ends:</p>
+<p><code>editMetrics srFailures=4 escalation=true maxIterReason=search_replace_loop iterativeWorkEdit=true</code></p>
+<p>Gate on existing dev logging; no secrets.</p>
+<h4>4. Eval + checklist</h4>
+<ul>
+<li><code>behavior:trace_search_replace_failure_metrics</code> — fixture with 2 S&amp;R failures → trace JSON includes <code>totalFailures &gt;= 2</code> and <code>escalationIssued</code>.</li>
+<li><a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> — “S&amp;R loop debug” steps using last trace file under <code>userData</code>.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/shared/agent-turn-trace-contract.ts"><code>src/shared/agent-turn-trace-contract.ts</code></a> + tests</li>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — accumulate + persist</li>
+<li><a href="../../src/shared/agent-eval-tags.ts"><code>src/shared/agent-eval-tags.ts</code></a></li>
+<li><a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a></li>
+<li><a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a></li>
+<li>Optional merge with <strong><a href="137-iterative-work-edit-harness-observability.md">137</a></strong> in one PR if both backlog — document shared <code>harnessMetrics</code> shape in PR notes</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>User-facing “why so many steps” panel.</li>
+<li>Exporting full <code>old_string</code> / file bodies in traces (privacy/size).</li>
+<li>Changing failure thresholds (<strong>138</strong>).</li>
+</ul>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong> (traces), <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>.</li>
+<li><strong>Best after:</strong> <strong><a href="138-iterative-work-search-replace-escalation.md">138</a></strong> — <code>blockedAfterEscalationCount</code> meaningful.</li>
+<li><strong>Overlaps:</strong> <strong><a href="137-iterative-work-edit-harness-observability.md">137</a></strong> — coordinate schema to avoid duplicate fields.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Completed turn with ≥2 S&amp;R failures persists <code>harnessMetrics.searchReplace.totalFailures</code> in trace.</li>
+<li><input type="checkbox" disabled checked> When escalation nudge fires, <code>escalationIssued: true</code> in trace.</li>
+<li><input type="checkbox" disabled checked> When force-final due to S&amp;R loop, <code>maxIterationsReason</code> is <code>search_replace_loop</code> (or documented enum).</li>
+<li><input type="checkbox" disabled checked> Eval <code>behavior:trace_search_replace_failure_metrics</code> passes.</li>
+<li><input type="checkbox" disabled checked> Dev log line present when harness debug logging enabled.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> and contract tests pass.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="138-iterative-work-search-replace-escalation.md">138</a></strong></li>
+<li><strong><a href="137-iterative-work-edit-harness-observability.md">137</a></strong></li>
+<li><strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a>, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-141" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">141</span><span class="story-name">Conversation-first chat layout and tool activity shell</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/141-conversation-first-chat-and-tool-activity-shell.md">post-mvp/141-conversation-first-chat-and-tool-activity-shell.md</a>
+          </div>
+          <h2>141 — Conversation-first chat layout and tool activity shell</h2>
+<p><strong>Status:</strong> Done (2026-05-27).</p>
+<p><strong>Priority:</strong> <strong>Highest</strong> among UI/UX stories <strong>141–143</strong> — three Todo app screen recordings (Plan → Execute → Work follow-ups, including localStorage and remove-button edits) showed the chat column feeling <strong>cramped and tool-heavy</strong>: the <strong>“Work · tools” / “Plan · tools”</strong> block plus step list consumes large vertical space, pushing <strong>messages and the composer</strong> down during long or imperfect agent runs. <strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong> improved spinner honesty, density, and scroll-to-error — but the activity feed still reads as <strong>primary</strong> rather than <strong>secondary</strong> to the conversation.</p>
+<p><strong>Design skill:</strong> <strong>Required</strong> — <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> (<code>@styleguide-design</code>) for layout, motion, collapsible patterns, and dark zinc aesthetic.</p>
+<h3>Why this story exists</h3>
+<p>| Observed (Todo videos) | Current UI | |------------------------|------------| | Many <strong>Work tool round</strong> rows during iterative Work | <a href="../../src/renderer/src/components/AgentTurnToolActivityList.tsx"><code>AgentTurnToolActivityList</code></a> expands when live + ≥3 steps or errors (<strong>125</strong>) | | User scrolls past tools to read assistant text | Activity block sits <strong>above</strong> streaming assistant content in <a href="../../src/renderer/src/components/ChatThread.tsx"><code>ChatThread</code></a> | | Failed runs feel endless | Expanded list shows every round; middle collapse helps live only | | Conversation-first goal | Section title <strong>“Work · tools”</strong> frames tools as the main artifact |</p>
+<p><strong>119</strong> compacted duplicate S&amp;R rows; <strong>125</strong> tightened padding and error summary — <strong>141</strong> changes <strong>information architecture</strong>: tools are <strong>supporting detail</strong>, chat is <strong>hero</strong>.</p>
+<h3>Goals</h3>
+<h4>1. Default collapsed / auto-collapse lifecycle</h4>
+<ul>
+<li><strong>While live:</strong> collapsed <strong>summary strip</strong> by default — one line: status + step count + optional error chip (expand to see steps).</li>
+<li><strong>Auto-expand</strong> only when: user expands, <strong>new error</strong> on live turn, or user preference <code>grokforge.chat.activityAlwaysExpand</code> (Settings optional, default off).</li>
+<li><strong>On turn <code>done</code> / <code>error</code> / <code>cancelled</code>:</strong> auto-<strong>collapse</strong> within ~300ms (respect user manual expand during live).</li>
+<li>Persist last user choice per session in <code>sessionStorage</code> optional; default <strong>collapsed</strong> for completed turns in history.</li>
+</ul>
+<h4>2. Compact summary strip (conversation-first)</h4>
+<p>Replace dominant header copy (coordinate <strong><a href="142-ui-copy-and-status-hierarchy-cleanup.md">142</a></strong> for final strings):</p>
+<ul>
+<li>Live: <strong>“Working…”</strong> + <code>N steps</code> + subtle accent pulse (not full panel border stack).</li>
+<li>Done: <strong>“Finished”</strong> or <strong>“Needs attention”</strong> (errors) — chevron to expand.</li>
+<li><strong>Max height</strong> when expanded: e.g. <code>max-h-[min(40vh,280px)]</code> with <strong>internal scroll</strong> so transcript + composer keep space.</li>
+<li>Move <strong>scope line</strong> (<code>Scope · root · file</code>) inside expanded body only.</li>
+</ul>
+<h4>3. Progressive disclosure patterns</h4>
+<p>Pick <strong>one</strong> primary pattern in PR (spike both if cheap):</p>
+<p>| Pattern | Notes | |---------|--------| | <strong>A. Inline collapsible</strong> (evolution of current list) | Lowest risk; default collapsed + internal scroll | | <strong>B. Bottom sheet / drawer</strong> | “View steps (N)” opens overlay; chat thread unaffected — best for long runs |</p>
+<p>Non-regressive: proposal cards, plan cards, and command approval cards stay <strong>inline</strong> in thread (not in drawer).</p>
+<h4>4. Chat column breathing room</h4>
+<ul>
+<li>Reduce vertical gap between assistant messages and tool strip (<code>mb-1.5</code> audit in <code>ChatThread</code>).</li>
+<li>Ensure <strong>composer</strong> remains visible: <code>min-h-0</code> flex chain on chat column; optional <code>sticky</code> composer footer within chat panel.</li>
+<li>Live turn: <strong>pin scroll</strong> to proposal/error (<strong>125</strong> behavior preserved) without expanding activity panel height.</li>
+</ul>
+<h4>5. Grouped timeline (optional within 141)</h4>
+<ul>
+<li>Roll consecutive <strong>read_file</strong> on same path into one row: “Read <code>script.js</code> ×2”.</li>
+<li>Keep <strong>119</strong> S&amp;R rollup; extend to <strong>Work tool round</strong> wrappers if rounds are surfaced as parent rows.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/renderer/src/components/AgentTurnToolActivityList.tsx"><code>src/renderer/src/components/AgentTurnToolActivityList.tsx</code></a> — collapse lifecycle, max-height, summary strip</li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — placement, scroll, <code>defaultExpanded</code> / <code>forceExpanded</code> policy, composer layout</li>
+<li><a href="../../src/shared/agent-activity-display.ts"><code>src/shared/agent-activity-display.ts</code></a> — summary title helpers (strings coordinated with <strong>142</strong>)</li>
+<li><a href="../../src/renderer/src/lib/chat-activity-panel-prefs.ts"><code>src/renderer/src/lib/chat-activity-panel-prefs.ts</code></a> *(new, optional)* — localStorage/session prefs</li>
+<li><a href="../../src/renderer/src/components/ui/sheet.tsx"><code>src/renderer/src/components/ui/sheet.tsx</code></a> — only if pattern B</li>
+<li>Manual: three Todo flows in recordings — Plan execute, Work localStorage, Work remove button</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Changing harness tool loop or activity <strong>payload</strong> shape from main (renderer-only unless new summary fields needed).</li>
+<li>Removing tool activity entirely (users still need errors and command approval visibility).</li>
+<li>Light theme or layout redesign of sidebar / editor split.</li>
+<li>Copy pass (<strong>142</strong>) — use placeholder strings if needed, finalize in <strong>142</strong>.</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Users miss errors when collapsed</strong> | Error chip on summary; auto-expand on error; amber summary border | | <strong>Regression on plan execute progress</strong> | Keep step X of Y inside expanded section | | <strong>Drawer hides approval cards</strong> | Command approval stays inline in <code>ChatThread</code>, not in drawer |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong> <strong>(done)</strong>, <strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong> <strong>(done)</strong>, <strong><a href="../093-agent-tool-activity-in-chat-thread.md">093</a></strong>.</li>
+<li><strong>Complements:</strong> <strong><a href="142-ui-copy-and-status-hierarchy-cleanup.md">142</a></strong> (labels on summary strip).</li>
+<li><strong>Independent of:</strong> harness stories <strong>135–140</strong>.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<h4>Layout &amp; lifecycle</h4>
+<ul>
+<li><input type="checkbox" disabled checked> <strong>Manual (Todo Plan execute):</strong> During live run, activity summary ≤ <strong>one line</strong> of vertical space until user expands; assistant streaming text visible without scrolling past full step list.</li>
+<li><input type="checkbox" disabled checked> <strong>Manual (Todo Work, many tool rounds):</strong> Expanded list scrolls internally; composer remains on screen at common window sizes (1280×800, 1440×900).</li>
+<li><input type="checkbox" disabled checked> <strong>Manual:</strong> Turn completes → activity panel collapses to summary (unless user pinned expand).</li>
+<li><input type="checkbox" disabled checked> <strong>Manual:</strong> Live turn with tool error → summary shows issue count; expanding shows failed row without hunting.</li>
+</ul>
+<h4>Regression</h4>
+<ul>
+<li><input type="checkbox" disabled checked> Command approval card and <code>edit_proposal</code> diff card still visible without opening activity drawer.</li>
+<li><input type="checkbox" disabled checked> <strong>125</strong> scroll-to-proposal on validation failure still works.</li>
+<li><input type="checkbox" disabled checked> Subagent block (<code>SubagentActivityBlock</code>) layout consistent with new activity shell.</li>
+</ul>
+<h4>Quality</h4>
+<ul>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes; unit tests for collapse policy helper if extracted.</li>
+<li><input type="checkbox" disabled checked> No new <code>emerald-*</code> Tailwind; accent tokens only per styleguide.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong></li>
+<li><strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong></li>
+<li><strong><a href="130-work-iterative-edit-harness.md">130</a></strong> — many tool rounds in Work mode (harness; UI must stay calm)</li>
+<li>Dogfood: three Todo app screen recordings (Plan + Work)</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> if UX wave indexed, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-142" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">142</span><span class="story-name">UI copy and status hierarchy cleanup</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/142-ui-copy-and-status-hierarchy-cleanup.md">post-mvp/142-ui-copy-and-status-hierarchy-cleanup.md</a>
+          </div>
+          <h2>142 — UI copy and status hierarchy cleanup</h2>
+<p><strong>Status:</strong> Done (2026-05-27).</p>
+<p><strong>Priority:</strong> <strong>Second</strong> among <strong>141–143</strong> — Todo recordings showed <strong>repetitive, internal-sounding</strong> labels (“Work · tools”, “Work tool round”, “Executing plan (tools)…”, harness conflict titles surfaced verbatim) and <strong>duplication</strong> between mode chips, model badges, and phase strings. <strong><a href="141-conversation-first-chat-and-tool-activity-shell.md">141</a></strong> fixes layout; <strong>142</strong> fixes <strong>language and hierarchy</strong> so the app scans like a <strong>conversation with an agent</strong>, not a harness debugger.</p>
+<p><strong>Design skill:</strong> <strong>Required</strong> — <code>@styleguide-design</code>.</p>
+<h3>Why this story exists</h3>
+<p>| Noise source | Example today | User impact | |--------------|---------------|-------------| | Activity section + round titles | <code>Work · tools</code>, <code>Work tool round</code> | Feels like a log viewer | | Live status line | <code>Executing plan (tools)…</code>, <code>Running tools…</code> | Overlaps Plan stepper + mode badge | | Harness activity titles | <code>Harness: scaffold strategy conflict</code> | Internal product voice in chat | | Mode / model chrome | Plan chip + “Planning” + stepper “executing” | Same state said three ways | | Welcome / empty states | Redundant capability tags | Clutter before first message |</p>
+<p><strong>129</strong> fixed “Planning tool step stopped” for Work rounds in <strong>main</strong>; renderer still shows <strong>plan-centric</strong> strings in fast mode in places.</p>
+<h3>Goals</h3>
+<h4>1. Copy matrix (user-facing strings)</h4>
+<p>Author a single source in <a href="../../src/renderer/src/lib/ui-copy.ts"><code>src/renderer/src/lib/ui-copy.ts</code></a> (and shared activity labels where main emits titles):</p>
+<p>| Context | Direction | |---------|-----------| | Activity section (collapsed) | <strong>“Working”</strong> / <strong>“Done”</strong> / <strong>“Issue”</strong> — not “Work · tools” | | Tool round (if still shown) | <strong>“Step 2 of 4”</strong> or tool verb only — not “Work tool round” | | Live assistant placeholder | One line: <strong>“Thinking…”</strong> / <strong>“Running your plan…”</strong> / <strong>“Applying changes…”</strong> — map from <code>planExecuteStreamActive</code> + <code>chatMode</code> | | Harness rows | <strong>Humanize</strong> in renderer: map known <code>Harness:</code> prefixes to short user copy; optional <code>technicalTitle</code> in tooltip for power users | | Plan execute | Align <code>PlanPhaseStepper</code>, <code>PlanModeCard</code>, and <code>ChatThread</code> busy line — <strong>one</strong> primary status per moment |</p>
+<p>Update <a href="../../src/shared/agent-activity-display.ts"><code>agent-activity-display.ts</code></a> for labels used in both main activity emit and renderer (round title, section title) — keep main titles stable for traces; renderer can <strong>displayMap</strong> if needed to avoid breaking eval logs.</p>
+<h4>2. Information hierarchy rules</h4>
+<p>Document in PR / story notes:</p>
+<ol>
+<li><strong>Primary:</strong> user message + assistant message + proposal/plan <strong>cards</strong>.</li>
+<li><strong>Secondary:</strong> one-line activity summary (<strong>141</strong>).</li>
+<li><strong>Tertiary:</strong> expanded tool steps, scope metadata, model id mono lines.</li>
+<li><strong>Dedupe:</strong> If <code>turn_started.routing</code> badge shows model, suppress duplicate model string in activity scope line.</li>
+</ol>
+<p>Apply in:</p>
+<ul>
+<li><a href="../../src/renderer/src/components/ChatTurnContextUi.tsx"><code>ChatTurnContextUi.tsx</code></a></li>
+<li><a href="../../src/renderer/src/components/PlanPhaseStepper.tsx"><code>PlanPhaseStepper.tsx</code></a></li>
+<li><a href="../../src/renderer/src/components/PlanModeCard.tsx"><code>PlanModeCard.tsx</code></a></li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>ChatThread.tsx</code></a> — composer chrome, live status</li>
+<li><a href="../../src/renderer/src/components/AgentTurnToolActivityList.tsx"><code>AgentTurnToolActivityList.tsx</code></a> — after <strong>141</strong> shell lands</li>
+</ul>
+<h4>3. Welcome and onboarding trim</h4>
+<ul>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>makeWelcomeMessage</code></a> / <a href="../../src/renderer/src/components/ChatWelcomeSuggestions.tsx"><code>ChatWelcomeSuggestions</code></a> — remove duplicate bullets; one short value prop + 3 suggestions.</li>
+<li>Welcome screen recents (<a href="../../src/renderer/src/components/welcome/"><code>welcome/</code></a>) — audit redundant badges.</li>
+</ul>
+<h4>4. Settings copy (light touch)</h4>
+<ul>
+<li>Appearance / Agent sections: shorten labels; no harness story numbers in user-visible text.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/renderer/src/lib/ui-copy.ts"><code>src/renderer/src/lib/ui-copy.ts</code></a> *(new)*</li>
+<li><a href="../../src/shared/agent-activity-display.ts"><code>src/shared/agent-activity-display.ts</code></a> + <a href="../../src/shared/agent-activity-display.test.ts"><code>.test.ts</code></a></li>
+<li><a href="../../src/renderer/src/lib/harness-activity-display-map.ts"><code>src/renderer/src/lib/harness-activity-display-map.ts</code></a> *(new)* — map harness titles → user strings</li>
+<li>Components listed in §2</li>
+<li>Optional: <a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — only if improving <strong>emit</strong> titles at source (prefer renderer map first)</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Full i18n / localization.</li>
+<li>Renaming product modes Work/Plan (<strong>118</strong> names stay).</li>
+<li>Changing harness nudge <strong>content</strong> sent to the model.</li>
+<li>Layout collapse behavior (<strong>141</strong>).</li>
+</ul>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Best after or with:</strong> <strong><a href="141-conversation-first-chat-and-tool-activity-shell.md">141</a></strong> — summary strip strings finalized together.</li>
+<li><strong>Related:</strong> <strong><a href="134-harness-conflict-recovery-activity-honesty.md">134</a></strong> (harness tone), <strong><a href="098-planning-mode-execute-ux-polish.md">098</a></strong>.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> No user-visible string <strong>“Work tool round”</strong> or <strong>“Work · tools”</strong> in chat UI (grep <code>src/renderer</code>).</li>
+<li><input type="checkbox" disabled checked> Live turn shows <strong>at most one</strong> prominent status phrase (stepper XOR composer line XOR activity summary — not all three repeating “executing/planning”).</li>
+<li><input type="checkbox" disabled checked> Harness conflict / escalation activities show <strong>human headline</strong>; full harness title in tooltip or expanded detail only.</li>
+<li><input type="checkbox" disabled checked> Welcome message + suggestions: ≤ <strong>6</strong> lines total intro copy before suggestions.</li>
+<li><input type="checkbox" disabled checked> <code>agent-activity-display</code> unit tests updated for new display labels (or display map tests).</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes; manual pass on Todo Plan + Work recordings checklist.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="141-conversation-first-chat-and-tool-activity-shell.md">141</a></strong></li>
+<li><strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong></li>
+<li><strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-143" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">143</span><span class="story-name">Context panel: agent-aware file companion</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/143-context-panel-agent-companion.md">post-mvp/143-context-panel-agent-companion.md</a>
+          </div>
+          <h2>143 — Context panel: agent-aware file companion</h2>
+<p><strong>Status:</strong> Done (2026-05-27). v1: <code>AgentContextCompanion</code> strip, chat snapshot wiring, collapsed bubble summary, Velocity follow-agent auto-open.</p>
+<p><strong>Priority:</strong> <strong>Third</strong> among <strong>141–143</strong> — in the three Todo recordings, the <strong>right-hand editor column</strong> mostly mirrored the open file and felt <strong>passive</strong> during chat-heavy flows (Plan approve, Work edits, review proposal). Users stayed in the thread for decisions; the panel did not answer “<strong>what changed?</strong>” or “<strong>what should I do next on this file?</strong>” without opening the diff elsewhere.</p>
+<p><strong>Design skill:</strong> <strong>Required</strong> — <code>@styleguide-design</code>.</p>
+<h3>Why this story exists</h3>
+<p>| Moment (Todo videos) | Panel today | Opportunity | |----------------------|-------------|-------------| | Agent proposes <code>script.js</code> edit | User may not have file open | Surface <strong>pending proposal</strong> + Apply path | | Execute creates multi-file diff | Editor shows unrelated open tab | <strong>Files in this turn</strong> list | | Work localStorage / remove button | Same static Monaco view | <strong>Why this file</strong> (active context, last read) | | No file open | <a href="../../src/renderer/src/components/EditorEmptyState.tsx"><code>EditorEmptyState</code></a> generic | <strong>Contextual empty state</strong> tied to chat |</p>
+<p><a href="../../src/renderer/src/components/EditorPane.tsx"><code>EditorPane</code></a> already supports diff sessions and <a href="../../src/renderer/src/components/AgentEditSafetyBanner.tsx"><code>AgentEditSafetyBanner</code></a> — <strong>143</strong> adds a <strong>conversation-linked</strong> header/sidebar region without replacing Monaco.</p>
+<h3>Goals</h3>
+<h4>1. Context companion header (above editor or split top strip)</h4>
+<p>New <a href="../../src/renderer/src/components/AgentContextCompanion.tsx"><code>AgentContextCompanion.tsx</code></a> fed from <code>App</code> / <code>ChatThread</code> via props or narrow context:</p>
+<p>| State | Companion shows | |-------|-----------------| | <strong>Pending proposal</strong> (current stream or selected message) | File list in batch, primary path, <strong>Review diff</strong> (focuses diff session), <strong>Apply</strong> / <strong>Discard</strong> if not auto-apply — delegate to existing handlers | | <strong>Live turn, no proposal yet</strong> | “Working on …” + active file from <code>turnContext</code> + last 1–3 tool targets (from activities) | | <strong>Last completed turn</strong> | “Last change: <code>script.js</code>” + link to open file / view diff if proposal still pending | | <strong>Idle, file open</strong> | Short path + optional git dirty hint (existing badge data if cheap) | | <strong>Idle, no file</strong> | “No file selected” + <strong>Open from last agent touch</strong> if known |</p>
+<h4>2. Wire data from chat without new IPC (v1)</h4>
+<p>Use existing renderer state:</p>
+<ul>
+<li><code>pendingAgentProposal</code>, <code>diffSession</code>, <code>agentActivities</code> (live), message-attached proposal ids</li>
+<li><code>activeContext.activeFilePath</code> from agent events</li>
+<li>Do <strong>not</strong> duplicate main-process truth — optional <code>get-stored-plan</code> patterns only if already on bridge</li>
+</ul>
+<p>Lift minimal <strong>“agent file focus”</strong> state in <a href="../../src/renderer/src/App.tsx"><code>App.tsx</code></a>: <code>{ path, reason: 'proposal' | 'read' | 'active', streamId? }</code>.</p>
+<h4>3. Smart panel visibility (non-regressive)</h4>
+<ul>
+<li>When companion has <strong>actionable proposal</strong>, subtle accent border on editor column; do not auto-expand collapsed editor if user collapsed intentionally.</li>
+<li>Optional: auto-open editor to <strong>first proposed path</strong> on <code>edit_proposal</code> only when editor was collapsed and setting <code>grokforge.contextPanel.followAgentFiles</code> (default <strong>on</strong> for Velocity, <strong>off</strong> for Trust — tie to <strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong> temperament if already in storage).</li>
+</ul>
+<h4>4. Quick actions (lightweight)</h4>
+<ul>
+<li><strong>View diff</strong> — existing diff session open.</li>
+<li><strong>Open file</strong> — <code>onFileOpen(path)</code>.</li>
+<li><strong>Copy path</strong> — clipboard via preload if available.</li>
+<li>Defer: blame, history, multi-root picker.</li>
+</ul>
+<h4>5. Empty / diff modes</h4>
+<ul>
+<li>When <code>diffSession</code> active, companion summarizes <strong>+N −M</strong> via existing <a href="../../src/shared/diff-line-stats.ts"><code>formatDiffSessionSummary</code></a> + file basename.</li>
+<li><a href="../../src/renderer/src/components/EditorContextBubble.tsx"><code>EditorContextBubble</code></a> when editor collapsed: show companion mini summary (proposal pending / file name).</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/renderer/src/components/AgentContextCompanion.tsx"><code>src/renderer/src/components/AgentContextCompanion.tsx</code></a> *(new)*</li>
+<li><a href="../../src/renderer/src/components/EditorPane.tsx"><code>src/renderer/src/components/EditorPane.tsx</code></a> — slot companion above Monaco / diff</li>
+<li><a href="../../src/renderer/src/App.tsx"><code>src/renderer/src/App.tsx</code></a> — state wiring, collapse coordination</li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — callbacks to set agent file focus on <code>edit_proposal</code> / activity</li>
+<li><a href="../../src/renderer/src/components/EditorEmptyState.tsx"><code>src/renderer/src/components/EditorEmptyState.tsx</code></a> — contextual empty copy</li>
+<li><a href="../../src/renderer/src/components/EditorContextBubble.tsx"><code>src/renderer/src/components/EditorContextBubble.tsx</code></a> — collapsed summary</li>
+<li><a href="../../src/renderer/src/lib/harness-temperament.ts"><code>src/renderer/src/lib/harness-temperament.ts</code></a> — optional follow-agent setting</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Replacing chat-inline proposal cards (<strong>069</strong> / <strong>118</strong>).</li>
+<li>Full file tree in the right column (sidebar owns tree).</li>
+<li>New IPC for agent file history (v2 could read turn trace).</li>
+<li>In-editor AI inline edits.</li>
+</ul>
+<h3>Risks</h3>
+<p>| Risk | Mitigation | |------|------------| | <strong>Duplicate Apply CTAs</strong> | Companion buttons call same handlers as card; hide companion primary when card focused in view | | <strong>Wrong file auto-open</strong> | Respect temperament; only first path in batch; toast undo |</p>
+<h3>Dependencies</h3>
+<ul>
+<li><strong>Builds on:</strong> <strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong>, <strong><a href="../069-plan-approve-auto-agent-turn.md">069</a></strong>, <strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong>.</li>
+<li><strong>Best after:</strong> <strong><a href="141-conversation-first-chat-and-tool-activity-shell.md">141</a></strong> — user attention stays in chat; companion supports side column.</li>
+<li><strong>Copy:</strong> <strong><a href="142-ui-copy-and-status-hierarchy-cleanup.md">142</a></strong> for companion strings.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> <strong>Manual (Todo execute):</strong> On <code>edit_proposal</code>, companion lists proposed files and <strong>Review diff</strong> opens existing diff UI without hunting tabs.</li>
+<li><input type="checkbox" disabled checked> <strong>Manual (Todo Work):</strong> During live turn with reads on <code>script.js</code>, companion shows that path as focus before proposal arrives.</li>
+<li><input type="checkbox" disabled checked> <strong>Manual:</strong> Editor collapsed + pending proposal → context bubble or strip shows file name + review action.</li>
+<li><input type="checkbox" disabled checked> Trust mode: auto-open proposed file <strong>off</strong> by default; Velocity <strong>on</strong> (or documented in Settings).</li>
+<li><input type="checkbox" disabled checked> No regression: editor save, tabs, diff apply/discard still work.</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> passes.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="141-conversation-first-chat-and-tool-activity-shell.md">141</a></strong></li>
+<li><strong><a href="142-ui-copy-and-status-hierarchy-cleanup.md">142</a></strong></li>
+<li><strong><a href="../093-agent-tool-activity-in-chat-thread.md">093</a></strong></li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
     </section>

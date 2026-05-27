@@ -189,12 +189,17 @@ export function repairCommentSwallowedTrailingCode(content: string): string {
 
 /** True when statements are glued without semicolons/newlines (`'react'import`, `[] function`). */
 export function hasGluedJavaScriptStatements(content: string): boolean {
-  if (!content || content.length < 40) return false
+  if (!content || content.length < 20) return false
+  if (/\)[ \t]{2,}\breturn\b/.test(content)) return true
+  if (/['"]\)[ \t]{2,}\breturn\b/.test(content)) return true
+  if (/;[ \t]{2,}\b(?:return|const|let|var|function)\b/.test(content)) return true
   if (/\bfrom\s+['"][^'"]+['"][^\S\n]*(?:import|export)\b/.test(content)) return true
   if (/['"][^'"]*['"](?:import|export|type|interface)\b/.test(content)) return true
   if (/\[\]\s+(?:function|const|let|var)\b/.test(content)) return true
   if (/\]\s+(?:function|const|let|var)\b/.test(content)) return true
   for (const line of content.split(/\r?\n/)) {
+    if (/\)[ \t]{2,}\breturn\b/.test(line)) return true
+    if (/['"][ \t]{2,}\breturn\b/.test(line)) return true
     if (line.length < 80) continue
     if (/\]\s+(?:function|const|let|var)\b/.test(line)) return true
     if (/\bfrom\s+['"][^'"]+['"][^\S\n]*(?:import|export)\b/.test(line)) return true

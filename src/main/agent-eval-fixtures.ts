@@ -1,9 +1,11 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { BrowserWindow } from 'electron'
 import type { AgentChatEventPayload, AgentChatStartPayload } from '../shared/agent-chat-contract'
 import type { StoredPlanArtifact } from '../shared/agent-plan-artifact'
+import type { GfPlanV1 } from '../shared/gf-plan-contract'
+import type { AgentToolWriteOp } from '../shared/agent-tool-contract'
 import type { GrokProjectManifest } from './manifest'
 import { planJsonPath } from './agent-plan-store'
 import { workspaceIndexPathForProject, type StoredWorkspaceIndex } from './agent-index-store'
@@ -66,6 +68,58 @@ export function seedApprovedPlanArtifact(
   mkdirSync(dirname(planFile), { recursive: true })
   writeFileSync(planFile, JSON.stringify(artifact, null, 2), 'utf8')
   return { planId, artifact }
+}
+
+/** Canonical static Todo plan body for greenfield Plan → Execute evals (133). */
+export const staticTodoPlanV1: GfPlanV1 = {
+  schemaVersion: 1,
+  summary: 'Vanilla static todo app',
+  filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+  risksUnknowns: [],
+  steps: [{ id: '1', title: 'Create index.html, styles.css, script.js' }],
+  verification: 'Open index.html in browser and test the todo app',
+}
+
+/** Multi-line static Todo file bodies — external script.js, not crushed inline JS (133 / 124). */
+export function staticTodoValidFiles(): { html: string; css: string; js: string } {
+  const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>Todo</title><link rel="stylesheet" href="styles.css"></head>
+<body><h1>Todo</h1><ul id="todo-list"></ul><script src="script.js"></script></body></html>`
+  const css = `body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 1rem;
+}
+`
+  const js = `const STORAGE_KEY = 'todos';
+
+function init() {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('ready');
+  });
+}
+
+init();
+`
+  return { html, css, js }
+}
+
+export function staticTodoWriteFileOperations(root: string): AgentToolWriteOp[] {
+  const { html, css, js } = staticTodoValidFiles()
+  return [
+    { op: 'write_file', path: join(root, 'index.html'), content: html },
+    { op: 'write_file', path: join(root, 'styles.css'), content: css },
+    { op: 'write_file', path: join(root, 'script.js'), content: js },
+  ]
+}
+
+/** One-line HTML with jammed inline script — expect corrupt-content reject (133). */
+export function staticTodoCrushedIndexHtml(): string {
+  return `<!DOCTYPE html><html><head><title>T</title></head><body>
+<script>
+const todos=[];function save(){}function init(){}updateCount();})// xfunction setup(){}
+</script>
+</body></html>`
 }
 
 /** Minimal workspace index with one non-trivial file (story 120 single-file bias). */

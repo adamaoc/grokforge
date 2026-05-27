@@ -16,7 +16,7 @@ import {
   resolveSearchReplaceToWriteBatch,
   SearchReplaceToolArgsSchema,
 } from './agent-search-replace-tool'
-import { recordSearchReplaceFailure } from '../shared/agent-edit-cascade-guard'
+import { recordSearchReplaceFailure, shouldBlockSearchReplaceAfterEscalation, ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON } from '../shared/agent-edit-cascade-guard'
 import {
   AGENT_TOOL_TOTAL_RESULT_CHARS,
   executeWorkspaceTool,
@@ -40,6 +40,8 @@ export type AgentToolCallOutcome = {
   /** Resolved path for activity compaction (story 119). */
   activitySubjectPath?: string
   totalToolCharsAdded: number
+  /** True when iterative Work blocked search_replace after escalation (138). */
+  searchReplaceBlockedAfterEscalation?: boolean
 }
 
 export type AgentToolExecutorTurnState = {
@@ -53,6 +55,9 @@ export type AgentToolExecutorTurnState = {
   userMessageHint?: string
   /** Expected Vite template from approved plan / user text (scaffold command validation). */
   scaffoldExpectedTemplate?: ViteTemplateId | null
+  /** Iterative Work edit routing (138). */
+  iterativeWorkEdit?: boolean
+  searchReplaceEscalationNudgeIssued?: boolean
 }
 
 function isAllowedToolName(name: string): name is AgentChatToolName {
@@ -88,8 +93,8 @@ export async function executeAgentToolCall(
   },
 ): Promise<AgentToolCallOutcome> {
   const name = call.function.name
-  let toolContent: string
-  let doneTitle: string
+  let toolContent = ''
+  let doneTitle = 'Tool failed'
   let detail: string | undefined
   let ok = false
   let totalToolCharsAdded = 0
@@ -98,6 +103,7 @@ export async function executeAgentToolCall(
   let validationSummary: string | undefined
   let editProposalComposedInTurn = false
   let activitySubjectPath: string | undefined
+  let searchReplaceBlockedAfterEscalation = false
 
   if (!isAllowedToolName(name)) {
     toolContent = JSON.stringify({ ok: false, error: `Unknown tool: ${name}` })
@@ -150,90 +156,111 @@ export async function executeAgentToolCall(
     } else {
       let searchReplaceChain: { baseContent?: string } | undefined
       let searchReplaceResolved: string | null = null
+      let blockedAfterEscalation = false
+
       if (name === 'search_replace' && searchReplaceParsed?.success) {
         searchReplaceResolved = resolveAgentWorkspacePath(searchReplaceParsed.data.path, ctx)
         if (searchReplaceResolved) {
           activitySubjectPath = searchReplaceResolved
-          const prior = findAccumulatedWriteForPath(state.turnProposalAccum, searchReplaceResolved)
-          if (prior) {
-            searchReplaceChain = { baseContent: prior.content }
+          if (
+            shouldBlockSearchReplaceAfterEscalation({
+              iterativeWorkEdit: state.iterativeWorkEdit,
+              searchReplaceEscalationNudgeIssued: state.searchReplaceEscalationNudgeIssued,
+              failuresByPath: state.searchReplaceFailuresByPath,
+              resolvedAbsolutePath: searchReplaceResolved,
+            })
+          ) {
+            blockedAfterEscalation = true
+            searchReplaceBlockedAfterEscalation = true
+            doneTitle = 'Search replace blocked'
+            detail = ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON
+            toolContent = JSON.stringify({ ok: false, error: ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON })
+          } else {
+            const prior = findAccumulatedWriteForPath(state.turnProposalAccum, searchReplaceResolved)
+            if (prior) {
+              searchReplaceChain = { baseContent: prior.content }
+            }
           }
         }
       }
-      const writeBatch =
-        name === 'search_replace' && searchReplaceParsed?.success
-          ? resolveSearchReplaceToWriteBatch(searchReplaceParsed.data, ctx, searchReplaceChain)
-          : null
-      if (name === 'search_replace' && writeBatch && !writeBatch.ok) {
-        doneTitle = 'Search replace failed'
-        detail = writeBatch.error
-        toolContent = JSON.stringify({ ok: false, error: writeBatch.error })
-        if (searchReplaceParsed?.success) {
-          const resolved = resolveAgentWorkspacePath(searchReplaceParsed.data.path, ctx)
-          if (resolved) recordSearchReplaceFailure(state.searchReplaceFailuresByPath, resolved)
-        }
-      } else {
-        if (name === 'search_replace' && writeBatch && writeBatch.ok) {
-          ctx.recordPathRead(writeBatch.path, writeBatch.contentHash)
-        }
-        const proposalResult = validateAgentEditProposal(
-          name === 'search_replace' && writeBatch && 'batch' in writeBatch ? writeBatch.batch : rawToolArgs,
-          ctx,
-          {
-            searchReplaceFailuresByPath: state.searchReplaceFailuresByPath,
-            userMessageHint: state.userMessageHint,
-            contentSource:
-              name === 'search_replace' && writeBatch && writeBatch.ok ? 'search_replace' : 'propose',
-          },
-        )
-        const rejectedList = proposalResult.proposal?.rejected ?? []
-        const acceptedCount = proposalResult.proposal?.batch.operations.length ?? 0
-        validationSummary = buildEditProposalValidationSummary(rejectedList, acceptedCount)
-        if (!proposalResult.ok) {
-          doneTitle = name === 'search_replace' ? 'Search replace failed' : 'Edit proposal failed'
-          detail = `${proposalResult.error}${rejectedList.length > 0 ? ` · ${validationSummary}` : ''}`
-          toolContent = JSON.stringify({
-            ok: false,
-            error: proposalResult.error,
-            rejected: rejectedList,
-            validationSummary,
-          })
-        } else {
-          ok = true
-          editProposalCreated = true
-          const hadPriorProposal = turnProposalAccum != null
-          turnProposalAccum = mergeAgentEditProposals(turnProposalAccum, proposalResult.proposal)
-          if (hadPriorProposal) editProposalComposedInTurn = true
-          if (name === 'propose_file_edits') {
-            const firstOp = proposalResult.proposal?.batch.operations[0]
-            if (firstOp?.path) {
-              activitySubjectPath =
-                resolveAgentWorkspacePath(firstOp.path, ctx) ?? firstOp.path
-            }
+
+      if (!blockedAfterEscalation) {
+        const writeBatch =
+          name === 'search_replace' && searchReplaceParsed?.success
+            ? resolveSearchReplaceToWriteBatch(searchReplaceParsed.data, ctx, searchReplaceChain)
+            : null
+        if (name === 'search_replace' && writeBatch && !writeBatch.ok) {
+          doneTitle = 'Search replace failed'
+          detail = writeBatch.error
+          toolContent = JSON.stringify({ ok: false, error: writeBatch.error })
+          if (searchReplaceParsed?.success) {
+            const resolved = resolveAgentWorkspacePath(searchReplaceParsed.data.path, ctx)
+            if (resolved) recordSearchReplaceFailure(state.searchReplaceFailuresByPath, resolved)
           }
-          options.emit({ streamId: ctx.streamId, phase: 'edit_proposal', proposal: turnProposalAccum })
-          const count = turnProposalAccum.batch.operations.length
-          const rejected = turnProposalAccum.rejected.length
-          doneTitle =
-            name === 'search_replace' ? 'Prepared search_replace proposal' : 'Prepared edit proposal'
-          const chainNote =
-            name === 'search_replace' &&
-            writeBatch &&
-            writeBatch.ok &&
-            writeBatch.chainedFromAccumulated &&
-            searchReplaceResolved
-              ? ` · composed with prior edit on ${searchReplaceResolved.split(/[/\\]/).filter(Boolean).pop() ?? 'file'}`
-              : ''
-          detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${validationSummary}` : ''}${chainNote}`
-          toolContent = JSON.stringify({
-            ok: true,
-            proposalCreated: true,
-            operations: count,
-            rejected: turnProposalAccum.rejected,
-            validationSummary,
-            message:
-              'The proposal is now available in GrokForge for user diff review. Do not repeat the full JSON in the final answer.',
-          })
+        } else {
+          if (name === 'search_replace' && writeBatch && writeBatch.ok) {
+            ctx.recordPathRead(writeBatch.path, writeBatch.contentHash)
+          }
+          const proposalResult = validateAgentEditProposal(
+            name === 'search_replace' && writeBatch && 'batch' in writeBatch ? writeBatch.batch : rawToolArgs,
+            ctx,
+            {
+              searchReplaceFailuresByPath: state.searchReplaceFailuresByPath,
+              userMessageHint: state.userMessageHint,
+              iterativeWorkEdit: state.iterativeWorkEdit,
+              contentSource:
+                name === 'search_replace' && writeBatch && writeBatch.ok ? 'search_replace' : 'propose',
+            },
+          )
+          const rejectedList = proposalResult.proposal?.rejected ?? []
+          const acceptedCount = proposalResult.proposal?.batch.operations.length ?? 0
+          validationSummary = buildEditProposalValidationSummary(rejectedList, acceptedCount)
+          if (!proposalResult.ok) {
+            doneTitle = name === 'search_replace' ? 'Search replace failed' : 'Edit proposal failed'
+            detail = `${proposalResult.error}${rejectedList.length > 0 ? ` · ${validationSummary}` : ''}`
+            toolContent = JSON.stringify({
+              ok: false,
+              error: proposalResult.error,
+              rejected: rejectedList,
+              validationSummary,
+            })
+          } else {
+            ok = true
+            editProposalCreated = true
+            const hadPriorProposal = turnProposalAccum != null
+            turnProposalAccum = mergeAgentEditProposals(turnProposalAccum, proposalResult.proposal)
+            if (hadPriorProposal) editProposalComposedInTurn = true
+            if (name === 'propose_file_edits') {
+              const firstOp = proposalResult.proposal?.batch.operations[0]
+              if (firstOp?.path) {
+                activitySubjectPath =
+                  resolveAgentWorkspacePath(firstOp.path, ctx) ?? firstOp.path
+              }
+            }
+            options.emit({ streamId: ctx.streamId, phase: 'edit_proposal', proposal: turnProposalAccum })
+            const count = turnProposalAccum.batch.operations.length
+            const rejected = turnProposalAccum.rejected.length
+            doneTitle =
+              name === 'search_replace' ? 'Prepared search_replace proposal' : 'Prepared edit proposal'
+            const chainNote =
+              name === 'search_replace' &&
+              writeBatch &&
+              writeBatch.ok &&
+              writeBatch.chainedFromAccumulated &&
+              searchReplaceResolved
+                ? ` · composed with prior edit on ${searchReplaceResolved.split(/[/\\]/).filter(Boolean).pop() ?? 'file'}`
+                : ''
+            detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${validationSummary}` : ''}${chainNote}`
+            toolContent = JSON.stringify({
+              ok: true,
+              proposalCreated: true,
+              operations: count,
+              rejected: turnProposalAccum.rejected,
+              validationSummary,
+              message:
+                'The proposal is now available in GrokForge for user diff review. Do not repeat the full JSON in the final answer.',
+            })
+          }
         }
       }
     }
@@ -282,5 +309,6 @@ export async function executeAgentToolCall(
     turnProposalAccum,
     activitySubjectPath,
     totalToolCharsAdded,
+    searchReplaceBlockedAfterEscalation,
   }
 }

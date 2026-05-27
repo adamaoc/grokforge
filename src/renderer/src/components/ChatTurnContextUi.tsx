@@ -73,11 +73,6 @@ export function ChatLiveContextStrip({
         <span className="rounded-md border border-zinc-800 bg-zinc-950/60 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
           Conversation: {agentModeLabel}
         </span>
-        {planWorkflowExecuting ? (
-          <span className="animate-pulse text-[10px] font-medium text-gf-accent/90">
-            Executing plan · {displayThreadModel}
-          </span>
-        ) : null}
       </div>
       <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-zinc-800/80 pt-2">
         <Folder size={12} className="shrink-0 text-zinc-500" aria-hidden />

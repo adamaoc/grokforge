@@ -3,7 +3,7 @@
  */
 
 const COMMAND_VERIFY_RE =
-  /\b(npm\s+(run\s+)?(typecheck|test|build|lint|check)|pnpm\s+(run\s+)?(typecheck|test|build)|yarn\s+(run\s+)?(typecheck|test|build)|npx\s+tsc|vitest|jest|pytest|cargo\s+(test|build)|go\s+(test|build))\b/i
+  /\b(npm\s+(run\s+)?(typecheck|test|build|lint|check|dev)|pnpm\s+(run\s+)?(typecheck|test|build)|yarn\s+(run\s+)?(typecheck|test|build)|npx\s+(tsc|.*serve\b)|python3?\s+-m\s+http\.server|vitest|jest|pytest|cargo\s+(test|build)|go\s+(test|build))\b/i
 
 const COMMAND_INSTALL_SCAFFOLD_RE =
   /\b(npm\s+(install|ci|create|init)|pnpm\s+(install|create|dlx)|yarn\s+(install|create)|bun\s+(install|create)|git\s+init|git\s+clone|npx\s+create)\b/i

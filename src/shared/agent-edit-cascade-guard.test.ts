@@ -5,7 +5,10 @@ import {
   isDestructiveFileShrink,
   pathsAtSearchReplaceEscalationThreshold,
   recordSearchReplaceFailure,
+  resolvePostEscalationMaxToolRounds,
+  resolveSearchReplaceMaxFailuresPerTurn,
   SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION_GUARD,
+  shouldBlockSearchReplaceAfterEscalation,
   shouldInjectSearchReplaceEscalation,
   totalSearchReplaceFailures,
 } from './agent-edit-cascade-guard'
@@ -93,6 +96,52 @@ describe('agent-edit-cascade-guard', () => {
     recordSearchReplaceFailure(failures, '/tmp/overview.md')
     expect(shouldInjectSearchReplaceEscalation(failures)).toBe(true)
     expect(pathsAtSearchReplaceEscalationThreshold(failures)).toContain(agentEditPathKey('/tmp/overview.md'))
+  })
+
+  it('shouldInjectSearchReplaceEscalation at 1 failure when iterativeWorkEdit (138)', () => {
+    const failures = new Map<string, number>()
+    expect(shouldInjectSearchReplaceEscalation(failures, { iterativeWorkEdit: true })).toBe(false)
+    recordSearchReplaceFailure(failures, '/tmp/script.js')
+    expect(shouldInjectSearchReplaceEscalation(failures, { iterativeWorkEdit: true })).toBe(true)
+    expect(
+      pathsAtSearchReplaceEscalationThreshold(failures, { iterativeWorkEdit: true }),
+    ).toContain(agentEditPathKey('/tmp/script.js'))
+  })
+
+  it('shouldBlockSearchReplaceAfterEscalation only on iterative post-nudge paths at threshold', () => {
+    const failures = new Map<string, number>()
+    recordSearchReplaceFailure(failures, '/tmp/script.js')
+    expect(
+      shouldBlockSearchReplaceAfterEscalation({
+        iterativeWorkEdit: true,
+        searchReplaceEscalationNudgeIssued: true,
+        failuresByPath: failures,
+        resolvedAbsolutePath: '/tmp/script.js',
+      }),
+    ).toBe(true)
+    expect(
+      shouldBlockSearchReplaceAfterEscalation({
+        iterativeWorkEdit: false,
+        searchReplaceEscalationNudgeIssued: true,
+        failuresByPath: failures,
+        resolvedAbsolutePath: '/tmp/script.js',
+      }),
+    ).toBe(false)
+    expect(
+      shouldBlockSearchReplaceAfterEscalation({
+        iterativeWorkEdit: true,
+        searchReplaceEscalationNudgeIssued: false,
+        failuresByPath: failures,
+        resolvedAbsolutePath: '/tmp/script.js',
+      }),
+    ).toBe(false)
+  })
+
+  it('resolveSearchReplaceMaxFailuresPerTurn differs for iterative Work', () => {
+    expect(resolveSearchReplaceMaxFailuresPerTurn()).toBe(6)
+    expect(resolveSearchReplaceMaxFailuresPerTurn({ iterativeWorkEdit: true })).toBe(3)
+    expect(resolvePostEscalationMaxToolRounds()).toBe(2)
+    expect(resolvePostEscalationMaxToolRounds({ iterativeWorkEdit: true })).toBe(1)
   })
 
   it('does not block cascade shrink guard for small markdown files (overview-style docs)', () => {

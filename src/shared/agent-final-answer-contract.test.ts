@@ -9,10 +9,12 @@ import {
   buildPlanVerifyCommandNudge,
   buildSearchReplaceEscalationNudge,
   COMMAND_TOOLS_FAILED_HONESTY_MARKER,
+  SCAFFOLD_STRATEGY_HONESTY_MARKER,
   EDIT_INCOMPLETE_HTML_NUDGE_MARKER,
   EDIT_INTENT_TOOL_NUDGE_MARKER,
   EDIT_PARTIAL_BATCH_NUDGE_MARKER,
   EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
+  EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER,
   MERGED_EDIT_PROPOSAL_HONESTY_MARKER,
   PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER,
   PLAN_VERIFY_COMMAND_NUDGE_MARKER,
@@ -93,6 +95,19 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toMatch(/rawContent/)
   })
 
+  it('builds iterative Work search_replace escalation nudge with 138 marker (138)', () => {
+    const nudge = buildSearchReplaceEscalationNudge(['/proj/todo/script.js'], {
+      iterativeWorkEdit: true,
+    })
+    expect(nudge).toContain(EDIT_SEARCH_REPLACE_ESCALATION_MARKER)
+    expect(nudge).toContain('Harness: iterative search_replace escalation 138')
+    expect(nudge).toContain('script.js')
+    expect(nudge).toMatch(/Do \*\*not\*\* call \*\*`search_replace`\*\*/i)
+    expect(nudge).toMatch(/propose_file_edits/)
+    expect(nudge).toMatch(/rawContent/)
+    expect(nudge).toMatch(/115/)
+  })
+
   it('adds HTML script guidance when escalation paths include .html', () => {
     const nudge = buildSearchReplaceEscalationNudge(['/proj/ToDoApp/index.html'])
     expect(nudge).toMatch(/index\.html/i)
@@ -129,6 +144,15 @@ describe('buildFinalAnswerContract', () => {
     expect(content).toContain(MERGED_EDIT_PROPOSAL_HONESTY_MARKER)
     expect(content).toMatch(/one\*\* combined diff review/i)
     expect(content).toMatch(/Do \*\*not\*\* describe multiple separate diff reviews/i)
+  })
+
+  it('builds partial batch nudge with TSX hint when App.tsx is rejected', () => {
+    const nudge = buildPartialBatchProposalNudge(
+      [{ path: '/proj/src/App.tsx', reason: 'orphan closing parentheses' }],
+      1,
+    )
+    expect(nudge).toContain('App.tsx')
+    expect(nudge).toMatch(/complete.*component/i)
   })
 
   it('builds partial batch nudge with stable marker and rejected path labels', () => {
@@ -178,6 +202,80 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toContain(PLAN_VERIFY_COMMAND_NUDGE_MARKER)
     expect(nudge).toMatch(/run_command/)
     expect(nudge).toContain('npm run typecheck')
+    expect(nudge).toMatch(/npm install/)
+  })
+
+  it('builds static file-bootstrap plan verify nudge with serve examples', () => {
+    const nudge = buildPlanVerifyCommandNudge({
+      verificationHint: 'Open in browser and test',
+      scaffoldStrategy: 'file_bootstrap',
+      suggestedCommands: ['npx --yes serve . -l 3000'],
+    })
+    expect(nudge).toContain(PLAN_VERIFY_COMMAND_NUDGE_MARKER)
+    expect(nudge).toMatch(/npx --yes serve/i)
+    expect(nudge).toMatch(/python3 -m http\.server/i)
+    expect(nudge).not.toMatch(/npm create/)
+  })
+
+  it('uses soft scaffold honesty when file_bootstrap recovered despite command failure', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'execute the approved plan',
+      editProposalCreated: true,
+      chatMode: 'fast',
+      agentProfileId: 'executor',
+      executeFromApprovedPlan: true,
+      scaffoldStrategyConflictIssued: true,
+      scaffoldStrategyRecovered: true,
+      scaffoldStrategy: 'file_bootstrap',
+      commandToolsFailed: true,
+    })
+    expect(content).not.toMatch(/CLI scaffold is not complete/i)
+  })
+
+  it('uses soft scaffold honesty when recovered with file_bootstrap proposal', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'execute the approved plan',
+      editProposalCreated: true,
+      chatMode: 'fast',
+      agentProfileId: 'executor',
+      executeFromApprovedPlan: true,
+      scaffoldStrategyConflictIssued: true,
+      scaffoldStrategyRecovered: true,
+      scaffoldStrategy: 'file_bootstrap',
+      commandToolsFailed: false,
+    })
+    expect(content).toContain(SCAFFOLD_STRATEGY_HONESTY_MARKER)
+    expect(content).not.toMatch(/CLI scaffold is not complete/i)
+    expect(content).not.toMatch(/scaffold strategy conflict/i)
+    expect(content).toMatch(/review the proposal below/i)
+  })
+
+  it('keeps strong scaffold honesty when conflict nudge did not recover', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'execute the approved plan',
+      editProposalCreated: false,
+      chatMode: 'fast',
+      agentProfileId: 'executor',
+      executeFromApprovedPlan: true,
+      scaffoldStrategyConflictIssued: true,
+      scaffoldStrategy: 'cli_scaffold',
+      commandToolsFailed: false,
+    })
+    expect(content).toContain(SCAFFOLD_STRATEGY_HONESTY_MARKER)
+    expect(content).toMatch(/scaffold strategy conflict/i)
+    expect(content).toMatch(/Do \*\*not\*\* claim the project scaffold is ready/i)
+  })
+
+  it('adds edit-path honesty after search_replace escalation recovery', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'update overview.md',
+      editProposalCreated: true,
+      chatMode: 'fast',
+      searchReplaceEscalationRecovered: true,
+    })
+    expect(content).toMatch(/edit path honesty/i)
+    expect(content).toMatch(/diff review is ready/i)
+    expect(content).toMatch(/Do \*\*not\*\* tell the user that `search_replace` is the only path/i)
   })
 
   it('adds command-tools-failed honesty appendix', () => {

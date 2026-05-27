@@ -3,6 +3,41 @@ import {
   unescapeLiteralNewlinesWhenDominant,
 } from './agent-file-content-normalize'
 
+const NOT_FOUND_MESSAGE_MAX_CHARS = 500
+
+function countFileLinesWithSubstringMatch(oldString: string, fileContent: string): number {
+  const fileLines = fileContent.split(/\r?\n/)
+  const fragments = oldString
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length >= 4)
+  if (fragments.length === 0) return 0
+  return fileLines.filter((fileLine) => fragments.some((frag) => fileLine.includes(frag))).length
+}
+
+function findClosestLineHint(oldString: string, fileContent: string): string | null {
+  const firstOldLine = oldString.split(/\r?\n/).find((l) => l.trim().length > 0)?.trim()
+  if (!firstOldLine || firstOldLine.length < 3) return null
+
+  const fileLines = fileContent.split(/\r?\n/)
+  let bestPrefixLen = 0
+  let bestLine = ''
+  for (const line of fileLines) {
+    let prefixLen = 0
+    const minLen = Math.min(firstOldLine.length, line.length)
+    while (prefixLen < minLen && firstOldLine[prefixLen] === line[prefixLen]) {
+      prefixLen += 1
+    }
+    if (prefixLen > bestPrefixLen && prefixLen >= 8) {
+      bestPrefixLen = prefixLen
+      bestLine = line
+    }
+  }
+  if (bestLine.length === 0) return null
+  const preview = bestLine.length > 120 ? `${bestLine.slice(0, 120)}…` : bestLine
+  return `Closest line in file: ${JSON.stringify(preview)}`
+}
+
 /** User- and model-facing hint when exact match fails (keep under ~500 chars for tool traces). */
 export function buildSearchReplaceNotFoundMessage(oldString: string, fileContent?: string): string {
   const trimmed = oldString.replace(/\s+/g, ' ').trim()
@@ -15,6 +50,15 @@ export function buildSearchReplaceNotFoundMessage(oldString: string, fileContent
   ]
 
   if (fileContent) {
+    const substringLineCount = countFileLinesWithSubstringMatch(oldString, fileContent)
+    parts.push(
+      substringLineCount > 0
+        ? `0 exact matches; ${substringLineCount} file line(s) contain part of old_string.`
+        : '0 exact matches; no file lines contain a recognizable substring from old_string.',
+    )
+    const closestLine = findClosestLineHint(oldString, fileContent)
+    if (closestLine) parts.push(closestLine)
+
     const lines = oldString.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
     if (lines.length >= 2) {
       const eachLineFound = lines.every((l) => fileContent.includes(l))
@@ -52,7 +96,9 @@ export function buildSearchReplaceNotFoundMessage(oldString: string, fileContent
     )
   }
 
-  return parts.filter(Boolean).join(' ')
+  const message = parts.filter(Boolean).join(' ')
+  if (message.length <= NOT_FOUND_MESSAGE_MAX_CHARS) return message
+  return `${message.slice(0, NOT_FOUND_MESSAGE_MAX_CHARS - 1)}…`
 }
 
 /** Count non-overlapping occurrences of `needle` in `haystack`. */

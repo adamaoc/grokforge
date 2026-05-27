@@ -10,6 +10,10 @@ import type { AgentTurnSnapshot } from '../shared/agent-turn-snapshot'
 import { summarizeSnapshotForTrace } from '../shared/agent-turn-snapshot'
 import type { AgentTurnTraceV1 } from '../shared/agent-turn-trace-contract'
 import { AGENT_TURN_TRACE_SCHEMA_VERSION } from '../shared/agent-turn-trace-contract'
+import {
+  finalizeHarnessMetrics,
+  type HarnessMetricsScratch,
+} from '../shared/agent-harness-metrics'
 
 export const AGENT_TURN_TRACE_MAX_PROVIDER_ROUNDS = 32
 
@@ -40,6 +44,7 @@ export type TurnTraceScratch = {
   maxToolIterationsHit?: boolean
   providerRounds: NonNullable<AgentTurnTraceV1['providerRounds']>
   lastSnapshotId?: string
+  harnessMetricsScratch?: HarnessMetricsScratch
 }
 
 export function createTurnTraceScratch(
@@ -140,12 +145,42 @@ export function setRetrievalContextBodyChars(scratch: TurnTraceScratch, chars: n
 export function finalizeTurnTrace(
   scratch: TurnTraceScratch,
   outcome: TurnTraceOutcome,
-  options?: { errorMessage?: string; totalToolChars?: number; maxToolIterationsHit?: boolean },
+  options?: {
+    errorMessage?: string
+    totalToolChars?: number
+    maxToolIterationsHit?: boolean
+    harnessMetrics?: AgentTurnTraceV1['harnessMetrics']
+  },
 ): AgentTurnTraceV1 {
   const completedAt = new Date().toISOString()
   const durationMs = Math.max(0, Date.now() - scratch.startedAtMs)
   if (options?.totalToolChars !== undefined) scratch.totalToolCharsAccumulated = options.totalToolChars
   if (options?.maxToolIterationsHit !== undefined) scratch.maxToolIterationsHit = options.maxToolIterationsHit
+
+  const harnessMetrics =
+    options?.harnessMetrics ??
+    (scratch.harnessMetricsScratch
+      ? finalizeHarnessMetrics({
+          iterativeWorkEdit: scratch.harnessMetricsScratch.iterativeWorkEdit,
+          postPlanIncremental: scratch.harnessMetricsScratch.postPlanIncremental,
+          resolvedEditScope: scratch.harnessMetricsScratch.resolvedEditScope,
+          toolRoundCount: scratch.harnessMetricsScratch.toolRoundCount,
+          readOnlyRounds: scratch.harnessMetricsScratch.readOnlyRounds,
+          searchReplaceCountByPath: scratch.harnessMetricsScratch.searchReplaceCountByPath,
+          searchReplaceFailuresByPath: scratch.harnessMetricsScratch.searchReplaceFailuresByPath,
+          searchReplaceEscalationIssued: scratch.harnessMetricsScratch.searchReplaceEscalationIssued,
+          searchReplaceEscalationAtFailureCount:
+            scratch.harnessMetricsScratch.searchReplaceEscalationAtFailureCount,
+          searchReplaceBlockedAfterEscalationCount:
+            scratch.harnessMetricsScratch.searchReplaceBlockedAfterEscalationCount,
+          searchReplaceLastFailureReasons: scratch.harnessMetricsScratch.searchReplaceLastFailureReasons,
+          maxIterationsReason: scratch.harnessMetricsScratch.maxIterationsReason,
+          nudgesIssued: scratch.harnessMetricsScratch.nudgesIssued,
+          editProposalAtRound: scratch.harnessMetricsScratch.editProposalAtRound,
+          stoppedAfterProposal: scratch.harnessMetricsScratch.stoppedAfterProposal,
+          rereadLoopDetected: scratch.harnessMetricsScratch.rereadLoopDetected,
+        })
+      : undefined)
 
   return {
     schemaVersion: AGENT_TURN_TRACE_SCHEMA_VERSION,
@@ -174,5 +209,6 @@ export function finalizeTurnTrace(
     assistantStreamChars: scratch.assistantStreamChars,
     maxToolIterationsHit: scratch.maxToolIterationsHit,
     providerRounds: scratch.providerRounds.length > 0 ? scratch.providerRounds : undefined,
+    harnessMetrics,
   }
 }

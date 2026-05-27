@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveAgentChatModelIntent, resolveAgentTurnRouting } from './agent-turn-routing'
+import { resolveAgentChatModelIntent, resolveAgentTurnRouting, isExplicitComposerModelIntent } from './agent-turn-routing'
 import type { ModelRoutingManifest } from './model-router'
 
 const manifest: ModelRoutingManifest = {
@@ -51,7 +51,19 @@ describe('resolveAgentChatModelIntent', () => {
         modelIntent: 'chat_default',
         activeContext: fastCtx,
       }),
-    ).toBe('chat_default')
+    ).toBe('execution')
+  })
+
+  it('treats chat_default as implicit for explicit chip override', () => {
+    expect(
+      resolveAgentChatModelIntent({
+        postPlanIncremental: true,
+        modelIntent: 'planning',
+        activeContext: fastCtx,
+      }),
+    ).toBe('planning')
+    expect(isExplicitComposerModelIntent('chat_default')).toBe(false)
+    expect(isExplicitComposerModelIntent('execution')).toBe(true)
   })
 
   it('uses explicit modelIntent when provided', () => {
@@ -71,13 +83,13 @@ describe('resolveAgentChatModelIntent', () => {
     ).toBe('planning')
   })
 
-  it('honors chat_default chip in plan mode', () => {
+  it('maps chat_default chip to planning model in plan mode', () => {
     expect(
       resolveAgentChatModelIntent({
         modelIntent: 'chat_default',
         activeContext: planCtx,
       }),
-    ).toBe('chat_default')
+    ).toBe('planning')
   })
 
   it('infers chat_default from fast chatMode', () => {
@@ -119,13 +131,13 @@ describe('resolveAgentTurnRouting', () => {
     expect(routing.reasoningEffort).toBe('medium')
   })
 
-  it('keeps planner profile when plan mode uses fast chip', () => {
+  it('keeps planner profile when plan mode uses default chip (maps to planning model)', () => {
     const routing = resolveAgentTurnRouting(manifest, {
       modelIntent: 'chat_default',
       activeContext: planCtx,
     })
-    expect(routing.modelIntent).toBe('chat_default')
-    expect(routing.modelId).toBe('custom-fast')
+    expect(routing.modelIntent).toBe('planning')
+    expect(routing.modelId).toBe('custom-plan')
     expect(routing.agentProfileId).toBe('planner')
   })
 
@@ -181,6 +193,7 @@ describe('resolveAgentTurnRouting', () => {
   it('iterativeWorkEdit uses execution model and executor profile', () => {
     const routing = resolveAgentTurnRouting(manifest, {
       iterativeWorkEdit: true,
+      modelIntent: 'chat_default',
       activeContext: fastCtx,
     })
     expect(routing.modelIntent).toBe('execution')

@@ -19,6 +19,10 @@ export const EDIT_INTENT_TOOL_NUDGE_MARKER = 'Harness: edit tools required'
 /** Marker when search_replace failed repeatedly and the harness steers recovery (eval/tests). */
 export const EDIT_SEARCH_REPLACE_ESCALATION_MARKER = 'Harness: search_replace escalation'
 
+/** Sub-marker for iterative Work stricter S&R escalation (story 138). */
+export const EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER =
+  'Harness: iterative search_replace escalation 138'
+
 /** Marker when propose_file_edits HTML was rejected as incomplete (eval/tests). */
 export const EDIT_INCOMPLETE_HTML_NUDGE_MARKER = 'Harness: incomplete HTML proposal'
 
@@ -57,7 +61,7 @@ function basenameForEscalationPath(pathKey: string): string {
 /** User message injected once after repeated search_replace failures on a path. */
 export function buildSearchReplaceEscalationNudge(
   paths: readonly string[],
-  options?: { brief?: boolean },
+  options?: { brief?: boolean; iterativeWorkEdit?: boolean },
 ): string {
   const labels = paths.map(basenameForEscalationPath).filter(Boolean)
   const pathLine =
@@ -65,6 +69,31 @@ export function buildSearchReplaceEscalationNudge(
       ? `Affected file(s): ${labels.join(', ')}.`
       : 'One or more files had repeated search_replace failures.'
   const hasHtml = paths.some((p) => /\.html?$/i.test(p.replace(/\\/g, '/')))
+  const hasJs = paths.some((p) => /\.jsx?$/i.test(p.replace(/\\/g, '/')))
+  const iterative = options?.iterativeWorkEdit === true
+
+  if (iterative) {
+    const jsLine = hasJs
+      ? 'Small UI change (button, handler, CSS class): one **`propose_file_edits`** with the **full** file from `read_file` **`rawContent`** (e.g. `script.js`), changing **only** the handler block — do not rewrite unrelated todo logic.'
+      : 'Small localized change: one **`propose_file_edits`** with the **full** file from `read_file` **`rawContent`**, changing only what the user asked.'
+    const preserveLine =
+      hasJs || hasHtml
+        ? 'Preserve unchanged functions and markup; GrokForge still blocks destructive shrink (**115**) — send the **complete** correct file, not a stub.'
+        : 'Send the **complete** correct file from `rawContent`, not a shortened stub — **115** shrink guard still applies on code files.'
+    return [
+      `## ${EDIT_SEARCH_REPLACE_ESCALATION_MARKER}`,
+      `## ${EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER}`,
+      pathLine,
+      buildHarnessEditRecoveryBrief('search_replace_escalation'),
+      jsLine,
+      preserveLine,
+      'Do **not** call **`search_replace`** again on this path this turn.',
+      'Do not tell the user the file was updated until an edit tool returns `ok: true` in this turn.',
+    ]
+      .filter(Boolean)
+      .join('\n')
+  }
+
   if (options?.brief) {
     const htmlLine = hasHtml
       ? 'For HTML with inline `<script>`, use one full-file `propose_file_edits` from `rawContent` — not `search_replace` on crushed script.'
@@ -154,6 +183,7 @@ export function buildPartialBatchProposalNudge(
   const hasPackageJson = rejected.some((r) =>
     /package\.json$/i.test((r.path ?? '').replace(/\\/g, '/')),
   )
+  const hasTsx = rejected.some((r) => /\.tsx$/i.test((r.path ?? '').replace(/\\/g, '/')))
   const jsHint = hasJs
     ? [
         'For **script.js**: submit the **complete** file with **one statement per line** — no crushed one-liners, no orphan `)` lines, no `}function` glue. Prefer a separate file over inline HTML `<script>`.',
@@ -169,6 +199,11 @@ export function buildPartialBatchProposalNudge(
         'For **package.json**: emit **valid JSON** with double-quoted keys (`{"name":"app","private":true}`). Minified one-line JSON is fine if it parses. If hand-rolling keeps failing, use **`run_command`** for `npm create` / `npm init` instead.',
       ]
     : []
+  const tsxHint = hasTsx
+    ? [
+        'For **App.tsx** (or other TSX): one `propose_file_edits` with the **complete** component from `read_file` `rawContent` — real line breaks, no crushed one-liners, no runs of orphan `)` lines. Apply CSS together only after TSX validates.',
+      ]
+    : []
   return [
     `## ${EDIT_PARTIAL_BATCH_NUDGE_MARKER}`,
     pathLine,
@@ -177,6 +212,7 @@ export function buildPartialBatchProposalNudge(
     ...jsHint,
     ...htmlHint,
     ...packageJsonHint,
+    ...tsxHint,
     buildHarnessEditRecoveryBrief('partial_batch'),
   ].join('\n')
 }
@@ -247,16 +283,36 @@ export function buildEditIntentToolNudge(options?: { singleFilePrimary?: boolean
 }
 
 /** User message injected once when plan/user implies CLI verify/install but no run_command sampled yet. */
-export function buildPlanVerifyCommandNudge(options?: { verificationHint?: string }): string {
+export function buildPlanVerifyCommandNudge(options?: {
+  verificationHint?: string
+  scaffoldStrategy?: ScaffoldStrategy | null
+  suggestedCommands?: readonly string[]
+}): string {
+  const suggested = options?.suggestedCommands?.filter(Boolean) ?? []
+  const hintFromSuggestion = suggested[0]?.trim()
   const verifyLine = options?.verificationHint?.trim()
     ? `Plan verification: ${options.verificationHint.trim()}`
-    : 'The approved plan or user request mentions install, scaffold, git init, or verification commands.'
+    : hintFromSuggestion
+      ? `Suggested verification command: \`${hintFromSuggestion}\``
+      : 'The approved plan or user request mentions install, scaffold, git init, or verification commands.'
+
+  const strategy = options?.scaffoldStrategy ?? null
+  const exampleLine =
+    strategy === 'file_bootstrap'
+      ? 'Examples: `npx --yes serve . -l 3000`, `python3 -m http.server 3000` — then manual browser check.'
+      : 'Examples: `npm install`, `npm create`, `git init`, `npm run typecheck`, `npm test`, `npm run build`.'
+
+  const scaffoldNote =
+    strategy === 'file_bootstrap'
+      ? 'Use **`propose_file_edits`** for HTML/CSS/JS file content — serve commands are for verification only, not scaffold.'
+      : 'Use **`propose_file_edits`** for file content — do not replace CLI scaffold/install steps with hand-written `package.json` only.'
+
   return [
     `## ${PLAN_VERIFY_COMMAND_NUDGE_MARKER}`,
     verifyLine,
     'Call **`run_command`** with a clear `purpose` before claiming install, build, or verification succeeded.',
-    'Examples: `npm install`, `npm create`, `git init`, `npm run typecheck`, `npm test`, `npm run build`.',
-    'Use **`propose_file_edits`** for file content — do not replace CLI scaffold/install steps with hand-written `package.json` only.',
+    exampleLine,
+    scaffoldNote,
     'Do not tell the user dependencies are installed or the project verified until `run_command` returns `ok: true` in this turn.',
   ].join('\n')
 }
@@ -347,6 +403,11 @@ export type AgentFinalAnswerContractInput = {
   commandToolsFailed?: boolean
   /** Story 128: scaffold strategy conflict nudge fired this turn. */
   scaffoldStrategyConflictIssued?: boolean
+  /** Story 134: compliant tool sample after scaffold strategy nudge. */
+  scaffoldStrategyRecovered?: boolean
+  scaffoldStrategy?: ScaffoldStrategy | null
+  /** Story 134: propose_file_edits succeeded after search_replace escalation nudge. */
+  searchReplaceEscalationRecovered?: boolean
   /** Story 128+: CLI scaffold succeeded but key files were not read this turn. */
   postScaffoldVerificationIncomplete?: boolean
   postScaffoldMissingPaths?: readonly string[]
@@ -376,34 +437,83 @@ function commandToolsFailedAppendix(commandToolsFailed?: boolean): string {
   ].join('\n')
 }
 
-function scaffoldStrategyHonestyAppendix(
-  scaffoldStrategyConflictIssued?: boolean,
-  editProposalCreated?: boolean,
-  commandToolsFailed?: boolean,
-): string {
-  if (!scaffoldStrategyConflictIssued) return ''
+function scaffoldStrategyHonestyAppendix(input: {
+  scaffoldStrategyConflictIssued?: boolean
+  scaffoldStrategyRecovered?: boolean
+  scaffoldStrategy?: ScaffoldStrategy | null
+  editProposalCreated?: boolean
+  commandToolsFailed?: boolean
+}): string {
+  if (!input.scaffoldStrategyConflictIssued) return ''
+
+  const staticBootstrapRecovered =
+    input.scaffoldStrategy === 'file_bootstrap' && input.scaffoldStrategyRecovered === true
+  const softRecovery =
+    input.editProposalCreated === true &&
+    (input.commandToolsFailed !== true || staticBootstrapRecovered) &&
+    (input.scaffoldStrategyRecovered === true || input.scaffoldStrategy === 'file_bootstrap')
+
+  if (softRecovery) {
+    const strategyNote =
+      input.scaffoldStrategy === 'file_bootstrap'
+        ? 'Static file bootstrap — review the proposal below. Do **not** apologize for a scaffold "conflict" or claim CLI scaffold is incomplete.'
+        : 'GrokForge redirected tool order to match the approved scaffold strategy — review the proposal below.'
+    return [
+      '',
+      `### ${SCAFFOLD_STRATEGY_HONESTY_MARKER}`,
+      'Harness corrected tool order in this turn.',
+      strategyNote,
+      'Do **not** lead with "conflict" language when the diff review is ready.',
+    ].join('\n')
+  }
+
   return [
     '',
     `### ${SCAFFOLD_STRATEGY_HONESTY_MARKER}`,
     'GrokForge detected a **scaffold strategy conflict** (CLI scaffold mixed with hand-written template files).',
-    editProposalCreated
+    input.editProposalCreated
       ? 'Some file paths may be in the diff review, but **CLI scaffold is not complete** until the user approves and the command succeeds.'
       : 'Do **not** claim the project scaffold is ready on disk.',
-    commandToolsFailed
+    input.commandToolsFailed
       ? 'The scaffold command did not succeed — tell the user to approve/retry the CLI step before treating file proposals as the source of truth.'
       : 'If a scaffold command is still awaiting approval, say so — file proposals for template paths may be premature.',
+  ].join('\n')
+}
+
+function searchReplaceEscalationHonestyAppendix(input: {
+  searchReplaceEscalationRecovered?: boolean
+  editProposalCreated?: boolean
+}): string {
+  if (!input.searchReplaceEscalationRecovered || !input.editProposalCreated) return ''
+  return [
+    '',
+    '### Harness: edit path honesty',
+    'GrokForge steered away from repeated `search_replace` failures toward a reviewable `propose_file_edits` proposal.',
+    'Do **not** tell the user that `search_replace` is the only path — the diff review is ready.',
   ].join('\n')
 }
 
 function postScaffoldVerificationHonestyAppendix(
   incomplete?: boolean,
   missingPaths?: readonly string[],
+  options?: { scaffoldStrategy?: ScaffoldStrategy | null; editProposalCreated?: boolean },
 ): string {
   if (!incomplete) return ''
   const missing =
     missingPaths && missingPaths.length > 0
       ? missingPaths.slice(0, 6).join(', ')
       : 'key generated files'
+  if (
+    options?.scaffoldStrategy === 'file_bootstrap' &&
+    options.editProposalCreated === true
+  ) {
+    return [
+      '',
+      `### ${POST_SCAFFOLD_VERIFICATION_HONESTY_MARKER}`,
+      'A scaffold command succeeded; some generated paths were not read this turn.',
+      `Still unchecked: ${missing}. Briefly note what remains to inspect — do **not** claim the static bootstrap failed when file proposals are in diff review.`,
+    ].join('\n')
+  }
   return [
     '',
     `### ${POST_SCAFFOLD_VERIFICATION_HONESTY_MARKER}`,
@@ -533,14 +643,24 @@ export function buildFinalAnswerContract(input: AgentFinalAnswerContractInput): 
     'Do not tell the user that files were already written, saved, or applied on disk unless `propose_file_edits` succeeded in this turn.',
     editToolsFailedAppendix(input.editToolsFailed),
     commandToolsFailedAppendix(input.commandToolsFailed),
-    scaffoldStrategyHonestyAppendix(
-      input.scaffoldStrategyConflictIssued,
-      input.editProposalCreated,
-      input.commandToolsFailed,
-    ),
+    scaffoldStrategyHonestyAppendix({
+      scaffoldStrategyConflictIssued: input.scaffoldStrategyConflictIssued,
+      scaffoldStrategyRecovered: input.scaffoldStrategyRecovered,
+      scaffoldStrategy: input.scaffoldStrategy,
+      editProposalCreated: input.editProposalCreated,
+      commandToolsFailed: input.commandToolsFailed,
+    }),
+    searchReplaceEscalationHonestyAppendix({
+      searchReplaceEscalationRecovered: input.searchReplaceEscalationRecovered,
+      editProposalCreated: input.editProposalCreated,
+    }),
     postScaffoldVerificationHonestyAppendix(
       input.postScaffoldVerificationIncomplete,
       input.postScaffoldMissingPaths,
+      {
+        scaffoldStrategy: input.scaffoldStrategy,
+        editProposalCreated: input.editProposalCreated,
+      },
     ),
     mergedEditProposalHonestyAppendix(
       input.editProposalCreated,

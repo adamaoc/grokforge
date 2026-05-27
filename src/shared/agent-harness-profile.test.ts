@@ -5,17 +5,21 @@ import {
   appendHarnessProfileToSystemPrompt,
   buildAgentToolLoopSharedSections,
   buildHarnessTurnPromptSections,
+  buildIterativeWorkToolDescriptionOverrides,
   buildVoiceHarnessAppendix,
   getHarnessProfile,
   getHarnessProfileForModelId,
+  WORK_ITERATIVE_SR_QUALITY_MARKER,
 } from './agent-harness-profile'
 import {
   POST_PLAN_INCREMENTAL_MARKER,
   SINGLE_FILE_EDIT_BIAS_MARKER,
 } from './post-plan-incremental'
 import { POPULATED_WORK_EDIT_MARKER } from './populated-workspace-edit'
-import { WORK_ITERATIVE_EDIT_MARKER } from './iterative-work-edit'
+import { WORK_ITERATIVE_EDIT_MARKER, WORK_SURGICAL_EDIT_MARKER } from './iterative-work-edit'
+import { ITERATIVE_EDIT_SCOPE_MARKER, resolveIterativeEditScope } from './iterative-edit-scope'
 import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
+import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from './agent-plan-verification'
 import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER } from './agent-bootstrap-manifest'
 import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from './agent-scaffold-strategy'
 
@@ -106,7 +110,10 @@ describe('buildHarnessTurnPromptSections', () => {
     const joined = sections.join('\n')
     expect(joined).toContain(GREENFIELD_HARNESS_MARKER)
     expect(joined).toContain(GREENFIELD_SCAFFOLD_MANIFEST_MARKER)
+    expect(joined).toContain(GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER)
     expect(joined).toMatch(/Vite \+ React \+ TS/i)
+    expect(joined).toMatch(/npx --yes serve/i)
+    expect(joined).toMatch(/python3 -m http\.server/i)
   })
 
   it('includes greenfield execute strategy routing when scaffoldStrategy set', () => {
@@ -165,21 +172,48 @@ describe('buildHarnessTurnPromptSections', () => {
   })
 
   it('includes iterative Work edit sections when iterativeWorkEdit', () => {
+    const scope = resolveIterativeEditScope({
+      userText: 'add localStorage persistence for todos',
+    })
     const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
       iterativeWorkEdit: true,
       populatedWorkspace: true,
       activeFilePath: '/proj/src/App.tsx',
+      iterativeEditScope: scope,
     })
     expect(sections.join('\n')).toContain(WORK_ITERATIVE_EDIT_MARKER)
+    expect(sections.join('\n')).toContain(WORK_SURGICAL_EDIT_MARKER)
     expect(sections.join('\n')).toContain(POPULATED_WORK_EDIT_MARKER)
+    expect(sections.join('\n')).toContain(ITERATIVE_EDIT_SCOPE_MARKER)
+    expect(sections.join('\n')).toContain('script.js')
     expect(sections.join('\n')).toContain('src/App.tsx')
     expect(sections.join('\n')).toMatch(/do \*\*not\*\* emit a new `gf-plan`/i)
+    expect(sections.join('\n')).toMatch(/localStorage/i)
+    expect(sections.join('\n')).toMatch(/Do \*\*not\*\* call `read_file` again/i)
   })
 
   it('uses bounded explore rules for iterative Work edits', () => {
     const shared = buildAgentToolLoopSharedSections({ iterativeWorkEdit: true })
     expect(shared.join('\n')).toMatch(/at most \*\*two\*\* read-only tool rounds/i)
     expect(shared.join('\n')).not.toMatch(/run discovery tools before proposing file changes/i)
+  })
+
+  it('includes iterative Work S&R quality sections when iterativeWorkEdit (139)', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      iterativeWorkEdit: true,
+    })
+    expect(sections.join('\n')).toContain(WORK_ITERATIVE_SR_QUALITY_MARKER)
+    expect(sections.join('\n')).toMatch(/rawContent/i)
+    expect(sections.join('\n')).toMatch(/exactly once/i)
+  })
+})
+
+describe('buildIterativeWorkToolDescriptionOverrides', () => {
+  it('emphasizes rawContent and once-only match for search_replace (139)', () => {
+    const overrides = buildIterativeWorkToolDescriptionOverrides()
+    expect(overrides.search_replace).toMatch(/rawContent/i)
+    expect(overrides.search_replace).toMatch(/exactly once|single-match/i)
+    expect(overrides.search_replace).toMatch(/expectedContentHash/i)
   })
 })
 

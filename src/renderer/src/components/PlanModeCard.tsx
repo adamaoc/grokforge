@@ -9,7 +9,6 @@ import {
   type PlanInteractionState,
   type PlanUiPhase,
 } from '@/lib/plan-interaction-storage'
-import { formatAgentTurnRoutingLine } from '@/lib/agent-turn-routing-display'
 import { PlanPhaseStepper } from '@/components/PlanPhaseStepper'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -110,7 +109,13 @@ export function PlanModeCard({
 
   return (
     <div className={cn('mt-3 max-w-full rounded-2xl border px-3 py-3 text-sm shadow-sm', headerTone)}>
-      <PlanPhaseStepper phase={uiPhase} routing={liveRouting} compact className="mb-3 border-b border-zinc-800/80 pb-3" />
+      <PlanPhaseStepper
+        phase={uiPhase}
+        routing={liveRouting}
+        compact
+        hideRoutingDetail
+        className="mb-3 border-b border-zinc-800/80 pb-3"
+      />
 
       {executeOutcomeSummary ? (
         <p className="mb-3 text-xs leading-relaxed text-amber-200/90">{executeOutcomeSummary}</p>
@@ -141,10 +146,6 @@ export function PlanModeCard({
           {planUiPhaseLabel(uiPhase)}
         </span>
       </div>
-
-      {uiPhase === 'executing' && liveRouting ? (
-        <p className="mt-2 font-mono text-[11px] text-zinc-400">{formatAgentTurnRoutingLine(liveRouting)}</p>
-      ) : null}
 
       <div className="mt-3">
         <div className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Steps</div>

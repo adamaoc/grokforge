@@ -122,32 +122,65 @@ export type ScaffoldConflictKind =
   | 'edits_before_cli'
   | 'cli_on_static'
 
+/** Collapse ambiguous strategy using plan shape for conflict checks only (story 131). */
+export function effectiveScaffoldStrategyForConflict(
+  strategy: ScaffoldStrategy | null,
+  plan?: GreenfieldScaffoldPlanHint | null,
+): ScaffoldStrategy | null {
+  if (!strategy || strategy !== 'ambiguous' || !plan) return strategy
+
+  const staticOnly =
+    planImpliesStaticFileBootstrap(plan) && !planImpliesNpmScaffold(plan)
+  const cliOnly = planImpliesNpmScaffold(plan) && !planImpliesStaticFileBootstrap(plan)
+
+  if (staticOnly) return 'file_bootstrap'
+  if (cliOnly) return 'cli_scaffold'
+  return 'ambiguous'
+}
+
 export function detectScaffoldConflict(
   strategy: ScaffoldStrategy | null,
   toolCalls: readonly ScaffoldToolCallLike[],
-  options: { scaffoldCliSucceededThisTurn: boolean },
+  options: {
+    scaffoldCliSucceededThisTurn: boolean
+    plan?: GreenfieldScaffoldPlanHint | null
+  },
 ): ScaffoldConflictKind | null {
-  if (!strategy) return null
+  const effectiveStrategy = effectiveScaffoldStrategyForConflict(strategy, options.plan)
+  if (!effectiveStrategy) return null
 
   const hasEdit = toolSampleHasEditTools(toolCalls)
-  const hasCmd = toolSampleHasRunCommand(toolCalls)
   const hasCliScaffold = toolSampleHasCliScaffoldCommand(toolCalls)
 
-  if (hasEdit && hasCmd) return 'hybrid_same_round'
+  if (hasEdit && hasCliScaffold) return 'hybrid_same_round'
 
   if (
-    (strategy === 'cli_scaffold' || strategy === 'cli_then_customize' || strategy === 'ambiguous') &&
+    (effectiveStrategy === 'cli_scaffold' ||
+      effectiveStrategy === 'cli_then_customize' ||
+      effectiveStrategy === 'ambiguous') &&
     hasEdit &&
     !options.scaffoldCliSucceededThisTurn
   ) {
     return 'edits_before_cli'
   }
 
-  if (strategy === 'file_bootstrap' && hasCliScaffold) {
+  if (effectiveStrategy === 'file_bootstrap' && hasCliScaffold) {
     return 'cli_on_static'
   }
 
   return null
+}
+
+/** True when a tool sample no longer triggers scaffold conflict detection (story 134). */
+export function isScaffoldSampleCompliant(
+  strategy: ScaffoldStrategy | null,
+  toolCalls: readonly ScaffoldToolCallLike[],
+  options: {
+    scaffoldCliSucceededThisTurn: boolean
+    plan?: GreenfieldScaffoldPlanHint | null
+  },
+): boolean {
+  return detectScaffoldConflict(strategy, toolCalls, options) === null
 }
 
 export function shouldInjectScaffoldStrategyNudge(input: {

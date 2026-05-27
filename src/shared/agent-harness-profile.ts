@@ -10,8 +10,13 @@ import {
   SINGLE_FILE_EDIT_BIAS_MARKER,
 } from './post-plan-incremental'
 import { POPULATED_WORK_EDIT_MARKER } from './populated-workspace-edit'
-import { WORK_ITERATIVE_EDIT_MARKER } from './iterative-work-edit'
+import { WORK_ITERATIVE_EDIT_MARKER, WORK_SURGICAL_EDIT_MARKER } from './iterative-work-edit'
+import {
+  buildIterativeEditScopeSections,
+  type IterativeEditScope,
+} from './iterative-edit-scope'
 import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
+import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from './agent-plan-verification'
 import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER } from './agent-bootstrap-manifest'
 import {
   SCAFFOLD_STRATEGY_ROUTING_MARKER,
@@ -43,18 +48,24 @@ export type HarnessPromptTurnContext = {
   populatedWorkspace?: boolean
   /** Active editor file path when iterativeWorkEdit (for harness focus hint). */
   activeFilePath?: string | null
+  /** Story 136: resolved edit scope for iterative Work turns. */
+  iterativeEditScope?: IterativeEditScope
 }
 
 const GREENFIELD_PLAN_SECTIONS: readonly string[] = [
   GREENFIELD_HARNESS_MARKER,
   GREENFIELD_SCAFFOLD_MANIFEST_MARKER,
+  GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER,
   'This workspace is **empty or nearly empty**. Plan a concrete bootstrap the executor can run without guessing paths.',
   '**Project shape:** Pick one and state it explicitly in the plan summary and steps:',
   '- **Vite + React + TS (or similar):** list `package.json`, `vite.config.ts`, `tsconfig.json`, `index.html`, `src/main.tsx`, `src/App.tsx`; include **`npm create`** / **`npm install`** steps for the executor (**126** `run_command` after approval).',
   '- **Static site (vanilla):** list `index.html`, `styles.css`, `script.js` with external `<script src="script.js">` — no `package.json` unless the user asked for a build tool.',
   '**File list:** Every `filesLikelyTouched` entry and each step title must name **concrete paths** under workspace roots (e.g. `src/App.tsx`, `package.json`, `index.html`) — no vague “add components” without paths.',
   '**Dependencies:** When the app needs npm, include `package.json` in `filesLikelyTouched`, an install step, and name verification commands (`npm install`, `npm run typecheck`, `npm test`) in `verification` and in step titles where appropriate.',
-  '**Verification:** Include at least one step the executor can validate with an approvable `run_command` (install, typecheck, test, or dev server smoke).',
+  '**Verification:** Include at least one **command-shaped** string the executor can run via approvable `run_command` — not browser-only checks for local static assets.',
+  '- **Static (`file_bootstrap`):** name a local serve command in `verification` and a step title (e.g. `npx --yes serve . -l 3000` or `python3 -m http.server 3000`), then manual browser UI check. User may substitute an equivalent serve command on their OS.',
+  '- **npm / Vite / React (`cli_scaffold`):** `npm install` (if needed), then `npm run dev`, `npm run typecheck`, or `npm run build` in `verification` and step titles.',
+  'Do **not** end with verification that is **only** “open in browser” when files are local HTML/CSS/JS — always include a preceding serve or build command.',
   '**Formatting:** Require real line breaks in HTML/CSS/JS — never one-line minified markup in the plan.',
   '**Tool budget:** Call `list_directory` once (plus retrieval if needed), then **stop discovery** and emit the `gf-plan` fence in your final answer — do not loop on more listing/search tools.',
 ]
@@ -93,16 +104,43 @@ const POPULATED_STACK_HINT_SECTIONS: readonly string[] = [
 
 const WORK_ITERATIVE_EDIT_SECTIONS: readonly string[] = [
   WORK_ITERATIVE_EDIT_MARKER,
+  WORK_SURGICAL_EDIT_MARKER,
   POPULATED_WORK_EDIT_MARKER,
   'This is an **existing project** — do **not** emit a new `gf-plan` or replan from scratch.',
   '**Turn goal:** One user request → one reviewable edit proposal. Split multi-feature asks across turns.',
   'If **Active file** is set in context, `read_file` that path first before broad `search_workspace` / `list_directory`.',
   'Spend at most **two** read-only tool rounds (`read_file`, `list_directory`, `search_workspace`) before the first `propose_file_edits` or `search_replace` on this turn.',
+  'For **localStorage**, **persist**, or **storage** features: prefer **one** `propose_file_edits` on **`script.js`** (or the active file) after **one** `read_file` — not chained `search_replace` across rounds.',
+  'Do **not** call `read_file` again on a path you already edited this turn unless `search_replace` failed on that path.',
+  'After **2** failed `search_replace` on a path, use one full-file `propose_file_edits` from `read_file` **`rawContent`** (harness 116 escalation).',
   'For large files (~80+ lines), use **localized** `search_replace` or a **minimal** full-file diff — do not rewrite entire components in one crushed dump unless the user asked for a full rewrite.',
   'Touch at most **2–3 paths** per turn unless the user listed more. One logical change per file.',
   'Use `read_file` with `startLine` / `maxLines` on large files before editing.',
   'Call **`run_command`** only when the user or plan implies install, scaffold, git, or verify — not for pure UI or component edits.',
 ]
+
+/** Stable marker for eval/tests when iterative Work S&R quality appendix is active (story 139). */
+export const WORK_ITERATIVE_SR_QUALITY_MARKER =
+  '## Work iterative search_replace quality (harness 139)'
+
+const WORK_ITERATIVE_SEARCH_REPLACE_SECTIONS: readonly string[] = [
+  WORK_ITERATIVE_SR_QUALITY_MARKER,
+  'Before your **first** `search_replace` on a path this turn: call `read_file` on that path; copy `old_string` **only** from **`rawContent`** (never from the line-numbered `content` field).',
+  'Include **3–8 complete lines** above and below the change in `old_string`; it must appear **exactly once** in the file.',
+  'Pass **`expectedContentHash`** from the latest `read_file` on that path.',
+  'For **vanilla JS todo apps**: edit the **event listener / render function** block as one contiguous span; for “add remove button”, extend the todo item template and `deleteTodo` handler in **one** patch.',
+  'When the file is **one long line** or **fewer than 20 lines**, skip `search_replace` — use **`propose_file_edits`** with full `rawContent` instead.',
+]
+
+/** Iterative Work tool description overrides (story 139) — merged at turn start in agent-runner. */
+export function buildIterativeWorkToolDescriptionOverrides(): Partial<
+  Record<AgentChatToolName, string>
+> {
+  return {
+    search_replace:
+      'Apply an exact **single-match** text replacement on an existing file and create a diff review proposal (does not write disk until the user applies). Copy `old_string` **verbatim** from `read_file` **`rawContent`** (not the line-numbered `content` field) — spacing and line breaks must match exactly once. Pass `expectedContentHash` from the latest `read_file` `contentHash` on this path. If `old_string` looks like numbered read_file lines, GrokForge strips line-number prefixes (**116**) — still prefer copying from `rawContent`. Prefer `propose_file_edits` when the file is one long line or under ~20 lines.',
+  }
+}
 
 export const GREENFIELD_EXECUTE_CLI_MARKER = 'Harness: greenfield execute CLI'
 
@@ -354,9 +392,13 @@ export function buildHarnessTurnPromptSections(
       ? `Active file in editor: **${ctx.activeFilePath.trim()}** — read it first when relevant.`
       : ''
     sections.push(activeHint, ...WORK_ITERATIVE_EDIT_SECTIONS)
+    if (ctx.iterativeEditScope) {
+      sections.push(...buildIterativeEditScopeSections(ctx.iterativeEditScope))
+    }
     if (ctx.populatedWorkspace) {
       sections.push(...POPULATED_STACK_HINT_SECTIONS)
     }
+    sections.push(...WORK_ITERATIVE_SEARCH_REPLACE_SECTIONS)
   }
   return sections.filter((s) => s.trim().length > 0)
 }

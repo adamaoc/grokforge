@@ -8,6 +8,7 @@ import {
   parseGfPlanFromAssistantContent,
   stripGfPlanFenceFromAssistantDisplay,
 } from './gf-plan-contract'
+import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from './agent-plan-verification'
 
 const validJson = JSON.stringify({
   schemaVersion: 1,
@@ -42,6 +43,18 @@ describe('gf-plan-contract', () => {
     expect(finalAnswer).toContain(GF_PLAN_OUTPUT_CONTRACT[0]!)
     expect(finalAnswer).not.toContain(AGENT_TOOL_FENCE_INFO)
     expect(finalAnswer).toContain('planner')
+  })
+
+  it('plan quality lines include static serve and npm verify guidance when greenfield', () => {
+    const finalAnswer = buildGfPlanFinalAnswerContract({
+      agentProfileId: 'planner',
+      profileKey: 'grok_4_3',
+      greenfieldWorkspace: true,
+    })
+    expect(finalAnswer).toContain(GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER)
+    expect(finalAnswer).toMatch(/npx --yes serve/i)
+    expect(finalAnswer).toMatch(/npm run typecheck/i)
+    expect(finalAnswer).toMatch(/browser-only verification/i)
   })
 
   it('stripGfPlanFence removes fence and incomplete tail', () => {

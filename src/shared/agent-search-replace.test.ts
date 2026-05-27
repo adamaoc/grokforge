@@ -29,6 +29,18 @@ describe('applySearchReplace', () => {
     expect(msg).toContain('function broken')
   })
 
+  it('buildSearchReplaceNotFoundMessage includes match stats and closest line (139)', () => {
+    const file = `function init() {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('ready');
+  });
+}
+`
+    const msg = buildSearchReplaceNotFoundMessage('function deleteTodo() {', file)
+    expect(msg).toContain('0 exact matches')
+    expect(msg).toMatch(/Closest line in file/i)
+  })
+
   it('errors when old_string matches multiple times', () => {
     const result = applySearchReplace('foo foo', 'foo', 'bar')
     expect(result.ok).toBe(false)

@@ -130,14 +130,25 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 
 - **Setup:** Empty workspace; **Vite+React+TS** plan with `npm create` step → **Approve and run**.
 - **Expected:** Harness includes scaffold strategy routing marker; model should sample **`run_command` only** first (no hand-written `package.json` in same round). Hybrid CLI + edits triggers **one** strategy nudge.
-- **Static plan:** HTML/CSS/JS plan without package manager → **`propose_file_edits` only**; no `npm create` nudge.
+- **Static plan:** HTML/CSS/JS plan without package manager → **`propose_file_edits` only**; no `npm create` nudge; happy path must **not** show **Harness: scaffold strategy conflict** activity (**131**).
 - **Non-regression:** Populated repo + “add CSS” → no scaffold strategy nudge.
 - **UI:** When command approval and file review are both pending during execute, footer mentions CLI awaiting approval.
-- **Automated:** `behavior:scaffold_cli_only_first`, `behavior:scaffold_file_bootstrap_static`, `behavior:scaffold_hybrid_nudge`, `routing:existing_project_no_scaffold_nudge` in `npm run test:agent-eval`.
+- **Automated:** `behavior:scaffold_cli_only_first`, `behavior:scaffold_file_bootstrap_static`, `behavior:scaffold_hybrid_nudge`, `behavior:scaffold_file_bootstrap_no_false_conflict`, `behavior:scaffold_verify_command_not_hybrid`, `routing:existing_project_no_scaffold_nudge` in `npm run test:agent-eval`.
 
 ---
 
-## 14. Non-greenfield Work edit (no replan)
+## 15. Greenfield static Todo — Plan → Execute quality (133)
+
+- **Setup:** Empty workspace folder as project root.
+- **Plan:** **Plan** mode — “Build a static todo app with HTML, CSS, and JS.” Expect `gf-plan` listing `index.html`, `styles.css`, `script.js` and browser verification (serve command in plan field — see **132**).
+- **Execute:** **Approve and run** → multi-file `propose_file_edits` with external `script.js` (not crushed inline JS in HTML); no false **Harness: scaffold strategy conflict** activity (**131**).
+- **Review:** Diff shows real line breaks on HTML/CSS/JS; primary `index.html` passes corrupt-content checks (**124**).
+- **Apply + verify:** Apply batch → run plan verification (`npx --yes serve .` or equivalent) → open in browser and smoke-test UI.
+- **Automated:** `behavior:greenfield_static_plan_execute_happy`, `validation:greenfield_static_html_corruption`, `behavior:greenfield_static_normalized_markdown` in `npm run test:agent-eval` (markdown tag is unit-level in `agent-file-content-normalize.test.ts`).
+
+---
+
+## 16. Non-greenfield Work edit (no replan)
 
 - **Setup A (Vite/React):** Open a scaffolded Vite + React project (`package.json`, `src/App.tsx`). **Work** mode, default chip (no Plan).
 - **Prompt A:** “Replace the home page with a simple task app (backlog, in progress, done).”
@@ -151,6 +162,48 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 
 ---
 
+## 17. Iterative Work edits — turn trace `harnessMetrics`
+
+- **Setup:** Small vanilla Todo workspace (`index.html`, `script.js`, …). **Work** mode.
+- **Prompt:** “Add localStorage persistence for todos.”
+- **After turn completes:** Open the last turn trace under `userData/workspace-projects/<projectId>/agent-traces/` (or **Settings → debug** export if exposed).
+- **Expected:** `harnessMetrics.iterativeWorkEdit: true`, `toolRoundCount` set, `editProposalAtRound` ≤ 4 when a proposal was created, `nudgesIssued` bounded (≤ 12 marker ids).
+- **Compare:** Same prompt before/after **135** — lower `toolRoundCount` and earlier `editProposalAtRound` indicate surgical enforcement is working.
+- **Automated:** `behavior:iterative_work_trace_metrics` in `npm run test:agent-eval`.
+
+---
+
+## 18. Iterative Work — search_replace fail-fast escalation (138)
+
+- **Setup:** Small vanilla Todo workspace. **Work** mode.
+- **Prompt:** “Add remove todo button.”
+- **Expected:** After **one** failed `search_replace` on `script.js`, harness injects escalation activity with `Harness: iterative search_replace escalation 138`; further S&R on that path returns blocked tool result; cooperative model path yields one `propose_file_edits` without `maxToolIterationsHit`.
+- **Automated:** `behavior:iterative_work_sr_fail_fast_escalate`, `behavior:iterative_work_sr_blocked_after_escalate`, `behavior:iterative_work_sr_no_max_iterations` in `npm run test:agent-eval`.
+
+---
+
+## 19. Iterative Work — search_replace first-attempt quality (139)
+
+- **Setup:** Small vanilla Todo workspace (`index.html`, `script.js`, …). **Work** mode.
+- **Prompt:** “Add remove todo button.”
+- **Expected:** First tool sample system prompt includes `## Work iterative search_replace quality (harness 139)`; localized UI pre-sample nudge `Harness: localized UI edit 139`; `search_replace` tool description mentions `rawContent` and once-only match. First S&R succeeds **or** fails once with richer not-found hint (match stats + closest line) so a second read+patch succeeds without `maxToolIterationsHit`.
+- **Compare:** Greenfield single-file workspace — default `search_replace` description (no “under ~20 lines” / **116** strip note).
+- **Automated:** `behavior:iterative_work_sr_quality_sections`, `behavior:iterative_work_sr_tool_override` in `npm run test:agent-eval`.
+
+---
+
+## 20. Iterative Work — search_replace loop debug (140)
+
+- **Setup:** Small vanilla Todo workspace. **Work** mode.
+- **Prompt:** “Add remove todo button.” (or any localized UI edit that triggers S&R failures)
+- **After turn completes or force-final:** Open the last turn trace under `userData/workspace-projects/<projectId>/agent-traces/`.
+- **Expected:** `harnessMetrics.searchReplace.totalFailures` ≥ 1 when S&R failed; `searchReplace.escalationIssued: true` when **116**/**138** nudge fired; `maxIterationsReason` set when budget exhausted (`search_replace_loop`, `post_escalation_stall`, or `generic`); activity row **Harness: edit tool budget exhausted** with failure count and path basename.
+- **Dev log (development build):** `[GrokForge] editMetrics srFailures=N escalation=true maxIterReason=…`
+- **Compare:** Same prompt before/after **138**/**139** — fewer failures and earlier escalation recovery.
+- **Automated:** `behavior:trace_search_replace_failure_metrics` in `npm run test:agent-eval`.
+
+---
+
 ## Related
 
 - Story **063** — eval harness foundation  
@@ -159,5 +212,10 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 - Story **116** — search_replace failure escalation nudge + honest final-answer UX
 - Story **129** — iterative Work stability on populated workspaces (executor routing, activity honesty, turn budget)
 - Story **130** — Work iterative edit harness (non-greenfield routing, bounded discovery, slim prompts)
+- Story **137** — iterative Work turn trace `harnessMetrics` (routing, nudges, proposal round)
+- Story **138** — iterative Work S&R fail-fast escalation (1-failure threshold, post-nudge block)
+- Story **139** — iterative Work S&R first-attempt quality (139 appendix, tool override, localized UI pre-sample, richer not-found hints)
+- Story **140** — S&R failure loop observability (`searchReplace` trace block, `maxIterationsReason`, budget activity)
+- Story **133** — greenfield static Todo Plan → Execute quality regression guard
 - [`AGENTS.md`](../AGENTS.md) — agent chat + harness eval policy  
 - [`docs/i-am-a-harness.md`](i-am-a-harness.md) — harness design reference

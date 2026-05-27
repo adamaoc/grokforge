@@ -133,6 +133,9 @@ export type AgentCommandApprovalRespondResult =
   | { ok: true }
   | { ok: false; error: string }
 
+/** Harness mid-turn nudge row semantics (story 134). */
+export type HarnessInterventionKind = 'correction' | 'blocked' | 'info'
+
 export type AgentChatActivityPayload = {
   id: string
   tool?: AgentChatToolName | 'retrieval'
@@ -143,6 +146,8 @@ export type AgentChatActivityPayload = {
   subjectPath?: string
   /** Story 112 — nest activity under a child subagent session. */
   childSessionId?: string
+  /** Story 134 — correction vs failure framing for harness intervention rows. */
+  harnessKind?: HarnessInterventionKind
 }
 
 export type AgentEditProposalRejectedFile = {

@@ -77,6 +77,16 @@ import {
 import { ChatThreadMarkdown } from "@/components/ChatThreadMarkdown";
 import { ChatWelcomeSuggestions } from "@/components/ChatWelcomeSuggestions";
 import {
+  buildChatWelcomeContent,
+  liveAssistantStatusPlaceholder,
+} from "@/lib/ui-copy";
+import type { AgentFileFocus } from "@/lib/agent-file-focus";
+import { readFollowAgentFiles } from "@/lib/context-panel-follow";
+import type {
+  AgentContextCompanionActions,
+  AgentContextCompanionSnapshot,
+} from "@/lib/agent-context-companion";
+import {
   AssistantMessageContextFooter,
   ChatLiveContextStrip,
   UserMessageContextRow,
@@ -151,7 +161,10 @@ import {
   hasActionableProposal,
   notifyMissingStructuredPlan,
 } from "@/lib/plan-execute-lifecycle";
-import { formatPlanExecutePendingSummary } from "@/lib/plan-execute-outcome";
+import {
+  formatPlanExecutePendingSummary,
+  hasRecoveredScaffoldStrategyActivity,
+} from "@/lib/plan-execute-outcome";
 import { AgentCommandApprovalCard } from "@/components/AgentCommandApprovalCard";
 import { usePlanExecuteLifecycle } from "@/hooks/usePlanExecuteLifecycle";
 import { scrollTranscriptToBottom } from "@/lib/chat-transcript-scroll";
@@ -283,6 +296,12 @@ interface ChatThreadProps {
    * reserve horizontal space so messages and composer do not run underneath it.
    */
   reserveContextBubbleInset?: boolean;
+  /** Editor column collapsed — controls follow-agent auto-open (143). */
+  editorPaneCollapsed?: boolean;
+  onCompanionSnapshotChange?: (snapshot: AgentContextCompanionSnapshot) => void;
+  onRegisterContextCompanionActions?: (
+    actions: AgentContextCompanionActions | null,
+  ) => void;
 }
 
 type PendingEditProposal = {
@@ -328,7 +347,7 @@ function makeWelcomeMessage(
   return {
     id: "welcome",
     role: "assistant",
-    content: `Hey! I'm GrokForge, your agentic coding companion. I've loaded your **${project.name}** project with ${project.roots.length} roots${activeRoot ? ` (active: **${activeRoot.label}**)` : ""}.\n\nI understand the full context across all roots. What would you like to build or change today?`,
+    content: buildChatWelcomeContent(project.name, activeRoot?.label ?? null),
     timestamp: new Date(),
   };
 }
@@ -365,6 +384,9 @@ export function ChatThread({
   onRegisterClearPendingAgentProposal,
   onAddChatAttachments,
   reserveContextBubbleInset = false,
+  editorPaneCollapsed = false,
+  onCompanionSnapshotChange,
+  onRegisterContextCompanionActions,
   voiceThreadSummaryRef,
   onRegisterVoiceHandoff,
   onStopVoiceForHandoff,
@@ -517,6 +539,8 @@ export function ChatThread({
   >([]);
   const agentActivitiesRef = useRef<AgentChatActivityPayload[]>([]);
   agentActivitiesRef.current = agentActivities;
+  const editorPaneCollapsedRef = useRef(editorPaneCollapsed);
+  editorPaneCollapsedRef.current = editorPaneCollapsed;
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const [liveSubagent, setLiveSubagent] =
     useState<AgentSubagentEventPayload | null>(null);
@@ -532,6 +556,9 @@ export function ChatThread({
   /** Shown with agent activity rows so tool steps align with the scoped turn (story 065). */
   const [liveTurnContext, setLiveTurnContext] =
     useState<ChatTurnContextV1 | null>(null);
+  const [agentFileFocus, setAgentFileFocus] = useState<AgentFileFocus | null>(
+    null,
+  );
   const [lastEditFailure, setLastEditFailure] =
     useState<AgentEditFailureEvent | null>(null);
 
@@ -722,9 +749,17 @@ export function ChatThread({
 
   const flushPendingAutoApply = useCallback(async (): Promise<ApplyBatchOutcome | null> => {
     if (!pendingAutoApplyRef.current) return null;
-    const raw = pendingProposalRef.current?.batch;
+    const pending = pendingProposalRef.current;
+    if (
+      !pending ||
+      pending.rejected.length > 0 ||
+      pending.batch.operations.length === 0
+    ) {
+      pendingAutoApplyRef.current = false;
+      return null;
+    }
+    const raw = pending.batch;
     pendingAutoApplyRef.current = false;
-    if (!raw) return null;
     const batch = normalizeProposalBatch(raw);
     if (pendingProposalRef.current) {
       const next = {
@@ -1018,6 +1053,7 @@ export function ChatThread({
         planExecuteStreamActive &&
         commandApprovals.length > 0 &&
         (pendingProposal?.uiPhase === "pending" ? pendingUniquePaths.length : 0) > 0,
+      scaffoldStrategyRecovered: hasRecoveredScaffoldStrategyActivity(agentActivities),
     });
     if (pendingSummary) return pendingSummary;
     if (pendingRejectedPaths.length === 0 || pendingProposal?.uiPhase !== "pending") {
@@ -1031,6 +1067,7 @@ export function ChatThread({
       .join(", ");
     return `${readyCount} of ${totalCount} planned files ready — ${rejectedNames} rejected`;
   }, [
+    agentActivities,
     commandApprovals.length,
     pendingProposal?.uiPhase,
     pendingRejectedPaths,
@@ -1069,6 +1106,16 @@ export function ChatThread({
           return next;
         });
         if (
+          p.activity.subjectPath &&
+          (p.activity.status === "done" || p.activity.status === "running")
+        ) {
+          setAgentFileFocus({
+            path: p.activity.subjectPath,
+            reason: "read",
+            streamId: p.streamId,
+          });
+        }
+        if (
           p.activity.status === "error" ||
           p.activity.status === "interrupted"
         ) {
@@ -1099,10 +1146,25 @@ export function ChatThread({
           "tool",
         );
         if (isVelocityTemperament()) {
-          pendingAutoApplyRef.current = true;
+          pendingAutoApplyRef.current =
+            next.rejected.length === 0 && next.batch.operations.length > 0;
         }
         pendingProposalRef.current = next;
         setPendingProposal(next);
+        const proposalPaths = Array.from(
+          new Set(next.batch.operations.map((op) => op.path)),
+        );
+        const primaryPath = proposalPaths[0];
+        if (primaryPath) {
+          setAgentFileFocus({
+            path: primaryPath,
+            reason: "proposal",
+            streamId: p.streamId,
+          });
+          if (readFollowAgentFiles() && editorPaneCollapsedRef.current) {
+            onOpenFileInEditorRef.current?.(primaryPath);
+          }
+        }
         requestAnimationFrame(() => {
           scrollTranscriptToBottom(messagesScrollRef.current);
         });
@@ -1585,11 +1647,10 @@ export function ChatThread({
 
     const effectiveActiveChatMode =
       options.activeChatMode ?? conversationModeToAgentChatMode(conversationMode);
-    const effectiveModelIntent = options.modelIntent ?? chatModelIntent;
     const isApprovedPlanAutoRun = options.isApprovedPlanAutoRun === true;
     const routedModelIntent = isApprovedPlanAutoRun
       ? "execution"
-      : effectiveModelIntent;
+      : (options.modelIntent ?? nextSendModelIntent);
 
     const turnCtx = buildTextAgentTurnContext({
       project,
@@ -2325,6 +2386,28 @@ export function ChatThread({
     }
   }, [findRootForPath, project.roots]);
 
+  useEffect(() => {
+    onRegisterContextCompanionActions?.({
+      onReviewDiff: () => {
+        if (pendingProposalRef.current?.uiPhase === "applied") {
+          reviewAppliedBatch();
+        } else {
+          reviewPendingBatch();
+        }
+      },
+      onApplyAll: () => applyPendingBatch(),
+      onDiscard: () => discardPendingProposal(),
+      onOpenFile: (path) => onOpenFileInEditorRef.current?.(path),
+    });
+    return () => onRegisterContextCompanionActions?.(null);
+  }, [
+    applyPendingBatch,
+    discardPendingProposal,
+    onRegisterContextCompanionActions,
+    reviewAppliedBatch,
+    reviewPendingBatch,
+  ]);
+
   const respondToCommandApproval = useCallback(
     async (request: AgentCommandApprovalRequest, approved: boolean) => {
       const api = window.electron?.agentCommandApprovalRespond;
@@ -2474,6 +2557,47 @@ export function ChatThread({
 
   const busy = isSending || isThinking || !!streamingStreamId;
 
+  useEffect(() => {
+    const path = liveTurnContext?.activeFilePath;
+    if (path && (streamingStreamId || isThinking)) {
+      setAgentFileFocus((prev) =>
+        prev?.reason === "proposal"
+          ? prev
+          : { path, reason: "active", streamId: streamingStreamId ?? undefined },
+      );
+    }
+  }, [liveTurnContext?.activeFilePath, streamingStreamId, isThinking]);
+
+  useEffect(() => {
+    onCompanionSnapshotChange?.({
+      hasPendingProposal:
+        pendingProposal?.uiPhase === "pending" && pendingUniquePaths.length > 0,
+      proposalPaths: pendingUniquePaths,
+      proposalApplied: pendingProposal?.uiPhase === "applied",
+      isLiveTurn: !!(streamingStreamId || isThinking),
+      liveActiveFilePath: liveTurnContext?.activeFilePath ?? null,
+      recentToolPaths: agentActivities
+        .map((a) => a.subjectPath)
+        .filter((p): p is string => Boolean(p))
+        .slice(-6)
+        .reverse(),
+      agentFileFocus,
+      canApplyProposal: hasAnyApplyablePath,
+      proposalBusy: busy,
+    });
+  }, [
+    agentActivities,
+    agentFileFocus,
+    busy,
+    hasAnyApplyablePath,
+    liveTurnContext?.activeFilePath,
+    onCompanionSnapshotChange,
+    pendingProposal?.uiPhase,
+    pendingUniquePaths,
+    streamingStreamId,
+    isThinking,
+  ]);
+
   const activeExecutePlanMessageId = planExecuteStreamActive
     ? executingPlanMessageId
     : null;
@@ -2609,22 +2733,6 @@ export function ChatThread({
     });
   }, []);
 
-  const latestToolActivityMessageId = useMemo(() => {
-    for (let i = threadList.length - 1; i >= 0; i--) {
-      const m = threadList[i];
-      if (m?.role !== "assistant" || m.id === "welcome") continue;
-      if (
-        streamingStreamId &&
-        m.id === assistantIdRef.current &&
-        agentActivities.length > 0
-      ) {
-        return m.id;
-      }
-      if (m.toolActivities && m.toolActivities.length > 0) return m.id;
-    }
-    return null;
-  }, [threadList, agentActivities, streamingStreamId]);
-
   if (messages === null) {
     return (
       <div className="flex h-full min-h-0 min-w-0 flex-col items-center justify-center bg-zinc-950 text-sm text-zinc-500">
@@ -2711,8 +2819,6 @@ export function ChatThread({
                         : storedToolActivities;
                     const showToolActivityList =
                       toolActivitiesForMessage.length > 0;
-                    const toolActivityDefaultExpanded =
-                      msg.id === latestToolActivityMessageId;
                     return (
                       <motion.div
                         key={msg.id}
@@ -2750,9 +2856,6 @@ export function ChatThread({
                               {subagentForMessage ? (
                                 <SubagentActivityBlock
                                   subagent={subagentForMessage}
-                                  defaultExpanded={
-                                    msg.id === latestToolActivityMessageId
-                                  }
                                   isLive={isLiveAssistantTurn}
                                 />
                               ) : null}
@@ -2764,9 +2867,8 @@ export function ChatThread({
                                       ? liveTurnContext
                                       : msg.turnContext
                                   }
-                                  defaultExpanded={toolActivityDefaultExpanded}
-                                  forceExpanded={isLiveAssistantTurn && liveActivityHasErrors}
                                   isLive={isLiveAssistantTurn}
+                                  forceExpanded={isLiveAssistantTurn && liveActivityHasErrors}
                                   planStepCount={
                                     activeExecutePlanMessageId === msg.id &&
                                     executingPlan
@@ -2806,13 +2908,12 @@ export function ChatThread({
                                   </p>
                                 ) : isLiveAssistantTurn && isThinking ? (
                                   <p className="text-sm leading-relaxed text-zinc-500">
-                                    {planExecuteStreamActive
-                                      ? "Executing plan (tools)…"
-                                      : liveTurnContext?.chatMode === "plan"
-                                        ? "Writing structured plan…"
-                                        : agentActivities.length > 0
-                                          ? "Running tools…"
-                                          : "Preparing response…"}
+                                    {liveAssistantStatusPlaceholder({
+                                      planExecuteStreamActive,
+                                      chatMode: liveTurnContext?.chatMode,
+                                      hasToolActivities: showToolActivityList,
+                                      suppressDuplicateStatus: showToolActivityList,
+                                    })}
                                   </p>
                                 ) : null}
                                 {plan ? (() => {
@@ -3010,11 +3111,12 @@ export function ChatThread({
                         style={{ animationDelay: "300ms" }}
                       />
                     </div>
-                    {agentActivities.length > 0
-                      ? liveTurnContext?.chatMode === "plan"
-                        ? "Writing structured plan…"
-                        : "Writing response…"
-                      : "Grok is thinking…"}
+                    {liveAssistantStatusPlaceholder({
+                      planExecuteStreamActive,
+                      chatMode: liveTurnContext?.chatMode,
+                      hasToolActivities: agentActivities.length > 0,
+                      suppressDuplicateStatus: agentActivities.length > 0,
+                    })}
                     <Button
                       type="button"
                       variant="outline"
@@ -3394,6 +3496,7 @@ export function ChatThread({
                 phase={composerPlanPhase}
                 routing={liveTurnRouting}
                 compact
+                hideRoutingDetail
               />
             </motion.div>
           ) : null}

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_NORMALIZED_MARKDOWN } from './agent-eval-tags'
 import {
   expandCollapsedSourceLineBreaks,
   expandGluedJavaScriptTokens,
@@ -36,6 +37,16 @@ describe('normalizeAgentWriteFileContent', () => {
   it('unescapes literal \\n when they dominate (model mistake)', () => {
     const broken = '# Hello\\n\\n## Section\\nBody line.'
     expect(normalizeAgentWriteFileContent(broken)).toBe('# Hello\n\n## Section\nBody line.')
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_NORMALIZED_MARKDOWN} — reflows glued README-style markdown`, () => {
+    const crushed =
+      '# Todo App ## Setup - Open index.html in browser ## Files - index.html - styles.css - script.js'
+    expect(looksLikeMarkdownDocument(crushed)).toBe(true)
+    expect(normalizeAgentWriteFileContent(crushed, '/proj/README.md').split('\n').length).toBeGreaterThan(
+      4,
+    )
+    expect(normalizeAgentWriteFileContent(crushed, '/proj/README.md')).toContain('## Setup')
   })
 
   it('reflows glued one-line markdown onto separate lines', () => {

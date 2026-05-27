@@ -52,14 +52,33 @@ export function hasCommandToolFailure(
   )
 }
 
+/** Story 134 — scaffold strategy nudge recovered in the same turn. */
+export function hasRecoveredScaffoldStrategyActivity(
+  activities: readonly { harnessKind?: string; detail?: string; title: string }[],
+): boolean {
+  return activities.some(
+    (activity) =>
+      activity.harnessKind === 'correction' &&
+      activity.detail === 'Corrected on retry' &&
+      activity.title.startsWith('Scaffold routing'),
+  )
+}
+
 /** Pending review summary for plan execute footer (story 123 / 126 / 128). */
 export function formatPlanExecutePendingSummary(input: {
   pendingFileCount: number
   pendingCommandCount: number
   /** Both CLI approval and file review pending during greenfield execute (128). */
   greenfieldScaffoldHybridPending?: boolean
+  /** Story 134 — harness already corrected tool order; omit hybrid alarm copy. */
+  scaffoldStrategyRecovered?: boolean
 }): string | null {
-  const { pendingFileCount, pendingCommandCount, greenfieldScaffoldHybridPending } = input
+  const {
+    pendingFileCount,
+    pendingCommandCount,
+    greenfieldScaffoldHybridPending,
+    scaffoldStrategyRecovered,
+  } = input
   if (pendingFileCount <= 0 && pendingCommandCount <= 0) return null
   const parts: string[] = []
   if (pendingFileCount > 0) {
@@ -75,6 +94,7 @@ export function formatPlanExecutePendingSummary(input: {
   const base = parts.join(', ')
   if (
     greenfieldScaffoldHybridPending &&
+    !scaffoldStrategyRecovered &&
     pendingCommandCount > 0 &&
     pendingFileCount > 0
   ) {
