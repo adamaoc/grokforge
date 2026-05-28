@@ -302,8 +302,14 @@ export function reflowMarkdownDocumentLineBreaks(content: string): string {
 
   const hadTrailingNewline = content.endsWith('\n')
   let out = content.trim()
+
+  // Stronger heading glue detection (handles "## Title  Text" and similar model output)
   out = out.replace(/([^\n#])\s*(#{1,6}\s+)/g, '$1\n\n$2')
+  // Catch double-space glue after heading text: "## Heading  Content" (common model mistake)
+  out = out.replace(/^(#{1,6}\s+\S[^#\n]{0,80}?)\s{2,}(\S)/gm, '$1\n\n$2')
+  // Bullet glue
   out = out.replace(/([^\n])\s+(-\s+\S)/g, '$1\n$2')
+
   out = out.replace(/\n{3,}/g, '\n\n')
   if (hadTrailingNewline && !out.endsWith('\n')) out += '\n'
   return out

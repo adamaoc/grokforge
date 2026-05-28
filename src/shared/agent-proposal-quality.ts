@@ -19,15 +19,24 @@ function markdownHeadingsFrom(text: string): string[] {
 
 /** H2 section titles only (used for repair — not substring matching on section names). */
 export function markdownH2TitlesFrom(text: string): string[] {
-  return [...text.matchAll(/^##\s+(.+?)\s*$/gm)].map((m) => m[1].trim())
+  return [...text.matchAll(/^##\s+(.+?)\s*$/gm)].map((m) => m[1].trim().replace(/\s{2,}/g, ' '))
 }
 
 /** True when section headings differ only by suffix like "(planned)" or minor renames. */
 export function sectionTitlesEquivalent(a: string, b: string): boolean {
-  const strip = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase()
+  const strip = (t: string) =>
+    t
+      .replace(/\s*\([^)]*\)\s*$/, '')
+      .replace(/\s{2,}/g, ' ') // tolerate double spaces the model sometimes inserts
+      .trim()
+      .toLowerCase()
   const na = strip(a)
   const nb = strip(b)
-  return na === nb || na.includes(nb) || nb.includes(na)
+  if (na === nb) return true
+  if (na.includes(nb) || nb.includes(na)) return true
+  // Allow minor article / punctuation differences for robustness
+  const simple = (s: string) => s.replace(/^(the|a|an)\s+/i, '').replace(/[:.]$/, '')
+  return simple(na) === simple(nb)
 }
 
 function countMissingOriginalH2Sections(originalOnDisk: string, proposal: string): number {
@@ -319,6 +328,10 @@ export function tryRepairMarkdownProposalFromDisk(
   if (proposed.split(/\r?\n/).length <= 3 || hasOverlongSourceLines(proposed, 200)) {
     proposed = reflowMarkdownDocumentLineBreaks(proposed)
   }
+  // Extra aggressive reflow pass for stubborn model output (double spaces after headings, etc.)
+  if (hasOverlongSourceLines(proposed, 180) || /#{1,6}\s+\S+\s{2,}\S/.test(proposed)) {
+    proposed = reflowMarkdownDocumentLineBreaks(proposed)
+  }
 
   const originalHeadings = markdownHeadingsFrom(originalOnDisk)
   if (originalHeadings.length < 2) return null
@@ -355,7 +368,14 @@ export function tryRepairMarkdownProposalFromDisk(
     }
     return null
   }
-  if (isUnacceptableCrushedMarkdownProposal(originalOnDisk, out, resolvedPath)) return null
+  if (isUnacceptableCrushedMarkdownProposal(originalOnDisk, out, resolvedPath)) {
+    // One final aggressive reflow + re-merge attempt before we accept defeat
+    const finalAttempt = reflowMarkdownDocumentLineBreaks(out)
+    if (!isUnacceptableCrushedMarkdownProposal(originalOnDisk, finalAttempt, resolvedPath)) {
+      return finalAttempt
+    }
+    return null
+  }
   return out
 }
 
@@ -383,6 +403,12 @@ export function isUnacceptableCrushedMarkdownProposal(
     if (missingH2 > 0 && lineRatio < 0.85) return true
     if (missingH2 >= 2) return true
     if (missingH2 === originalH2.length && proposalH2.length === 0) return true
+
+    // New tolerance: if we have most sections and line count is close, trust the reflow/repair
+    // This reduces false "repaired_still_crushed" rejections on real edits that are only slightly off.
+    if (missingH2 <= 1 && lineRatio >= 0.75 && proposalH2.length >= Math.max(1, originalH2.length - 1)) {
+      return false
+    }
   }
   return false
 }

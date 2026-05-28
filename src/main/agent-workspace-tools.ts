@@ -131,25 +131,40 @@ export const AGENT_TOOL_DEFINITIONS = [
     function: {
       name: 'search_replace',
       description:
-        'Apply an exact single-match text replacement on an existing file and create a diff review proposal (does not write disk until the user applies). Prefer this over full write_file for localized edits. old_string must occur exactly once and match read_file text (spacing and line breaks). Pass expectedContentHash from the latest read_file contentHash for this path.',
+        'Apply one or more targeted text replacements to an existing file and create a diff review proposal (does not write to disk until the user applies). This is the preferred surgical edit tool. Supports legacy single-edit and preferred multi-edit (edits[]) form. Strong fuzzy + normalization (whitespace, quotes, dashes, line endings, extra blank lines) + closest-match diagnostics on failure (returns actual file excerpts + suggested oldText you can copy). On repeated failures you will also receive suggestedMinimalProposal (a small localized write_file hunk) — use that with propose_file_edits instead of full-file rewrites. For follow-up edits on the same file in the same turn, the success result includes followUpGuidance. Always send expectedContentHash from the latest read_file contentHash.',
       parameters: {
         type: 'object',
         properties: {
           path: { type: 'string', description: 'Absolute path or path relative to the active workspace root.' },
           old_string: {
             type: 'string',
-            description: 'Exact text to find in the current file (must match exactly once).',
+            description: 'Legacy single-edit form: exact (or fuzzy-tolerant) text to find. Must match exactly once. Prefer edits[] for new work.',
           },
           new_string: {
             type: 'string',
-            description: 'Replacement text for the single matched old_string.',
+            description: 'Legacy single-edit form: replacement text.',
+          },
+          edits: {
+            type: 'array',
+            description: 'Preferred multi-edit form. Each edit is matched against the original file content (not incrementally). oldText must be unique. Fuzzy matching tolerates minor formatting differences.',
+            items: {
+              type: 'object',
+              properties: {
+                oldText: { type: 'string', description: 'Text to find (exact first, then fuzzy). Must be unique in the file.' },
+                newText: { type: 'string', description: 'Replacement text.' },
+              },
+              required: ['oldText', 'newText'],
+              additionalProperties: false,
+            },
           },
           expectedContentHash: {
             type: 'string',
             description: 'SHA-256 hex of the full file from read_file contentHash before editing.',
           },
         },
-        required: ['path', 'old_string', 'new_string', 'expectedContentHash'],
+        required: ['path', 'expectedContentHash'],
+        // old_string + new_string (legacy single) OR edits[] (preferred multi) must be present.
+        // Validation for presence/shape happens in the executor + schema parser.
         additionalProperties: false,
       },
     },

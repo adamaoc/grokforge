@@ -2,6 +2,7 @@ import {
   hasDominantLiteralEscapedNewlines,
   unescapeLiteralNewlinesWhenDominant,
 } from './agent-file-content-normalize'
+import { applyEdits, normalizeForFuzzyMatch } from './agent-edit-fuzzy'
 
 const NOT_FOUND_MESSAGE_MAX_CHARS = 500
 
@@ -242,7 +243,8 @@ function applySearchReplaceExact(
 
 /**
  * Apply a single exact `old_string` → `new_string` replacement when `old_string` occurs exactly once.
- * If `old_string` looks like read_file line-numbered content, retries once with prefixes stripped.
+ * Now uses the stronger fuzzy engine (agent-edit-fuzzy) as a fallback while preserving
+ * all the rich human-facing diagnostics from the original exact path.
  */
 export function applySearchReplace(
   content: string,
@@ -253,6 +255,7 @@ export function applySearchReplace(
   const trimmedOld = stripTrailingEmptyLines(normalized.oldString)
   const trimmedNew = stripTrailingEmptyLines(normalized.newString)
 
+  // Fast path: try the original exact + markdown trim logic first (unchanged behavior for perfect matches)
   const attempts: Array<{ old: string; neu: string }> = [
     { old: normalized.oldString, neu: normalized.newString },
     { old: trimmedOld, neu: trimmedNew },
@@ -268,5 +271,27 @@ export function applySearchReplace(
   const markdownTrim = applySearchReplaceMarkdownTrimEnd(content, trimmedOld, trimmedNew)
   if (markdownTrim) return markdownTrim
 
+  // New fuzzy path (non-destructive). If fuzzy succeeds we return success.
+  const fuzzyResult = applyEdits(content, [{ oldText: trimmedOld, newText: trimmedNew }], 'file')
+
+  if (fuzzyResult.ok) {
+    return {
+      ok: true,
+      content: fuzzyResult.content,
+      matchCount: 1,
+    }
+  }
+
+  // Fuzzy failed — it now includes rich closest-match guidance + suggestedOldText in the error.
+  // Prefer this over the pure exact error for much better model recoverability.
+  if (fuzzyResult.error && fuzzyResult.error.includes('Closest region in the actual file')) {
+    return {
+      ok: false,
+      error: fuzzyResult.error,
+      matchCount: 0,
+    }
+  }
+
+  // Final fallback to the original exact rich diagnostics
   return applySearchReplaceExact(content, normalized.oldString, normalized.newString)
 }

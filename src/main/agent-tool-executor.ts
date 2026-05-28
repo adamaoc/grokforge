@@ -25,6 +25,7 @@ import {
 } from './agent-workspace-tools'
 import { runSubagentSession } from './agent-subagent-runner'
 import { SpawnSubagentArgsSchema } from '../shared/agent-subagent-contract'
+import type { AgentTurn } from './agent-turn'
 
 export type AgentToolCallOutcome = {
   ok: boolean
@@ -58,6 +59,8 @@ export type AgentToolExecutorTurnState = {
   /** Iterative Work edit routing (138). */
   iterativeWorkEdit?: boolean
   searchReplaceEscalationNudgeIssued?: boolean
+  /** New explicit turn lifecycle holder (step toward clearer harness phases). */
+  agentTurn?: AgentTurn
 }
 
 function isAllowedToolName(name: string): name is AgentChatToolName {
@@ -192,10 +195,18 @@ export async function executeAgentToolCall(
         if (name === 'search_replace' && writeBatch && !writeBatch.ok) {
           doneTitle = 'Search replace failed'
           detail = writeBatch.error
-          toolContent = JSON.stringify({ ok: false, error: writeBatch.error })
+          const failPayload: any = { ok: false, error: writeBatch.error }
+          if ((writeBatch as any).suggestedMinimalProposal) {
+            failPayload.suggestedMinimalProposal = (writeBatch as any).suggestedMinimalProposal
+            failPayload.hint = 'Use the suggestedMinimalProposal (small localized write_file) with propose_file_edits instead of a full-file rewrite.'
+          }
+          toolContent = JSON.stringify(failPayload)
           if (searchReplaceParsed?.success) {
             const resolved = resolveAgentWorkspacePath(searchReplaceParsed.data.path, ctx)
-            if (resolved) recordSearchReplaceFailure(state.searchReplaceFailuresByPath, resolved)
+            if (resolved) {
+              recordSearchReplaceFailure(state.searchReplaceFailuresByPath, resolved)
+              state.agentTurn?.recordSearchReplaceFailure?.(resolved) // migrate toward explicit turn object
+            }
           }
         } else {
           if (name === 'search_replace' && writeBatch && writeBatch.ok) {
@@ -230,6 +241,9 @@ export async function executeAgentToolCall(
             const hadPriorProposal = turnProposalAccum != null
             turnProposalAccum = mergeAgentEditProposals(turnProposalAccum, proposalResult.proposal)
             if (hadPriorProposal) editProposalComposedInTurn = true
+
+            // Record into the explicit turn lifecycle object when available
+            state.agentTurn?.recordEditProposal?.(turnProposalAccum, editProposalComposedInTurn)
             if (name === 'propose_file_edits') {
               const firstOp = proposalResult.proposal?.batch.operations[0]
               if (firstOp?.path) {
@@ -251,12 +265,22 @@ export async function executeAgentToolCall(
                 ? ` · composed with prior edit on ${searchReplaceResolved.split(/[/\\]/).filter(Boolean).pop() ?? 'file'}`
                 : ''
             detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${validationSummary}` : ''}${chainNote}`
+            const isSearchReplaceSuccess = name === 'search_replace'
+            const followUp = isSearchReplaceSuccess && searchReplaceResolved
+              ? {
+                  forFollowUpEditsOnThisPath: true,
+                  note: 'For additional small changes to the same file later in this turn, you can base your next oldText on the content you just successfully patched (the harness composes internally). Include 4-8 lines of unique context and send the same expectedContentHash you used for this call.',
+                  chained: !!writeBatch?.chainedFromAccumulated,
+                }
+              : undefined
+
             toolContent = JSON.stringify({
               ok: true,
               proposalCreated: true,
               operations: count,
               rejected: turnProposalAccum.rejected,
               validationSummary,
+              ...(followUp ? { followUpGuidance: followUp } : {}),
               message:
                 'The proposal is now available in GrokForge for user diff review. Do not repeat the full JSON in the final answer.',
             })

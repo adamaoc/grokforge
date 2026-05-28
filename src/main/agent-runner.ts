@@ -28,6 +28,7 @@ import { isPathWithinWorkspaceRoots } from './workspace-path-guard'
 import { validateAgentEditProposal } from './agent-edit-proposals'
 import { buildAgentToolExecutionContext } from './agent-tool-execution-context-builder'
 import { executeAgentToolCall } from './agent-tool-executor'
+import { AgentTurn } from './agent-turn'
 import { pruneStaleAgentOffloads } from './agent-offload-store'
 import { buildApprovedPlanSystemInjection } from '../shared/agent-plan-artifact'
 import {
@@ -1238,6 +1239,9 @@ async function runAgentTurn(
   const creationIntegrityFailuresByPath = new Map<string, number>()
   let creationIncrementalRecoveryIssued = false
 
+  // New: explicit per-turn state holder (step toward Pi-style lifecycle clarity)
+  const agentTurn = new AgentTurn()
+
   const onFinalChunk = scratch
     ? (delta: string) => {
         scratch.assistantStreamChars += delta.length
@@ -1499,6 +1503,8 @@ async function runAgentTurn(
           scaffoldExpectedTemplate,
           iterativeWorkEdit: incrementalEditEnforcement,
           searchReplaceEscalationNudgeIssued,
+          // Pass the new explicit turn lifecycle holder (future: more state will move here)
+          agentTurn,
         },
         { emit, approvalRequestId: activityId(), waitForCommandApproval },
       )
