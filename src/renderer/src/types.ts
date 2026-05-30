@@ -122,6 +122,11 @@ import type {
   AgentChatStartResult,
   AgentChatThreadMessage,
 } from '../../shared/agent-chat-contract'
+import type {
+  AgentProposalReview,
+  AgentProposalReviewRequest,
+  AgentProposalReviewResult,
+} from '../../shared/agent-proposal-reviewer'
 export type { AgentSubagentEventPayload } from '../../shared/agent-subagent-contract'
 import type { HarnessProfileKey } from '../../shared/agent-harness-profile-contract'
 import { resolveHarnessProfileKey } from '../../shared/agent-harness-profile-contract'
@@ -213,6 +218,9 @@ export type {
   AgentChatEventPayload,
   AgentChatTextModelIntent,
   AgentChatTurnRouting,
+  AgentProposalReview,
+  AgentProposalReviewRequest,
+  AgentProposalReviewResult,
   HarnessProfileKey,
   RefreshProjectIntelligenceResult,
   AgentChatStartPayload,

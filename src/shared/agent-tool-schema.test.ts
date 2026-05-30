@@ -1,6 +1,35 @@
 import { describe, expect, it } from 'vitest'
 import { AGENT_TOOL_FENCE_INFO, AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
-import { stripAgentToolFenceFromAssistantDisplay } from '../shared/agent-tool-schema'
+import { AgentToolBatchPayloadSchema, stripAgentToolFenceFromAssistantDisplay } from '../shared/agent-tool-schema'
+
+describe('AgentToolBatchPayloadSchema', () => {
+  it('parses write_file with malformed expectedContentHash (story 154)', () => {
+    const parsed = AgentToolBatchPayloadSchema.safeParse({
+      version: AGENT_TOOL_PROTOCOL_VERSION,
+      operations: [
+        {
+          op: 'write_file',
+          path: '/proj/src/new.ts',
+          content: 'export const x = 1\n',
+          expectedContentHash: 'not-a-valid-hash',
+        },
+      ],
+    })
+    expect(parsed.success).toBe(true)
+    if (!parsed.success) throw new Error(parsed.error.message)
+    expect(parsed.data.operations[0]).toMatchObject({
+      expectedContentHash: 'not-a-valid-hash',
+    })
+  })
+
+  it('rejects invalid operation shape', () => {
+    const parsed = AgentToolBatchPayloadSchema.safeParse({
+      version: AGENT_TOOL_PROTOCOL_VERSION,
+      operations: [{ op: 'write_file', path: '/a.ts' }],
+    })
+    expect(parsed.success).toBe(false)
+  })
+})
 
 describe('stripAgentToolFenceFromAssistantDisplay', () => {
   const batchJson = JSON.stringify(

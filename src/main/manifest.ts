@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AgentReviewerConfigSchema } from '../shared/agent-proposal-reviewer'
 
 export const RootSchema = z.object({
   id: z.string(),
@@ -23,6 +24,7 @@ export const GrokProjectManifestSchema = z.object({
     reasoning: z.string(),
     voice: z.string(),
   }),
+  reviewer: AgentReviewerConfigSchema.optional(),
   voice: z.object({
     enabled: z.boolean(),
     defaultVoiceMode: z.enum(['full-duplex', 'push-to-talk', 'off']),

@@ -24,6 +24,7 @@ const emptyFinalizeInput = {
   readOnlyRounds: 0,
   searchReplaceCountByPath: new Map<string, number>(),
   searchReplaceFailuresByPath: new Map<string, number>(),
+  proposalRejectionsByPath: new Map<string, number>(),
   searchReplaceEscalationIssued: false,
   searchReplaceBlockedAfterEscalationCount: 0,
   searchReplaceLastFailureReasons: [] as string[],
@@ -130,6 +131,23 @@ describe('agent-harness-metrics', () => {
         forceFinalFromEditFailures: true,
       }),
     ).toBe('post_escalation_stall')
+  })
+
+  it('resolveMaxIterationsReason returns proposal_rejection_loop when flagged (151)', () => {
+    expect(
+      resolveMaxIterationsReason({
+        totalSearchReplaceFailures: 0,
+        searchReplaceBlockedAfterEscalationCount: 0,
+        searchReplaceEscalationNudgeIssued: false,
+        incompleteHtmlNudgeIssued: false,
+        postEscalationToolRounds: 0,
+        postEscalationMaxToolRounds: 2,
+        maxSearchReplaceFailuresPerTurn: 6,
+        blockedBeforeForceFinalThreshold: 2,
+        forceFinalFromEditFailures: true,
+        proposalRejectionLoop: true,
+      }),
+    ).toBe('proposal_rejection_loop')
   })
 
   it('formatHarnessMetricsDevLogLine builds stable one-liner', () => {

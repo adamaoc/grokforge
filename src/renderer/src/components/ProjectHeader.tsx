@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { MoreHorizontal, Search, Terminal, Clock, Pencil, SearchCode } from 'lucide-react'
+import { MoreHorizontal, Search, Terminal, Clock, Pencil, SearchCode, Mic } from 'lucide-react'
+import { VoiceHeaderTrigger } from '@/components/VoiceControls'
+import type { VoiceHeaderIndicator } from '@/lib/voice-ui-state'
 import type { AppInfoPayload, GrokProjectManifest, Root } from '@/types'
 import { formatDistanceToNow } from 'date-fns'
 import { RootTypeDot } from '@/components/grokforge/RootTypeDot'
@@ -26,6 +28,11 @@ interface ProjectHeaderProps {
   onOpenSearch?: () => void
   /** Opens integrated terminal (story 017). */
   onOpenTerminal?: () => void
+  /** Opens voice controls (story 158). */
+  onOpenVoice?: () => void
+  voiceDisabled?: boolean
+  voicePanelOpen?: boolean
+  voiceHeaderIndicator?: VoiceHeaderIndicator
   onOpenSettings?: () => void
 }
 
@@ -35,6 +42,10 @@ export function ProjectHeader({
   onEditProjectName,
   onOpenSearch,
   onOpenTerminal,
+  onOpenVoice,
+  voiceDisabled = false,
+  voicePanelOpen = false,
+  voiceHeaderIndicator,
   onOpenSettings,
 }: ProjectHeaderProps) {
   const [contextModalOpen, setContextModalOpen] = useState(false)
@@ -143,6 +154,14 @@ export function ProjectHeader({
               <Terminal size={14} /> Terminal
             </button>
           ) : null}
+          {onOpenVoice && voiceHeaderIndicator ? (
+            <VoiceHeaderTrigger
+              onClick={onOpenVoice}
+              disabled={voiceDisabled}
+              pressed={voicePanelOpen}
+              indicator={voiceHeaderIndicator}
+            />
+          ) : null}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -166,6 +185,14 @@ export function ProjectHeader({
               ) : null}
               {onOpenTerminal ? (
                 <DropdownMenuItem onSelect={() => onOpenTerminal()}>Terminal…</DropdownMenuItem>
+              ) : null}
+              {onOpenVoice ? (
+                <DropdownMenuItem onSelect={() => onOpenVoice()} disabled={voiceDisabled}>
+                  <span className="flex items-center gap-2">
+                    <Mic size={14} className="text-zinc-500" aria-hidden />
+                    Voice…
+                  </span>
+                </DropdownMenuItem>
               ) : null}
               <DropdownMenuItem
                 onSelect={() => onOpenSettings?.()}

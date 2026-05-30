@@ -23,4 +23,10 @@ describe('mapActivityTitleForDisplay', () => {
     expect(mapped.displayTitle).toBe('Working…')
     expect(mapped.technicalTitle).toBe('Work tool round')
   })
+
+  it('maps compacted edit failure titles (story 155)', () => {
+    const mapped = mapActivityTitleForDisplay('Edit proposal failed ×3 on script.js')
+    expect(mapped.displayTitle).toBe('Edit issue on script.js (×3)')
+    expect(mapped.technicalTitle).toBe('Edit proposal failed ×3 on script.js')
+  })
 })

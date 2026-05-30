@@ -20,7 +20,7 @@ describe('buildRegenerateProposalMessage', () => {
     expect(message).toContain('.env: Path looks sensitive')
     expect(message).toContain('read_file')
     expect(message).toContain('expectedContentHash')
-    expect(message).toContain('search_replace')
+    expect(message).toContain('primary `edit` tool')
   })
 
   it('works with minimal input', () => {

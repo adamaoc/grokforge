@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { ChevronDown, Folder, Mic } from 'lucide-react'
-import type { ChatTurnContextV1, GrokProjectManifest, Root } from '@/types'
+import { ChevronDown, Mic } from 'lucide-react'
+import type { ChatTurnContextV1 } from '@/types'
 import { cn } from '@/lib/utils'
 import { ModelBadge } from '@/components/grokforge/ModelBadge'
 import { Button } from '@/components/ui/button'
@@ -12,8 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { formatModelIntentLabel } from '@/lib/chat-turn-context'
-import { chatModeDisplayLabel, conversationModeLabel } from '@/lib/conversation-lifecycle'
+import { chatModeDisplayLabel } from '@/lib/conversation-lifecycle'
 
 function compactFileLabel(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean)
@@ -26,85 +25,6 @@ function chatVoiceChromeClass(source: ChatTurnContextV1['source'] | undefined): 
     return 'border-violet-800/55 bg-violet-950/25'
   }
   return 'border-zinc-800/90 bg-zinc-900/50'
-}
-
-export function ChatLiveContextStrip({
-  project,
-  activeRoot,
-  activeFilePath,
-  pinnedCount = 0,
-  conversationMode,
-  chatModelIntent,
-  displayThreadModel,
-  planWorkflowExecuting = false,
-}: {
-  project: GrokProjectManifest
-  activeRoot: Root | null
-  activeFilePath: string | null | undefined
-  pinnedCount?: number
-  conversationMode: 'normal' | 'plan'
-  chatModelIntent: 'chat_default' | 'planning' | 'execution'
-  displayThreadModel: string
-  planWorkflowExecuting?: boolean
-}) {
-  const agentModeLabel = planWorkflowExecuting
-    ? 'execute'
-    : conversationModeLabel(conversationMode).toLowerCase()
-  const showIntentHumanLabel = chatModelIntent !== 'planning'
-
-  return (
-    <div className="sticky top-0 z-10 -mx-4 mb-4 border-b border-zinc-800/80 bg-zinc-950/90 px-4 py-2.5 backdrop-blur-sm">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
-        <span className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Next send</span>
-        <ModelBadge variant="pill" className="text-zinc-400" title="GrokForge model intent (manifest slot)">
-          {chatModelIntent}
-        </ModelBadge>
-        {showIntentHumanLabel ? (
-          <>
-            <span className="text-zinc-600">·</span>
-            <span className="text-zinc-400">{formatModelIntentLabel(chatModelIntent)}</span>
-          </>
-        ) : null}
-        <span className="text-zinc-600">·</span>
-        <ModelBadge variant="pill" title="Resolved xAI model id" className="max-w-[min(100%,14rem)] text-zinc-400">
-          {displayThreadModel}
-        </ModelBadge>
-        <span className="text-zinc-600">·</span>
-        <span className="rounded-md border border-zinc-800 bg-zinc-950/60 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
-          Conversation: {agentModeLabel}
-        </span>
-      </div>
-      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-zinc-800/80 pt-2">
-        <Folder size={12} className="shrink-0 text-zinc-500" aria-hidden />
-        <span className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">Roots</span>
-        <span className="min-w-0 text-zinc-300">
-          {project.roots.map((r) => r.label).join(', ')}
-        </span>
-      </div>
-      <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2 text-[11px] text-zinc-500">
-        <span className="shrink-0 text-zinc-600">Active root</span>
-        <span className="min-w-0 truncate text-zinc-300">{activeRoot?.label ?? '—'}</span>
-        {activeFilePath?.trim() ? (
-          <>
-            <span className="text-zinc-600">·</span>
-            <span className="shrink-0 text-zinc-600">File</span>
-            <span className="min-w-0 truncate font-mono text-[10px] text-zinc-400" title={activeFilePath}>
-              {compactFileLabel(activeFilePath)}
-            </span>
-          </>
-        ) : null}
-        {pinnedCount > 0 ? (
-          <>
-            <span className="text-zinc-600">·</span>
-            <span className="shrink-0 text-zinc-600">Pinned</span>
-            <span className="text-zinc-400">
-              {pinnedCount} path{pinnedCount === 1 ? '' : 's'}
-            </span>
-          </>
-        ) : null}
-      </div>
-    </div>
-  )
 }
 
 function TurnContextDetailsBody({ tc }: { tc: ChatTurnContextV1 }) {

@@ -40,6 +40,10 @@ import type {
   RefreshProjectIntelligenceResult,
 } from './agent-chat-contract'
 import type {
+  AgentProposalReviewRequest,
+  AgentProposalReviewResult,
+} from './agent-proposal-reviewer'
+import type {
   ExportSanitizedAgentTurnTraceResult,
   GetLastAgentTurnTraceResult,
   ReplayAgentRetrievalPreviewResult,
@@ -124,6 +128,7 @@ export type ElectronAPI = {
   agentChatCapabilities(): Promise<AgentChatCapabilitiesResult>
   refreshProjectIntelligence(): Promise<RefreshProjectIntelligenceResult>
   agentChatStart(payload: AgentChatStartPayload): Promise<AgentChatStartResult>
+  agentReviewProposal(payload: AgentProposalReviewRequest): Promise<AgentProposalReviewResult>
   computeAgentContentHash(content: string): Promise<string | null>
   agentChatCancel(streamId: string): Promise<{ ok: boolean }>
   agentCommandApprovalRespond(payload: AgentCommandApprovalResponse): Promise<AgentCommandApprovalRespondResult>

@@ -209,6 +209,17 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 
 ---
 
+## 21. Direct Work TaskBoard single-file HTML (163)
+
+- **Setup:** Empty workspace folder as project root. **Work** mode (fast), default chip — **not** Plan, **not** Approve and run.
+- **Prompt:** `TASKBOARD_WORK_DIRECT_USER_PROMPT` in `agent-eval-fixtures.ts` (dogfood: create a taskboard prototype in one HTML file).
+- **Failure path:** Model repeats crushed/malformed `propose_file_edits` on `index.html` → **Harness: incremental file creation**, then force-final with honest no-write final answer; system prompt includes **161** Work bootstrap marker (not execute-from-plan bootstrap).
+- **Happy paths:** (1) shell-first recovery after **162** nudge → one `edit_proposal`; (2) normalize-repaired one-line HTML accepted on first propose (**160**).
+- **Compare:** **156** covers the same transport on **approve-and-run** (`dogfood:taskboard_prototype_failure`); keep both tags.
+- **Automated:** `dogfood:taskboard_work_direct`, `dogfood:taskboard_work_direct_success` in `npm run test:agent-eval` (filter: `-t taskboard_work_direct`).
+
+---
+
 ## Related
 
 - Story **063** — eval harness foundation  
@@ -222,5 +233,7 @@ Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, rout
 - Story **139** — iterative Work S&R first-attempt quality (139 appendix, tool override, localized UI pre-sample, richer not-found hints)
 - Story **140** — S&R failure loop observability (`searchReplace` trace block, `maxIterationsReason`, budget activity)
 - Story **133** — greenfield static Todo Plan → Execute quality regression guard
+- Story **156** — TaskBoard prototype failure (approve-and-run)
+- Story **163** — Direct Work TaskBoard greenfield eval (156 sibling)
 - [`AGENTS.md`](../AGENTS.md) — agent chat + harness eval policy  
 - [`docs/i-am-a-harness.md`](i-am-a-harness.md) — harness design reference

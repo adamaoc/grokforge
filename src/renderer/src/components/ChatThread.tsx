@@ -36,6 +36,7 @@ import type {
   AgentChatEventPayload,
   AgentChatTurnRouting,
   AgentEditProposalRejectedFile,
+  AgentProposalReview,
   ChatTurnContextV1,
   DiffSession,
   GrokProjectManifest,
@@ -88,7 +89,6 @@ import type {
 } from "@/lib/agent-context-companion";
 import {
   AssistantMessageContextFooter,
-  ChatLiveContextStrip,
   UserMessageContextRow,
 } from "@/components/ChatTurnContextUi";
 import { AgentTurnToolActivityList } from "@/components/AgentTurnToolActivityList";
@@ -112,7 +112,15 @@ import {
 } from "@/lib/workspace-path-check";
 import { getLanguageFromPath } from "@/lib/getLanguageFromPath";
 import { basenamePath } from "@/lib/workspace-paths";
-import { assistantReplyClaimsEditOutcomeWithoutTool } from "@/lib/assistant-disk-claim-heuristic";
+import {
+  assistantReplyClaimsEditSuccessDespiteNoProposal,
+  turnHadFailedEditActivities,
+} from "@/lib/assistant-disk-claim-heuristic";
+import {
+  resolveFailedEditFinalAnswerDisplayContext,
+  sanitizeFailedEditFinalAnswerDisplay,
+  shouldSanitizeFailedEditFinalAnswerDisplay,
+} from "@/lib/assistant-final-answer-sanitize";
 import type { ParsedAgentToolBatch } from "../../../shared/agent-tool-schema";
 import { stripAgentToolFenceFromAssistantDisplay } from "../../../shared/agent-tool-schema";
 import { AGENT_TOOL_FENCE_INFO } from "../../../shared/agent-tool-contract";
@@ -307,6 +315,7 @@ interface ChatThreadProps {
 type PendingEditProposal = {
   batch: ParsedAgentToolBatch;
   rejected: AgentEditProposalRejectedFile[];
+  review?: AgentProposalReview;
   source: "tool";
   uiPhase: "pending" | "applied";
   /** Normalized path → disk content before last successful apply (for post-apply diff). */
@@ -401,6 +410,7 @@ export function ChatThread({
   const [streamingStreamId, setStreamingStreamId] = useState<string | null>(
     null,
   );
+  const [isReviewingProposal, setIsReviewingProposal] = useState(false);
   /** True from send intent until stream/mock completes — blocks double Enter and double click. */
   const [isSending, setIsSending] = useState(false);
   /** While a turn is in flight, keep the transcript pinned to the latest chunk (avoids the user bubble sitting off-screen). */
@@ -699,6 +709,7 @@ export function ChatThread({
       incoming: {
         batch: ParsedAgentToolBatch;
         rejected: AgentEditProposalRejectedFile[];
+        review?: AgentProposalReview;
       },
       source: PendingEditProposal["source"],
     ): PendingEditProposal => {
@@ -716,11 +727,13 @@ export function ChatThread({
           ? {
               batch: prior.batch,
               rejected: prior.rejected,
+              review: prior.review,
             }
           : null,
         {
           batch: normalizeProposalBatch(incoming.batch),
           rejected: incoming.rejected,
+          review: incoming.review,
         },
       );
       const replacedSamePath = incomingPathKeys.some((key) =>
@@ -740,6 +753,7 @@ export function ChatThread({
       return {
         batch: mergedPayload.batch as ParsedAgentToolBatch,
         rejected: mergedPayload.rejected,
+        review: mergedPayload.review,
         source: prior?.source ?? source,
         uiPhase: "pending",
       };
@@ -774,6 +788,7 @@ export function ChatThread({
 
   const pendingWriteBatch = pendingProposal?.batch ?? null;
   const pendingRejectedPaths = pendingProposal?.rejected ?? [];
+  const pendingProposalReview = pendingProposal?.review;
   const isAppliedProposal = pendingProposal?.uiPhase === "applied";
 
   const pendingUniquePaths = useMemo(() => {
@@ -826,6 +841,40 @@ export function ChatThread({
     }
     return undefined;
   }, [messages]);
+
+  const reviewPendingProposalWithReviewer = useCallback(async () => {
+    const proposal = pendingProposalRef.current;
+    const reviewProposal = window.electron?.agentReviewProposal;
+    if (!proposal || proposal.uiPhase !== "pending" || !reviewProposal) return;
+    setIsReviewingProposal(true);
+    try {
+      const result = await reviewProposal({
+        proposal: {
+          batch: proposal.batch,
+          rejected: proposal.rejected,
+          review: proposal.review,
+        },
+        userText: lastUserMessageHint,
+      });
+      if (!result.ok) {
+        toast.error("Reviewer failed", { description: result.error });
+        return;
+      }
+      const latest = pendingProposalRef.current;
+      if (!latest) return;
+      const next = { ...latest, review: result.review };
+      pendingProposalRef.current = next;
+      setPendingProposal(next);
+      toast.message(
+        result.review.overallVerdict === "pass"
+          ? "Reviewer passed the proposal"
+          : "Reviewer flagged the proposal",
+        { description: result.review.summary },
+      );
+    } finally {
+      setIsReviewingProposal(false);
+    }
+  }, [lastUserMessageHint]);
 
   useEffect(() => {
     const batch = pendingWriteBatch;
@@ -1089,9 +1138,7 @@ export function ChatThread({
     [project, nextSendModelIntent],
   );
 
-  /** After `turn_started`, badges and context strip use canonical main routing only. */
-  const visibleModelIntent =
-    liveTurnRouting?.modelIntent ?? nextSendModelIntent;
+  /** After `turn_started`, composer model badge uses canonical main routing only. */
   const visibleModelId = liveTurnRouting?.modelId ?? nextSendDisplayModel;
 
   const processAgentStreamEvent = useCallback(
@@ -1142,6 +1189,7 @@ export function ChatThread({
           {
             batch: p.proposal.batch as ParsedAgentToolBatch,
             rejected: p.proposal.rejected,
+            review: p.proposal.review,
           },
           "tool",
         );
@@ -1283,13 +1331,25 @@ export function ChatThread({
           !actionableProposal &&
           !endedInPlanMode &&
           !executingPlanMsgId &&
-          assistantReplyClaimsEditOutcomeWithoutTool(finalContent)
+          assistantReplyClaimsEditSuccessDespiteNoProposal(
+            finalContent,
+            agentActivitiesRef.current,
+          )
         ) {
-          toast.message("No file edit proposal was attached", {
-            description:
-              "This reply reads like a diff is ready or files were changed, but GrokForge did not receive search_replace or propose_file_edits. Ask the model to call an edit tool.",
-            duration: 14_000,
-          });
+          const hadEditFailures = turnHadFailedEditActivities(
+            agentActivitiesRef.current,
+          );
+          toast.message(
+            hadEditFailures
+              ? "No file was written this turn"
+              : "No file edit proposal was attached",
+            {
+              description: hadEditFailures
+                ? "Edit tools failed validation and nothing was applied, but this reply reads like a completed file or diff. Retry with a clean propose_file_edits or edit manually."
+                : "This reply reads like a diff is ready or files were changed, but GrokForge did not receive search_replace or propose_file_edits. Ask the model to call an edit tool.",
+              duration: 14_000,
+            },
+          );
         }
         const validPlan = trimmedFinal
           ? parseGfPlanFromAssistantContent(finalContent)
@@ -2760,26 +2820,47 @@ export function ChatThread({
                     : "pr-4",
                 )}
               >
-                <ChatLiveContextStrip
-                  project={project}
-                  activeRoot={activeRoot}
-                  activeFilePath={activeFilePath}
-                  pinnedCount={pinnedContext.length}
-                  conversationMode={conversationMode}
-                  chatModelIntent={visibleModelIntent}
-                  displayThreadModel={visibleModelId}
-                  planWorkflowExecuting={busy && planExecuteStreamActive}
-                />
                 <AnimatePresence>
                   {threadList.map((msg, index) => {
                     const plan =
                       msg.role === "assistant"
                         ? parseGfPlanFromAssistantContent(msg.content)
                         : null;
-                    const assistantMarkdown =
+                    const isLiveAssistantTurn =
+                      msg.role === "assistant" &&
+                      Boolean(streamingStreamId) &&
+                      msg.id === assistantIdRef.current;
+                    const liveToolActivities = isLiveAssistantTurn
+                      ? agentActivities
+                      : [];
+                    const storedToolActivities = msg.toolActivities ?? [];
+                    const toolActivitiesForMessage =
+                      liveToolActivities.length > 0
+                        ? liveToolActivities
+                        : storedToolActivities;
+                    const failedEditDisplayCtx =
+                      resolveFailedEditFinalAnswerDisplayContext(
+                        toolActivitiesForMessage,
+                        isLiveAssistantTurn
+                          ? liveTurnContext
+                          : msg.turnContext,
+                      );
+                    let assistantMarkdown =
                       msg.role === "assistant"
                         ? stripGfPlanFenceFromAssistantDisplay(msg.content)
                         : msg.content;
+                    if (
+                      msg.role === "assistant" &&
+                      shouldSanitizeFailedEditFinalAnswerDisplay(
+                        failedEditDisplayCtx,
+                      ) &&
+                      !(isLiveAssistantTurn && isThinking)
+                    ) {
+                      assistantMarkdown = sanitizeFailedEditFinalAnswerDisplay(
+                        assistantMarkdown,
+                        failedEditDisplayCtx,
+                      );
+                    }
                     const assistantVisible =
                       msg.role === "assistant"
                         ? stripAgentToolFenceFromAssistantDisplay(
@@ -2803,21 +2884,9 @@ export function ChatThread({
                       new RegExp("```\\s*" + GF_PLAN_FENCE, "i").test(
                         msg.content,
                       );
-                    const isLiveAssistantTurn =
-                      msg.role === "assistant" &&
-                      Boolean(streamingStreamId) &&
-                      msg.id === assistantIdRef.current;
-                    const liveToolActivities = isLiveAssistantTurn
-                      ? agentActivities
-                      : [];
                     const subagentForMessage = isLiveAssistantTurn
                       ? liveSubagent
                       : msg.subagentActivity ?? null;
-                    const storedToolActivities = msg.toolActivities ?? [];
-                    const toolActivitiesForMessage =
-                      liveToolActivities.length > 0
-                        ? liveToolActivities
-                        : storedToolActivities;
                     const showToolActivityList =
                       toolActivitiesForMessage.length > 0;
                     return (
@@ -3198,6 +3267,43 @@ export function ChatThread({
                   }
                 />
               ) : null}
+              {pendingProposalReview && !isAppliedProposal ? (
+                <div
+                  className={cn(
+                    "mb-3 rounded-xl border px-3 py-2 text-xs",
+                    pendingProposalReview.overallVerdict === "pass"
+                      ? "border-zinc-700 bg-zinc-950/50 text-zinc-400"
+                      : "border-amber-900/50 bg-amber-950/20 text-amber-100/90",
+                  )}
+                >
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="font-medium text-zinc-200">
+                      Reviewer: {pendingProposalReview.overallVerdict.replace("_", " ")}
+                    </span>
+                    <span className="font-mono text-[10px] text-zinc-500">
+                      {pendingProposalReview.reviewerModel}
+                    </span>
+                  </div>
+                  <p className="leading-relaxed">{pendingProposalReview.summary}</p>
+                  {pendingProposalReview.issues.length > 0 ? (
+                    <ul className="mt-2 space-y-1">
+                      {pendingProposalReview.issues.slice(0, 3).map((issue, index) => (
+                        <li key={`${issue.path ?? "issue"}:${index}`} className="leading-relaxed">
+                          <span className="font-medium uppercase tracking-wide">
+                            {issue.severity}
+                          </span>
+                          {issue.path ? (
+                            <span className="font-mono text-zinc-300"> {basenamePath(issue.path)}:</span>
+                          ) : (
+                            ":"
+                          )}{" "}
+                          {issue.message}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
               {!hasAnyApplyablePath ? (
                 <p className="mb-3 text-sm leading-relaxed text-amber-200/90">
                   None of these paths are under your workspace roots, so Apply
@@ -3359,6 +3465,23 @@ export function ChatThread({
                     </TooltipContent>
                   )}
                 </Tooltip>
+                {!isAppliedProposal ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl border-zinc-700"
+                    disabled={busy || isReviewingProposal || !hasAnyApplyablePath}
+                    onClick={() => void reviewPendingProposalWithReviewer()}
+                  >
+                    {isReviewingProposal ? (
+                      <Loader2 size={14} aria-hidden className="animate-spin" />
+                    ) : (
+                      <SearchCode size={14} aria-hidden />
+                    )}{" "}
+                    Review
+                  </Button>
+                ) : null}
                 {isAppliedProposal ? (
                   <>
                     <Button

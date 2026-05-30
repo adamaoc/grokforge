@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
+import type { AgentChatActivityPayload } from '../../../shared/agent-chat-contract'
 import {
   assistantReplyClaimsDiskWrites,
   assistantReplyClaimsEditOutcomeWithoutTool,
+  assistantReplyClaimsEditSuccessDespiteNoProposal,
+  turnHadFailedEditActivities,
 } from './assistant-disk-claim-heuristic'
 import { AGENT_TOOL_FENCE_INFO } from '../../../shared/agent-tool-contract'
 
@@ -66,5 +69,55 @@ describe('assistantReplyClaimsEditOutcomeWithoutTool', () => {
         'To change the title, you would edit the <title> element in index.html.',
       ),
     ).toBe(false)
+  })
+
+  it('detects complete-file phrasing when hadEditFailures (152)', () => {
+    expect(
+      assistantReplyClaimsEditOutcomeWithoutTool(
+        'Here is your complete single-file HTML prototype.',
+        { hadEditFailures: true },
+      ),
+    ).toBe(true)
+    expect(
+      assistantReplyClaimsEditOutcomeWithoutTool(
+        'Here is your complete single-file HTML prototype.',
+        { hadEditFailures: false },
+      ),
+    ).toBe(false)
+  })
+
+  it('detects large fenced fallback when hadEditFailures (152)', () => {
+    const bigFence = '```html\n' + '<div>line</div>\n'.repeat(50) + '```'
+    expect(
+      assistantReplyClaimsEditOutcomeWithoutTool(bigFence, { hadEditFailures: true }),
+    ).toBe(true)
+  })
+})
+
+describe('turnHadFailedEditActivities', () => {
+  it('is true when an edit failure activity row exists', () => {
+    const activities: AgentChatActivityPayload[] = [
+      {
+        id: 'a1',
+        title: 'Edit proposal failed',
+        status: 'error',
+        detail: 'crushed',
+      },
+    ]
+    expect(turnHadFailedEditActivities(activities)).toBe(true)
+  })
+})
+
+describe('assistantReplyClaimsEditSuccessDespiteNoProposal', () => {
+  it('combines activity failures with misleading reply text', () => {
+    const activities: AgentChatActivityPayload[] = [
+      { id: 'a1', title: 'Edit proposal failed', status: 'error' },
+    ]
+    expect(
+      assistantReplyClaimsEditSuccessDespiteNoProposal(
+        'Created the file index.html with your task board prototype.',
+        activities,
+      ),
+    ).toBe(true)
   })
 })

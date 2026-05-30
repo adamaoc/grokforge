@@ -6,6 +6,10 @@ import type { GrokProjectManifest } from './manifest'
 import { validateManifest } from './manifest'
 import { discoverAgentInstructionRelativePaths } from './agent-instructions-discover'
 import { DUAL_MODEL_FALLBACKS } from '../shared/model-router'
+import {
+  AGENT_REVIEWER_DEFAULT_MIN_CHANGED_LINES,
+  AGENT_REVIEWER_DEFAULT_MODEL,
+} from '../shared/agent-proposal-reviewer'
 
 const DIR_NAME = 'workspace-projects'
 const PROJECT_JSON = 'project.json'
@@ -89,6 +93,11 @@ export function defaultManifestForFirstRoot(rootAbs: string, displayName: string
       execution: DUAL_MODEL_FALLBACKS.execution,
       reasoning: DUAL_MODEL_FALLBACKS.reasoning,
       voice: DUAL_MODEL_FALLBACKS.voice,
+    },
+    reviewer: {
+      autoReviewEdits: false,
+      model: AGENT_REVIEWER_DEFAULT_MODEL,
+      minChangedLines: AGENT_REVIEWER_DEFAULT_MIN_CHANGED_LINES,
     },
     voice: {
       enabled: true,

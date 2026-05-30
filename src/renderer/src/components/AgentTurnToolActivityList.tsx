@@ -30,6 +30,11 @@ import {
   summarizeAgentActivityErrors,
 } from '../../../shared/agent-activity-display'
 import { mapActivityTitleForDisplay } from '@/lib/harness-activity-display-map'
+import {
+  EditFailureIssueCard,
+  shouldRenderEditFailureIssueCard,
+} from '@/components/EditFailureIssueCard'
+import { isCompactedEditFailureActivity } from '../../../shared/agent-activity-display'
 
 const TURN_END_COLLAPSE_MS = 300
 
@@ -213,6 +218,10 @@ export function AgentTurnToolActivityList({
     errorSummary,
   )
 
+  const compactedEditFailureIssues = displayActivities.filter(isCompactedEditFailureActivity)
+  const showCollapsedEditIssueStrip =
+    hasErrors && !expanded && compactedEditFailureIssues.length > 0
+
   const handleToggle = () => {
     setExpanded((open) => {
       const next = !open
@@ -266,6 +275,22 @@ export function AgentTurnToolActivityList({
         </span>
       </button>
 
+      {showCollapsedEditIssueStrip ? (
+        <div className="mt-1.5 space-y-1.5" data-agent-activity-collapsed-edit-issues="">
+          {compactedEditFailureIssues.map((activity) => {
+            const { displayTitle, technicalTitle } = mapActivityTitleForDisplay(activity.title)
+            return (
+              <EditFailureIssueCard
+                key={activity.id}
+                activity={activity}
+                displayTitle={displayTitle}
+                technicalTitle={technicalTitle}
+              />
+            )
+          })}
+        </div>
+      ) : null}
+
       {errorSummary && errorSummary.count > 0 && expanded ? (
         <p
           className="mt-1 rounded-md border border-amber-900/50 bg-amber-950/30 px-2 py-1 text-[10px] text-amber-200/90"
@@ -315,6 +340,17 @@ export function AgentTurnToolActivityList({
             const { displayTitle, technicalTitle } = mapActivityTitleForDisplay(
               activity.title,
             )
+            if (shouldRenderEditFailureIssueCard(activity)) {
+              return (
+                <li key={activity.id} className="min-w-0">
+                  <EditFailureIssueCard
+                    activity={activity}
+                    displayTitle={displayTitle}
+                    technicalTitle={technicalTitle}
+                  />
+                </li>
+              )
+            }
             return (
               <li key={activity.id} className="flex min-w-0 items-start gap-2">
                 {isCollapsedPlaceholder ? (

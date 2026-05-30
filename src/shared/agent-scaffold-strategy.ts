@@ -25,12 +25,17 @@ const CLI_USER_RE =
   /\b(npm\s+create|npm\s+init|new\s+(vite|react|next(\.js)?)\s+app|scaffold|initialize\s+(project|repo|app)|create-vite|create-react-app)\b/i
 
 const STATIC_USER_RE =
-  /\b(static\s+(site|html|page|todo)|vanilla\s+(js|todo|web)|html\/css\/js|no\s+build\s+step)\b/i
+  /\b(static\s+(site|html|page|todo|prototype)|vanilla(?:\s+(js|todo|web|html?))?|html\/css\/js|no\s+build\s+step|(?:single|one)\s+html\s+file|(?:design\s+)?prototype)\b/i
 
 const CLI_SCAFFOLD_CMD_RE =
   /\b(npm\s+(create|init)|pnpm\s+(create|dlx)|yarn\s+create|bun\s+create|npx\s+create)\b/i
 
 const EDIT_TOOL_NAMES = new Set(['propose_file_edits', 'search_replace'])
+
+/** Shared static/file-bootstrap user intent (128, 162). */
+export function userMatchesStaticFileBootstrapIntent(userText: string): boolean {
+  return STATIC_USER_RE.test(userText.trim())
+}
 
 export type ResolveScaffoldStrategyInput = {
   greenfieldWorkspace: boolean
@@ -56,7 +61,7 @@ export function resolveScaffoldStrategy(
   const cliFromPlan = plan ? planImpliesCliScaffold(plan) : false
   const fileFromPlan = plan ? planImpliesFileBootstrap(plan) : false
   const cliFromUser = CLI_USER_RE.test(userText)
-  const fileFromUser = STATIC_USER_RE.test(userText)
+  const fileFromUser = userMatchesStaticFileBootstrapIntent(userText)
 
   const hasCli = cliFromPlan || cliFromUser
   const hasFile = fileFromPlan || fileFromUser

@@ -20,6 +20,11 @@ import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
 import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from './agent-plan-verification'
 import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER } from './agent-bootstrap-manifest'
 import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from './agent-scaffold-strategy'
+import {
+  GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS,
+  GREENFIELD_EXECUTE_CLI_MARKER,
+  GREENFIELD_WORK_BOOTSTRAP_MARKER,
+} from './agent-harness-profile'
 
 describe('getHarnessProfile', () => {
   it('returns distinct profiles for grok_code_fast and grok_4_3', () => {
@@ -134,6 +139,49 @@ describe('buildHarnessTurnPromptSections', () => {
     expect(joined).toMatch(/run_command/i)
     expect(joined).toMatch(/npm create|npm install/i)
     expect(joined).toMatch(/script\.js/i)
+  })
+
+  it('includes Work bootstrap marker for greenfield Work create intent (161)', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      greenfieldWorkBootstrap: true,
+      scaffoldStrategy: 'file_bootstrap',
+    })
+    const joined = sections.join('\n')
+    expect(joined).toContain(GREENFIELD_WORK_BOOTSTRAP_MARKER)
+    expect(joined).toMatch(/one statement per line/i)
+    expect(joined).toContain(SCAFFOLD_STRATEGY_ROUTING_MARKER)
+    expect(joined).toMatch(/file_bootstrap/i)
+    expect(joined).not.toContain(GREENFIELD_EXECUTE_CLI_MARKER)
+    expect(joined).not.toMatch(/Execute approved plan/i)
+  })
+
+  it('does not inject Work bootstrap on approve-and-run execute path (161)', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      executeFromApprovedPlan: true,
+      greenfieldWorkspace: true,
+      greenfieldWorkBootstrap: false,
+    })
+    const joined = sections.join('\n')
+    expect(joined).toContain(GREENFIELD_EXECUTE_CLI_MARKER)
+    expect(joined).not.toContain(GREENFIELD_WORK_BOOTSTRAP_MARKER)
+  })
+
+  it('does not inject Work bootstrap for iterative Work edits (161)', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      iterativeWorkEdit: true,
+      greenfieldWorkBootstrap: false,
+    })
+    expect(sections.join('\n')).not.toContain(GREENFIELD_WORK_BOOTSTRAP_MARKER)
+    expect(sections.join('\n')).toContain(WORK_ITERATIVE_EDIT_MARKER)
+  })
+
+  it('does not inject Work bootstrap for greenfield planner profile alone (161)', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_4_3'), {
+      greenfieldWorkspace: true,
+    })
+    const joined = sections.join('\n')
+    expect(joined).toContain(GREENFIELD_HARNESS_MARKER)
+    expect(joined).not.toContain(GREENFIELD_WORK_BOOTSTRAP_MARKER)
   })
 
   it('executor-from-plan discourages inline JS when plan lists multiple paths', () => {

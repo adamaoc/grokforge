@@ -5,6 +5,7 @@ import type { HarnessProfileKey } from './agent-harness-profile-contract'
 import type { ReasoningEffort } from './agent-reasoning-effort'
 import type { ModelIntent } from './model-router'
 import type { AgentSubagentEventPayload } from './agent-subagent-contract'
+import type { AgentProposalReview } from './agent-proposal-reviewer'
 
 /**
  * Agent chat IPC contract (no Node imports). Main implementation: `src/main/agent-runner.ts`.
@@ -159,6 +160,8 @@ export type AgentEditProposalRejectedFile = {
 export type AgentEditProposalPayload = {
   batch: AgentToolBatchPayload
   rejected: AgentEditProposalRejectedFile[]
+  /** Optional non-blocking reviewer feedback attached before the proposal reaches the UI. */
+  review?: AgentProposalReview
 }
 
 export type AgentChatEventPayload =

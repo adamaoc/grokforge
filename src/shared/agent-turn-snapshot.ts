@@ -226,6 +226,8 @@ export type AgentProviderRequest = {
   reasoningEffort?: ReasoningEffort
   /** Chat completions max_tokens for tool_sample rounds (story 105 transport). */
   sampleMaxTokens?: number
+  /** For internal critique/review calls that must not expose workspace tools. */
+  disableTools?: boolean
 }
 
 export function providerRequestFromSnapshot(snapshot: AgentTurnSnapshot): AgentProviderRequest {

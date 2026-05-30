@@ -186,7 +186,23 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 146 | Pre-validation for edit proposals (lightweight syntax/format guard) **(done)** | [`post-mvp/146-pre-validation-for-edit-proposals.md`](post-mvp/146-pre-validation-for-edit-proposals.md) |
 | 147 | Stronger anti-crush and formatting enforcement **(done)** | [`post-mvp/147-stronger-anti-crush-and-formatting-enforcement.md`](post-mvp/147-stronger-anti-crush-and-formatting-enforcement.md) |
 | 148 | Better incremental editing strategy (surgical vs full rewrite) **(done)** | [`post-mvp/148-better-incremental-editing-strategy.md`](post-mvp/148-better-incremental-editing-strategy.md) |
-| 149 | Improved recovery loop after rejected proposals | [`post-mvp/149-improved-recovery-loop-after-rejected-proposals.md`](post-mvp/149-improved-recovery-loop-after-rejected-proposals.md) |
+| 149 | Improved recovery loop after rejected proposals **(done)** | [`post-mvp/149-improved-recovery-loop-after-rejected-proposals.md`](post-mvp/149-improved-recovery-loop-after-rejected-proposals.md) |
+| 150 | Reviewer sub-agents for edit proposals **(done)** | [`post-mvp/150-reviewer-subagents-for-edit-proposals.md`](post-mvp/150-reviewer-subagents-for-edit-proposals.md) |
+| 151 | Stop repeated same-path proposal failures **(done)** | [`post-mvp/151-stop-repeated-same-path-proposal-failures.md`](post-mvp/151-stop-repeated-same-path-proposal-failures.md) |
+| 152 | Failed edit final-answer honesty contract **(done)** | [`post-mvp/152-failed-edit-final-answer-honesty-contract.md`](post-mvp/152-failed-edit-final-answer-honesty-contract.md) |
+| 153 | Enforce creation incremental recovery **(done)** | [`post-mvp/153-enforce-creation-incremental-recovery.md`](post-mvp/153-enforce-creation-incremental-recovery.md) |
+| 154 | New-file expectedContentHash ergonomics **(done)** | [`post-mvp/154-new-file-expected-content-hash-ergonomics.md`](post-mvp/154-new-file-expected-content-hash-ergonomics.md) |
+| 155 | Compact visible edit failure UI **(done)** | [`post-mvp/155-compact-visible-edit-failure-ui.md`](post-mvp/155-compact-visible-edit-failure-ui.md) |
+| 156 | TaskBoard prototype failure regression eval **(done)** | [`post-mvp/156-taskboard-prototype-failure-regression-eval.md`](post-mvp/156-taskboard-prototype-failure-regression-eval.md) |
+| 157 | Compact top bar: remove redundant context strip **(done)** | [`post-mvp/157-compact-top-bar-context-strip.md`](post-mvp/157-compact-top-bar-context-strip.md) |
+| 158 | Collapsible voice mode bar **(done)** | [`post-mvp/158-collapsible-voice-mode-bar.md`](post-mvp/158-collapsible-voice-mode-bar.md) |
+| 159 | Editor empty state cleanup and honest global shortcuts **(done)** | [`post-mvp/159-editor-empty-state-and-global-shortcuts.md`](post-mvp/159-editor-empty-state-and-global-shortcuts.md) |
+| 160 | HTML normalize-before-prevalidate (146 ordering fix) **(done)** | [`post-mvp/160-html-normalize-before-prevalidate.md`](post-mvp/160-html-normalize-before-prevalidate.md) |
+| 161 | Greenfield Work bootstrap prompt appendix **(done)** | [`post-mvp/161-greenfield-work-bootstrap-prompt-appendix.md`](post-mvp/161-greenfield-work-bootstrap-prompt-appendix.md) |
+| 162 | Single-file HTML creation recovery exception **(done)** | [`post-mvp/162-single-file-html-creation-recovery-exception.md`](post-mvp/162-single-file-html-creation-recovery-exception.md) |
+| 163 | Direct Work TaskBoard greenfield eval **(done)** | [`post-mvp/163-direct-work-taskboard-greenfield-eval.md`](post-mvp/163-direct-work-taskboard-greenfield-eval.md) |
+| 164 | Renderer final-answer fence guard (enforce 152) **(done)** | [`post-mvp/164-renderer-final-answer-fence-guard.md`](post-mvp/164-renderer-final-answer-fence-guard.md) |
+| 165 | Suppress verify command nudge for static single-file HTML | [`post-mvp/165-suppress-verify-command-nudge-static-single-file.md`](post-mvp/165-suppress-verify-command-nudge-static-single-file.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
@@ -212,6 +228,10 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **Iterative Work (next):** ~~**130**~~ Work iterative edit harness **(done)** → ~~**135**~~ surgical edit enforcement **(done)** → ~~**136**~~ scope/combine heuristics **(done)** → ~~**137**~~ harness observability **(done)** → ~~**138**~~ S&R escalation **(done)** → ~~**139**~~ S&R first-attempt quality **(done)** → ~~**140**~~ S&R failure observability **(done)**.
 
-**UI/UX — conversation-first:** ~~**141**~~ chat vertical space + collapsible tool activity **(done)** → ~~**142**~~ copy and status hierarchy **(done)** → ~~**143**~~ context panel companion **(done)**. Builds on ~~**125**~~ / ~~**119**~~ activity work **(done)**.
+**UI/UX — conversation-first:** ~~**141**~~ chat vertical space + collapsible tool activity **(done)** → ~~**142**~~ copy and status hierarchy **(done)** → ~~**143**~~ context panel companion **(done)**. Builds on ~~**125**~~ / ~~**119**~~ activity work **(done)**. **Vertical chrome wave:** ~~**157**~~ top bar strip **(done)** → ~~**158**~~ voice collapse **(done)** → ~~**159**~~ editor empty state + shortcuts **(done)**.
 
-*Last progress update: **2026-05-27** — **145** backlog: intermittent plan UI state sync after execute (disk correct, renderer stale until project reload).*
+**Prototype write failure recovery:** ~~**151**~~ same-path proposal failure stop **(done)** → ~~**152**~~ final-answer honesty **(done)** → ~~**153**~~ enforced creation recovery **(done)** → ~~**154**~~ new-file hash ergonomics **(done)** → ~~**155**~~ compact failure UI **(done)** → ~~**156**~~ TaskBoard regression eval **(done)**.
+
+**TaskBoard / single-file HTML harness stabilization (next):** ~~**160**~~ normalize-before-prevalidate **(done)** → ~~**161**~~ greenfield Work bootstrap prompts **(done)** → ~~**162**~~ single-file HTML recovery exception **(done)** → ~~**163**~~ direct Work TaskBoard eval **(done)** → ~~**164**~~ renderer fence guard **(done)** → **165** suppress verify nudge for static single-file.
+
+*Last progress update: **2026-05-30** — Shipped **163** (direct Work TaskBoard eval: `dogfood:taskboard_work_direct` + success paths); next **164–165**.*

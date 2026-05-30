@@ -96,6 +96,7 @@ export function mergeAgentEditProposals(
   return capProposalOperations({
     batch: { version: AGENT_TOOL_PROTOCOL_VERSION, operations },
     rejected,
+    review: incoming.review ?? accumulated.review,
   })
 }
 
@@ -116,5 +117,6 @@ function capProposalOperations(proposal: AgentEditProposalPayload): AgentEditPro
   return {
     batch: { version: AGENT_TOOL_PROTOCOL_VERSION, operations: kept },
     rejected,
+    review: proposal.review,
   }
 }

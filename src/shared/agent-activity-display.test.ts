@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentChatActivityPayload } from './agent-chat-contract'
+import { AGENT_EDIT_JAMMED_JS_FILE_REASON } from './agent-edit-corrupt-content'
 import {
   agentActivityPhaseLabel,
   agentActivitySummaryDetail,
@@ -11,8 +12,12 @@ import {
   formatRetrievalActivityCopy,
   harnessInterventionActivityCopy,
   isAgentActivityErrorRow,
+  isCompactedEditFailureActivity,
+  normalizeEditFailureClass,
   sanitizeAgentActivityDetail,
   summarizeAgentActivityErrors,
+  turnHadAcceptedEditProposal,
+  turnHadFailedEditActivities,
 } from './agent-activity-display'
 
 function srActivity(
@@ -188,6 +193,162 @@ describe('compactAgentTurnActivities', () => {
     ])
     expect(compacted).toHaveLength(1)
     expect(compacted[0].title).toBe('Search & replace ×2 on index.html')
+  })
+
+  it('rolls up consecutive same-path edit proposal failures (story 155)', () => {
+    const path = '/proj/src/script.js'
+    const detail = `${path}: ${AGENT_EDIT_JAMMED_JS_FILE_REASON}`
+    const rows: AgentChatActivityPayload[] = [
+      { id: 'r', tool: 'read_file', title: 'Read file', status: 'done' },
+      ...[1, 2, 3].map((n) => ({
+        id: `e${n}`,
+        tool: 'propose_file_edits' as const,
+        title: 'Edit proposal failed',
+        status: 'error' as const,
+        subjectPath: path,
+        detail,
+      })),
+    ]
+    const compacted = compactAgentTurnActivities(rows)
+    const editRows = compacted.filter((a) => a.title.includes('Edit proposal failed'))
+    expect(editRows).toHaveLength(1)
+    expect(editRows[0]?.title).toBe('Edit proposal failed ×3 on script.js')
+    expect(editRows[0]?.detail).toContain('Crushed JavaScript')
+    expect(editRows[0]?.detail).toContain('No file created or changed on disk')
+    expect(isCompactedEditFailureActivity(editRows[0]!)).toBe(true)
+  })
+
+  it('does not merge edit failures on different paths or classes', () => {
+    const compacted = compactAgentTurnActivities([
+      {
+        id: '1',
+        tool: 'propose_file_edits',
+        title: 'Edit proposal failed',
+        status: 'error',
+        subjectPath: '/proj/a.js',
+        detail: `/proj/a.js: ${AGENT_EDIT_JAMMED_JS_FILE_REASON}`,
+      },
+      {
+        id: '2',
+        tool: 'propose_file_edits',
+        title: 'Edit proposal failed',
+        status: 'error',
+        subjectPath: '/proj/b.js',
+        detail: '/proj/b.js: empty body',
+      },
+    ])
+    expect(compacted.filter((a) => a.title === 'Edit proposal failed')).toHaveLength(2)
+  })
+
+  it('does not merge non-adjacent edit failures', () => {
+    const path = '/proj/x.ts'
+    const detail = `${path}: ${AGENT_EDIT_JAMMED_JS_FILE_REASON}`
+    const compacted = compactAgentTurnActivities([
+      {
+        id: '1',
+        tool: 'propose_file_edits',
+        title: 'Edit proposal failed',
+        status: 'error',
+        subjectPath: path,
+        detail,
+      },
+      { id: 'read', tool: 'read_file', title: 'Read file', status: 'done' },
+      {
+        id: '2',
+        tool: 'propose_file_edits',
+        title: 'Edit proposal failed',
+        status: 'error',
+        subjectPath: path,
+        detail,
+      },
+    ])
+    expect(compacted.filter((a) => a.title === 'Edit proposal failed')).toHaveLength(2)
+  })
+
+  it('uses pending-review outcome when a later proposal succeeds on the same path', () => {
+    const path = '/proj/app.js'
+    const detail = `${path}: ${AGENT_EDIT_JAMMED_JS_FILE_REASON}`
+    const compacted = compactAgentTurnActivities([
+      {
+        id: '1',
+        tool: 'propose_file_edits',
+        title: 'Edit proposal failed',
+        status: 'error',
+        subjectPath: path,
+        detail,
+      },
+      {
+        id: '2',
+        tool: 'propose_file_edits',
+        title: 'Edit proposal failed',
+        status: 'error',
+        subjectPath: path,
+        detail,
+      },
+      {
+        id: '3',
+        tool: 'propose_file_edits',
+        title: 'Prepared edit proposal',
+        status: 'done',
+        subjectPath: path,
+      },
+    ])
+    const rolled = compacted.find((a) => isCompactedEditFailureActivity(a))
+    expect(rolled?.detail).toContain('Pending review — not on disk yet')
+  })
+})
+
+describe('turnHadAcceptedEditProposal (164)', () => {
+  it('is true when a prepared proposal activity succeeded', () => {
+    expect(
+      turnHadAcceptedEditProposal([
+        { id: '1', title: 'Prepared edit proposal', status: 'done' },
+      ]),
+    ).toBe(true)
+  })
+
+  it('is false when only edit failures are present', () => {
+    expect(
+      turnHadAcceptedEditProposal([
+        { id: '1', title: 'Edit proposal failed', status: 'error' },
+      ]),
+    ).toBe(false)
+  })
+})
+
+describe('turnHadFailedEditActivities and summarizeAgentActivityErrors (155)', () => {
+  it('detects compacted edit failure titles', () => {
+    expect(
+      turnHadFailedEditActivities([
+        { id: '1', title: 'Edit proposal failed ×2 on index.html', status: 'error' },
+      ]),
+    ).toBe(true)
+  })
+
+  it('counts one issue after edit-failure compaction', () => {
+    const path = '/proj/script.js'
+    const detail = `${path}: ${AGENT_EDIT_JAMMED_JS_FILE_REASON}`
+    const compacted = compactAgentTurnActivities(
+      [1, 2, 3].map((n) => ({
+        id: `e${n}`,
+        tool: 'propose_file_edits' as const,
+        title: 'Edit proposal failed',
+        status: 'error' as const,
+        subjectPath: path,
+        detail,
+      })),
+    )
+    const summary = summarizeAgentActivityErrors(compacted)
+    expect(summary.count).toBe(1)
+    expect(summary.labels).toEqual(['script.js'])
+  })
+})
+
+describe('normalizeEditFailureClass', () => {
+  it('maps known jammed-js reason to a short label', () => {
+    expect(normalizeEditFailureClass(`/p/a.js: ${AGENT_EDIT_JAMMED_JS_FILE_REASON}`)).toBe(
+      'Crushed JavaScript',
+    )
   })
 })
 

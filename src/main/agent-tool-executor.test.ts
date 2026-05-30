@@ -112,6 +112,70 @@ describe('executeAgentToolCall', () => {
     expect(outcome.toolContent).toContain('not available')
   })
 
+  it('attaches reviewer feedback before emitting propose_file_edits', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-reviewer-'))
+    const file = join(root, 'src', 'main.ts')
+    const manifest = minimalCtx().manifest
+    manifest.roots = [{ id: 'root', path: root, type: 'code', label: 'Root' }]
+    const ctx = minimalCtx({
+      manifest,
+      roots: manifest.roots,
+    })
+    const emit = vi.fn()
+    const reviewEditProposal = vi.fn(async (proposal) => ({
+      ...proposal,
+      review: {
+        reviewerModel: 'grok-build-0.1',
+        overallVerdict: 'needs_attention' as const,
+        summary: 'Potential issue found.',
+        issues: [{ severity: 'warning' as const, path: file, message: 'Check formatting.' }],
+        createdAt: 'now',
+      },
+    }))
+
+    const outcome = await executeAgentToolCall(
+      ctx,
+      {
+        id: 'tc-review',
+        type: 'function',
+        function: {
+          name: 'propose_file_edits',
+          arguments: JSON.stringify({
+            version: 1,
+            operations: [
+              {
+                op: 'write_file',
+                path: file,
+                content: ['export function main() {', "  return 'ok'", '}', ''].join('\n'),
+              },
+            ],
+          }),
+        },
+      },
+      {
+        totalToolChars: 0,
+        editProposalCreated: false,
+        turnProposalAccum: null,
+        agentProfile: getAgentProfile('default'),
+        manifest,
+        searchReplaceFailuresByPath: new Map(),
+      },
+      { emit, approvalRequestId: 'req-review', reviewEditProposal },
+    )
+
+    expect(outcome.ok).toBe(true)
+    expect(reviewEditProposal).toHaveBeenCalledOnce()
+    expect(outcome.turnProposalAccum?.review?.overallVerdict).toBe('needs_attention')
+    expect(emit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        phase: 'edit_proposal',
+        proposal: expect.objectContaining({
+          review: expect.objectContaining({ summary: 'Potential issue found.' }),
+        }),
+      }),
+    )
+  })
+
   it('chains two search_replace calls on the same file within one turn', async () => {
     const root = mkdtempSync(join(tmpdir(), 'gf-sr-chain-'))
     const file = join(root, 'index.html')

@@ -8,7 +8,6 @@ import type {
   AgentChatEditorSelection,
   DiffSession,
   GrokProjectManifest,
-  Root,
   WorkspaceFsMutationEvent,
 } from '@/types'
 import { getLanguageFromPath } from '@/lib/getLanguageFromPath'
@@ -64,7 +63,6 @@ interface EditorPaneProps {
   onCloseFile: (path: string) => void
   onUnsavedChange?: (hasUnsaved: boolean) => void
   project: GrokProjectManifest
-  activeRoot: Root | null
   /** In-memory diff session; when open, file tabs are hidden until closed. */
   diffSession?: DiffSession | null
   diffSessionActions?: {
@@ -92,8 +90,6 @@ interface EditorPaneProps {
   onDirtyFilesChange?: (dirtyByPath: Record<string, boolean>) => void
   onEditorSelectionChange?: (selection: AgentChatEditorSelection | null) => void
   selectionMaxChars?: number
-  onOpenSearch?: () => void
-  onAskAgent?: () => void
   /** Collapse the editor ResizablePanel (same affordance as sidebar `PanelLeftClose`). */
   onCollapseEditorPane?: () => void
   /** Conversation-linked strip above Monaco / diff (story 143). */
@@ -109,7 +105,6 @@ export function EditorPane({
   onCloseFile,
   onUnsavedChange,
   project,
-  activeRoot,
   diffSession,
   diffSessionActions,
   onCloseDiffSession,
@@ -121,8 +116,6 @@ export function EditorPane({
   onDirtyFilesChange,
   onEditorSelectionChange,
   selectionMaxChars = 4_000,
-  onOpenSearch,
-  onAskAgent,
   onCollapseEditorPane,
   contextCompanion,
   contextCompanionHighlight = false,
@@ -505,10 +498,6 @@ export function EditorPane({
       <div className={editorShellClass}>
         {contextCompanion}
         <EditorEmptyState
-          project={project}
-          activeRoot={activeRoot}
-          onOpenSearch={onOpenSearch}
-          onAskAgent={onAskAgent}
           onCollapseEditorPane={onCollapseEditorPane}
           agentContextHint={agentEmptyHint}
         />

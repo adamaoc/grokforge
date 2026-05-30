@@ -113,6 +113,58 @@ export function staticTodoWriteFileOperations(root: string): AgentToolWriteOp[] 
   ]
 }
 
+/**
+ * Dogfood repro (156): empty workspace, approve-and-run TaskBoard HTML prototype.
+ * Original user intent: single-file `index.html` kanban-style prototype.
+ */
+export const TASKBOARD_PROTOTYPE_USER_PROMPT = 'TaskBoard HTML prototype' as const
+
+/**
+ * Dogfood repro (163): empty workspace, direct Work (fast) TaskBoard single-file HTML.
+ * Repro 2026-05-30 — mode=Work, empty root. Verbatim user text (field report):
+ * "I want to get a design prototype for a taskboard … Keep this all as 1 single html file"
+ * Eval constant uses **create** (not *get*) so `isLikelyEditIntent` matches — same intent as dogfood.
+ */
+export const TASKBOARD_WORK_DIRECT_USER_PROMPT =
+  'I want to create a design prototype for a taskboard with columns and cards. Keep this all as 1 single html file.' as const
+
+/** Script-free minimal shell for single-file HTML creation recovery (162 / 163). */
+export function taskBoardMinimalShellIndexHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TaskBoard</title>
+</head>
+<body>
+<div id="board"></div>
+</body>
+</html>`
+}
+
+/** Approved gf-plan body for TaskBoard single-file HTML evals (153 / 156). */
+export function taskBoardPrototypePlan(): GfPlanV1 {
+  return {
+    schemaVersion: 1,
+    summary: 'TaskBoard HTML prototype',
+    filesLikelyTouched: ['index.html'],
+    risksUnknowns: [],
+    steps: [{ id: '1', title: 'Create index.html' }],
+    verification: 'Open in browser',
+  }
+}
+
+/** Oversized bootstrap HTML — triggers minimal-scaffold rejection after creation recovery (153 / 156). */
+export function taskBoardOversizedBootstrapHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>TaskBoard</title></head>
+<body>
+${'<div class="task">item</div>\n'.repeat(50)}
+</body>
+</html>`
+}
+
 /** One-line HTML with jammed inline script — expect corrupt-content reject (133). */
 export function staticTodoCrushedIndexHtml(): string {
   return `<!DOCTYPE html><html><head><title>T</title></head><body>
@@ -120,6 +172,19 @@ export function staticTodoCrushedIndexHtml(): string {
 const todos=[];function save(){}function init(){}updateCount();})// xfunction setup(){}
 </script>
 </body></html>`
+}
+
+/**
+ * Repairable one-line TaskBoard HTML (>1800 chars) — story 160 fixture.
+ * Raw: triggers 146 pre-validation (`detectObviousCrushedRawContent` crushed: true).
+ * After normalize: passes `assessProposalWriteContent` (accepted on propose path).
+ */
+export function taskBoardCrushedOneLineIndexHtml(): string {
+  const scriptBody =
+    'const todos=[];function save(){localStorage.setItem("t",JSON.stringify(todos));}function init(){render();}function render(){const el=document.getElementById("app");el.innerHTML=todos.map(t=>"<li>"+t+"</li>").join("");}document.addEventListener("DOMContentLoaded",init);'.repeat(
+      8,
+    )
+  return `<!DOCTYPE html><html><head><title>TaskBoard</title><meta charset="UTF-8"></head><body><div id="app"></div><script>${scriptBody}</script></body></html>`
 }
 
 /** Minimal workspace index with one non-trivial file (story 120 single-file bias). */

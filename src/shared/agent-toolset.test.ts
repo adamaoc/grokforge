@@ -16,9 +16,10 @@ describe('agent-toolset', () => {
 
   it('full union includes all v1 agent tools', () => {
     expect(AGENT_TOOLSET_FULL).toContain('workspace_index')
+    expect(AGENT_TOOLSET_FULL).toContain('edit')
     expect(AGENT_TOOLSET_FULL).toContain('propose_file_edits')
     expect(AGENT_TOOLSET_FULL).toContain('run_command')
-    expect(AGENT_TOOLSET_FULL.length).toBe(7)
+    expect(AGENT_TOOLSET_FULL.length).toBe(8)
   })
 
   it('expandToolset composes non-full ids', () => {

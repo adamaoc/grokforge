@@ -18,12 +18,20 @@ import {
 } from './agent-search-replace-tool'
 import { recordSearchReplaceFailure, shouldBlockSearchReplaceAfterEscalation, ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON } from '../shared/agent-edit-cascade-guard'
 import {
+  isCreationRecoveryEnforced,
+  qualifiesAsCreationRecoveryScaffold,
+  recordCreationScaffoldAccepted,
+} from '../shared/agent-creation-recovery-enforcement'
+import { AGENT_EDIT_CREATE_HASH_STRIPPED_NOTE } from '../shared/agent-content-hash'
+import { extractPathsFromEditToolArguments } from '../shared/agent-proposal-rejection-loop'
+import {
   AGENT_TOOL_TOTAL_RESULT_CHARS,
   executeWorkspaceTool,
   resolveAgentWorkspacePath,
   type AgentWorkspaceToolResult,
 } from './agent-workspace-tools'
 import { runSubagentSession } from './agent-subagent-runner'
+import { AgentToolBatchPayloadSchema } from '../shared/agent-tool-schema'
 import { SpawnSubagentArgsSchema } from '../shared/agent-subagent-contract'
 import type { AgentTurn } from './agent-turn'
 
@@ -59,6 +67,12 @@ export type AgentToolExecutorTurnState = {
   /** Iterative Work edit routing (138). */
   iterativeWorkEdit?: boolean
   searchReplaceEscalationNudgeIssued?: boolean
+  /** Story 153: paths where creation incremental recovery nudge fired. */
+  creationRecoveryEnforcedPaths?: Set<string>
+  /** Story 153: paths where a minimal scaffold proposal was accepted this turn. */
+  creationScaffoldAcceptedPaths?: Set<string>
+  /** Story 162: user/plan requests one .html file — shell-first creation recovery. */
+  singleFileHtmlIntent?: boolean
   /** New explicit turn lifecycle holder (step toward clearer harness phases). */
   agentTurn?: AgentTurn
 }
@@ -85,6 +99,39 @@ function parseToolArgs(raw: string): unknown {
   }
 }
 
+function markCreationScaffoldsAcceptedFromRawWrites(
+  state: AgentToolExecutorTurnState,
+  ctx: AgentToolExecutionContext,
+  writes: readonly { path: string; content: string }[],
+): void {
+  if (!state.creationRecoveryEnforcedPaths || !state.creationScaffoldAcceptedPaths) return
+  for (const write of writes) {
+    const resolved = resolveAgentWorkspacePath(write.path, ctx)
+    if (!resolved) continue
+    if (!isCreationRecoveryEnforced(state.creationRecoveryEnforcedPaths, resolved)) continue
+    const fileExistsOnDisk = false
+    if (
+      !qualifiesAsCreationRecoveryScaffold({
+        content: write.content,
+        resolvedPath: resolved,
+        fileExistsOnDisk,
+        singleFileHtmlIntent: state.singleFileHtmlIntent,
+      })
+    ) {
+      continue
+    }
+    recordCreationScaffoldAccepted(state.creationScaffoldAcceptedPaths, resolved)
+  }
+}
+
+function extractRawWriteContents(rawArgs: unknown): { path: string; content: string }[] {
+  const parsed = AgentToolBatchPayloadSchema.safeParse(rawArgs)
+  if (!parsed.success) return []
+  return parsed.data.operations
+    .filter((op): op is Extract<typeof op, { op: 'write_file' }> => op.op === 'write_file')
+    .map((op) => ({ path: op.path, content: op.content }))
+}
+
 export async function executeAgentToolCall(
   ctx: AgentToolExecutionContext,
   call: AgentModelToolCall,
@@ -93,6 +140,7 @@ export async function executeAgentToolCall(
     emit: (payload: AgentChatEventPayload) => void
     approvalRequestId: string
     waitForCommandApproval?: (requestId: string, streamId: string, signal: AbortSignal) => Promise<boolean>
+    reviewEditProposal?: (proposal: AgentEditProposalPayload, toolName: AgentChatToolName) => Promise<AgentEditProposalPayload>
   },
 ): Promise<AgentToolCallOutcome> {
   const name = call.function.name
@@ -222,6 +270,9 @@ export async function executeAgentToolCall(
               iterativeWorkEdit: state.iterativeWorkEdit,
               contentSource:
                 isEditTool && writeBatch && writeBatch.ok ? 'search_replace' : 'propose',
+              creationRecoveryEnforcedPaths: state.creationRecoveryEnforcedPaths,
+              creationScaffoldAcceptedPaths: state.creationScaffoldAcceptedPaths,
+              singleFileHtmlIntent: state.singleFileHtmlIntent,
             },
           )
           const rejectedList = proposalResult.proposal?.rejected ?? []
@@ -236,6 +287,25 @@ export async function executeAgentToolCall(
               rejected: rejectedList,
               validationSummary,
             })
+            if (!activitySubjectPath) {
+              for (const rejected of rejectedList) {
+                if (!rejected.path) continue
+                const resolved = resolveAgentWorkspacePath(rejected.path, ctx)
+                if (resolved) {
+                  activitySubjectPath = resolved
+                  break
+                }
+              }
+              if (!activitySubjectPath) {
+                for (const path of extractPathsFromEditToolArguments(rawToolArgs)) {
+                  const resolved = resolveAgentWorkspacePath(path, ctx)
+                  if (resolved) {
+                    activitySubjectPath = resolved
+                    break
+                  }
+                }
+              }
+            }
           } else {
             ok = true
             editProposalCreated = true
@@ -246,10 +316,18 @@ export async function executeAgentToolCall(
             // Record into the explicit turn lifecycle object when available
             state.agentTurn?.recordEditProposal?.(turnProposalAccum, editProposalComposedInTurn)
             if (name === 'propose_file_edits') {
+              markCreationScaffoldsAcceptedFromRawWrites(
+                state,
+                ctx,
+                extractRawWriteContents(rawToolArgs),
+              )
               const firstOp = proposalResult.proposal?.batch.operations[0]
               if (firstOp?.path) {
                 activitySubjectPath =
                   resolveAgentWorkspacePath(firstOp.path, ctx) ?? firstOp.path
+              }
+              if (options.reviewEditProposal) {
+                turnProposalAccum = await options.reviewEditProposal(turnProposalAccum, name)
               }
             }
             options.emit({ streamId: ctx.streamId, phase: 'edit_proposal', proposal: turnProposalAccum })
@@ -275,12 +353,21 @@ export async function executeAgentToolCall(
                 }
               : undefined
 
+            const createHashGuidance =
+              proposalResult.createHashStrippedPaths && proposalResult.createHashStrippedPaths.length > 0
+                ? {
+                    strippedPaths: proposalResult.createHashStrippedPaths,
+                    note: AGENT_EDIT_CREATE_HASH_STRIPPED_NOTE,
+                  }
+                : undefined
+
             toolContent = JSON.stringify({
               ok: true,
               proposalCreated: true,
               operations: count,
               rejected: turnProposalAccum.rejected,
               validationSummary,
+              ...(createHashGuidance ? { createHashGuidance } : {}),
               ...(followUp ? { followUpGuidance: followUp } : {}),
               message:
                 'The proposal is now available in GrokForge for user diff review. Do not repeat the full JSON in the final answer.',

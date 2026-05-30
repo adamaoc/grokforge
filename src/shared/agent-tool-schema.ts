@@ -5,12 +5,8 @@ import {
   AGENT_TOOL_MAX_OPS,
   AGENT_TOOL_PROTOCOL_VERSION,
 } from './agent-tool-contract'
-import { AGENT_CONTENT_HASH_HEX_LEN } from './agent-content-hash'
-
-const expectedContentHashSchema = z
-  .string()
-  .length(AGENT_CONTENT_HASH_HEX_LEN)
-  .regex(/^[a-f0-9]{64}$/i)
+/** Lenient at parse time — strict create vs update rules run in validateAgentEditProposal (story 154). */
+const expectedContentHashSchema = z.string().max(128).optional()
 
 const WriteOpSchema = z.object({
   op: z.literal('write_file'),

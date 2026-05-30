@@ -442,6 +442,7 @@ export function detectJammedJavaScriptFile(
 
 export function isPartialBatchIntegrityRejection(reason: string | undefined): boolean {
   if (!reason) return false
+  if (reason.includes(AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON.slice(0, 40))) return true
   if (reason.includes(AGENT_EDIT_INCOMPLETE_HTML_REASON.slice(0, 40))) return true
   if (reason.includes(AGENT_EDIT_JAMMED_SCRIPT_REASON.slice(0, 24))) return true
   if (reason.includes(AGENT_EDIT_JAMMED_JS_FILE_REASON.slice(0, 24))) return true

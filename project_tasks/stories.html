@@ -309,8 +309,8 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">148 stories</span>
-        <span class="pill">Done: 138</span>
+        <span class="pill">164 stories</span>
+        <span class="pill">Done: 154</span>
         <span class="pill">Closed: 6</span>
         <span class="pill">Post-MVP: 4</span>
         <span class="pill">Generated 2026-05-30</span>
@@ -11286,10 +11286,10 @@ maxIterationsReason?: 'search_replace_loop' | 'discovery_stall' | 'post_escalati
 <p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table (add 148), run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-149" data-status="post-mvp">
+      <details id="story-149" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">149</span><span class="story-name">Improved recovery loop after rejected proposals</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -11297,7 +11297,7 @@ maxIterationsReason?: 'search_replace_loop' | 'discovery_stall' | 'post_escalati
             <a class="story-link" href="post-mvp/149-improved-recovery-loop-after-rejected-proposals.md">post-mvp/149-improved-recovery-loop-after-rejected-proposals.md</a>
           </div>
           <h2>149 — Improved recovery loop after rejected proposals (clearer, directed feedback + loop prevention)</h2>
-<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
 <p><strong>Priority:</strong> High — closes the loop on the most painful recent failure mode (TaskBoard + similar crushed proposal sessions where the model entered repeated rejection + weak recovery cycles).</p>
 <p><strong>Design skill:</strong> N/A (harness recovery messaging and runner loop control); <code>@styleguide-design</code> only for any new model-facing rejection copy.</p>
 <p><strong>Depends on:</strong> <strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong>, <strong><a href="134-harness-conflict-recovery-activity-honesty.md">134</a></strong>, <strong><a href="092-agent-edit-failure-self-correction.md">092</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="138-iterative-work-search-replace-escalation.md">138</a></strong>, <strong><a href="140-search-replace-failure-loop-observability.md">140</a></strong>.</p>
@@ -11320,12 +11320,12 @@ maxIterationsReason?: 'search_replace_loop' | 'discovery_stall' | 'post_escalati
 </ol>
 <h3>Narrow acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Every rejection path (crushed, shrink, corrupt, partial batch, validation) produces a recovery message that tells the model (a) why it was rejected, (b) the single recommended next action (re-read + targeted <code>edit</code> vs clean minimal full replacement), and (c) &quot;do not claim success until you receive an <code>ok: true</code> tool result&quot;.</li>
-<li><input type="checkbox" disabled> A per-file rejection counter (or reuse/enhance of existing failure counts) in the turn state limits repeated attempts on the same rejected path within one turn; after the limit the runner injects a strong final guidance or forces final answer.</li>
-<li><input type="checkbox" disabled> Final-answer contract sections (edit-intent, post-plan, Work iterative, greenfield execute) contain explicit &quot;if your last proposal on path X was rejected, you may not claim the change succeeded&quot; language.</li>
-<li><input type="checkbox" disabled> In a repro scenario (intentionally bad proposal → rejection → recovery), the model receives directed guidance and either produces a clean follow-up or honestly reports the remaining work instead of claiming victory.</li>
-<li><input type="checkbox" disabled> No change to successful happy-path proposals.</li>
-<li><input type="checkbox" disabled> Relevant tests (runner evaluation, final-answer contract tests, proposal tests) updated; <code>npm run typecheck</code> + <code>npm run test</code> pass.</li>
+<li><input type="checkbox" disabled checked> Every rejection path (crushed, shrink, corrupt, partial batch, validation) produces a recovery message that tells the model (a) why it was rejected, (b) the single recommended next action (re-read + targeted <code>edit</code> vs clean minimal full replacement), and (c) &quot;do not claim success until you receive an <code>ok: true</code> tool result&quot;.</li>
+<li><input type="checkbox" disabled checked> A per-file rejection counter (or reuse/enhance of existing failure counts) in the turn state limits repeated attempts on the same rejected path within one turn; after the limit the runner injects a strong final guidance or forces final answer.</li>
+<li><input type="checkbox" disabled checked> Final-answer contract sections (edit-intent, post-plan, Work iterative, greenfield execute) contain explicit &quot;if your last proposal on path X was rejected, you may not claim the change succeeded&quot; language.</li>
+<li><input type="checkbox" disabled checked> In a repro scenario (intentionally bad proposal → rejection → recovery), the model receives directed guidance and either produces a clean follow-up or honestly reports the remaining work instead of claiming victory.</li>
+<li><input type="checkbox" disabled checked> No change to successful happy-path proposals.</li>
+<li><input type="checkbox" disabled checked> Relevant tests (runner evaluation, final-answer contract tests, proposal tests) updated; <code>npm run typecheck</code> + <code>npm run test</code> pass.</li>
 </ul>
 <h3>Files / areas that should be touched (tight scope)</h3>
 <ul>
@@ -11351,6 +11351,1127 @@ maxIterationsReason?: 'search_replace_loop' | 'discovery_stall' | 'post_escalati
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table (add 149), run <strong><code>npm run stories:html</code></strong>. Consider a one-line addition to <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> § proposal recovery if the manual repro steps change.</p>
+        </div>
+      </details>
+      <details id="story-150" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">150</span><span class="story-name">Reviewer sub-agents for edit proposals</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/150-reviewer-subagents-for-edit-proposals.md">post-mvp/150-reviewer-subagents-for-edit-proposals.md</a>
+          </div>
+          <h2>150 — Reviewer sub-agents for edit proposals</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> High — adds a critique layer for proposals before users decide whether to review or apply them.</p>
+<p><strong>Design skill:</strong> <code>@styleguide-design</code> for renderer proposal-card feedback.</p>
+<p><strong>Depends on:</strong> <strong><a href="112-agent-subagents-child-sessions.md">112</a></strong>, <strong><a href="146-pre-validation-for-edit-proposals.md">146</a></strong>, <strong><a href="147-stronger-anti-crush-and-formatting-enforcement.md">147</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>GrokForge already rejects clearly broken proposal payloads, but accepted proposals can still contain subtle formatting problems, obvious bugs, overly broad rewrites, or deviations from an approved plan. This story adds a dedicated reviewer role that critiques <code>propose_file_edits</code> output before the user acts on it, starting inline and non-blocking so we can test the behavior safely before moving to true spawned sub-agents.</p>
+<h3>Phase 0 model research</h3>
+<p>As of 2026-05-30, xAI’s public model docs list <code>grok-4.3</code>, <code>grok-4.20-0309-reasoning</code>, <code>grok-4.20-0309-non-reasoning</code>, <code>grok-4.20-multi-agent-0309</code>, and <code>grok-build-0.1</code> for text/coding-style API use. The docs position <code>grok-4.3</code> as the flagship general/coding model with 1M context, structured outputs, reasoning, and strong instruction following. xAI’s Grok Build announcement positions <code>grok-build-0.1</code> as the fastest coding model, trained for agentic coding, web development, debugging, MCP/tool workflows, and served at 100+ tokens/sec with lower pricing than <code>grok-4.3</code>.</p>
+<p>Retired fast/code slugs now redirect: <code>grok-code-fast-1</code> is recommended to migrate to <code>grok-build-0.1</code>; older Grok 4 fast reasoning/non-reasoning slugs redirect to <code>grok-4.3</code> with configured reasoning effort. For a reviewer role, the initial recommendation is <strong><code>grok-build-0.1</code></strong>: review prompts are short, proposal content is code-heavy, and the role should be low-latency and inexpensive. If dogfood shows the reviewer misses plan deviation or subtle architectural bugs, promote the reviewer model to <code>grok-4.3</code> with a strict critique prompt for higher-signal reviews.</p>
+<h3>Implementation checklist</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Phase 0 research complete + model recommendation documented</li>
+<li><input type="checkbox" disabled checked> Dedicated reviewer profile + prompt created</li>
+<li><input type="checkbox" disabled checked> Reviewer can be invoked manually (for testing)</li>
+<li><input type="checkbox" disabled checked> Automatic post-proposal review runs for <code>propose_file_edits</code> (inline)</li>
+<li><input type="checkbox" disabled checked> Review feedback is visible in the UI (attached to proposal or as a message)</li>
+<li><input type="checkbox" disabled checked> Basic configuration added (enable/disable + model selection)</li>
+<li><input type="checkbox" disabled checked> Tested on both small and large edit proposals</li>
+<li><input type="checkbox" disabled checked> No major regressions in existing plan/work flows</li>
+<li><input type="checkbox" disabled checked> Documentation updated (even if minimal)</li>
+</ul>
+<h3>V1 scope</h3>
+<ul>
+<li>Inline same-turn review only; no persistent child reviewer session yet.</li>
+<li>Focus on <code>propose_file_edits</code>, not <code>edit</code> / <code>search_replace</code>.</li>
+<li>Feedback-only: reviewer findings are attached to the proposal and shown in the proposal card, but they do not block Apply.</li>
+<li>Automatic review is opt-in through manifest <code>reviewer.autoReviewEdits</code> and thresholded by <code>reviewer.minChangedLines</code>; manual review is available from the proposal card.</li>
+</ul>
+<h3>Follow-ups</h3>
+<ul>
+<li>Promote reviewer execution to a real bounded sub-agent session with its own transcript.</li>
+<li>Add Settings UI for reviewer config once dogfood validates the defaults.</li>
+<li>Feed reviewer feedback back into an auto-repair loop when the verdict is <code>fail</code>.</li>
+</ul>
+<h3>Verification notes</h3>
+<ul>
+<li>Focused reviewer/tool-executor tests pass.</li>
+<li>Typecheck passes.</li>
+<li>Full unit suite passes, including harness eval coverage for static verify nudges and creation incremental recovery.</li>
+</ul>
+        </div>
+      </details>
+      <details id="story-151" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">151</span><span class="story-name">Stop repeated same-path proposal failures</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/151-stop-repeated-same-path-proposal-failures.md">post-mvp/151-stop-repeated-same-path-proposal-failures.md</a>
+          </div>
+          <h2>151 — Stop repeated same-path proposal failures</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> Critical — prevents failed prototype/file-creation turns from burning all tool rounds and then degrading into misleading fallback output.</p>
+<p><strong>Design skill:</strong> N/A (main-process runner loop control).</p>
+<p><strong>Depends on:</strong> <strong><a href="149-improved-recovery-loop-after-rejected-proposals.md">149</a></strong>, <strong><a href="147-stronger-anti-crush-and-formatting-enforcement.md">147</a></strong>, <strong><a href="140-search-replace-failure-loop-observability.md">140</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>The TaskBoard prototype run repeatedly attempted <code>propose_file_edits</code> for the same new path after validation rejected the payload as malformed or crushed. The harness issued a recovery nudge, but the model kept retrying the same failure shape until <code>maxToolIterationsHit</code>.</p>
+<p>When a turn has no accepted proposal, continuing the same-path loop wastes latency, pollutes the visible activity stream, and increases the chance that the final answer will drift into an un-applied or partial pasted artifact.</p>
+<h3>Goal</h3>
+<p>Track rejected edit proposals by path and failure class during a turn. After a small threshold, stop normal retry sampling for that path and force either a constrained recovery path or an honest final failure.</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> <code>agent-runner</code> tracks same-path proposal rejections, including malformed schema failures when the intended path can be recovered from the tool payload.</li>
+<li><input type="checkbox" disabled checked> After 2-3 rejected proposal attempts for the same path with no accepted proposal, the turn stops normal retry loops for that path.</li>
+<li><input type="checkbox" disabled checked> The forced path cannot produce a success-style final answer; it must say no file was created or changed unless an <code>ok: true</code> edit proposal was received.</li>
+<li><input type="checkbox" disabled checked> Trace metadata records the forced stop reason so future dogfood runs are easy to diagnose.</li>
+<li><input type="checkbox" disabled checked> Existing successful proposal flows are unchanged.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Prefer reusing existing failure counters where possible instead of adding a separate parallel state machine.</li>
+<li>Treat new-file prototype requests as high-risk for this guard because there is no existing disk file to salvage.</li>
+<li>Keep the threshold configurable as a local constant in the runner or shared policy module.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-152" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">152</span><span class="story-name">Failed edit final-answer honesty contract</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/152-failed-edit-final-answer-honesty-contract.md">post-mvp/152-failed-edit-final-answer-honesty-contract.md</a>
+          </div>
+          <h2>152 — Failed edit final-answer honesty contract</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> Critical — prevents turns with rejected edit tools from ending with pasted partial files or implied success.</p>
+<p><strong>Design skill:</strong> N/A (final-answer contract and runner state).</p>
+<p><strong>Depends on:</strong> <strong><a href="151-stop-repeated-same-path-proposal-failures.md">151</a></strong>, <strong><a href="149-improved-recovery-loop-after-rejected-proposals.md">149</a></strong>, <strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>In the TaskBoard prototype run, every edit proposal failed and <code>editProposalCreated</code> stayed <code>false</code>, but the assistant still produced a large &quot;complete single-file HTML&quot; block in the final response. The screenshots show the result was not applied and was not reliably complete.</p>
+<p>For GrokForge, a failed write path should end honestly. The user should not need to infer from red tool rows that the final answer is only a fallback blob.</p>
+<h3>Goal</h3>
+<p>Strengthen final-answer contracts and runner inputs so a turn with failed edit tools and no accepted proposal cannot present a large generated file as if it solved the request.</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> <code>buildFinalAnswerContract</code> receives enough failure context to distinguish &quot;no edit attempted&quot; from &quot;edit attempted and rejected.&quot;</li>
+<li><input type="checkbox" disabled checked> If edit tools failed and no accepted proposal exists, the final answer must plainly say no file was created or changed.</li>
+<li><input type="checkbox" disabled checked> Large pasted file fallbacks are forbidden for failed file-creation/edit turns unless explicitly labeled as unapplied reference text and kept below a small cap.</li>
+<li><input type="checkbox" disabled checked> Assistant disk-success claim heuristics catch &quot;complete file&quot; / &quot;created file&quot; phrasing when <code>editProposalCreated</code> is false and edit failures occurred.</li>
+<li><input type="checkbox" disabled checked> Regression coverage proves the TaskBoard-style turn cannot end with an implied applied artifact (151 eval + contract tests; full TaskBoard fixture deferred to <strong>156</strong>).</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Build on existing honesty appendices in <code>agent-final-answer-contract.ts</code>.</li>
+<li>Include rejected path names in the final contract when available so the model can be specific without guessing.</li>
+<li>Keep the user-facing final answer short: reason, no write occurred, and next suggested retry.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-153" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">153</span><span class="story-name">Enforce creation incremental recovery</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/153-enforce-creation-incremental-recovery.md">post-mvp/153-enforce-creation-incremental-recovery.md</a>
+          </div>
+          <h2>153 — Enforce creation incremental recovery</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> High — turns the existing creation recovery nudge into an enforceable path instead of advice the model can ignore.</p>
+<p><strong>Design skill:</strong> N/A (edit proposal validation and runner recovery policy).</p>
+<p><strong>Depends on:</strong> <strong><a href="151-stop-repeated-same-path-proposal-failures.md">151</a></strong>, <strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong>, <strong><a href="149-improved-recovery-loop-after-rejected-proposals.md">149</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>GrokForge already emits <code>creation_incremental_recovery</code> after repeated integrity rejections on a new path. In the TaskBoard prototype run, that nudge fired, but the next attempts were still large full-file proposals that failed the same crushed-content validation.</p>
+<p>Recovery should change the allowed shape of the next edit attempt.</p>
+<h3>Goal</h3>
+<p>After creation incremental recovery fires for a path, reject or block another large full-file bootstrap attempt unless it is a small, clean scaffold. The model should either create a minimal viable file first, then extend incrementally, or end honestly.</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Recovery state is tracked per creation path after <code>buildCreationIncrementalRecoveryNudge</code> is issued.</li>
+<li><input type="checkbox" disabled checked> Post-recovery full-file creation proposals above a conservative size threshold are rejected with a specific &quot;minimal scaffold required&quot; reason.</li>
+<li><input type="checkbox" disabled checked> A small, well-formatted scaffold proposal remains allowed.</li>
+<li><input type="checkbox" disabled checked> Once a scaffold proposal is accepted, subsequent incremental extension can proceed through normal edit paths.</li>
+<li><input type="checkbox" disabled checked> The final-answer contract includes the recovery requirement if the model reaches final stream without complying.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Keep the first version simple: line/character thresholds plus same-path state are enough.</li>
+<li>Do not weaken anti-crush validation to make recovery pass.</li>
+<li>Coordinate with story <strong>151</strong> so forced stop and enforced recovery do not fight each other.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-154" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">154</span><span class="story-name">New-file expectedContentHash ergonomics</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/154-new-file-expected-content-hash-ergonomics.md">post-mvp/154-new-file-expected-content-hash-ergonomics.md</a>
+          </div>
+          <h2>154 — New-file expectedContentHash ergonomics</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> High — removes a needless schema footgun from file-creation proposals.</p>
+<p><strong>Design skill:</strong> N/A (tool schema, validation, and model-facing tool docs).</p>
+<p><strong>Depends on:</strong> <strong><a href="086-agent-write-stale-content-hash.md">086</a></strong>, <strong><a href="146-pre-validation-for-edit-proposals.md">146</a></strong>, <strong><a href="151-stop-repeated-same-path-proposal-failures.md">151</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>The first failed TaskBoard proposal was rejected before content validation because <code>expectedContentHash</code> was malformed. For a new file, the model should not have to invent a 64-character hash. If the operation is a create, the tool contract should be explicit and ergonomic.</p>
+<p>This matters because schema-level failures consume a tool round and can push the model into worse retries before it even receives content-quality feedback.</p>
+<h3>Goal</h3>
+<p>Make new-file creation proposals unambiguous: either relax the schema for create operations or document and normalize a single expected sentinel value. The model should get immediate, actionable feedback if it uses the wrong form.</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> The proposal schema/tool docs clearly distinguish create vs update expectations for <code>expectedContentHash</code>.</li>
+<li><input type="checkbox" disabled checked> New-file creation does not require the model to fabricate an arbitrary 64-character hash.</li>
+<li><input type="checkbox" disabled checked> Malformed hash errors for create operations are converted into a short model-facing repair message.</li>
+<li><input type="checkbox" disabled checked> Existing stale-content protection for updates remains strict.</li>
+<li><input type="checkbox" disabled checked> Tests cover create, update, malformed create hash, and stale update hash cases.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Prefer the smallest compatible schema change that preserves existing proposal storage and review behavior.</li>
+<li>If a sentinel is used, make it shared and named, not copied as a string literal across files.</li>
+<li>Update xAI tool descriptions so the model sees the rule before its first proposal.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-155" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">155</span><span class="story-name">Compact visible edit failure UI</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/155-compact-visible-edit-failure-ui.md">post-mvp/155-compact-visible-edit-failure-ui.md</a>
+          </div>
+          <h2>155 — Compact visible edit failure UI</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> Medium — makes repeated proposal failures understandable without flooding the chat.</p>
+<p><strong>Design skill:</strong> <code>@styleguide-design</code> for renderer activity and issue-card presentation.</p>
+<p><strong>Depends on:</strong> <strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong>, <strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong>, <strong><a href="151-stop-repeated-same-path-proposal-failures.md">151</a></strong>, <strong><a href="152-failed-edit-final-answer-honesty-contract.md">152</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>The screenshots show a stack of repeated red &quot;Edit proposal failed&quot; rows. That detail is useful for debugging, but it is noisy for someone who asked for a prototype. The user should see one clear issue summary with the affected path, failure reason, and outcome.</p>
+<h3>Goal</h3>
+<p>Compact repeated edit proposal failures in the chat activity UI into a single visible issue card while preserving enough detail for debugging.</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Repeated failures for the same path and failure class collapse into one issue row/card with a count.</li>
+<li><input type="checkbox" disabled checked> The compact card shows the path, short reason, and whether a file was actually created or changed.</li>
+<li><input type="checkbox" disabled checked> Full raw failure details remain accessible through the existing trace/debug affordance.</li>
+<li><input type="checkbox" disabled checked> Final-answer honesty state from story <strong>152</strong> is visually aligned with the activity card.</li>
+<li><input type="checkbox" disabled checked> The UI remains readable in narrow panes and follows GrokForge dark/accent token patterns.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Keep this as presentation compaction, not a replacement for trace data.</li>
+<li>Use existing activity grouping components where possible.</li>
+<li>Avoid new permanent settings until dogfood proves a need.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-156" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">156</span><span class="story-name">TaskBoard prototype failure regression eval</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/156-taskboard-prototype-failure-regression-eval.md">post-mvp/156-taskboard-prototype-failure-regression-eval.md</a>
+          </div>
+          <h2>156 — TaskBoard prototype failure regression eval</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> Medium — locks the observed dogfood failure into the harness eval suite so it does not regress.</p>
+<p><strong>Design skill:</strong> N/A (evaluation fixtures and trace assertions).</p>
+<p><strong>Depends on:</strong> <strong><a href="151-stop-repeated-same-path-proposal-failures.md">151</a></strong>, <strong><a href="152-failed-edit-final-answer-honesty-contract.md">152</a></strong>, <strong><a href="153-enforce-creation-incremental-recovery.md">153</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>The TaskBoard run is a crisp repro: empty workspace, request a single-file HTML prototype, repeated malformed/crushed proposals, <code>creation_incremental_recovery</code> fires, no accepted edit proposal, final answer pastes an incomplete-looking file.</p>
+<p>This should become a deterministic regression so future prompt, validation, or runner changes preserve the intended failure behavior.</p>
+<h3>Goal</h3>
+<p>Add a focused eval that simulates repeated failed prototype creation and asserts the harness ends in one of two acceptable states: an accepted proposal, or an honest no-write failure. It must never end with a claimed completed file when no proposal was accepted.</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Add an <code>agent-runner-evaluation</code> scenario based on the TaskBoard single-file HTML prompt.</li>
+<li><input type="checkbox" disabled checked> The fixture simulates at least one malformed create proposal and repeated crushed-content proposal failures.</li>
+<li><input type="checkbox" disabled checked> Assertions cover <code>editProposalCreated</code>, forced stop/recovery metadata, final-answer constraints, and absence of success claims.</li>
+<li><input type="checkbox" disabled checked> The test verifies no giant pasted fallback is streamed after failed write attempts.</li>
+<li><input type="checkbox" disabled checked> The eval tag/name makes this easy to find from future dogfood trace reports.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Use <code>createRecordingTransport</code> so the failure sequence is deterministic.</li>
+<li>Prefer asserting final-answer contract inputs and trace metadata over brittle exact prose.</li>
+<li>Include the original prompt text in the fixture comments for traceability.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-157" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">157</span><span class="story-name">Compact top bar: remove redundant context strip</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/157-compact-top-bar-context-strip.md">post-mvp/157-compact-top-bar-context-strip.md</a>
+          </div>
+          <h2>157 — Compact top bar: remove redundant context strip</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> UI vertical-space wave <strong>157–159</strong> — first of three narrow renderer stories that reclaim persistent chrome without removing capabilities.</p>
+<p><strong>Design skill:</strong> <strong>Required</strong> — <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> (<code>@styleguide-design</code>).</p>
+<p><strong>Depends on:</strong> <strong><a href="../021-header-chrome-minimal-branding.md">021</a></strong> (project header), <strong><a href="141-conversation-first-chat-and-tool-activity-shell.md">141</a></strong> / <strong><a href="142-ui-copy-and-status-hierarchy-cleanup.md">142</a></strong> (chat hierarchy — do not reintroduce duplicate status lines).</p>
+<h3>Why this story exists</h3>
+<p>GrokForge’s workspace chrome stacks <strong>three layers</strong> of overlapping context before the user reaches chat or files:</p>
+<p>| Layer | Location | Redundant with | |-------|----------|----------------| | Project name + active root pill | <a href="../../src/renderer/src/components/ProjectHeader.tsx"><code>ProjectHeader</code></a> | Sidebar root selector + file tree | | <strong>“Next send”</strong> row (model intent, resolved id, conversation mode) | <a href="../../src/renderer/src/components/ChatTurnContextUi.tsx"><code>ChatLiveContextStrip</code></a> in <a href="../../src/renderer/src/components/ChatThread.tsx"><code>ChatThread</code></a> | Composer <strong>Fast / planning</strong> chip, Work/Plan mode toggle, <code>turn_started.routing</code> badges on live turns | | <strong>Roots</strong> + <strong>Active root</strong> + file/pinned lines | Same <code>ChatLiveContextStrip</code> | Header active-root pill, sidebar roots, per-turn <strong>Details</strong> dropdown on assistant messages |</p>
+<p>The sticky strip alone is ~<strong>two text rows</strong> plus borders (<code>py-2.5</code>, <code>border-b</code>, inner <code>mt-2</code> / <code>pt-2</code> divider). That space is better spent on transcript and composer — especially after <strong>141</strong> made chat the hero column.</p>
+<p><strong>Goal:</strong> noticeably shorter top area; less harness-debugger noise; <strong>no loss of control</strong> over model intent, mode, or root context.</p>
+<h3>Goals</h3>
+<h4>1. Remove the prominent “Next send” strip</h4>
+<ul>
+<li>Delete or stop rendering the full <strong><code>ChatLiveContextStrip</code></strong> block at the top of the chat scroll region (the row labeled <strong>“Next send”</strong> with intent badge, human label, resolved model id, and <strong>Conversation:</strong> chip).</li>
+<li><strong>Keep</strong> composer controls as the sole pre-send surface:</li>
+<li>Work / Plan mode toggle</li>
+<li>Fast vs planning model chip group</li>
+<li>Temperament / attachments as today</li>
+<li><strong>Keep</strong> per-turn routing visibility on <strong>live</strong> turns via existing <code>turn_started.routing</code> badges and assistant <strong>Details</strong> footer — do not duplicate a third “next model” line.</li>
+</ul>
+<h4>2. De-emphasize or remove Roots / Active root from the chat header area</h4>
+<ul>
+<li>Remove the <strong>Roots</strong> list and <strong>Active root / File / Pinned</strong> rows from <code>ChatLiveContextStrip</code> (component may be deleted or reduced to zero height).</li>
+<li><strong>Do not</strong> remove root switching from the sidebar or the header’s compact active-root pill unless product review finds the pill fully redundant (default: <strong>keep header pill</strong>, drop chat duplicate).</li>
+<li>Optional minimal tweak: if the header active-root pill feels heavy next to a shorter chat column, reduce to <strong>icon + truncated label</strong> only — stay within header file, no sidebar refactor.</li>
+</ul>
+<h4>3. Preserve debugging / power-user paths</h4>
+<ul>
+<li><strong>Turn context</strong> for completed messages stays in <strong><code>AssistantMessageContextFooter</code></strong> → <strong>Details</strong> dropdown (<code>TurnContextDetailsBody</code>).</li>
+<li><strong>Agent activity</strong> scope lines remain inside expanded tool activity (<strong>141</strong>), not resurrected as a sticky strip.</li>
+<li>No change to main-process routing (<code>resolveAgentTurnRouting</code>) — renderer hint fields on send stay as today.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/renderer/src/components/ChatTurnContextUi.tsx"><code>src/renderer/src/components/ChatTurnContextUi.tsx</code></a> — remove or gut <code>ChatLiveContextStrip</code>; keep <code>AssistantMessageContextFooter</code>, <code>AgentActivityTurnContextBanner</code>, details helpers.</li>
+<li><a href="../../src/renderer/src/components/ChatThread.tsx"><code>src/renderer/src/components/ChatThread.tsx</code></a> — stop mounting the sticky strip; verify composer-only model/mode UX.</li>
+<li><a href="../../src/renderer/src/components/ProjectHeader.tsx"><code>src/renderer/src/components/ProjectHeader.tsx</code></a> — <strong>optional</strong> minor de-emphasis of active-root pill (only if needed for visual balance).</li>
+<li>Tests: any component tests referencing <code>ChatLiveContextStrip</code>; grep <code>Next send</code> / <code>ChatLiveContextStrip</code> in renderer.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Voice bar collapse (<strong>158</strong>).</li>
+<li>Editor empty state or shortcuts (<strong>159</strong>).</li>
+<li>Composer redesign, Settings model pickers, or manifest routing changes.</li>
+<li>Removing sidebar root list or file tree.</li>
+<li>Changing copy matrix from <strong>142</strong> (except deleting redundant strip strings).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> With a project open, the chat column no longer shows a sticky <strong>“Next send”</strong> row above the message list.</li>
+<li><input type="checkbox" disabled> User can still choose <strong>Work / Plan</strong>, <strong>Fast / planning</strong> model intent, and send turns with the same behavior as before (manual smoke: one fast turn + one plan turn).</li>
+<li><input type="checkbox" disabled> <strong>Roots</strong> and <strong>Active root</strong> lines are not shown in the chat header strip; active root remains discoverable via <strong>header pill</strong> and/or <strong>sidebar</strong> (at least one of these).</li>
+<li><input type="checkbox" disabled> Per-turn model/routing context remains available on assistant messages (<strong>Details</strong>) and on live turns (<code>turn_started.routing</code> badge).</li>
+<li><input type="checkbox" disabled> Measured or visually obvious: chat transcript starts <strong>≥1 row higher</strong> than before (strip + divider removed).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes; no user-visible <strong>“Next send”</strong> string in chat chrome (<code>rg &quot;Next send&quot; src/renderer</code>).</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="141-conversation-first-chat-and-tool-activity-shell.md">141</a></strong>, <strong><a href="142-ui-copy-and-status-hierarchy-cleanup.md">142</a></strong>, <strong><a href="125-agent-turn-activity-clarity-and-chat-vertical-space.md">125</a></strong> — prior chat vertical-space work; <strong>157</strong> targets <strong>persistent</strong> strip noise, not tool activity.</li>
+<li><strong><a href="158-collapsible-voice-mode-bar.md">158</a></strong>, <strong><a href="159-editor-empty-state-and-global-shortcuts.md">159</a></strong> — sibling UI-space stories (independent shippable order).</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table (add <strong>157</strong>), run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-158" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">158</span><span class="story-name">Collapsible voice mode bar</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/158-collapsible-voice-mode-bar.md">post-mvp/158-collapsible-voice-mode-bar.md</a>
+          </div>
+          <h2>158 — Collapsible voice mode bar</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> UI vertical-space wave <strong>157–159</strong> — second story; reclaims a full <strong>h-20</strong> footer row in the main workspace when voice is idle.</p>
+<p><strong>Design skill:</strong> <strong>Required</strong> — <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> (<code>@styleguide-design</code>).</p>
+<p><strong>Depends on:</strong> <strong><a href="../013-voice-full-duplex-pipeline.md">013</a></strong> (voice pipeline), <strong><a href="113-voice-realtime-harness-profile-alignment.md">113</a></strong> (harness profile badges — display only).</p>
+<h3>Why this story exists</h3>
+<p><a href="../../src/renderer/src/components/VoiceControls.tsx"><code>VoiceControls</code></a> is mounted at the bottom of the center column in <a href="../../src/renderer/src/App.tsx"><code>App.tsx</code></a> as a <strong>fixed h-20 bar</strong> with border, large mic button, model/harness badges, status copy, and <strong>Continue in agent chat</strong> — <strong>even when idle</strong>.</p>
+<p>Most sessions are typed agent chat. The idle voice bar permanently consumes vertical space comparable to a second toolbar, pushing terminal, editor, and chat content upward. Search and Terminal already live as <strong>compact header pills</strong> in <a href="../../src/renderer/src/components/ProjectHeader.tsx"><code>ProjectHeader</code></a>; voice should follow the same <strong>expand-on-demand</strong> pattern.</p>
+<p><strong>Goal:</strong> voice stays one tap away, but <strong>does not occupy a full row</strong> until the user opens or starts a session.</p>
+<h3>Goals</h3>
+<h4>1. Collapsed by default</h4>
+<ul>
+<li>When voice is <strong>idle</strong> (not active, not connecting, no error requiring attention), render <strong>no full-width bar</strong>.</li>
+<li>Collapsed state: <strong>zero</strong> or <strong>minimal</strong> height in the layout (no reserved h-20 gutter).</li>
+</ul>
+<h4>2. Compact control in the header chrome</h4>
+<ul>
+<li>Add a <strong>Voice</strong> control adjacent to <strong>Search</strong> and <strong>Terminal</strong> in <code>ProjectHeader</code> (mic icon or small pill — match existing rounded-full button style).</li>
+<li>Tooltip: start/stop voice; show disabled state when <code>project.voice.defaultVoiceMode === 'off'</code> (same rules as today).</li>
+<li>Optional subtle <strong>active</strong> indicator (accent dot or pill tint) when a session is live but the bar is collapsed — do not rely on the old footer for “is listening” affordance alone.</li>
+</ul>
+<h4>3. Expandable voice panel</h4>
+<ul>
+<li>Clicking the compact control (or starting voice from it) <strong>expands</strong> the full voice UI (current mic button, status text, model badges, <strong>Continue in agent chat</strong>, error retry).</li>
+<li>Panel placement options (pick one in implementation):</li>
+<li><strong>A.</strong> Slide-up <strong>sheet / popover</strong> anchored below header or above composer (preferred — no permanent row).</li>
+<li><strong>B.</strong> Temporarily show the existing bottom bar only while <code>isActive || status === 'connecting' || status === 'error'</code> (auto-collapse on stop).</li>
+<li><strong>Collapse</strong> via: stop session, explicit close chevron, or Escape (if modal/sheet).</li>
+<li>Use existing <strong>framer-motion</strong> patterns where other panels animate (<strong>141</strong> collapsibles).</li>
+</ul>
+<h4>4. No voice behavior changes</h4>
+<ul>
+<li>Reuse <a href="../../src/renderer/src/hooks/useVoiceSession.ts"><code>useVoiceSession</code></a> (or equivalent) wiring from <code>App.tsx</code> — same IPC, handoff, and transcript append paths.</li>
+<li>Do not change realtime WebSocket, mic capture, or <strong>Continue in agent chat</strong> semantics (<strong>113</strong>).</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/renderer/src/components/VoiceControls.tsx"><code>src/renderer/src/components/VoiceControls.tsx</code></a> — split <strong>compact trigger</strong> vs <strong>expanded panel</strong> props; support controlled <code>open</code> / <code>onOpenChange</code> if needed.</li>
+<li><a href="../../src/renderer/src/components/ProjectHeader.tsx"><code>src/renderer/src/components/ProjectHeader.tsx</code></a> — new voice button + pass-through callbacks from <code>App</code>.</li>
+<li><a href="../../src/renderer/src/App.tsx"><code>src/renderer/src/App.tsx</code></a> — lift voice open state; remove unconditional full-width footer mount when collapsed.</li>
+<li>Optional: small helper <a href="../../src/renderer/src/lib/voice-ui-state.ts"><code>src/renderer/src/lib/voice-ui-state.ts</code></a> for “should show expanded panel” derived state.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Top bar context strip (<strong>157</strong>).</li>
+<li>Editor empty state (<strong>159</strong>).</li>
+<li>Voice model routing, harness appendix text, or Settings voice defaults.</li>
+<li>Push-to-talk UX (<strong>AGENTS.md</strong> known simplification).</li>
+<li>macOS mic permission flow changes (<strong>026</strong>).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Fresh project open, voice idle: center column <strong>does not</strong> show the full <strong>h-20</strong> <code>VoiceControls</code> bar.</li>
+<li><input type="checkbox" disabled> <strong>Voice</strong> control visible in header next to Search / Terminal (or documented exception if platform drag region blocks — must still be one-click reachable).</li>
+<li><input type="checkbox" disabled> Start voice from compact control → expanded UI shows status progression (connecting → listening → …) identical to today.</li>
+<li><input type="checkbox" disabled> Stop voice → UI collapses back; no stale “Voice Session Active” footer row.</li>
+<li><input type="checkbox" disabled> <strong>Continue in agent chat</strong> still available while session active (expanded panel).</li>
+<li><input type="checkbox" disabled> <code>defaultVoiceMode: off</code> disables control with clear tooltip; no regression vs current disabled mic.</li>
+<li><input type="checkbox" disabled> Expand/collapse animation feels smooth (no layout jump that loses chat scroll position).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> passes; manual smoke: start → speak → stop → handoff once.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="../021-header-chrome-minimal-branding.md">021</a></strong> — header pill pattern for Search/Terminal.</li>
+<li><strong><a href="157-compact-top-bar-context-strip.md">157</a></strong>, <strong><a href="159-editor-empty-state-and-global-shortcuts.md">159</a></strong> — sibling vertical-space stories.</li>
+<li><strong><a href="113-voice-realtime-harness-profile-alignment.md">113</a></strong> — voice harness badges in expanded panel only.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table (add <strong>158</strong>), run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-159" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">159</span><span class="story-name">Editor empty state cleanup and honest global shortcuts</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/159-editor-empty-state-and-global-shortcuts.md">post-mvp/159-editor-empty-state-and-global-shortcuts.md</a>
+          </div>
+          <h2>159 — Editor empty state cleanup and honest global shortcuts</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> UI vertical-space wave <strong>157–159</strong> — third story; cleans the default <strong>no file open</strong> editor pane and fixes misleading shortcut copy.</p>
+<p><strong>Design skill:</strong> <strong>Required</strong> — <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> (<code>@styleguide-design</code>).</p>
+<p><strong>Depends on:</strong> <strong><a href="../007-editor-polish-keyboard-dirty-state-close-guard.md">007</a></strong> (save shortcut), <strong><a href="../075-files-pane-collapse-defaults-and-file-tree-default-open.md">075</a></strong> (editor pane collapse), <strong><a href="143-context-panel-agent-companion.md">143</a></strong> (optional <code>agentContextHint</code> line).</p>
+<h3>Why this story exists</h3>
+<p>When no editor tab is active, <a href="../../src/renderer/src/components/EditorEmptyState.tsx"><code>EditorEmptyState</code></a> shows:</p>
+<ul>
+<li>Wordmark + <strong>No files open</strong> + optional agent hint + <strong>Active root</strong> (duplicates header/sidebar)</li>
+<li>A always-visible <strong>Shortcuts</strong> card listing five bindings</li>
+<li><strong>Search workspace</strong> / <strong>Focus chat</strong> buttons (duplicate header search and obvious chat column)</li>
+<li><strong>ModelBadge</strong> row for execution model + project name (low value on empty editor)</li>
+</ul>
+<p>The shortcuts card claims global behavior but the implementation is split:</p>
+<p>| Shortcut | Handler location | Works from chat focus? | |----------|------------------|-------------------------| | ⌘⇧F search | <a href="../../src/renderer/src/App.tsx"><code>App.tsx</code></a> <code>window</code> capture | Yes (when not in input) | | ⌘J terminal | <code>App.tsx</code> | Yes | | ⌘B sidebar | <code>App.tsx</code> | Yes | | ⌥⌘E editor pane | <code>App.tsx</code> | Yes | | ⌘S save | <a href="../../src/renderer/src/components/EditorPane.tsx"><code>EditorPane.tsx</code></a> | Yes <strong>only if</strong> a file tab is active |</p>
+<p>Footnote text partially explains save preconditions, but listing <strong>Save active file</strong> in the empty state implies an action the user <strong>cannot</strong> take with no tab open — visual noise without benefit.</p>
+<p><strong>Goal:</strong> a calmer empty pane; shortcuts panel stays <strong>collapsible</strong> (default collapsed after first visit optional); every <strong>visible</strong> binding works globally or is hidden with honest copy.</p>
+<h3>Goals</h3>
+<h4>1. Minimal empty state layout</h4>
+<ul>
+<li>Reduce vertical stack: prefer <strong>one</strong> short headline (<strong>No files open</strong>) + optional <strong>agentContextHint</strong> (143) when present.</li>
+<li>Remove or relocate redundant chrome:</li>
+<li><strong>Active root</strong> line (header/sidebar already show root)</li>
+<li>Duplicate <strong>Search</strong> / <strong>Focus chat</strong> buttons (or replace with single subtle text link if user testing wants one CTA — default <strong>remove</strong>)</li>
+<li>Bottom <strong>ModelBadge</strong> / project name row</li>
+<li>Keep <strong>Collapse editor pane</strong> control in the pane toolbar when <code>onCollapseEditorPane</code> is provided.</li>
+<li>Wordmark: keep <strong>compact/muted</strong> variant or drop if still too tall — aim for ≤ <strong>~40vh</strong> total empty content on laptop.</li>
+</ul>
+<h4>2. Collapsible shortcuts panel</h4>
+<ul>
+<li>Wrap shortcuts in a <strong>disclosure</strong> (chevron / “Keyboard shortcuts”) — collapsed by default.</li>
+<li>Persist user preference in <code>localStorage</code> (e.g. <code>grokforge.editor.emptyShortcutsExpanded</code>) optional; default <strong>collapsed</strong>.</li>
+<li>Collapsed: one line “Keyboard shortcuts” + chevron; expanded: current table layout (tightened spacing per styleguide).</li>
+</ul>
+<h4>3. Global shortcut honesty</h4>
+<ul>
+<li>Single source of truth for labels + key caps: consolidate <a href="../../src/renderer/src/components/EditorEmptyState.tsx"><code>useShortcutRows</code></a> with <a href="../../src/renderer/src/lib/workspace-global-shortcuts.ts"><code>workspace-global-shortcuts.ts</code></a> (export shared <code>WORKSPACE_SHORTCUT_ROWS</code> + platform key labels).</li>
+<li><strong>Show only</strong> shortcuts that work from anywhere in the workspace (respecting <code>workspaceGlobalShortcutTargetAllowsShortcut</code> — disabled while typing in inputs):</li>
+<li>Workspace search, toggle terminal, toggle sidebar, toggle editor pane</li>
+<li><strong>Hide</strong> “Save active file” from empty-state list <strong>or</strong> move to a secondary “When editing” subsection that only appears when <code>openFiles.length &gt; 0</code> (if empty state receives that prop) — <strong>do not</strong> show save on pure empty state.</li>
+<li>Verify each listed shortcut fires from <strong>chat composer focused</strong> (click textarea, then key chord) in manual test checklist.</li>
+<li>If a shortcut cannot be made global without scope creep, <strong>remove</strong> it from the panel (do not show broken bindings).</li>
+</ul>
+<h4>4. No shortcuts system overhaul</h4>
+<ul>
+<li>Do not add a global shortcuts modal (<strong>ProjectHeader</strong> “Keyboard shortcuts (soon)” stays disabled).</li>
+<li>Do not change Monaco keybindings or terminal PTY input handling.</li>
+</ul>
+<h3>Scope</h3>
+<ul>
+<li><a href="../../src/renderer/src/components/EditorEmptyState.tsx"><code>src/renderer/src/components/EditorEmptyState.tsx</code></a> — layout, collapsible shortcuts, shared row import.</li>
+<li><a href="../../src/renderer/src/lib/workspace-global-shortcuts.ts"><code>src/renderer/src/lib/workspace-global-shortcuts.ts</code></a> — export shared shortcut metadata; keep <code>workspaceGlobalShortcutTargetAllowsShortcut</code>.</li>
+<li><a href="../../src/renderer/src/App.tsx"><code>src/renderer/src/App.tsx</code></a> — only if moving save handler to app level is required to honor a shown binding (prefer <strong>hide save on empty state</strong> over refactor).</li>
+<li><a href="../../src/renderer/src/components/EditorPane.tsx"><code>src/renderer/src/components/EditorPane.tsx</code></a> — pass props if “When editing” subsection needs open-tab signal.</li>
+<li>Unit test: shared shortcut row list matches keys handled in <code>App.tsx</code> (new small test file acceptable).</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Top bar strip (<strong>157</strong>) or voice bar (<strong>158</strong>).</li>
+<li>Welcome screen shortcuts.</li>
+<li>Implementing the header <strong>Keyboard shortcuts (soon)</strong> menu item.</li>
+<li>Changing editor tab UX or Monaco theme.</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Empty editor (no tabs): no <strong>Active root</strong>, <strong>ModelBadge</strong>, or duplicate Search/Focus chat button row unless explicitly kept with PR justification.</li>
+<li><input type="checkbox" disabled> Shortcuts section is <strong>collapsible</strong>; default state is <strong>collapsed</strong> on first load.</li>
+<li><input type="checkbox" disabled> Expanded shortcuts list contains <strong>only</strong> bindings verified global (search, terminal, sidebar, editor pane toggle) — <strong>not</strong> save when no file is open.</li>
+<li><input type="checkbox" disabled> From chat composer focus: ⌘⇧F, ⌘J, ⌘B, ⌥⌘E each perform expected action (manual checklist or Playwright smoke if cheap).</li>
+<li><input type="checkbox" disabled> Footnote copy matches behavior (inputs disable shortcuts; no claim that save works with no tab).</li>
+<li><input type="checkbox" disabled> Empty state visually calmer — fewer bordered cards and badges than today (screenshot before/after in PR).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> + <code>npm run test</code> pass (including any new shortcut contract test).</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="143-context-panel-agent-companion.md">143</a></strong> — keep <code>agentContextHint</code> when agent recently touched a path.</li>
+<li><strong><a href="157-compact-top-bar-context-strip.md">157</a></strong>, <strong><a href="158-collapsible-voice-mode-bar.md">158</a></strong> — sibling vertical-space stories.</li>
+<li><strong><a href="../025-ui-controls-inventory-wire-hide-or-disable.md">025</a></strong> — inventory discipline for duplicate actions.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table (add <strong>159</strong>), run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-160" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">160</span><span class="story-name">HTML normalize-before-prevalidate (146 ordering fix)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/160-html-normalize-before-prevalidate.md">post-mvp/160-html-normalize-before-prevalidate.md</a>
+          </div>
+          <h2>160 — HTML normalize-before-prevalidate (fix 146 ordering vs repair)</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> Critical — highest-leverage fix for TaskBoard-style loops where repairable crushed HTML is rejected before <code>normalizeAgentWriteFileContent</code> runs.</p>
+<p><strong>Design skill:</strong> N/A (shared validation + main proposal path).</p>
+<p><strong>Depends on:</strong> <strong><a href="146-pre-validation-for-edit-proposals.md">146</a></strong>, <strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong>, <strong><a href="133-greenfield-execute-quality-regression-guard.md">133</a></strong>, <strong><a href="153-enforce-creation-incremental-recovery.md">153</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>Story <strong>146</strong> added <code>detectObviousCrushedRawContent</code> on the <strong>raw</strong> <code>write_file</code> payload inside <code>validateAgentEditProposal</code>, <strong>before</strong> disk I/O and <strong>before</strong> <code>normalizeAgentWriteFileContent</code>.</p>
+<p>GrokForge already has HTML/JS repair in <code>agent-file-content-normalize.ts</code> (<code>reflowHtmlEmbeddedBlocks</code>, <code>repairJammedHtmlScriptInner</code>, <code>repairCrushedHtmlScriptBlocks</code>). Dogfood repro (TaskBoard single-file HTML, 2026-05-30) shows payloads that:</p>
+<ol>
+<li>Fail raw pre-validation with <code>AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON</code> (“crushed or minified…”).</li>
+<li>Would <strong>pass</strong> <code>assessProposalWriteContent</code> <strong>after</strong> normalization.</li>
+</ol>
+<p>The harness is therefore rejecting fixable content and burning tool rounds on identical retries — the opposite of <strong>100</strong>’s “normalize + reject” intent.</p>
+<h3>Goal</h3>
+<p>Align pre-validation with normalization so <strong>repairable</strong> crushed HTML (especially inline <code>&lt;script&gt;</code> in <code>.html</code> files) is normalized first, then gated — while still rejecting truly unrecoverable garbage before diff review.</p>
+<h3>Agent planning — read before coding</h3>
+<p>Load <strong><code>.cursor/rules/agent-harness-engineering.mdc</code></strong> and follow its change proposal structure (goal, brittleness reduction, exact change, side effects, test plan).</p>
+<p><strong>Required reading (in order):</strong></p>
+<ol>
+<li><a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> — agent vs harness; validation as harness quality gate.</li>
+<li><a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> — prototype write failure recovery wave (<strong>151–156</strong>).</li>
+<li><a href="../../docs/research/agentic-coding-harnesses.md"><code>docs/research/agentic-coding-harnesses.md</code></a> — § validation / patch quality patterns in OpenCode, Pi, T3 (how others order normalize vs reject).</li>
+<li><a href="../../docs/research/grokforge-harness-engineering-notes.md"><code>docs/research/grokforge-harness-engineering-notes.md</code></a> — internal notes on brittle harness loops (if present).</li>
+<li><a href="../../docs/field-reports/README.md"><code>docs/field-reports/README.md</code></a> + TaskBoard dogfood context in <strong><a href="156-taskboard-prototype-failure-regression-eval.md">156</a></strong>.</li>
+</ol>
+<p><strong>Code anchors to inspect first:</strong></p>
+<ul>
+<li><code>src/main/agent-edit-proposals.ts</code> — validation order (creation recovery block → raw pre-validation → normalize → <code>assessProposalWriteContent</code>).</li>
+<li><code>src/shared/agent-edit-corrupt-content.ts</code> — <code>detectObviousCrushedRawContent</code>, <code>assessProposalWriteContent</code>.</li>
+<li><code>src/shared/agent-file-content-normalize.ts</code> — <code>normalizeAgentWriteFileContent</code>, HTML embedded script repair.</li>
+<li><code>src/main/agent-edit-proposals.test.ts</code>, <code>src/shared/agent-edit-corrupt-content.test.ts</code>.</li>
+<li>Fixture: <code>staticTodoCrushedIndexHtml()</code> in <code>src/main/agent-eval-fixtures.ts</code>.</li>
+</ul>
+<p><strong>Repro command (local sanity check before/after):</strong></p>
+<pre><code>npx tsx -e &quot;
+import { staticTodoCrushedIndexHtml } from './src/main/agent-eval-fixtures.ts';
+import { normalizeAgentWriteFileContent } from './src/shared/agent-file-content-normalize.ts';
+import { assessProposalWriteContent, detectObviousCrushedRawContent } from './src/shared/agent-edit-corrupt-content.ts';
+const raw = staticTodoCrushedIndexHtml();
+const path = '/proj/index.html';
+console.log('pre raw:', detectObviousCrushedRawContent(raw, path));
+const norm = normalizeAgentWriteFileContent(raw, path);
+console.log('post norm:', assessProposalWriteContent(norm, { resolvedPath: path, isNewFile: true }));
+&quot;</code></pre>
+<p>Document any fixture where pre-validation and post-normalization disagree — those are the cases this story must fix.</p>
+<h3>Narrow acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> For <code>.html</code> / <code>.htm</code> <code>write_file</code> ops on the <code>propose_file_edits</code> path, normalization runs <strong>before</strong> raw crushed pre-validation <strong>or</strong> pre-validation is skipped when normalized content passes <code>assessProposalWriteContent</code>.</li>
+<li><input type="checkbox" disabled> At least one unit test proves: raw content that triggers <code>AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON</code> but normalizes to valid HTML → <strong>accepted proposal</strong> (not rejected at pre-validation).</li>
+<li><input type="checkbox" disabled> Truly unrecoverable crushed JS (still fails <code>assessProposalWriteContent</code> after normalize) continues to reject — no weakening of post-normalize gates.</li>
+<li><input type="checkbox" disabled> Standalone <code>.js</code> / <code>.ts</code> / <code>.tsx</code> paths: behavior unchanged or strictly safer (do not broadly skip 146 for code files without explicit test coverage).</li>
+<li><input type="checkbox" disabled> <code>search_replace</code>-derived writes keep existing ordering (146 explicitly scoped to <code>propose</code> path).</li>
+<li><input type="checkbox" disabled> No new heavy dependencies (no AST parser).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> + <code>npm run test</code> + focused <code>npm run test:agent-eval</code> tags for corrupt HTML / greenfield execute pass.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<p><strong>Preferred approach (pick one, document in PR):</strong></p>
+<ol>
+<li><strong>HTML-first reorder:</strong> For <code>isHtmlLikeContent</code> / <code>.html?</code> paths, call <code>normalizeAgentWriteFileContent</code> once, then run <code>detectObviousCrushedRawContent</code> + <code>assessProposalWriteContent</code> on the normalized string (use normalized content for the proposal body).</li>
+<li><strong>Repair-aware skip:</strong> Add <code>wouldNormalizeFixCrushedProposal(raw, path)</code> helper; skip raw pre-validation when true, but still fail if post-normalize assess fails.</li>
+</ol>
+<p>Avoid duplicating normalize passes (max one extra normalize for HTML on the propose path).</p>
+<p>Coordinate with <strong>153</strong>: a normalized-and-accepted scaffold should still respect creation-recovery size limits when enforced.</p>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/main/agent-edit-proposals.ts</code> — reorder or branch validation pipeline.</li>
+<li><code>src/shared/agent-edit-corrupt-content.ts</code> — optional helper for “repairable crushed” detection; keep 146 reason strings stable for recovery counters.</li>
+<li><code>src/shared/agent-file-content-normalize.ts</code> — only if a tiny exported helper avoids duplication.</li>
+<li>Tests: <code>src/main/agent-edit-proposals.test.ts</code>, <code>src/shared/agent-edit-corrupt-content.test.ts</code>; extend <strong>133</strong> / <strong>156</strong> evals if behavior changes.</li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Weakening <code>detectObviousCrushedRawContent</code> thresholds globally to “pass more stuff.”</li>
+<li>Full HTML/JS parser or browser-based validation.</li>
+<li>Changes to renderer diff UI.</li>
+<li>Auto-applying normalized content without user review (normalization only affects proposal validation content, not Velocity auto-apply policy).</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="146-pre-validation-for-edit-proposals.md">146</a></strong> — introduced the ordering this story corrects.</li>
+<li><strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong> — normalize foundation.</li>
+<li><strong><a href="161-greenfield-work-bootstrap-prompt-appendix.md">161</a></strong> — prompt-side complement (ship after or in parallel; <strong>160</strong> is validation-side).</li>
+<li><strong><a href="156-taskboard-prototype-failure-regression-eval.md">156</a></strong> — may need fixture update if happy path now accepts repaired HTML.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>. Add a note to <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> if manual repro steps change.</p>
+        </div>
+      </details>
+      <details id="story-161" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">161</span><span class="story-name">Greenfield Work bootstrap prompt appendix</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/161-greenfield-work-bootstrap-prompt-appendix.md">post-mvp/161-greenfield-work-bootstrap-prompt-appendix.md</a>
+          </div>
+          <h2>161 — Greenfield Work bootstrap prompt appendix (direct creation, no plan)</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> High — empty-folder Work turns currently miss the rich HTML/JS bootstrap copy that only injects on approve-and-run.</p>
+<p><strong>Design skill:</strong> N/A (harness prompt strings only); <code>@styleguide-design</code> only if composer copy references new UX nudges.</p>
+<p><strong>Depends on:</strong> <strong><a href="101-greenfield-plan-quality.md">101</a></strong>, <strong><a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong>, <strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong>, <strong><a href="160-html-normalize-before-prevalidate.md">160</a></strong> (validation-side complement; can ship in parallel).</p>
+<h3>Why this story exists</h3>
+<p><code>GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS</code> in <code>agent-harness-profile.ts</code> injects only when <strong>all</strong> of:</p>
+<ul>
+<li><code>ctx.executeFromApprovedPlan === true</code></li>
+<li><code>ctx.greenfieldWorkspace === true</code></li>
+<li>harness profile <code>grok_code_fast</code></li>
+</ul>
+<p>Direct <strong>Work</strong> mode on an <strong>empty greenfield</strong> folder (TaskBoard repro: “single html file” prototype) gets <strong>none</strong> of that appendix. Meanwhile:</p>
+<ul>
+<li><code>shouldRouteIterativeWorkExecutor</code> <strong>explicitly excludes</strong> greenfield workspaces (<strong>130</strong>).</li>
+<li><code>singleFilePrimary</code> is false when the index has zero files.</li>
+<li><code>resolveScaffoldStrategy</code> often returns <code>null</code> because user text like “single html file” / “taskboard prototype” does not match <code>STATIC_USER_RE</code> in <code>agent-scaffold-strategy.ts</code>.</li>
+</ul>
+<p>The model receives generic code-quality rules but not greenfield-specific guidance: multi-line HTML, inline script formatting, when <strong>not</strong> to run <code>npm create</code>, browser-only verification, etc. That prompt gap contributes to crushed single-file proposals and wasted tool rounds.</p>
+<h3>Goal</h3>
+<p>When a <strong>fast / Work</strong> turn targets a <strong>greenfield workspace</strong> with <strong>edit/create intent</strong> and <strong>without</strong> approve-and-run, inject a <strong>Work-safe subset</strong> of greenfield bootstrap guidance — without duplicating full plan-mode or execute-from-plan blocks.</p>
+<h3>Agent planning — read before coding</h3>
+<p>Load <strong><code>.cursor/rules/agent-harness-engineering.mdc</code></strong>. Do <strong>not</strong> add TaskBoard-specific copy; keep guidance general (harness engineering anti-pattern: project-specific prompt tuning).</p>
+<p><strong>Required reading (in order):</strong></p>
+<ol>
+<li><a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> — § per-model profiles, plan vs execute, context delivery.</li>
+<li><a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> — greenfield / dual-model program.</li>
+<li><a href="../../docs/research/agentic-coding-harnesses.md"><code>docs/research/agentic-coding-harnesses.md</code></a> — how OpenCode/Hermes/Pi split <strong>plan</strong> vs <strong>build</strong> system prompts; note prompt layering patterns.</li>
+<li><a href="../../docs/research/grokforge-harness-engineering-martin-fowler.md"><code>docs/research/grokforge-harness-engineering-martin-fowler.md</code></a> — stability / separation of concerns (if relevant to prompt scope).</li>
+<li><a href="../../docs/field-reports/agent-harness-comparison.html"><code>docs/field-reports/agent-harness-comparison.html</code></a> — happy path: Plan → approve → execute vs direct Work.</li>
+<li>Story <strong><a href="118-work-vs-plan-mode-and-conversation-lifecycle.md">118</a></strong> — when Work vs Plan is intentional product behavior.</li>
+</ol>
+<p><strong>Code anchors:</strong></p>
+<ul>
+<li><code>src/shared/agent-harness-profile.ts</code> — <code>buildHarnessTurnPromptSections</code>, <code>GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS</code>, <code>HarnessPromptTurnContext</code>.</li>
+<li><code>src/shared/agent-scaffold-strategy.ts</code> — <code>STATIC_USER_RE</code>, <code>resolveScaffoldStrategy</code> (expand heuristics carefully).</li>
+<li><code>src/shared/workspace-greenfield.ts</code> — <code>isGreenfieldWorkspace</code>, static bootstrap plan hints.</li>
+<li><code>src/shared/iterative-work-edit.ts</code> — why greenfield excludes iterative Work (do not conflate).</li>
+<li><code>src/main/agent-runner.ts</code> — <code>harnessCtx</code> assembly (~line 1277).</li>
+<li>Tests: <code>src/shared/agent-harness-profile.test.ts</code>, <code>src/main/agent-runner-evaluation.test.ts</code>.</li>
+</ul>
+<p><strong>Trace inspection:</strong> Run a local dev turn or eval with empty root + “create a single html file prototype” and confirm whether <code>GREENFIELD_EXECUTE_BOOTSTRAP</code> marker appears in turn trace / snapshot system text <strong>before</strong> implementing.</p>
+<h3>Narrow acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> New stable marker constant (e.g. <code>GREENFIELD_WORK_BOOTSTRAP_MARKER</code>) and appendix sections inject when:</li>
+<li><code>chatMode === 'fast'</code></li>
+<li><code>greenfieldWorkspace === true</code></li>
+<li><code>executeFromApprovedPlan !== true</code></li>
+<li>turn has edit/create intent (<code>isLikelyEditIntent(userText)</code> or equivalent runner flag)</li>
+<li>harness profile is <code>grok_code_fast</code> or <code>grok_4_3</code> (match existing greenfield section conventions)</li>
+<li><input type="checkbox" disabled> Appendix includes <strong>general</strong> guidance for:</li>
+<li>static / single-file HTML creation (multi-line source, one statement per line in JS)</li>
+<li>when user explicitly requests <strong>one HTML file</strong>, inline <code>&lt;script&gt;</code> is allowed but must not be crushed/minified</li>
+<li>prefer browser-open verification over dev-server commands for trivial static single-file apps</li>
+<li>do <strong>not</strong> run <code>npm create</code> / scaffold CLI unless user asked for a framework</li>
+<li><input type="checkbox" disabled> Appendix does <strong>not</strong> duplicate full <code>EXECUTOR_FROM_PLAN_SECTIONS</code> or plan artifact references.</li>
+<li><input type="checkbox" disabled> <code>STATIC_USER_RE</code> (or sibling heuristic) expanded to detect common phrasing: “single html file”, “one html file”, “prototype”, “static page”, “vanilla” — <strong>without</strong> matching every “build/create” message (avoid false CLI/file-bootstrap conflicts).</li>
+<li><input type="checkbox" disabled> <code>resolveScaffoldStrategy</code> returns <code>file_bootstrap</code> for expanded static heuristics on greenfield Work turns when appropriate.</li>
+<li><input type="checkbox" disabled> Existing approve-and-run greenfield execute prompts unchanged (no double-injection of conflicting lines).</li>
+<li><input type="checkbox" disabled> Unit test: <code>buildHarnessTurnPromptSections</code> includes new marker for greenfield Work context.</li>
+<li><input type="checkbox" disabled> Eval or snapshot test: system prompt for empty-root Work edit intent includes marker; plan-mode and populated-workspace iterative turns do <strong>not</strong>.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> + <code>npm run test</code> + <code>npm run test:agent-eval</code> pass.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Extract a shared <code>GREENFIELD_STATIC_FILE_RULES</code> slice from <code>GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS</code> to avoid drift (DRY between execute-from-plan and Work-direct).</li>
+<li>Keep appendix <strong>short</strong> (≤12 bullets) — long prompts regress other flows (<strong>103</strong> profile tuning lesson).</li>
+<li>If user text implies multi-file static (<code>index.html</code> + <code>styles.css</code> + <code>script.js</code>), retain <strong>128</strong> guidance: external <code>&lt;script src=&quot;…&quot;&gt;</code> over crushed inline JS when plan/user lists separate JS paths.</li>
+<li>Do not auto-switch the user to Plan mode in this story (product nudge is <strong>future</strong> backlog).</li>
+</ul>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/shared/agent-harness-profile.ts</code> — new sections + injection conditions.</li>
+<li><code>src/shared/agent-scaffold-strategy.ts</code> — heuristic expansion + tests.</li>
+<li><code>src/shared/workspace-greenfield.ts</code> — only if shared static-detection helpers belong here.</li>
+<li><code>src/shared/agent-harness-profile.test.ts</code>, <code>src/shared/agent-scaffold-strategy.test.ts</code>.</li>
+<li><code>src/main/agent-runner-evaluation.test.ts</code> — one focused system-prompt assertion.</li>
+<li>Optional: <code>src/shared/agent-eval-tags.ts</code> — tag for new eval case.</li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Forcing Plan mode on greenfield create intents (UI/product story).</li>
+<li>Changing model routing or agent profiles.</li>
+<li>Validation pipeline changes (<strong>160</strong> owns that).</li>
+<li>Voice harness appendix changes (<strong>113</strong>).</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="127-greenfield-project-scaffolding-and-initialization.md">127</a></strong>, <strong><a href="128-greenfield-scaffold-strategy-routing.md">128</a></strong> — scaffold strategy ancestors.</li>
+<li><strong><a href="130-work-iterative-edit-harness.md">130</a></strong> — populated Work only; this story is the greenfield Work counterpart.</li>
+<li><strong><a href="162-single-file-html-creation-recovery-exception.md">162</a></strong> — recovery policy after prompts improve.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-162" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">162</span><span class="story-name">Single-file HTML creation recovery exception</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/162-single-file-html-creation-recovery-exception.md">post-mvp/162-single-file-html-creation-recovery-exception.md</a>
+          </div>
+          <h2>162 — Single-file HTML creation recovery exception (153 policy tune)</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> High — creation incremental recovery (153) blocks large bootstraps that conflict with explicit “one html file” user intent.</p>
+<p><strong>Design skill:</strong> N/A (validation thresholds + recovery nudges).</p>
+<p><strong>Depends on:</strong> <strong><a href="153-enforce-creation-incremental-recovery.md">153</a></strong>, <strong><a href="149-improved-recovery-loop-after-rejected-proposals.md">149</a></strong>, <strong><a href="160-html-normalize-before-prevalidate.md">160</a></strong>, <strong><a href="161-greenfield-work-bootstrap-prompt-appendix.md">161</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>After <strong>≥2</strong> integrity rejections on a <strong>new path</strong>, <strong>153</strong> enforces:</p>
+<ul>
+<li><code>CREATION_RECOVERY_MAX_SCAFFOLD_LINES = 32</code></li>
+<li><code>CREATION_RECOVERY_MAX_SCAFFOLD_CHARS = 1200</code></li>
+</ul>
+<p>via <code>assessCreationRecoveryBootstrapBlock</code> in <code>agent-creation-recovery-enforcement.ts</code>.</p>
+<p>For TaskBoard-style requests (“keep this all as <strong>1 single html file</strong>”), a valid kanban prototype cannot fit that box. The model then:</p>
+<ol>
+<li>Gets <code>AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON</code> on every full-file retry.</li>
+<li>Keeps calling <code>propose_file_edits</code> instead of the <strong><code>edit</code></strong> tool path the nudge recommends.</li>
+<li>Never reaches an accepted proposal before <strong>151</strong> force-final.</li>
+</ol>
+<p>Recovery policy is correct for <strong>broken repeated full-file rewrites</strong> but needs a <strong>single-file HTML exception</strong> when user intent is explicit.</p>
+<h3>Goal</h3>
+<p>When creation incremental recovery is active for a <strong>new <code>.html</code> path</strong> and user/plan text explicitly requests a <strong>single-file HTML app</strong>, allow a <strong>bounded but usable</strong> bootstrap path — either raised thresholds or a mandated two-step recipe (shell → <code>edit</code> script) — without weakening anti-crush validation.</p>
+<h3>Agent planning — read before coding</h3>
+<p>Load <strong><code>.cursor/rules/agent-harness-engineering.mdc</code></strong>.</p>
+<p><strong>Required reading (in order):</strong></p>
+<ol>
+<li><a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> — validation gates, honesty contracts, incremental recovery philosophy.</li>
+<li><a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> — prototype write failure wave.</li>
+<li><a href="../../docs/research/agentic-coding-harnesses.md"><code>docs/research/agentic-coding-harnesses.md</code></a> — § patch strategies, incremental file creation in Pi/OpenCode (how others bootstrap large files).</li>
+<li><a href="../../docs/research/grokforge-harness-engineering-notes.md"><code>docs/research/grokforge-harness-engineering-notes.md</code></a>.</li>
+<li><strong><a href="153-enforce-creation-incremental-recovery.md">153</a></strong>, <strong><a href="149-improved-recovery-loop-after-rejected-proposals.md">149</a></strong>, <strong><a href="148-better-incremental-editing-strategy.md">148</a></strong> — incremental vs full rewrite policy.</li>
+<li><strong><a href="144-consolidate-incremental-work-edit-policy.md">144</a></strong> — keep recovery copy consistent with consolidated policy.</li>
+</ol>
+<p><strong>Code anchors:</strong></p>
+<ul>
+<li><code>src/shared/agent-creation-recovery-enforcement.ts</code> — thresholds, <code>assessCreationRecoveryBootstrapBlock</code>.</li>
+<li><code>src/shared/agent-final-answer-contract.ts</code> — <code>buildCreationIncrementalRecoveryNudge</code>, honesty markers.</li>
+<li><code>src/main/agent-runner.ts</code> — creation recovery state, nudge injection, <code>recordCreationScaffoldAccepted</code>.</li>
+<li><code>src/main/agent-edit-proposals.ts</code> — passes enforcement sets into validation.</li>
+<li><code>src/shared/iterative-edit-scope.ts</code> — single-file scope detection (reuse, don’t fork).</li>
+<li>Tests: <code>src/shared/agent-creation-recovery-enforcement.test.ts</code>, <code>src/main/agent-runner-evaluation.test.ts</code> (<strong>156</strong> may need updating).</li>
+</ul>
+<p><strong>Intent detection research task:</strong> Survey existing heuristics before adding new regex:</p>
+<ul>
+<li><code>isLikelyEditIntent</code>, <code>resolveIterativeEditScope</code>, <code>planImpliesStaticFileBootstrap</code>, user text in <strong>156</strong> fixture <code>TASKBOARD_PROTOTYPE_USER_PROMPT</code>.</li>
+</ul>
+<p>Prefer <strong>one shared helper</strong> e.g. <code>userRequestsSingleFileHtml(userText, plan?)</code> in <code>src/shared/</code> (not runner-local).</p>
+<h3>Narrow acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Shared helper detects explicit single-file HTML intent (user text and/or approved plan with only <code>index.html</code> or “single-file” wording).</li>
+<li><input type="checkbox" disabled> When creation recovery is enforced for a new <code>.html</code> path <strong>and</strong> single-file HTML intent is true, one of these <strong>documented strategies</strong> is implemented:</li>
+<li><strong>Strategy A (threshold bump):</strong> Raised limits for first scaffold only (e.g. ≤80 lines / ≤4000 chars) — still subject to post-normalize integrity gates.</li>
+<li><strong>Strategy B (two-step recipe):</strong> Default scaffold max stays 32/1200 but nudge + rejection reason mandate: (1) HTML shell + column markup, <strong>no script</strong>; (2) after accept, <strong><code>edit</code></strong> to append <code>&lt;script&gt;</code> in one or more chunks.</li>
+<li><input type="checkbox" disabled> Non-single-file greenfield paths (multi-file static, <code>App.tsx</code>, etc.) keep <strong>153</strong> defaults unchanged.</li>
+<li><input type="checkbox" disabled> After first accepted scaffold on the path, <code>recordCreationScaffoldAccepted</code> lifts enforcement — incremental extension via <code>edit</code> / normal propose paths works.</li>
+<li><input type="checkbox" disabled> Updated <code>buildCreationIncrementalRecoveryNudge</code> (or sibling HTML-specific nudge after first crushed <code>.html</code> rejection) tells the model <strong>exactly</strong> which strategy applies.</li>
+<li><input type="checkbox" disabled> Final-answer honesty (<strong>152</strong>) still fires when recovery unmet.</li>
+<li><input type="checkbox" disabled> Unit tests for helper + enforcement block; update <strong>156</strong> eval if threshold strategy changes expected rejection counts.</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> + <code>npm run test</code> + <code>npm run test:agent-eval</code> pass.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li><strong>Do not</strong> weaken <code>detectObviousCrushedRawContent</code> or skip integrity checks — only adjust <strong>size enforcement</strong> or <strong>recovery instructions</strong>.</li>
+<li>Strategy B may interact better with <strong>160</strong> (normalize repairs script after shell exists on disk).</li>
+<li>If choosing Strategy A, document why in story PR notes (tradeoff: larger bad proposals could slip through normalize — post-gates must still catch).</li>
+<li>Coordinate with <strong>151</strong>: force-final threshold unchanged unless eval proves loops still burn 8 rounds.</li>
+</ul>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/shared/agent-creation-recovery-enforcement.ts</code> — conditional thresholds or bypass for single-file HTML.</li>
+<li>New small module e.g. <code>src/shared/agent-single-file-html-intent.ts</code> + tests (if helper doesn’t fit existing files cleanly).</li>
+<li><code>src/shared/agent-final-answer-contract.ts</code> — nudge copy for HTML single-file recovery.</li>
+<li><code>src/main/agent-runner.ts</code> — pass user/plan context into validation options if needed.</li>
+<li><code>src/main/agent-edit-proposals.ts</code> — wire context into <code>assessCreationRecoveryBootstrapBlock</code>.</li>
+<li>Tests + eval updates as above.</li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Removing creation incremental recovery entirely.</li>
+<li>Auto-splitting user’s single-file request into multi-file <code>index.html</code> + <code>script.js</code> without user consent.</li>
+<li>Harness-generated template files on disk (future idea).</li>
+<li>Reviewer auto-repair (<strong>150</strong> follow-up).</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="153-enforce-creation-incremental-recovery.md">153</a></strong> — baseline enforcement this story tunes.</li>
+<li><strong><a href="160-html-normalize-before-prevalidate.md">160</a></strong> — validation repair should land first or ship together.</li>
+<li><strong><a href="163-direct-work-taskboard-greenfield-eval.md">163</a></strong> — eval should cover this policy path.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-163" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">163</span><span class="story-name">Direct Work TaskBoard greenfield eval</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/163-direct-work-taskboard-greenfield-eval.md">post-mvp/163-direct-work-taskboard-greenfield-eval.md</a>
+          </div>
+          <h2>163 — Direct Work TaskBoard greenfield eval (156 sibling)</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> Medium — locks the <strong>actual dogfood path</strong> (Work mode, empty folder, no plan) that <strong>156</strong> does not cover.</p>
+<p><strong>Design skill:</strong> N/A (eval fixtures + trace assertions).</p>
+<p><strong>Depends on:</strong> <strong><a href="156-taskboard-prototype-failure-regression-eval.md">156</a></strong>, <strong><a href="160-html-normalize-before-prevalidate.md">160</a></strong>, <strong><a href="161-greenfield-work-bootstrap-prompt-appendix.md">161</a></strong>, <strong><a href="162-single-file-html-creation-recovery-exception.md">162</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p><strong>156</strong> simulates TaskBoard failure on the <strong>approve-and-run</strong> path:</p>
+<ul>
+<li><code>isApprovedPlanAutoRun: true</code></li>
+<li>seeded <code>gf-plan</code> artifact</li>
+<li><code>modelIntent: 'execution'</code></li>
+</ul>
+<p>The 2026-05-30 dogfood repro used <strong>Work mode directly</strong> on an empty <code>TaskBoard</code> root with user text like:</p>
+<blockquote>I want to get a design prototype for a taskboard … Keep this all as 1 single html file</blockquote>
+<p>That path skips:</p>
+<ul>
+<li><code>GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS</code> (pre-<strong>161</strong>)</li>
+<li><code>executeFromApprovedPlan</code> routing</li>
+<li>plan artifact context</li>
+</ul>
+<p>We need a deterministic eval so prompt, validation, and recovery changes for <strong>160–162</strong> do not regress — and so we can assert <strong>happy path</strong> acceptance when repair + prompts work.</p>
+<h3>Goal</h3>
+<p>Add focused <code>agent-runner-evaluation</code> scenarios for <strong>direct Work greenfield</strong> single-file HTML TaskBoard creation — covering both <strong>failure honesty</strong> (baseline) and <strong>accepted proposal</strong> (after <strong>160+</strong> fixes).</p>
+<h3>Agent planning — read before coding</h3>
+<p>Load <strong><code>.cursor/rules/agent-harness-engineering.mdc</code></strong>.</p>
+<p><strong>Required reading (in order):</strong></p>
+<ol>
+<li><a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> — eval program (<strong>108</strong>, <strong>063</strong>).</li>
+<li><a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> — manual smoke patterns.</li>
+<li><a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> — § observability, turn traces.</li>
+<li><a href="../../docs/research/agentic-coding-harnesses.md"><code>docs/research/agentic-coding-harnesses.md</code></a> — § eval / regression patterns (T3 event normalization lessons).</li>
+<li><strong><a href="156-taskboard-prototype-failure-regression-eval.md">156</a></strong> — copy fixture structure; <strong>do not</strong> duplicate approve-and-run-only assertions.</li>
+</ol>
+<p><strong>Code anchors:</strong></p>
+<ul>
+<li><code>src/main/agent-runner-evaluation.test.ts</code> — <strong>156</strong> test block (~line 1705).</li>
+<li><code>src/main/agent-eval-fixtures.ts</code> — <code>TASKBOARD_PROTOTYPE_USER_PROMPT</code>, <code>staticTodoCrushedIndexHtml</code>, <code>taskBoardPrototypePlan</code>.</li>
+<li><code>src/shared/agent-eval-tags.ts</code> — add distinct tag e.g. <code>dogfood:taskboard_work_direct</code>.</li>
+<li><code>src/main/agent-eval-recording-transport.ts</code>, <code>setupEvalTurn</code> patterns from <strong>108</strong>.</li>
+</ul>
+<p><strong>Before writing tests:</strong> Read turn trace fields written on failure (<code>harnessMetrics.maxIterationsReason</code>, <code>nudgesIssued</code>, <code>proposalRejectionsByPath</code>) in <code>src/shared/agent-harness-metrics.ts</code> and <strong>140</strong>.</p>
+<h3>Narrow acceptance criteria</h3>
+<h4>Scenario A — failure honesty (baseline until fixes land)</h4>
+<ul>
+<li><input type="checkbox" disabled checked> New eval tag constant documented in <code>agent-eval-tags.ts</code>.</li>
+<li><input type="checkbox" disabled checked> Fixture: empty workspace, <code>chatMode: 'fast'</code>, <strong>no</strong> <code>isApprovedPlanAutoRun</code>, user text = original TaskBoard single-file prompt (preserve verbatim in fixture comment).</li>
+<li><input type="checkbox" disabled checked> Transport simulates ≥2 crushed/malformed <code>propose_file_edits</code> on <code>index.html</code> (reuse <code>staticTodoCrushedIndexHtml</code> / variants).</li>
+<li><input type="checkbox" disabled checked> Assertions:</li>
+<li><code>editProposalCreated === false</code></li>
+<li><code>creation_incremental_recovery</code> nudge issued when integrity failures threshold met</li>
+<li>force-final or proposal rejection loop metadata present</li>
+<li>final answer contract includes <strong>152</strong> / <strong>153</strong> honesty markers when applicable</li>
+<li>no giant pasted fallback in streamed final chunks (same caps as <strong>156</strong>)</li>
+<li>system prompt includes <strong>161</strong> marker when that story is done (conditional assertion or separate eval case)</li>
+</ul>
+<h4>Scenario B — happy path (enable after <strong>160</strong> / <strong>162</strong>)</h4>
+<ul>
+<li><input type="checkbox" disabled checked> Second eval (or parameterized case): model sends crushed HTML once, then valid multi-line HTML (or normalize-repaired content accepted on first try after <strong>160</strong>).</li>
+<li><input type="checkbox" disabled checked> Assertions: <code>editProposalCreated === true</code>, exactly one <code>edit_proposal</code> event, no force-final for rejection loop.</li>
+<li><input type="checkbox" disabled checked> Tag e.g. <code>dogfood:taskboard_work_direct_success</code>.</li>
+</ul>
+<h4>General</h4>
+<ul>
+<li><input type="checkbox" disabled checked> <code>npm run test:agent-eval</code> passes; new tests discoverable by tag grep.</li>
+<li><input type="checkbox" disabled checked> No live xAI calls — recording transport only.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Split Scenario A and B into separate <code>it()</code> blocks for clearer failure signals.</li>
+<li>Use <code>createEventSink</code> + <code>assistantReplyClaimsEditSuccessDespiteNoProposal</code> from <strong>152</strong> renderer heuristic tests pattern (import shared helper).</li>
+<li>Document in fixture header: screenshot repro date, mode=Work, empty root.</li>
+<li>If <strong>160</strong> changes rejection counts, update Scenario A expectations (e.g. fewer rounds before accept in Scenario B).</li>
+</ul>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/main/agent-runner-evaluation.test.ts</code></li>
+<li><code>src/main/agent-eval-fixtures.ts</code> — direct Work user prompt constant if different from plan summary text.</li>
+<li><code>src/shared/agent-eval-tags.ts</code></li>
+<li>Optional one-line add to <code>docs/harness-eval-checklist.md</code></li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Playwright UI E2E.</li>
+<li>Live API dogfood runs (manual checklist only).</li>
+<li>Changing validation or prompt logic (covered by <strong>160–162</strong>).</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="156-taskboard-prototype-failure-regression-eval.md">156</a></strong> — approve-and-run sibling; keep both.</li>
+<li><strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong> — eval program parent.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>. Update <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> with direct Work TaskBoard repro steps.</p>
+        </div>
+      </details>
+      <details id="story-164" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">164</span><span class="story-name">Renderer final-answer fence guard (enforce 152)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/164-renderer-final-answer-fence-guard.md">post-mvp/164-renderer-final-answer-fence-guard.md</a>
+          </div>
+          <h2>164 — Renderer final-answer fence guard (enforce 152 when model disobeys)</h2>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
+<p><strong>Priority:</strong> High — contract-only honesty (<strong>152</strong>) still allows large pasted HTML in live TaskBoard runs.</p>
+<p><strong>Design skill:</strong> <code>@styleguide-design</code> — collapsed/stripped fallback presentation must match chat tokens and honesty UX from <strong>119</strong> / <strong>155</strong>.</p>
+<p><strong>Depends on:</strong> <strong><a href="152-failed-edit-final-answer-honesty-contract.md">152</a></strong>, <strong><a href="151-stop-repeated-same-path-proposal-failures.md">151</a></strong>, <strong><a href="119-agent-turn-ui-honesty-and-activity-compaction.md">119</a></strong>, <strong><a href="155-compact-visible-edit-failure-ui.md">155</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p><strong>152</strong> adds <code>FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER</code> and caps to the <strong>system</strong> final-answer contract:</p>
+<ul>
+<li>No full replacement file in final answer.</li>
+<li>Optional unapplied snippet ≤30 lines / 2000 chars.</li>
+</ul>
+<p>Live dogfood (TaskBoard, 2026-05-30) still streamed multi-line fenced HTML with copy like “Here’s your complete single-file prototype…” while every <code>propose_file_edits</code> failed.</p>
+<p>Renderer already toasts via <code>assistantReplyClaimsEditSuccessDespiteNoProposal</code> in <code>assistant-disk-claim-heuristic.ts</code>, but <strong>does not truncate or replace</strong> the streamed assistant body. Users must infer from red tool rows that the code block was never applied.</p>
+<h3>Goal</h3>
+<p>When a turn ends with <strong>failed edit activities</strong>, <strong>no accepted proposal</strong>, and the assistant reply contains an <strong>oversized fenced code fallback</strong>, the renderer should <strong>enforce</strong> honesty at display time — not rely on the model obeying the contract.</p>
+<h3>Agent planning — read before coding</h3>
+<p>Load <strong><code>@styleguide-design</code></strong> (<code>.cursor/skills/styleguide-design/SKILL.md</code>) before UI work.</p>
+<p>Load <strong><code>.cursor/rules/agent-harness-engineering.mdc</code></strong>.</p>
+<p><strong>Required reading (in order):</strong></p>
+<ol>
+<li><a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> — review layer, human trust.</li>
+<li><a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> — activity honesty wave (<strong>119</strong>, <strong>152</strong>).</li>
+<li><a href="../../docs/field-reports/README.md"><code>docs/field-reports/README.md</code></a> — dogfood comparison UX expectations.</li>
+<li><strong><a href="152-failed-edit-final-answer-honesty-contract.md">152</a></strong> — contract caps and markers.</li>
+<li><strong><a href="155-compact-visible-edit-failure-ui.md">155</a></strong> — compact failure presentation patterns.</li>
+</ol>
+<p><strong>Code anchors:</strong></p>
+<ul>
+<li><code>src/renderer/src/lib/assistant-disk-claim-heuristic.ts</code> — <code>assistantReplyContainsLargeCodeFallback</code>, <code>assistantReplyClaimsCompletedArtifact</code>, <code>turnHadFailedEditActivities</code>.</li>
+<li><code>src/shared/agent-activity-display.ts</code> — <code>turnHadFailedEditActivities</code>, compact failure rows.</li>
+<li><code>src/renderer/src/components/ChatThread.tsx</code> — where final assistant messages render; turn completion / <code>editProposalCreated</code> state.</li>
+<li><code>src/shared/agent-final-answer-contract.ts</code> — <code>FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_LINES</code>, <code>FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS</code>.</li>
+<li>Tests: <code>src/renderer/src/lib/assistant-disk-claim-heuristic.test.ts</code>.</li>
+</ul>
+<p><strong>Research task:</strong> Trace how <code>ChatThread</code> knows <code>editProposalCreated</code> and activity list at stream end (turn trace vs live activities). Prefer using the same signals <strong>152</strong> toasts already use.</p>
+<h3>Narrow acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Pure function (renderer or shared) e.g. <code>sanitizeFailedEditFinalAnswer(text, context)</code> that:</li>
+<li>Returns text unchanged on happy path (proposal created or no edit failures).</li>
+<li>When <code>hadEditFailures &amp;&amp; !editProposalCreated</code>: strips or replaces fenced blocks exceeding <strong>152</strong> caps with honest summary placeholder (e.g. “Code block removed — edit tools did not succeed; nothing was written to disk.”).</li>
+<li>Preserves small fenced snippets under caps if labeled as unapplied reference (optional v1: strip all fences on failed-create turns for simplicity — document choice).</li>
+<li><input type="checkbox" disabled> <code>ChatThread</code> (or markdown renderer wrapper) applies sanitizer to <strong>displayed</strong> assistant content for completed turns matching failure context.</li>
+<li><input type="checkbox" disabled> Existing toast from <code>assistantReplyClaimsEditSuccessDespiteNoProposal</code> still fires (don’t duplicate annoyingly — coordinate copy).</li>
+<li><input type="checkbox" disabled> Unit tests mirror <strong>156</strong> bad fallback example (<code>Here is your complete single-file HTML prototype…</code> + large fence) → sanitized output.</li>
+<li><input type="checkbox" disabled> No main-process change required for v1 (renderer-only enforcement acceptable).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> + <code>npm run test</code> pass.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Prefer <strong>display-time</strong> sanitization over mutating persisted chat thread JSON (honest archive: optional future story to persist sanitized form).</li>
+<li>Match <strong>155</strong> tone: short, factual, link user to “Last agent turn trace” or failure issue card if present.</li>
+<li>Do not strip fences when user explicitly asked for code explanation-only turn with no edit intent (guard with <code>isLikelyEditIntent</code> or <code>editProposalCreated</code> / failed activity presence).</li>
+<li>Consider <code>CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER</code> turns same as <strong>152</strong> failed-edit path.</li>
+</ul>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/renderer/src/lib/assistant-disk-claim-heuristic.ts</code> — extend or sibling <code>assistant-final-answer-sanitize.ts</code>.</li>
+<li><code>src/renderer/src/components/ChatThread.tsx</code> — apply on render or on turn <code>done</code>.</li>
+<li>Tests for sanitizer + one ChatThread integration test if patterns exist.</li>
+<li>Optional shared re-export in <code>src/shared/</code> only if main and renderer both need caps (prefer importing constants from <code>agent-final-answer-contract.ts</code> via renderer types path).</li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Blocking xAI stream mid-flight (post-hoc display only for v1).</li>
+<li>Changing <code>buildFinalAnswerContract</code> text (<strong>152</strong> already done).</li>
+<li>Auto-retry turns from UI.</li>
+<li>Plan-mode missing-plan toast (<strong>099</strong>).</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="152-failed-edit-final-answer-honesty-contract.md">152</a></strong> — contract this story enforces in UI.</li>
+<li><strong><a href="163-direct-work-taskboard-greenfield-eval.md">163</a></strong> — eval can assert sanitized display if test harness supports renderer unit tests only.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-165" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">165</span><span class="story-name">Suppress verify command nudge for static single-file HTML</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/165-suppress-verify-command-nudge-static-single-file.md">post-mvp/165-suppress-verify-command-nudge-static-single-file.md</a>
+          </div>
+          <h2>165 — Suppress verify command nudge for static single-file HTML</h2>
+<p><strong>Status:</strong> Not started.</p>
+<p><strong>Priority:</strong> Medium — TaskBoard runs ended with <code>run_command</code> failure after file creation failed; nudge pushed serve/verify inappropriately.</p>
+<p><strong>Design skill:</strong> N/A (runner nudge policy + shared heuristics).</p>
+<p><strong>Depends on:</strong> <strong><a href="126-agent-terminal-command-execution.md">126</a></strong>, <strong><a href="132-greenfield-plan-verification-commands.md">132</a></strong>, <strong><a href="161-greenfield-work-bootstrap-prompt-appendix.md">161</a></strong>, <strong><a href="162-single-file-html-creation-recovery-exception.md">162</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>For trivial static single-file HTML apps, harness docs and <strong>132</strong> / <code>gf-plan-contract</code> say browser-open verification is preferred — no dev server required.</p>
+<p>Yet TaskBoard dogfood showed <strong>Step 8: RUN COMMAND Command request failed</strong> after repeated edit failures. Likely causes:</p>
+<ul>
+<li><code>buildPlanVerifyCommandNudge</code> fired because command intent heuristics matched generic “verify/build” patterns.</li>
+<li>Model attempted <code>npx serve</code>, <code>python -m http.server</code>, or similar when <strong>no <code>index.html</code> existed on disk</strong>.</li>
+<li>User denied approval or policy rejected — wasting the last tool round and adding noise to the activity stream.</li>
+</ul>
+<p>Command nudges should <strong>not</strong> fire when:</p>
+<ul>
+<li>Static single-file HTML intent is detected, <strong>and</strong></li>
+<li>No accepted edit proposal exists yet, <strong>or</strong></li>
+<li>Plan verification explicitly says “open in browser” without a CLI command.</li>
+</ul>
+<h3>Goal</h3>
+<p>Tighten runner nudge policy so static single-file HTML create flows do not inject <code>run_command</code> verify nudges until a file exists (or at all when browser-only verification applies).</p>
+<h3>Agent planning — read before coding</h3>
+<p>Load <strong><code>.cursor/rules/agent-harness-engineering.mdc</code></strong>.</p>
+<p><strong>Required reading (in order):</strong></p>
+<ol>
+<li><a href="../../docs/i-am-a-harness.md"><code>docs/i-am-a-harness.md</code></a> — guarded <code>run_command</code>, approval model.</li>
+<li><a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> — <strong>126</strong> command harness.</li>
+<li><a href="../../docs/research/agentic-coding-harnesses.md"><code>docs/research/agentic-coding-harnesses.md</code></a> — permission / command gating patterns.</li>
+<li><strong><a href="132-greenfield-plan-verification-commands.md">132</a></strong>, <strong><a href="126-agent-terminal-command-execution.md">126</a></strong> — verification tier policy.</li>
+<li><code>src/shared/agent-plan-verification.ts</code> — <code>isUltraSimpleSingleFileStaticPlan</code>, serve command suggestions.</li>
+<li><code>src/shared/gf-plan-contract.ts</code> — browser-only verification copy.</li>
+</ol>
+<p><strong>Code anchors:</strong></p>
+<ul>
+<li><code>src/main/agent-runner.ts</code> — <code>buildPlanVerifyCommandNudge</code> injection site, <code>resolveCommandIntentText</code>, <code>commandIntent</code>.</li>
+<li><code>src/shared/agent-final-answer-contract.ts</code> — <code>buildPlanVerifyCommandNudge</code>, <code>buildEditIntentToolNudge</code>.</li>
+<li><code>src/shared/agent-command-intent.ts</code> — command intent resolution.</li>
+<li><code>src/shared/agent-scaffold-strategy.ts</code> — <code>file_bootstrap</code> strategy.</li>
+<li>Shared helper from <strong>162</strong> (single-file HTML intent) — reuse, don’t duplicate.</li>
+<li>Tests: <code>src/shared/agent-plan-verification.test.ts</code>, <code>src/main/agent-runner-evaluation.test.ts</code> (<strong>126</strong> tag cases).</li>
+</ul>
+<p><strong>Trace research:</strong> Grep turn traces for <code>PLAN_VERIFY_COMMAND_NUDGE_MARKER</code> on failed TaskBoard turns; confirm injection conditions.</p>
+<h3>Narrow acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> <code>shouldInjectPlanVerifyCommandNudge</code> (or equivalent gate in runner) returns false when:</li>
+<li>static single-file HTML intent is detected (user text and/or approved plan), <strong>and</strong></li>
+<li><code>editProposalCreated === false</code> on the current turn, <strong>or</strong></li>
+<li>plan verification string is browser-only / lacks CLI command patterns per <strong>132</strong> heuristics.</li>
+<li><input type="checkbox" disabled> When <code>scaffoldStrategy === 'file_bootstrap'</code> and verification is browser-only, nudge copy does not suggest serve commands as required step (align with existing <strong>132</strong> ultra-simple static plan tests).</li>
+<li><input type="checkbox" disabled> After a successful <code>index.html</code> proposal on static single-file turn, optional lightweight serve remains <strong>allowed but not nudged</strong> (no regression to multi-file static sites that benefit from serve hints).</li>
+<li><input type="checkbox" disabled> Final-answer contract still forbids claiming verify success when commands failed (<strong>126</strong>).</li>
+<li><input type="checkbox" disabled> Unit tests for nudge gate; extend <strong>126</strong> / <strong>132</strong> eval or add small runner eval asserting no verify nudge on direct Work TaskBoard failure fixture (<strong>163</strong> sibling).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> + <code>npm run test</code> + relevant <code>npm run test:agent-eval</code> pass.</li>
+</ul>
+<h3>Suggested implementation notes</h3>
+<ul>
+<li>Prefer extending <code>resolveCommandIntentText</code> / runner guard over adding new mid-turn user messages.</li>
+<li>Reuse <code>isUltraSimpleSingleFileStaticPlan</code> for approve-and-run; add parallel user-text heuristic for direct Work (<strong>161</strong> / <strong>162</strong> helpers).</li>
+<li>Do not disable <code>run_command</code> tool entirely — only suppress <strong>harness nudge</strong> that pressures the model to call it.</li>
+<li>Log suppressed nudge in dev harness metrics (optional <code>nudgesSuppressed</code> field — only if <strong>137</strong> patterns make it cheap).</li>
+</ul>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/main/agent-runner.ts</code> — nudge injection guard.</li>
+<li><code>src/shared/agent-plan-verification.ts</code> and/or <code>src/shared/agent-command-intent.ts</code> — shared predicate.</li>
+<li><code>src/shared/agent-final-answer-contract.ts</code> — only if nudge builder needs strategy-aware branch.</li>
+<li>Tests as above.</li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Changing run_command policy tiers or approval UI (<strong>126</strong>).</li>
+<li>Auto-running browser open (no OS integration).</li>
+<li>Removing serve suggestions from <strong>plan mode</strong> <code>gf-plan</code> schema text globally.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="161-greenfield-work-bootstrap-prompt-appendix.md">161</a></strong> — prompt says browser-only; this story aligns runner behavior.</li>
+<li><strong><a href="163-direct-work-taskboard-greenfield-eval.md">163</a></strong> — assert no verify nudge in failure scenario.</li>
+<li><strong><a href="164-renderer-final-answer-fence-guard.md">164</a></strong> — independent UX hardening.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
     </section>

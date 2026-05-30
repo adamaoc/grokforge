@@ -1,6 +1,11 @@
 /** Map harness / internal activity titles to user-facing chat copy (story 142). */
 
+import { isCompactedEditFailureActivity } from '../../../shared/agent-activity-display'
+
 const HARNESS_PREFIX_RE = /^Harness:\s*/i
+
+const COMPACTED_EDIT_FAILURE_TITLE_RE =
+  /^Edit (proposal )?failed ×(\d+) on (.+)$/
 
 const EXACT_TITLE_MAP: Record<string, string> = {
   'Harness: scaffold strategy conflict': 'Scaffold setup needs one approach',
@@ -45,6 +50,16 @@ export function mapActivityTitleForDisplay(title: string): ActivityDisplayTitle 
       const rest = trimmed.slice(prefix.length).trim()
       const short = rest ? `${label}: ${rest}` : label
       return { displayTitle: short, technicalTitle: trimmed }
+    }
+  }
+
+  if (isCompactedEditFailureActivity({ id: '', title: trimmed, status: 'error' })) {
+    const match = trimmed.match(COMPACTED_EDIT_FAILURE_TITLE_RE)
+    if (match) {
+      const count = match[2]
+      const file = match[3]
+      const displayTitle = `Edit issue on ${file}${count !== '1' ? ` (×${count})` : ''}`
+      return { displayTitle, technicalTitle: trimmed }
     }
   }
 

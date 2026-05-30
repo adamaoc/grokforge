@@ -1,6 +1,6 @@
 # 149 — Improved recovery loop after rejected proposals (clearer, directed feedback + loop prevention)
 
-**Status:** Post-MVP backlog.
+**Status:** Done (2026-05-30).
 
 **Priority:** High — closes the loop on the most painful recent failure mode (TaskBoard + similar crushed proposal sessions where the model entered repeated rejection + weak recovery cycles).
 
@@ -29,12 +29,12 @@ Existing mechanisms (escalation nudges after 2 failures, partial-batch honesty, 
 
 ## Narrow acceptance criteria
 
-- [ ] Every rejection path (crushed, shrink, corrupt, partial batch, validation) produces a recovery message that tells the model (a) why it was rejected, (b) the single recommended next action (re-read + targeted `edit` vs clean minimal full replacement), and (c) "do not claim success until you receive an `ok: true` tool result".
-- [ ] A per-file rejection counter (or reuse/enhance of existing failure counts) in the turn state limits repeated attempts on the same rejected path within one turn; after the limit the runner injects a strong final guidance or forces final answer.
-- [ ] Final-answer contract sections (edit-intent, post-plan, Work iterative, greenfield execute) contain explicit "if your last proposal on path X was rejected, you may not claim the change succeeded" language.
-- [ ] In a repro scenario (intentionally bad proposal → rejection → recovery), the model receives directed guidance and either produces a clean follow-up or honestly reports the remaining work instead of claiming victory.
-- [ ] No change to successful happy-path proposals.
-- [ ] Relevant tests (runner evaluation, final-answer contract tests, proposal tests) updated; `npm run typecheck` + `npm run test` pass.
+- [x] Every rejection path (crushed, shrink, corrupt, partial batch, validation) produces a recovery message that tells the model (a) why it was rejected, (b) the single recommended next action (re-read + targeted `edit` vs clean minimal full replacement), and (c) "do not claim success until you receive an `ok: true` tool result".
+- [x] A per-file rejection counter (or reuse/enhance of existing failure counts) in the turn state limits repeated attempts on the same rejected path within one turn; after the limit the runner injects a strong final guidance or forces final answer.
+- [x] Final-answer contract sections (edit-intent, post-plan, Work iterative, greenfield execute) contain explicit "if your last proposal on path X was rejected, you may not claim the change succeeded" language.
+- [x] In a repro scenario (intentionally bad proposal → rejection → recovery), the model receives directed guidance and either produces a clean follow-up or honestly reports the remaining work instead of claiming victory.
+- [x] No change to successful happy-path proposals.
+- [x] Relevant tests (runner evaluation, final-answer contract tests, proposal tests) updated; `npm run typecheck` + `npm run test` pass.
 
 ## Files / areas that should be touched (tight scope)
 

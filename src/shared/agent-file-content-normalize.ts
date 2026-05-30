@@ -30,8 +30,12 @@ function htmlEntityCount(content: string): number {
   return (content.match(HTML_ENTITY_TOKEN_RE) ?? []).length
 }
 
-function looksLikeHtmlPath(resolvedPath?: string): boolean {
+export function isHtmlProposalPath(resolvedPath?: string): boolean {
   return Boolean(resolvedPath && /\.html?$/i.test(resolvedPath.replace(/\\/g, '/')))
+}
+
+function looksLikeHtmlPath(resolvedPath?: string): boolean {
+  return isHtmlProposalPath(resolvedPath)
 }
 
 /** Strip UTF-8 BOM if models prepend it in tool JSON. */

@@ -68,6 +68,33 @@ describe('resolveScaffoldStrategy', () => {
       }),
     ).toBe('cli_then_customize')
   })
+
+  it('selects file_bootstrap from user text on Work-direct greenfield (161)', () => {
+    expect(
+      resolveScaffoldStrategy({
+        greenfieldWorkspace: true,
+        executeFromApprovedPlan: false,
+        userText: 'keep this as a single html file with inline script',
+      }),
+    ).toBe('file_bootstrap')
+    expect(
+      resolveScaffoldStrategy({
+        greenfieldWorkspace: true,
+        executeFromApprovedPlan: false,
+        userText: 'Create a design prototype for a taskboard as one html file',
+      }),
+    ).toBe('file_bootstrap')
+  })
+
+  it('still selects cli_scaffold for npm create user text without static heuristics', () => {
+    expect(
+      resolveScaffoldStrategy({
+        greenfieldWorkspace: true,
+        executeFromApprovedPlan: false,
+        userText: 'npm create vite@latest . -- --template react-ts',
+      }),
+    ).toBe('cli_scaffold')
+  })
 })
 
 describe('effectiveScaffoldStrategyForConflict', () => {

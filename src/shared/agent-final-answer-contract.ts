@@ -8,7 +8,9 @@ import type {
 import { SCAFFOLD_STRATEGY_NUDGE_MARKER } from './agent-scaffold-strategy'
 import { POST_SCAFFOLD_VERIFICATION_HONESTY_MARKER, POST_SCAFFOLD_VERIFICATION_MARKER } from './agent-scaffold-command'
 import { buildGfPlanFinalAnswerContract } from './gf-plan-contract'
-import { isPartialBatchIntegrityRejection } from './agent-edit-corrupt-content'
+import { isPartialBatchIntegrityRejection, totalIncompleteHtmlFailures } from './agent-edit-corrupt-content'
+import { totalSearchReplaceFailures } from './agent-edit-cascade-guard'
+import { basenameForProposalRejectionPath } from './agent-proposal-rejection-loop'
 import { getCodeQualityContractBlock } from './agent-code-quality-contract'
 
 export const EDIT_INTENT_RE =
@@ -37,6 +39,14 @@ export const EDIT_CRUSHED_JS_NUDGE_MARKER = 'Harness: crushed JavaScript proposa
 export const EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER =
   'Harness: creation path incremental recovery'
 
+/** Sub-marker when single-file HTML intent uses shell-first then `edit` (story 162). */
+export const EDIT_SINGLE_FILE_HTML_CREATION_RECOVERY_MARKER =
+  'Harness: single-file HTML creation recovery 162'
+
+/** Marker in final answer when creation incremental recovery was required but unmet (story 153). */
+export const CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER =
+  'Harness: creation incremental recovery honesty'
+
 /** Marker in final answer when rejected paths remain in the pending proposal (story 124). */
 export const PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER = 'Harness: partial batch proposal honesty'
 
@@ -56,6 +66,94 @@ export const SCAFFOLD_STRATEGY_HONESTY_MARKER = 'Harness: scaffold strategy hone
 
 /** Marker in final answer when command tools failed or were rejected (story 126). */
 export const COMMAND_TOOLS_FAILED_HONESTY_MARKER = 'Harness: command tools failed honesty'
+
+/** Marker when edit tools failed with no accepted proposal — final answer honesty (story 152). */
+export const FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER = 'Harness: failed edit final answer honesty'
+
+/** Max lines for an optional unapplied reference snippet in a failed-edit final answer (story 152). */
+export const FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_LINES = 30
+
+/** Max UTF-8 chars for an optional unapplied reference snippet in a failed-edit final answer (story 152). */
+export const FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS = 2000
+
+export type EditAttemptOutcome = 'none' | 'not_attempted' | 'failed'
+
+export type EditFinalAnswerHonestyContext = {
+  editAttemptOutcome: EditAttemptOutcome
+  failedEditPaths: readonly string[]
+  /** True when edit was attempted and tools failed with no accepted proposal (story 152). */
+  editToolsFailed: boolean
+}
+
+export type ResolveEditFinalAnswerHonestyContextInput = {
+  userText: string
+  editProposalCreated: boolean
+  executeFromApprovedPlan?: boolean
+  searchReplaceFailuresByPath: ReadonlyMap<string, number>
+  incompleteHtmlFailuresByPath: ReadonlyMap<string, number>
+  proposalRejectionsByPath: ReadonlyMap<string, number>
+}
+
+function collectFailedEditPathLabels(input: {
+  searchReplaceFailuresByPath: ReadonlyMap<string, number>
+  incompleteHtmlFailuresByPath: ReadonlyMap<string, number>
+  proposalRejectionsByPath: ReadonlyMap<string, number>
+}): string[] {
+  const labels = new Set<string>()
+  const add = (resolvedPath: string) => {
+    const label = basenameForProposalRejectionPath(resolvedPath)
+    if (label) labels.add(label)
+  }
+  for (const [path, count] of input.searchReplaceFailuresByPath) {
+    if (count > 0) add(path)
+  }
+  for (const [path, count] of input.incompleteHtmlFailuresByPath) {
+    if (count > 0) add(path)
+  }
+  for (const [path, count] of input.proposalRejectionsByPath) {
+    if (count > 0) add(path)
+  }
+  return [...labels]
+}
+
+function hasAnyEditToolFailure(input: {
+  searchReplaceFailuresByPath: ReadonlyMap<string, number>
+  incompleteHtmlFailuresByPath: ReadonlyMap<string, number>
+  proposalRejectionsByPath: ReadonlyMap<string, number>
+}): boolean {
+  if (totalSearchReplaceFailures(input.searchReplaceFailuresByPath) > 0) return true
+  if (totalIncompleteHtmlFailures(input.incompleteHtmlFailuresByPath) > 0) return true
+  for (const count of input.proposalRejectionsByPath.values()) {
+    if (count > 0) return true
+  }
+  return false
+}
+
+/** Single source of truth for failed-edit final-answer contract inputs (story 152). */
+export function resolveEditFinalAnswerHonestyContext(
+  input: ResolveEditFinalAnswerHonestyContextInput,
+): EditFinalAnswerHonestyContext {
+  if (input.editProposalCreated) {
+    return { editAttemptOutcome: 'none', failedEditPaths: [], editToolsFailed: false }
+  }
+  const editIntent = input.executeFromApprovedPlan === true || isLikelyEditIntent(input.userText)
+  if (!editIntent) {
+    return { editAttemptOutcome: 'none', failedEditPaths: [], editToolsFailed: false }
+  }
+  const failureMaps = {
+    searchReplaceFailuresByPath: input.searchReplaceFailuresByPath,
+    incompleteHtmlFailuresByPath: input.incompleteHtmlFailuresByPath,
+    proposalRejectionsByPath: input.proposalRejectionsByPath,
+  }
+  if (!hasAnyEditToolFailure(failureMaps)) {
+    return { editAttemptOutcome: 'not_attempted', failedEditPaths: [], editToolsFailed: false }
+  }
+  return {
+    editAttemptOutcome: 'failed',
+    failedEditPaths: collectFailedEditPathLabels(failureMaps),
+    editToolsFailed: true,
+  }
+}
 
 export function isLikelyEditIntent(userText: string): boolean {
   return EDIT_INTENT_RE.test(userText)
@@ -259,13 +357,55 @@ export function buildCrushedJavaScriptProposalNudge(paths: readonly string[]): s
   ].join('\n')
 }
 
+/** Marker when repeated same-path proposal rejections force final answer (story 151). */
+export const PROPOSAL_REJECTION_FORCE_FINAL_MARKER = 'Harness: repeated proposal rejections'
+
+/** User message when the harness stops the turn after repeated proposal rejections on the same path. */
+export function buildProposalRejectionForceFinalHint(paths: readonly string[]): string {
+  const labels = paths.map((p) => p.split(/[/\\]/).filter(Boolean).pop() ?? p).filter(Boolean)
+  const pathLine =
+    labels.length > 0
+      ? `Affected path(s): ${labels.join(', ')}.`
+      : 'Repeated edit proposal validation failures on the same path(s).'
+  return [
+    `## ${PROPOSAL_REJECTION_FORCE_FINAL_MARKER}`,
+    pathLine,
+    'GrokForge rejected multiple `propose_file_edits` attempts on the same path and **no reviewable edit proposal was created**.',
+    'Provide a **short honest summary** — do **not** claim any file was created, updated, saved, or written on disk.',
+    'Do **not** paste a full replacement file in the final answer; tell the user what failed and what to retry manually or in a new turn.',
+  ].join('\n')
+}
+
+export type BuildCreationIncrementalRecoveryNudgeOptions = {
+  /** Story 162: explicit single-file HTML app — shell without script, then `edit`. */
+  singleFileHtmlIntent?: boolean
+}
+
 /** User message after repeated integrity failures on paths not yet on disk. */
-export function buildCreationIncrementalRecoveryNudge(paths: readonly string[]): string {
+export function buildCreationIncrementalRecoveryNudge(
+  paths: readonly string[],
+  options?: BuildCreationIncrementalRecoveryNudgeOptions,
+): string {
   const labels = paths.map(basenameForEscalationPath).filter(Boolean)
   const pathLine =
     labels.length > 0
       ? `Affected new path(s): ${labels.join(', ')}.`
       : 'Repeated full-file proposals for new path(s) failed validation.'
+
+  if (options?.singleFileHtmlIntent) {
+    return [
+      `## ${EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER}`,
+      `### ${EDIT_SINGLE_FILE_HTML_CREATION_RECOVERY_MARKER}`,
+      pathLine,
+      'Repeated **full-file** `propose_file_edits` for a **new** `.html` path failed validation (incomplete, truncated, or malformed).',
+      '**Single-file HTML recovery — two steps (do not retry one giant file with inline script):**',
+      '1. **`propose_file_edits`** — submit a **minimal HTML shell** only: `<!DOCTYPE html>`, head, body, column/board markup. **No** `<script>` block. Stay under roughly **32 lines** and **1200 characters**.',
+      '2. After the shell validates (`ok: true`), **`read_file`** the path, then extend with the primary **`edit`** tool — append `<script>…</script>` (and logic) in one or more clean chunks.',
+      '3. Do **not** submit another large full-file `propose_file_edits` with inline script on the same path this turn.',
+      'Do **not** tell the user the file was created until an edit tool returns `ok: true` in this turn.',
+    ].join('\n')
+  }
+
   return [
     `## ${EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER}`,
     pathLine,
@@ -448,7 +588,11 @@ export type AgentFinalAnswerContractInput = {
   editProposalCreated: boolean
   /** Multiple edit tools composed into one proposal this turn (story 119). */
   editProposalComposedInTurn?: boolean
-  /** Edit-intent turn where search_replace failed repeatedly and no proposal was created. */
+  /** Story 152: whether edit tools were called and failed vs not attempted. */
+  editAttemptOutcome?: EditAttemptOutcome
+  /** Story 152: basenames for paths with edit tool failures this turn. */
+  failedEditPaths?: readonly string[]
+  /** Edit-intent turn where edit tools failed and no proposal was created (story 152). */
   editToolsFailed?: boolean
   chatMode: 'fast' | 'plan'
   profileKey?: HarnessProfileKey
@@ -473,18 +617,112 @@ export type AgentFinalAnswerContractInput = {
   /** Story 128+: CLI scaffold succeeded but key files were not read this turn. */
   postScaffoldVerificationIncomplete?: boolean
   postScaffoldMissingPaths?: readonly string[]
+  /** Story 153: creation incremental recovery nudge fired this turn. */
+  creationIncrementalRecoveryIssued?: boolean
+  /** Story 153: enforced new path(s) without an accepted minimal scaffold at final stream. */
+  creationRecoveryUnmetPaths?: readonly string[]
 }
 
-function editToolsFailedAppendix(editToolsFailed?: boolean): string {
-  if (!editToolsFailed) return ''
+function failedEditFinalAnswerHonestyAppendix(input: {
+  editAttemptOutcome?: EditAttemptOutcome
+  failedEditPaths?: readonly string[]
+}): string {
+  if (input.editAttemptOutcome !== 'failed') return ''
+  const pathLine =
+    input.failedEditPaths && input.failedEditPaths.length > 0
+      ? `Affected file(s): ${input.failedEditPaths.join(', ')}.`
+      : 'One or more edit tool attempts failed validation in this turn.'
   return [
     '',
-    '### Edit tools did not succeed (this turn)',
-    'GrokForge does **not** have a valid, accepted edit proposal from this turn (all proposals were rejected due to crushed formatting, validation failures, shrink guard, etc.).',
-    'Do **not** claim any workspace file was updated, changed, saved, created, or written on disk.',
-    'Tell the user exactly what failed on the last proposal and the specific recovery guidance that was given (e.g. "re-read rawContent and retry with the `edit` tool using better excerpts").',
-    'You may only claim success for a path if the final tool result for that path was `ok: true`.',
+    `### ${FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER}`,
+    pathLine,
+    'GrokForge does **not** have a valid, accepted edit proposal from this turn — **no workspace file was created, updated, saved, or written on disk**.',
+    'Provide a **short honest summary** only: what failed, that nothing was applied, and the single best next retry (re-read `rawContent`, fix formatting, or retry in a new turn).',
+    'Do **not** imply a diff review is ready, that the plan step is complete, or that the user can apply changes from this message.',
+    'Do **not** paste a full replacement file in the final answer.',
+    `If you must show a tiny excerpt, label it clearly as an **unapplied reference snippet** and keep it under **${FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_LINES} lines** and **${FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS} characters** — never present it as the completed or applied artifact.`,
+    'You may only claim success for a path if the final tool result for that path was `ok: true` in this turn.',
   ].join('\n')
+}
+
+function creationIncrementalRecoveryHonestyAppendix(input: {
+  creationIncrementalRecoveryIssued?: boolean
+  creationRecoveryUnmetPaths?: readonly string[]
+}): string {
+  if (!input.creationIncrementalRecoveryIssued) return ''
+  const unmet = input.creationRecoveryUnmetPaths ?? []
+  if (unmet.length === 0) return ''
+  const pathLine =
+    unmet.length > 0
+      ? `Affected new path(s): ${unmet.join(', ')}.`
+      : 'One or more new paths required incremental recovery this turn.'
+  return [
+    '',
+    `### ${CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER}`,
+    pathLine,
+    'GrokForge required **creation incremental recovery** — a **minimal scaffold** first, then extend with `read_file` and the primary `edit` tool or small scoped `propose_file_edits`.',
+    'That requirement was **not satisfied** before this final answer.',
+    'Do **not** claim any file was created, updated, saved, or written on disk.',
+    'Do **not** paste a full replacement file in the final answer; explain what failed and that the user should retry with a minimal scaffold or start a new turn.',
+  ].join('\n')
+}
+
+function editIntentPreFinalToolGuidance(input: {
+  userText: string
+  editProposalCreated: boolean
+  editAttemptOutcome?: EditAttemptOutcome
+}): string[] {
+  if (input.editProposalCreated) {
+    return [
+      'A first-class edit proposal has already been created with `propose_file_edits`. Briefly tell the user the diff review is ready; do not claim files were written to disk until they apply.',
+    ]
+  }
+  if (input.editAttemptOutcome === 'failed') {
+    return [
+      'Edit tools were attempted in this turn but **did not succeed** — provide the short honest failure summary required below. Do **not** call more edit tools in this final answer.',
+    ]
+  }
+  const maybeEdit = isLikelyEditIntent(input.userText)
+  if (maybeEdit) {
+    return [
+      'The user appears to be asking for workspace file changes. Call `propose_file_edits` (or `search_replace` for a small localized edit) before your final answer. Do not stop at prose or a normal markdown code fence — GrokForge does not apply those to disk.',
+      'Do not ask the user to provide a file path unless you already tried `search_workspace` or `list_directory` in this turn and the target is still ambiguous.',
+      'Base each `write_file` on the latest `read_file` content for that path. Make the smallest change that satisfies the request; do not rewrite unrelated sections unless a full-file rewrite is clearly required.',
+    ]
+  }
+  return [
+    'If you intend workspace file changes, call `propose_file_edits` in this turn before finishing. If this is only an explanation, omit edit tools.',
+  ]
+}
+
+function editIntentFormattingGuidance(input: {
+  userText: string
+  editProposalCreated: boolean
+  editAttemptOutcome?: EditAttemptOutcome
+}): string[] {
+  if (input.editProposalCreated || input.editAttemptOutcome === 'failed') return []
+  if (!isLikelyEditIntent(input.userText)) return []
+  return [
+    'In HTML/CSS/JS/TSX proposals use **readable multi-line** layout (one statement per line in JS; separate import lines; normal `className="..."` quotes). Do not claim "readable formatting" unless the proposal passes that bar.',
+    'Each `write_file` in `propose_file_edits` must include the complete file text (full-file ops), but only change what the request needs. Use `delete_file` for a single existing file. For moves, use `write_file` at the destination plus `delete_file` for the source.',
+    'You must `read_file` each existing file before proposing `write_file` for that path in this turn.',
+    'For existing files, include `expectedContentHash` from the latest `read_file` `contentHash` on each write operation. For new files, omit `expectedContentHash` (or use the `new` sentinel).',
+    'Every path must be absolute and under a workspace root.',
+    'Do not tell the user that files were already written, saved, or applied on disk unless `propose_file_edits` succeeded in this turn.',
+  ]
+}
+
+function slimEditIntentPreFinalGuidance(input: AgentFinalAnswerContractInput): string {
+  if (input.editProposalCreated) {
+    return 'A first-class edit proposal has already been created. Briefly tell the user the diff review is ready; do not claim files were written to disk until they apply.'
+  }
+  if (input.editAttemptOutcome === 'failed') {
+    return 'Edit tools were attempted but **did not succeed** — give a short honest failure summary below; do **not** call more edit tools or output a `gf-plan` fence.'
+  }
+  if (isLikelyEditIntent(input.userText)) {
+    return 'Implement the requested change with edit tools before finishing — do **not** output a `gf-plan` fence or replan. Prefer **`search_replace`** on existing files for small localized changes.'
+  }
+  return 'If this is only an explanation, omit edit tools.'
 }
 
 function commandToolsFailedAppendix(commandToolsFailed?: boolean): string {
@@ -644,15 +882,17 @@ function partialBatchHonestyAppendix(
 }
 
 function buildSlimIterativeFinalAnswerContract(input: AgentFinalAnswerContractInput): string {
-  const maybeEdit = isLikelyEditIntent(input.userText)
   return [
     '## Final response contract',
-    input.editProposalCreated
-      ? 'A first-class edit proposal has already been created. Briefly tell the user the diff review is ready; do not claim files were written to disk until they apply.'
-      : maybeEdit
-        ? 'Implement the requested change with edit tools before finishing — do **not** output a `gf-plan` fence or replan. Prefer **`search_replace`** on existing files for small localized changes.'
-        : 'If this is only an explanation, omit edit tools.',
-    editToolsFailedAppendix(input.editToolsFailed),
+    slimEditIntentPreFinalGuidance(input),
+    failedEditFinalAnswerHonestyAppendix({
+      editAttemptOutcome: input.editAttemptOutcome,
+      failedEditPaths: input.failedEditPaths,
+    }),
+    creationIncrementalRecoveryHonestyAppendix({
+      creationIncrementalRecoveryIssued: input.creationIncrementalRecoveryIssued,
+      creationRecoveryUnmetPaths: input.creationRecoveryUnmetPaths,
+    }),
     commandToolsFailedAppendix(input.commandToolsFailed),
     mergedEditProposalHonestyAppendix(
       input.editProposalCreated,
@@ -683,29 +923,26 @@ export function buildFinalAnswerContract(input: AgentFinalAnswerContractInput): 
     return buildSlimIterativeFinalAnswerContract(input)
   }
 
-  const maybeEdit = isLikelyEditIntent(input.userText)
   return [
     '## Final response contract',
-    input.editProposalCreated
-      ? 'A first-class edit proposal has already been created with `propose_file_edits`. Briefly tell the user the diff review is ready; do not claim files were written to disk until they apply.'
-      : maybeEdit
-        ? 'The user appears to be asking for workspace file changes. Call `propose_file_edits` (or `search_replace` for a small localized edit) before your final answer. Do not stop at prose or a normal markdown code fence — GrokForge does not apply those to disk.'
-        : 'If you intend workspace file changes, call `propose_file_edits` in this turn before finishing. If this is only an explanation, omit edit tools.',
-    maybeEdit && !input.editProposalCreated
-      ? 'Do not ask the user to provide a file path unless you already tried `search_workspace` or `list_directory` in this turn and the target is still ambiguous.'
-      : '',
-    maybeEdit && !input.editProposalCreated
-      ? 'Base each `write_file` on the latest `read_file` content for that path. Make the smallest change that satisfies the request; do not rewrite unrelated sections unless a full-file rewrite is clearly required.'
-      : '',
-    maybeEdit
-      ? 'In HTML/CSS/JS/TSX proposals use **readable multi-line** layout (one statement per line in JS; separate import lines; normal `className="..."` quotes). Do not claim "readable formatting" unless the proposal passes that bar.'
-      : '',
-    'Each `write_file` in `propose_file_edits` must include the complete file text (full-file ops), but only change what the request needs. Use `delete_file` for a single existing file. For moves, use `write_file` at the destination plus `delete_file` for the source.',
-    'You must `read_file` each existing file before proposing `write_file` for that path in this turn.',
-    'For existing files, include `expectedContentHash` from the latest `read_file` `contentHash` on each write operation.',
-    'Every path must be absolute and under a workspace root.',
-    'Do not tell the user that files were already written, saved, or applied on disk unless `propose_file_edits` succeeded in this turn.',
-    editToolsFailedAppendix(input.editToolsFailed),
+    ...editIntentPreFinalToolGuidance({
+      userText: input.userText,
+      editProposalCreated: input.editProposalCreated,
+      editAttemptOutcome: input.editAttemptOutcome,
+    }),
+    ...editIntentFormattingGuidance({
+      userText: input.userText,
+      editProposalCreated: input.editProposalCreated,
+      editAttemptOutcome: input.editAttemptOutcome,
+    }),
+    failedEditFinalAnswerHonestyAppendix({
+      editAttemptOutcome: input.editAttemptOutcome,
+      failedEditPaths: input.failedEditPaths,
+    }),
+    creationIncrementalRecoveryHonestyAppendix({
+      creationIncrementalRecoveryIssued: input.creationIncrementalRecoveryIssued,
+      creationRecoveryUnmetPaths: input.creationRecoveryUnmetPaths,
+    }),
     commandToolsFailedAppendix(input.commandToolsFailed),
     scaffoldStrategyHonestyAppendix({
       scaffoldStrategyConflictIssued: input.scaffoldStrategyConflictIssued,

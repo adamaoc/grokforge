@@ -271,7 +271,7 @@ export function buildChatSystemPrompt(
     '- Before proposing `write_file` for an **existing** file, you MUST call `read_file` on that path in the same turn. Do not guess or reconstruct file content from memory. New files do not require a prior read.',
   )
   lines.push(
-    '- `read_file` returns `contentHash` (SHA-256 of the **full file** on disk). For every edit to an existing file, pass that value as `expectedContentHash` on `write_file`, `search_replace`, and `propose_file_edits`. If validation fails with a stale-hash error, call `read_file` again and retry.',
+    '- `read_file` returns `contentHash` (SHA-256 of the **full file** on disk). For every edit to an **existing** file, pass that value as `expectedContentHash` on `write_file`, `search_replace`, and `propose_file_edits`. For **new** files omit `expectedContentHash` (or use the `new` sentinel). If validation fails with a stale-hash error, call `read_file` again and retry.',
   )
   lines.push('### Minimal changes')
   lines.push(

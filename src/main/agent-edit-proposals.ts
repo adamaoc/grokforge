@@ -13,14 +13,17 @@ import {
 import {
   AGENT_EDIT_MISSING_CONTENT_HASH_REASON,
   AGENT_EDIT_STALE_HASH_REASON,
+  resolveWriteExpectedContentHash,
 } from '../shared/agent-content-hash'
 import { computeAgentContentHash } from './agent-content-hash'
 import {
+  isHtmlProposalPath,
   normalizeAgentWriteFileContent,
   needsSourceLayoutRepair,
 } from '../shared/agent-file-content-normalize'
 import { AgentToolBatchPayloadSchema } from '../shared/agent-tool-schema'
 import { assessEditCascadeGuard } from '../shared/agent-edit-cascade-guard'
+import { assessCreationRecoveryBootstrapBlock } from '../shared/agent-creation-recovery-enforcement'
 import {
   assessProposalWriteContent,
   detectObviousCrushedRawContent,
@@ -66,6 +69,12 @@ export type ValidateAgentEditProposalOptions = {
   contentSource?: 'search_replace' | 'propose'
   /** Iterative Work routing — lower cascade threshold (138). */
   iterativeWorkEdit?: boolean
+  /** Story 153: paths where creation incremental recovery nudge fired. */
+  creationRecoveryEnforcedPaths?: ReadonlySet<string>
+  /** Story 153: paths where a minimal scaffold proposal was accepted this turn. */
+  creationScaffoldAcceptedPaths?: ReadonlySet<string>
+  /** Story 162: single-file HTML creation recovery (shell-first). */
+  singleFileHtmlIntent?: boolean
 }
 
 /** Compact summary for turn traces and activity detail when validation rejects ops. */
@@ -93,8 +102,9 @@ export function buildEditProposalValidationSummary(
  * Validation pipeline for `propose_file_edits` / search_replace-derived batches (order matters):
  * 1. Zod parse (`AgentToolBatchPayloadSchema`)
  * 2. Per op: resolve path → workspace roots + ignore rules + sensitive path block
- * 3. **NEW (146)**: Early raw-content pre-validation for propose_file_edits only (cheap regex + heuristics on the exact bytes the model sent, before any I/O or normalization)
- * 4. write_file: read-before-write guard → disk read → expectedContentHash (missing/stale)
+ * 3a. **HTML propose path (160)**: early `normalizeAgentWriteFileContent` before pre-validation
+ * 3b. **Early pre-validation (146)** for propose_file_edits only — on normalized content for `.html`/`.htm`; on raw for other paths
+ * 4. write_file: read-before-write guard → disk read → expectedContentHash normalize (154) + missing/stale
  * 5. normalizeAgentWriteFileContent (+ layout repair passes)
  * 6. assessProposalWriteContent (integrity)
  * 7. search_replace path: destructive shrink check; else crushed-markdown repair/reject
@@ -113,15 +123,6 @@ function readDiskHash(resolved: string): string | null {
   }
 }
 
-function resolveExpectedHash(
-  opHash: string | undefined,
-  resolved: string,
-  readHashesThisTurn: ReadonlyMap<string, string> | undefined,
-): string | undefined {
-  if (opHash) return opHash
-  return readHashesThisTurn?.get(agentEditPathKey(resolved))
-}
-
 function validateExistingFileContentHash(
   resolved: string,
   opHash: string | undefined,
@@ -129,17 +130,28 @@ function validateExistingFileContentHash(
 ): string | null {
   const currentHash = readDiskHash(resolved)
   if (currentHash === null) return null
-  const expectedHash = resolveExpectedHash(opHash, resolved, readHashesThisTurn)
+  const fromRegistry = readHashesThisTurn?.get(agentEditPathKey(resolved))
+  const hashInput = resolveWriteExpectedContentHash({
+    opHash,
+    fileExistsOnDisk: true,
+    readRegistryHash: fromRegistry,
+  })
+  if (hashInput.error) return hashInput.error
+  const expectedHash = hashInput.effectiveHash
   if (!expectedHash) return AGENT_EDIT_MISSING_CONTENT_HASH_REASON
   if (currentHash !== expectedHash) return AGENT_EDIT_STALE_HASH_REASON
   return null
 }
 
+export type ValidateAgentEditProposalResult =
+  | { ok: true; proposal: AgentEditProposalPayload; createHashStrippedPaths?: string[] }
+  | { ok: false; error: string; proposal?: AgentEditProposalPayload; createHashStrippedPaths?: string[] }
+
 export function validateAgentEditProposal(
   rawArgs: unknown,
   ctx: AgentToolExecutionContext,
   options?: ValidateAgentEditProposalOptions,
-): { ok: true; proposal: AgentEditProposalPayload } | { ok: false; error: string; proposal?: AgentEditProposalPayload } {
+): ValidateAgentEditProposalResult {
   if (ctx.abortSignal.aborted) {
     return { ok: false, error: 'Tool cancelled.' }
   }
@@ -148,6 +160,7 @@ export function validateAgentEditProposal(
 
   const operations: AgentToolBatchPayload['operations'] = []
   const rejected: AgentEditProposalPayload['rejected'] = []
+  const createHashStrippedPaths: string[] = []
   const roots = ctx.manifest.roots
   const ignore = ctx.manifest.ignore ?? []
 
@@ -167,16 +180,6 @@ export function validateAgentEditProposal(
     }
 
     if (op.op === 'write_file') {
-      // Story 146: Early cheap pre-validation on *raw* content, before any disk I/O,
-      // normalization, or heavier integrity checks. Only for direct propose_file_edits.
-      if (options?.contentSource !== 'search_replace') {
-        const pre = detectObviousCrushedRawContent(op.content, resolved)
-        if (pre.crushed && pre.reason) {
-          rejected.push({ path: op.path, reason: pre.reason })
-          continue
-        }
-      }
-
       let fileExistsOnDisk = false
       if (existsSync(resolved)) {
         try {
@@ -185,10 +188,62 @@ export function validateAgentEditProposal(
           fileExistsOnDisk = false
         }
       }
+
+      const creationRecoveryBlock = assessCreationRecoveryBootstrapBlock({
+        content: op.content,
+        resolvedPath: resolved,
+        fileExistsOnDisk,
+        creationRecoveryEnforcedPaths: options?.creationRecoveryEnforcedPaths,
+        creationScaffoldAcceptedPaths: options?.creationScaffoldAcceptedPaths,
+        contentSource: options?.contentSource,
+        singleFileHtmlIntent: options?.singleFileHtmlIntent,
+      })
+      if (creationRecoveryBlock.blocked && creationRecoveryBlock.reason) {
+        rejected.push({ path: op.path, reason: creationRecoveryBlock.reason })
+        continue
+      }
+
+      // Story 160: HTML propose path — normalize before 146 so repairable crushed inline
+      // script is reflowed instead of rejected on raw one-line payloads.
+      let writeContent = op.content
+      let htmlEarlyNormalized = false
+      if (options?.contentSource !== 'search_replace' && isHtmlProposalPath(resolved)) {
+        writeContent = normalizeAgentWriteFileContent(op.content, resolved)
+        if (needsSourceLayoutRepair(writeContent)) {
+          writeContent = normalizeAgentWriteFileContent(writeContent, resolved)
+        }
+        htmlEarlyNormalized = true
+      }
+
+      // Story 146: Early cheap pre-validation before disk I/O and heavier integrity checks.
+      // HTML (160): runs on normalized content; other paths: raw model bytes.
+      if (options?.contentSource !== 'search_replace') {
+        const pre = detectObviousCrushedRawContent(writeContent, resolved)
+        if (pre.crushed && pre.reason) {
+          rejected.push({ path: op.path, reason: pre.reason })
+          continue
+        }
+      }
+
       if (isWriteFileBlockedWithoutRead(resolved, ctx.readPathsThisTurn, fileExistsOnDisk)) {
         rejected.push({ path: op.path, reason: AGENT_EDIT_READ_BEFORE_WRITE_REASON })
         continue
       }
+
+      const fromRegistry = ctx.readHashesThisTurn?.get(agentEditPathKey(resolved))
+      const hashInput = resolveWriteExpectedContentHash({
+        opHash: op.expectedContentHash,
+        fileExistsOnDisk,
+        readRegistryHash: fromRegistry,
+      })
+      if (hashInput.error) {
+        rejected.push({ path: op.path, reason: hashInput.error })
+        continue
+      }
+      if (hashInput.strippedCreateHash) {
+        createHashStrippedPaths.push(op.path)
+      }
+
       let originalOnDisk: string | null = null
       if (fileExistsOnDisk) {
         try {
@@ -197,7 +252,7 @@ export function validateAgentEditProposal(
           rejected.push({ path: op.path, reason: 'Could not read file' })
           continue
         }
-        const expectedForHash = resolveExpectedHash(op.expectedContentHash, resolved, ctx.readHashesThisTurn)
+        const expectedForHash = hashInput.effectiveHash
         if (!expectedForHash) {
           rejected.push({ path: op.path, reason: AGENT_EDIT_MISSING_CONTENT_HASH_REASON })
           continue
@@ -207,13 +262,10 @@ export function validateAgentEditProposal(
           continue
         }
       }
-      const expectedHash =
-        fileExistsOnDisk && op.expectedContentHash
-          ? op.expectedContentHash
-          : fileExistsOnDisk
-            ? resolveExpectedHash(op.expectedContentHash, resolved, ctx.readHashesThisTurn)
-            : undefined
-      let normalizedContent = normalizeAgentWriteFileContent(op.content, resolved)
+      const expectedHash = fileExistsOnDisk ? hashInput.effectiveHash : undefined
+      let normalizedContent = htmlEarlyNormalized
+        ? writeContent
+        : normalizeAgentWriteFileContent(op.content, resolved)
       for (let pass = 0; pass < 2 && needsSourceLayoutRepair(normalizedContent); pass += 1) {
         normalizedContent = normalizeAgentWriteFileContent(normalizedContent, resolved)
       }
@@ -335,6 +387,19 @@ export function validateAgentEditProposal(
         deleteExists = false
       }
     }
+    const deleteRegistryHash = ctx.readHashesThisTurn?.get(agentEditPathKey(resolved))
+    const deleteHashInput = resolveWriteExpectedContentHash({
+      opHash: op.expectedContentHash,
+      fileExistsOnDisk: deleteExists,
+      readRegistryHash: deleteRegistryHash,
+    })
+    if (deleteHashInput.error) {
+      rejected.push({ path: op.path, reason: deleteHashInput.error })
+      continue
+    }
+    if (deleteHashInput.strippedCreateHash) {
+      createHashStrippedPaths.push(op.path)
+    }
     if (deleteExists) {
       const hashError = validateExistingFileContentHash(
         resolved,
@@ -346,12 +411,7 @@ export function validateAgentEditProposal(
         continue
       }
     }
-    const deleteHash =
-      deleteExists && op.expectedContentHash
-        ? op.expectedContentHash
-        : deleteExists
-          ? resolveExpectedHash(op.expectedContentHash, resolved, ctx.readHashesThisTurn)
-          : undefined
+    const deleteHash = deleteExists ? deleteHashInput.effectiveHash : undefined
     operations.push({
       op: 'delete_file',
       path: resolved,
@@ -363,8 +423,9 @@ export function validateAgentEditProposal(
     batch: { version: AGENT_TOOL_PROTOCOL_VERSION, operations },
     rejected,
   }
+  const strippedPaths = createHashStrippedPaths.length > 0 ? createHashStrippedPaths : undefined
   if (operations.length === 0) {
-    return { ok: false, error: formatProposalValidationError(rejected), proposal }
+    return { ok: false, error: formatProposalValidationError(rejected), proposal, createHashStrippedPaths: strippedPaths }
   }
-  return { ok: true, proposal }
+  return { ok: true, proposal, createHashStrippedPaths: strippedPaths }
 }

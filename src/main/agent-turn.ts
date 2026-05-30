@@ -20,6 +20,7 @@ export type AgentTurnMutableState = {
   incompleteHtmlFailuresByPath: Map<string, number>
   creationIntegrityFailuresByPath: Map<string, number>
   crushedJavaScriptFailuresByPath: Map<string, number>
+  proposalRejectionsByPath: Map<string, number>
 
   // Nudge / escalation flags for this turn
   searchReplaceEscalationNudgeIssued: boolean
@@ -59,6 +60,7 @@ export class AgentTurn {
       incompleteHtmlFailuresByPath: new Map(),
       creationIntegrityFailuresByPath: new Map(),
       crushedJavaScriptFailuresByPath: new Map(),
+      proposalRejectionsByPath: new Map(),
 
       searchReplaceEscalationNudgeIssued: false,
       incompleteHtmlNudgeIssued: false,
@@ -109,6 +111,12 @@ export class AgentTurn {
 
   recordSearchReplaceBlocked(): void {
     this.mutable.searchReplaceBlockedAfterEscalationCount += 1
+    this.mutable.pendingTurnMutations = true
+  }
+
+  recordProposalRejection(resolvedPath: string): void {
+    const key = resolvedPath.replace(/\\/g, '/')
+    this.mutable.proposalRejectionsByPath.set(key, (this.mutable.proposalRejectionsByPath.get(key) ?? 0) + 1)
     this.mutable.pendingTurnMutations = true
   }
 
@@ -179,6 +187,7 @@ export class AgentTurn {
       incompleteHtmlFailuresByPath: new Map(),
       creationIntegrityFailuresByPath: new Map(),
       crushedJavaScriptFailuresByPath: new Map(),
+      proposalRejectionsByPath: new Map(),
 
       searchReplaceEscalationNudgeIssued: false,
       incompleteHtmlNudgeIssued: false,

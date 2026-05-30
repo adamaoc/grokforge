@@ -3,6 +3,31 @@ import type {
   AgentChatToolName,
   HarnessInterventionKind,
 } from './agent-chat-contract'
+import { AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON } from './agent-creation-recovery-enforcement'
+import {
+  AGENT_EDIT_INCOMPLETE_JSON_MANIFEST_REASON,
+  AGENT_EDIT_INVALID_JSON_MANIFEST_REASON,
+} from './agent-bootstrap-manifest'
+import { AGENT_EDIT_CASCADE_GUARD_REASON } from './agent-edit-cascade-guard'
+import {
+  AGENT_EDIT_CORRUPT_CONTENT_REASON,
+  AGENT_EDIT_CORRUPT_ENCODING_REASON,
+  AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON,
+  AGENT_EDIT_EMPTY_WRITE_REASON,
+  AGENT_EDIT_HTML_ENTITY_ARTIFACT_REASON,
+  AGENT_EDIT_INCOMPLETE_HTML_REASON,
+  AGENT_EDIT_INCOMPLETE_TS_REASON,
+  AGENT_EDIT_JAMMED_JS_FILE_REASON,
+  AGENT_EDIT_JAMMED_SCRIPT_REASON,
+  AGENT_EDIT_MALFORMED_JSX_REASON,
+  AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
+} from './agent-edit-corrupt-content'
+import { AGENT_EDIT_READ_BEFORE_WRITE_REASON } from './agent-edit-read-guard'
+import {
+  AGENT_EDIT_MALFORMED_CONTENT_HASH_REASON,
+  AGENT_EDIT_MISSING_CONTENT_HASH_REASON,
+  AGENT_EDIT_STALE_HASH_REASON,
+} from './agent-content-hash'
 import type { ScaffoldConflictKind } from './agent-scaffold-strategy'
 
 export const AGENT_ACTIVITY_DETAIL_MAX_CHARS = 200
@@ -164,8 +189,8 @@ function compactedSearchReplaceDetail(
   return 'Merged into one diff review'
 }
 
-/** Roll up consecutive same-path search_replace activities for honest activity UI. */
-export function compactAgentTurnActivities(
+/** Roll up consecutive same-path search_replace activities for honest activity UI (story 119). */
+function compactSearchReplaceActivities(
   activities: readonly AgentChatActivityPayload[],
 ): AgentChatActivityPayload[] {
   const out: AgentChatActivityPayload[] = []
@@ -207,6 +232,203 @@ export function compactAgentTurnActivities(
   return out
 }
 
+const EDIT_FAILURE_TITLES = new Set(['Edit proposal failed', 'Search replace failed', 'Edit failed'])
+
+const EDIT_PROPOSAL_SUCCESS_TITLES = new Set([
+  'Prepared edit proposal',
+  'Prepared search_replace proposal',
+])
+
+const COMPACTED_EDIT_FAILURE_TITLE_RE = /^Edit (proposal )?failed ×\d+ on /
+
+/** Story 155 — rolled-up edit failure row in the activity list. */
+export function isCompactedEditFailureActivity(activity: AgentChatActivityPayload): boolean {
+  return COMPACTED_EDIT_FAILURE_TITLE_RE.test(activity.title)
+}
+
+function normalizeActivityPathForGrouping(path: string): string {
+  return path.replace(/\\/g, '/')
+}
+
+const EDIT_FAILURE_REASON_LABELS: ReadonlyArray<{ reason: string; label: string }> = [
+  { reason: AGENT_EDIT_JAMMED_JS_FILE_REASON, label: 'Crushed JavaScript' },
+  { reason: AGENT_EDIT_JAMMED_SCRIPT_REASON, label: 'Crushed script block' },
+  { reason: AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON, label: 'Crushed content' },
+  { reason: AGENT_EDIT_MALFORMED_JSX_REASON, label: 'Malformed JSX' },
+  { reason: AGENT_EDIT_INCOMPLETE_TS_REASON, label: 'Incomplete TypeScript' },
+  { reason: AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON, label: 'Corrupt JavaScript' },
+  { reason: AGENT_EDIT_CORRUPT_CONTENT_REASON, label: 'Corrupt content' },
+  { reason: AGENT_EDIT_INCOMPLETE_HTML_REASON, label: 'Incomplete HTML' },
+  { reason: AGENT_EDIT_CORRUPT_ENCODING_REASON, label: 'Bad encoding' },
+  { reason: AGENT_EDIT_HTML_ENTITY_ARTIFACT_REASON, label: 'HTML entity artifacts' },
+  { reason: AGENT_EDIT_EMPTY_WRITE_REASON, label: 'Empty file body' },
+  { reason: AGENT_EDIT_READ_BEFORE_WRITE_REASON, label: 'Read before write' },
+  { reason: AGENT_EDIT_MISSING_CONTENT_HASH_REASON, label: 'Missing content hash' },
+  { reason: AGENT_EDIT_STALE_HASH_REASON, label: 'Stale content hash' },
+  { reason: AGENT_EDIT_MALFORMED_CONTENT_HASH_REASON, label: 'Invalid content hash' },
+  { reason: AGENT_EDIT_CASCADE_GUARD_REASON, label: 'Large shrink blocked' },
+  { reason: AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON, label: 'Minimal scaffold required' },
+  { reason: AGENT_EDIT_INVALID_JSON_MANIFEST_REASON, label: 'Invalid JSON manifest' },
+  { reason: AGENT_EDIT_INCOMPLETE_JSON_MANIFEST_REASON, label: 'Incomplete JSON manifest' },
+]
+
+/** Short failure class for grouping and issue cards (story 155). */
+export function normalizeEditFailureClass(detail?: string, title?: string): string {
+  const haystack = [detail, title].filter(Boolean).join(' ')
+  for (const { reason, label } of EDIT_FAILURE_REASON_LABELS) {
+    if (haystack.includes(reason)) return label
+  }
+  if (/crushed|glued|minified/i.test(haystack)) return 'Crushed content'
+  if (/incomplete|truncat/i.test(haystack)) return 'Incomplete content'
+  if (/stale|content hash/i.test(haystack)) return 'Content hash mismatch'
+  return 'Validation failed'
+}
+
+/** Resolved path for edit-failure grouping (story 155). */
+export function resolveActivityEditFailurePath(activity: AgentChatActivityPayload): string | null {
+  if (activity.subjectPath?.trim()) return activity.subjectPath.trim()
+  const detail = activity.detail?.trim()
+  if (!detail) return null
+  const pathReason = detail.match(/^([^:]+):\s/)
+  if (pathReason?.[1]) {
+    const candidate = pathReason[1].trim()
+    if (candidate.length > 0) return candidate
+  }
+  const beforeDot = detail.split(' · ')[0]?.trim()
+  if (beforeDot && !beforeDot.includes(':') && /[./\\]/.test(beforeDot)) return beforeDot
+  return null
+}
+
+function isEditFailureActivityRow(activity: AgentChatActivityPayload): boolean {
+  if (!EDIT_FAILURE_TITLES.has(activity.title)) return false
+  return (
+    activity.status === 'error' ||
+    activity.status === 'rejected' ||
+    activity.status === 'timeout'
+  )
+}
+
+/** Group key for consecutive edit-failure rows (story 155). */
+export function activityEditFailureGroupKey(activity: AgentChatActivityPayload): string | null {
+  if (!isEditFailureActivityRow(activity)) return null
+  const path = resolveActivityEditFailurePath(activity)
+  const pathKey = path ? normalizeActivityPathForGrouping(path) : '__unknown_path__'
+  const failureClass = normalizeEditFailureClass(activity.detail, activity.title)
+  const titleKind = activity.title
+  return `${pathKey}|${failureClass}|${titleKind}`
+}
+
+function pathHasAcceptedProposalLater(
+  sourceActivities: readonly AgentChatActivityPayload[],
+  fromIndex: number,
+  normalizedPath: string,
+): boolean {
+  for (let i = fromIndex + 1; i < sourceActivities.length; i += 1) {
+    const row = sourceActivities[i]
+    if (!EDIT_PROPOSAL_SUCCESS_TITLES.has(row.title) || row.status === 'error') continue
+    const rowPath = resolveActivityEditFailurePath(row) ?? row.subjectPath
+    if (rowPath && normalizeActivityPathForGrouping(rowPath) === normalizedPath) return true
+  }
+  return false
+}
+
+/** Disk outcome line for compact edit-failure cards (story 152 / 155). */
+export function formatEditFailureDiskOutcome(input: {
+  group: readonly AgentChatActivityPayload[]
+  sourceActivities: readonly AgentChatActivityPayload[]
+  lastGroupIndex: number
+}): string {
+  const path = resolveActivityEditFailurePath(input.group[0]!)
+  const normalized = path ? normalizeActivityPathForGrouping(path) : null
+  if (
+    normalized &&
+    pathHasAcceptedProposalLater(input.sourceActivities, input.lastGroupIndex, normalized)
+  ) {
+    return 'Pending review — not on disk yet'
+  }
+  return 'No file created or changed on disk'
+}
+
+function compactedEditFailureTitle(
+  group: readonly AgentChatActivityPayload[],
+  label: string,
+): string {
+  const count = group.length
+  const first = group[0]!
+  const prefix =
+    first.tool === 'propose_file_edits' || first.title === 'Edit proposal failed'
+      ? 'Edit proposal failed'
+      : 'Edit failed'
+  return `${prefix} ×${count} on ${label}`
+}
+
+function compactedEditFailureDetail(
+  group: readonly AgentChatActivityPayload[],
+  sourceActivities: readonly AgentChatActivityPayload[],
+  lastGroupIndex: number,
+): string {
+  const last = group[group.length - 1]!
+  const failureClass = normalizeEditFailureClass(last.detail, last.title)
+  const diskOutcome = formatEditFailureDiskOutcome({ group, sourceActivities, lastGroupIndex })
+  return `${failureClass} · ${diskOutcome}`
+}
+
+/** Roll up consecutive same-path/class edit failures (story 155). */
+function compactEditFailureActivities(
+  activities: readonly AgentChatActivityPayload[],
+  sourceActivities: readonly AgentChatActivityPayload[],
+): AgentChatActivityPayload[] {
+  const out: AgentChatActivityPayload[] = []
+  let i = 0
+  while (i < activities.length) {
+    const current = activities[i]
+    const key = activityEditFailureGroupKey(current)
+    if (!key) {
+      out.push(current)
+      i += 1
+      continue
+    }
+    const group: AgentChatActivityPayload[] = [current]
+    let j = i + 1
+    while (j < activities.length) {
+      const next = activities[j]
+      if (activityEditFailureGroupKey(next) !== key) break
+      group.push(next)
+      j += 1
+    }
+    if (group.length === 1) {
+      out.push(current)
+      i += 1
+      continue
+    }
+    const labelPath = resolveActivityEditFailurePath(group[0]!) ?? group[0]!.subjectPath
+    const label = labelPath ? basenameFromPath(labelPath) : 'file'
+    const lastSourceIndex = sourceActivities.indexOf(group[group.length - 1]!)
+    out.push({
+      id: group[0].id,
+      tool: group[0].tool,
+      subjectPath: group.find((a) => a.subjectPath)?.subjectPath ?? labelPath ?? undefined,
+      title: compactedEditFailureTitle(group, label),
+      detail: compactedEditFailureDetail(
+        group,
+        sourceActivities,
+        lastSourceIndex >= 0 ? lastSourceIndex : sourceActivities.length - 1,
+      ),
+      status: mergeCompactedActivityStatus(group),
+    })
+    i = j
+  }
+  return out
+}
+
+/** Roll up consecutive search_replace and edit-failure activities for honest activity UI. */
+export function compactAgentTurnActivities(
+  activities: readonly AgentChatActivityPayload[],
+): AgentChatActivityPayload[] {
+  const afterSearchReplace = compactSearchReplaceActivities(activities)
+  return compactEditFailureActivities(afterSearchReplace, activities)
+}
+
 export type RetrievalActivityCopyInput = {
   count: number
   greenfieldWorkspace: boolean
@@ -217,7 +439,25 @@ export type RetrievalActivityCopyInput = {
 }
 
 /** Honest retrieval activity title/detail for chat UI (story 119). */
-const EDIT_FAILURE_TITLES = new Set(['Edit proposal failed', 'Search replace failed'])
+
+/** True when the turn recorded at least one failed edit-tool activity row (story 152). */
+export function turnHadFailedEditActivities(
+  activities: readonly AgentChatActivityPayload[],
+): boolean {
+  return activities.some(
+    (a) => EDIT_FAILURE_TITLES.has(a.title) || isCompactedEditFailureActivity(a),
+  )
+}
+
+/** True when the turn recorded an accepted edit proposal activity row (story 164). */
+export function turnHadAcceptedEditProposal(
+  activities: readonly AgentChatActivityPayload[],
+): boolean {
+  return activities.some(
+    (a) => EDIT_PROPOSAL_SUCCESS_TITLES.has(a.title) && a.status !== 'error',
+  )
+}
+
 const COMMAND_FAILURE_TITLES = new Set([
   'Command rejected',
   'Command failed',
@@ -232,6 +472,7 @@ export function isAgentActivityErrorRow(activity: AgentChatActivityPayload): boo
     activity.status === 'timeout' ||
     activity.status === 'interrupted' ||
     EDIT_FAILURE_TITLES.has(activity.title) ||
+    isCompactedEditFailureActivity(activity) ||
     COMMAND_FAILURE_TITLES.has(activity.title)
   )
 }

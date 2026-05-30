@@ -19,7 +19,9 @@ import {
   AGENT_EVAL_TAG_AGENT_EXECUTOR,
   AGENT_EVAL_TAG_AGENT_PLANNER,
   AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE,
+  AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_WORK_BOOTSTRAP,
   AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE_STATIC_VERIFY_NUDGE,
+  AGENT_EVAL_TAG_BEHAVIOR_SUPPRESS_STATIC_SINGLE_FILE_VERIFY_NUDGE,
   AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_NPM_VERIFY_COPY,
   AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_STATIC_VERIFY_COPY,
   AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_PLAN_EXECUTE_HAPPY,
@@ -52,6 +54,12 @@ import {
   AGENT_EVAL_TAG_PROFILE_GROK_CODE_FAST,
   AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH,
   AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL,
+  AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL_ENFORCEMENT,
+  AGENT_EVAL_TAG_RECOVERY_PROPOSAL_REJECTION_LOOP,
+  AGENT_EVAL_TAG_CONTRACT_FAILED_EDIT_HONESTY,
+  AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_PROTOTYPE_FAILURE,
+  AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_WORK_DIRECT,
+  AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_WORK_DIRECT_SUCCESS,
   AGENT_EVAL_TAG_RECOVERY_SCAFFOLD_PARTIAL,
   AGENT_EVAL_TAG_ROUTING_EXISTING_PROJECT_NO_REPLAN,
   AGENT_EVAL_TAG_ROUTING_ITERATIVE_WORK_NO_REPLAN,
@@ -75,7 +83,11 @@ import type { AgentTurnTraceV1 } from '../shared/agent-turn-trace-contract'
 import {
   EDIT_INTENT_TOOL_NUDGE_MARKER,
   EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER,
+  CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER,
   EDIT_PARTIAL_BATCH_NUDGE_MARKER,
+  PROPOSAL_REJECTION_FORCE_FINAL_MARKER,
+  FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER,
+  FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS,
   EDIT_SEARCH_REPLACE_ESCALATION_MARKER,
   EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER,
   PARTIAL_BATCH_PROPOSAL_HONESTY_MARKER,
@@ -87,9 +99,11 @@ import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from '../shared/agent-scaffold-strat
 import {
   GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS,
   GREENFIELD_EXECUTE_CLI_MARKER,
+  GREENFIELD_WORK_BOOTSTRAP_MARKER,
 } from '../shared/agent-harness-profile'
 import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER, AGENT_EDIT_INVALID_JSON_MANIFEST_REASON } from '../shared/agent-bootstrap-manifest'
 import { assessProposalWriteContent } from '../shared/agent-edit-corrupt-content'
+import { AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON } from '../shared/agent-creation-recovery-enforcement'
 import { AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
 import {
   ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON,
@@ -108,7 +122,16 @@ import {
   staticTodoPlanV1,
   staticTodoValidFiles,
   staticTodoWriteFileOperations,
+  TASKBOARD_PROTOTYPE_USER_PROMPT,
+  TASKBOARD_WORK_DIRECT_USER_PROMPT,
+  taskBoardCrushedOneLineIndexHtml,
+  taskBoardMinimalShellIndexHtml,
+  taskBoardOversizedBootstrapHtml,
+  taskBoardPrototypePlan,
 } from './agent-eval-fixtures'
+import {
+  assistantReplyClaimsEditSuccessDespiteNoProposal,
+} from '../renderer/src/lib/assistant-disk-claim-heuristic'
 import {
   primeActiveAgentTurn,
   runAgentTurnJobForEvaluation,
@@ -303,6 +326,39 @@ describe('agent runner evaluation harness', () => {
       expect(retrievalDone.activity.detail).not.toMatch(/0 files/)
       expect(retrievalDone.activity.title).not.toContain('Found relevant')
     }
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_WORK_BOOTSTRAP} — Work mode empty greenfield includes Work bootstrap marker`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-greenfield-work-161-'))
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    const { transport, getSystemPrompt } = transportCaptureSystemThenAnswer('Creating prototype.')
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId: 'eval-proj-greenfield-work-161',
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-stream-greenfield-work-161'
+    primeActiveAgentTurn(streamId)
+    const payload = basePayload(
+      streamId,
+      'Create a static HTML prototype as a single html file with inline script for a simple task board',
+    )
+    payload.activeContext.chatMode = 'fast'
+    await runAgentTurnJobForEvaluation(payload)
+
+    const prompt = getSystemPrompt()
+    expect(prompt).toContain(GREENFIELD_WORK_BOOTSTRAP_MARKER)
+    expect(prompt).toMatch(/one statement per line/i)
+    expect(prompt).not.toContain(GREENFIELD_EXECUTE_CLI_MARKER)
+    expect(prompt).not.toMatch(/Execute approved plan/i)
+    expect(prompt).not.toContain(WORK_ITERATIVE_EDIT_MARKER)
+    expect(prompt).not.toContain(GREENFIELD_HARNESS_MARKER)
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 
@@ -864,9 +920,9 @@ describe('agent runner evaluation harness', () => {
       plan: {
         schemaVersion: 1,
         summary: 'Vanilla static todo app',
-        filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],
+        filesLikelyTouched: ['index.html', 'styles.css', 'script.js', 'assets/tasks.json'],
         risksUnknowns: [],
-        steps: [{ id: '1', title: 'Create index.html, styles.css, script.js' }],
+        steps: [{ id: '1', title: 'Create index.html, styles.css, script.js, and data asset' }],
         verification: 'Open in browser and test the todo app',
       },
     })
@@ -1333,7 +1389,7 @@ describe('agent runner evaluation harness', () => {
           sawCreationRecoveryBeforeThirdSample = true
         }
 
-        if (sampleCount <= 2) {
+        if (sampleCount <= 3) {
           return {
             content: '',
             toolCalls: [
@@ -1353,12 +1409,30 @@ describe('agent runner evaluation harness', () => {
             ],
           }
         }
-        if (sampleCount === 3) {
-          expect(hasCreationRecovery).toBe(true)
-        }
-        return { content: '', toolCalls: [] }
+        throw new Error(`unexpected sample after proposal rejection force-final: ${sampleCount}`)
       },
-      async streamFinalAnswer(_request, _signal, emitChunk) {
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        const hasForceFinalHint = request.messages.some(
+          (m) =>
+            m.role === 'user' &&
+            typeof m.content === 'string' &&
+            m.content.includes(PROPOSAL_REJECTION_FORCE_FINAL_MARKER),
+        )
+        const hasFailedEditHonesty = request.messages.some(
+          (m) =>
+            m.role === 'system' &&
+            typeof m.content === 'string' &&
+            m.content.includes(FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER),
+        )
+        const hasCreationRecoveryHonesty = request.messages.some(
+          (m) =>
+            m.role === 'system' &&
+            typeof m.content === 'string' &&
+            m.content.includes(CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER),
+        )
+        expect(hasForceFinalHint).toBe(true)
+        expect(hasFailedEditHonesty).toBe(true)
+        expect(hasCreationRecoveryHonesty).toBe(true)
         emitChunk('Bootstrap attempted — review harness recovery.')
       },
     }
@@ -1383,7 +1457,7 @@ describe('agent runner evaluation harness', () => {
     })
 
     expect(sawCreationRecoveryBeforeThirdSample).toBe(false)
-    expect(sampleCount).toBeGreaterThanOrEqual(3)
+    expect(sampleCount).toBe(3)
     expect(
       payloads.some(
         (p) =>
@@ -1394,10 +1468,846 @@ describe('agent runner evaluation harness', () => {
       payloads.some(
         (p) =>
           p.phase === 'activity' &&
+          p.activity.title === 'Finishing turn (repeated proposal rejections)',
+      ),
+    ).toBe(true)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
           p.activity.title === 'Harness: multi-line JavaScript required',
       ),
     ).toBe(false)
     expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(false)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL_ENFORCEMENT} — rejects oversized bootstrap after recovery nudge`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-creation-enforcement-'))
+    const projectId = 'eval-creation-enforcement'
+    const htmlPath = join(root, 'index.html')
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: {
+        schemaVersion: 1,
+        summary: 'TaskBoard HTML prototype',
+        filesLikelyTouched: ['index.html'],
+        risksUnknowns: [],
+        steps: [{ id: '1', title: 'Create index.html' }],
+        verification: 'Open in browser',
+      },
+    })
+
+    const corruptSmall = staticTodoCrushedIndexHtml()
+    const largeHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>TaskBoard</title></head>
+<body>
+${'<div class="task">item</div>\n'.repeat(50)}
+</body>
+</html>`
+
+    let sampleCount = 0
+    let sawMinimalScaffoldRejection = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const content =
+          sampleCount <= 2 ? corruptSmall : sampleCount === 3 ? largeHtml : corruptSmall
+        if (sampleCount > 3) {
+          throw new Error(`unexpected sample after proposal rejection force-final: ${sampleCount}`)
+        }
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: `tc-enforce-${sampleCount}`,
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [{ op: 'write_file', path: htmlPath, content }],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        const hasRecoveryHonesty = request.messages.some(
+          (m) =>
+            m.role === 'system' &&
+            typeof m.content === 'string' &&
+            m.content.includes(CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER),
+        )
+        expect(hasRecoveryHonesty).toBe(true)
+        emitChunk('Recovery required minimal scaffold first — nothing was applied.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-creation-enforcement'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, TASKBOARD_PROTOTYPE_USER_PROMPT)),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sampleCount).toBe(3)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' && p.activity.title === 'Harness: incremental file creation',
+      ),
+    ).toBe(true)
+    for (const p of payloads) {
+      if (p.phase !== 'activity' || p.activity.title !== 'Edit proposal failed') continue
+      if (p.activity.detail?.includes(AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON.slice(0, 40))) {
+        sawMinimalScaffoldRejection = true
+      }
+    }
+    expect(sawMinimalScaffoldRejection).toBe(true)
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(false)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_PROTOTYPE_FAILURE} ${AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL_ENFORCEMENT} — accepts small scaffold after recovery nudge`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-creation-scaffold-'))
+    const projectId = 'eval-creation-scaffold'
+    const htmlPath = join(root, 'index.html')
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: taskBoardPrototypePlan(),
+    })
+
+    const corruptSmall = staticTodoCrushedIndexHtml()
+    const scaffoldShell = taskBoardMinimalShellIndexHtml()
+
+    let sampleCount = 0
+    let sawSingleFileHtmlRecoveryNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        if (
+          request.messages.some(
+            (m) =>
+              m.role === 'user' &&
+              typeof m.content === 'string' &&
+              m.content.includes('single-file HTML creation recovery 162'),
+          )
+        ) {
+          sawSingleFileHtmlRecoveryNudge = true
+        }
+        if (sampleCount > 3) {
+          return { content: 'Scaffold complete.', toolCalls: [] }
+        }
+        const content = sampleCount <= 2 ? corruptSmall : scaffoldShell
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: `tc-scaffold-${sampleCount}`,
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [{ op: 'write_file', path: htmlPath, content }],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Minimal scaffold ready for review.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-creation-scaffold'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, TASKBOARD_PROTOTYPE_USER_PROMPT)),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawSingleFileHtmlRecoveryNudge).toBe(true)
+    expect(sampleCount).toBe(4)
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_RECOVERY_PROPOSAL_REJECTION_LOOP} ${AGENT_EVAL_TAG_CONTRACT_FAILED_EDIT_HONESTY} — force final after 3 same-path rejections with no proposal`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-proposal-rejection-loop-'))
+    const projectId = 'eval-proposal-rejection-loop'
+    const corruptJs = `function init() {
+)
+)
+);
+)
+`
+    let sampleCount = 0
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion() {
+        sampleCount += 1
+        if (sampleCount <= 3) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: `tc-reject-${sampleCount}`,
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      { op: 'write_file', path: join(root, 'script.js'), content: corruptJs },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        throw new Error(`expected force-final before sample ${sampleCount}`)
+      },
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        expect(
+          request.messages.some(
+            (m) =>
+              m.role === 'user' &&
+              typeof m.content === 'string' &&
+              m.content.includes(PROPOSAL_REJECTION_FORCE_FINAL_MARKER),
+          ),
+        ).toBe(true)
+        const systemContract = request.messages.find(
+          (m) => m.role === 'system' && typeof m.content === 'string' && m.content.includes('Final response contract'),
+        )
+        expect(systemContract).toBeDefined()
+        expect(String(systemContract?.content)).toContain(FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER)
+        expect(String(systemContract?.content)).toMatch(/script\.js/i)
+        expect(String(systemContract?.content)).not.toMatch(
+          /Call `propose_file_edits` \(or `search_replace`/i,
+        )
+        emitChunk('Could not create script.js — validation rejected the proposal three times.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-proposal-rejection-loop'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, 'Create script.js for a simple task board prototype'),
+      modelIntent: 'execution',
+    })
+
+    expect(sampleCount).toBe(3)
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(false)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Finishing turn (repeated proposal rejections)',
+      ),
+    ).toBe(true)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  /**
+   * Dogfood repro (156): empty workspace, approve-and-run TaskBoard single-file HTML prototype.
+   * Original prompt: TASKBOARD_PROTOTYPE_USER_PROMPT — repeated malformed/crushed proposals,
+   * creation_incremental_recovery, force-final, honest no-write outcome (no editProposalCreated).
+   */
+  it(`${AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_PROTOTYPE_FAILURE} ${AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL} ${AGENT_EVAL_TAG_RECOVERY_PROPOSAL_REJECTION_LOOP} ${AGENT_EVAL_TAG_CONTRACT_FAILED_EDIT_HONESTY} — TaskBoard index.html approve-and-run ends honest with no proposal`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-taskboard-failure-156-'))
+    const projectId = 'eval-taskboard-failure-156'
+    const htmlPath = join(root, 'index.html')
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: taskBoardPrototypePlan(),
+    })
+
+    const crushed = staticTodoCrushedIndexHtml()
+    const oversized = taskBoardOversizedBootstrapHtml()
+
+    vi.mocked(writeAgentTurnTrace).mockClear()
+
+    let sampleCount = 0
+    let sawCreationRecoveryBeforeThirdSample = false
+    let sawPlanVerifyCommandNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const joined = request.messages
+          .map((m) => (typeof m.content === 'string' ? m.content : ''))
+          .join('\n')
+        if (joined.includes(PLAN_VERIFY_COMMAND_NUDGE_MARKER)) {
+          sawPlanVerifyCommandNudge = true
+        }
+        const hasCreationRecovery = request.messages.some(
+          (m) =>
+            m.role === 'user' &&
+            typeof m.content === 'string' &&
+            m.content.includes(EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER),
+        )
+        if (sampleCount < 3 && hasCreationRecovery) {
+          sawCreationRecoveryBeforeThirdSample = true
+        }
+
+        if (sampleCount > 3) {
+          throw new Error(`unexpected sample after proposal rejection force-final: ${sampleCount}`)
+        }
+
+        let content: string
+        let expectedContentHash: string | undefined
+        if (sampleCount === 1) {
+          content = crushed
+          // Pre-154 dogfood footgun: malformed hash on create — now stripped (154), content still rejected.
+          expectedContentHash = 'bad-hash-not-64-hex'
+        } else if (sampleCount === 2) {
+          content = crushed
+        } else {
+          content = oversized
+        }
+
+        const operation: Record<string, unknown> = {
+          op: 'write_file',
+          path: htmlPath,
+          content,
+        }
+        if (expectedContentHash !== undefined) {
+          operation.expectedContentHash = expectedContentHash
+        }
+
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: `tc-taskboard-fail-${sampleCount}`,
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [operation],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        expect(
+          request.messages.some(
+            (m) =>
+              m.role === 'user' &&
+              typeof m.content === 'string' &&
+              m.content.includes(PROPOSAL_REJECTION_FORCE_FINAL_MARKER),
+          ),
+        ).toBe(true)
+        const systemContract = request.messages.find(
+          (m) =>
+            m.role === 'system' &&
+            typeof m.content === 'string' &&
+            m.content.includes('Final response contract'),
+        )
+        expect(systemContract).toBeDefined()
+        expect(String(systemContract?.content)).toContain(FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER)
+        expect(String(systemContract?.content)).toContain(CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER)
+        expect(String(systemContract?.content)).toMatch(/index\.html/i)
+        expect(String(systemContract?.content)).not.toMatch(
+          /Call `propose_file_edits` \(or `search_replace`/i,
+        )
+        emitChunk('Could not create index.html — validation rejected all proposals.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-taskboard-failure-156'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, buildApprovedPlanExecuteUserText(planId, TASKBOARD_PROTOTYPE_USER_PROMPT)),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawCreationRecoveryBeforeThirdSample).toBe(false)
+    expect(sampleCount).toBe(3)
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(false)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' && p.activity.title === 'Harness: incremental file creation',
+      ),
+    ).toBe(true)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Finishing turn (repeated proposal rejections)',
+      ),
+    ).toBe(true)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Edit proposal failed' &&
+          p.activity.detail?.includes('index.html'),
+      ),
+    ).toBe(true)
+
+    expect(writeAgentTurnTrace).toHaveBeenCalled()
+    const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
+    expect(trace.editProposalCreated).toBe(false)
+    expect(trace.harnessMetrics?.maxIterationsReason).toBe('proposal_rejection_loop')
+    expect(trace.harnessMetrics?.nudgesIssued).toContain('creation_incremental_recovery')
+    expect(trace.harnessMetrics?.proposalRejectionsByPath?.[htmlPath]).toBeGreaterThanOrEqual(3)
+
+    const finalText = payloads
+      .filter((p) => p.phase === 'final_chunk')
+      .map((p) => p.delta)
+      .join('')
+    expect(finalText.length).toBeLessThan(FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS)
+    expect(finalText).not.toMatch(/```[\s\S]{2500,}```/)
+
+    const failedActivities = payloads
+      .filter((p) => p.phase === 'activity' && p.activity.title === 'Edit proposal failed')
+      .map((p) => (p.phase === 'activity' ? p.activity : null))
+      .filter((a): a is NonNullable<typeof a> => a !== null)
+
+    expect(
+      assistantReplyClaimsEditSuccessDespiteNoProposal(finalText, failedActivities),
+    ).toBe(false)
+
+    const badFallback =
+      'Here is your complete single-file HTML prototype.\n```html\n' +
+      '<div>line</div>\n'.repeat(50) +
+      '```'
+    expect(
+      assistantReplyClaimsEditSuccessDespiteNoProposal(badFallback, failedActivities),
+    ).toBe(true)
+
+    expect(sawPlanVerifyCommandNudge).toBe(false)
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_BEHAVIOR_SUPPRESS_STATIC_SINGLE_FILE_VERIFY_NUDGE} — ultra-simple static approve-and-run skips verify nudge even with command intent`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-ultra-simple-no-verify-nudge-165-'))
+    const projectId = 'eval-ultra-simple-no-verify-nudge-165'
+    const { planId } = seedApprovedPlanArtifact(projectId, {
+      plan: taskBoardPrototypePlan(),
+    })
+
+    let sampleCount = 0
+    let sawPlanVerifyCommandNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const joined = request.messages
+          .map((m) => (typeof m.content === 'string' ? m.content : ''))
+          .join('\n')
+        if (joined.includes(PLAN_VERIFY_COMMAND_NUDGE_MARKER)) {
+          sawPlanVerifyCommandNudge = true
+        }
+        return { content: '', toolCalls: [] }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Single-file HTML plan — open index.html in browser to verify.')
+      },
+    }
+
+    const { win } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-ultra-simple-no-verify-nudge-165'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(
+        streamId,
+        `${buildApprovedPlanExecuteUserText(planId, TASKBOARD_PROTOTYPE_USER_PROMPT)} Also run npm run typecheck to verify.`,
+      ),
+      isApprovedPlanAutoRun: true,
+      approvedPlanId: planId,
+      modelIntent: 'execution',
+    })
+
+    expect(sawPlanVerifyCommandNudge).toBe(false)
+    expect(sampleCount).toBe(1)
+  })
+
+  /**
+   * Dogfood repro (163): empty workspace, direct Work TaskBoard single-file HTML prototype.
+   * Verbatim prompt: TASKBOARD_WORK_DIRECT_USER_PROMPT — same failure transport as 156 without approve-and-run.
+   */
+  it(`${AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_WORK_DIRECT} ${AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL} ${AGENT_EVAL_TAG_RECOVERY_PROPOSAL_REJECTION_LOOP} ${AGENT_EVAL_TAG_CONTRACT_FAILED_EDIT_HONESTY} — TaskBoard index.html direct Work ends honest with no proposal`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-taskboard-work-direct-163-'))
+    const projectId = 'eval-taskboard-work-direct-163'
+    const htmlPath = join(root, 'index.html')
+
+    const crushed = staticTodoCrushedIndexHtml()
+    const oversized = taskBoardOversizedBootstrapHtml()
+
+    vi.mocked(writeAgentTurnTrace).mockClear()
+
+    let sampleCount = 0
+    let sawPlanVerifyCommandNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        const joined = request.messages
+          .map((m) => (typeof m.content === 'string' ? m.content : ''))
+          .join('\n')
+        if (joined.includes(PLAN_VERIFY_COMMAND_NUDGE_MARKER)) {
+          sawPlanVerifyCommandNudge = true
+        }
+        if (sampleCount === 1) {
+          const first = request.messages[0]
+          const firstSampleSystemPrompt =
+            first && typeof first.content === 'string' ? first.content : ''
+          expect(firstSampleSystemPrompt).toContain(GREENFIELD_WORK_BOOTSTRAP_MARKER)
+          expect(firstSampleSystemPrompt).not.toContain(GREENFIELD_EXECUTE_CLI_MARKER)
+          expect(firstSampleSystemPrompt).not.toMatch(/Execute approved plan/i)
+          expect(firstSampleSystemPrompt).not.toContain(GREENFIELD_HARNESS_MARKER)
+        }
+
+        if (sampleCount > 3) {
+          throw new Error(`unexpected sample after proposal rejection force-final: ${sampleCount}`)
+        }
+
+        let content: string
+        let expectedContentHash: string | undefined
+        if (sampleCount === 1) {
+          content = crushed
+          expectedContentHash = 'bad-hash-not-64-hex'
+        } else if (sampleCount === 2) {
+          content = crushed
+        } else {
+          content = oversized
+        }
+
+        const operation: Record<string, unknown> = {
+          op: 'write_file',
+          path: htmlPath,
+          content,
+        }
+        if (expectedContentHash !== undefined) {
+          operation.expectedContentHash = expectedContentHash
+        }
+
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: `tc-taskboard-work-direct-${sampleCount}`,
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [operation],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(request, _signal, emitChunk) {
+        expect(
+          request.messages.some(
+            (m) =>
+              m.role === 'user' &&
+              typeof m.content === 'string' &&
+              m.content.includes(PROPOSAL_REJECTION_FORCE_FINAL_MARKER),
+          ),
+        ).toBe(true)
+        const systemContract = request.messages.find(
+          (m) =>
+            m.role === 'system' &&
+            typeof m.content === 'string' &&
+            m.content.includes('Final response contract'),
+        )
+        expect(systemContract).toBeDefined()
+        expect(String(systemContract?.content)).toContain(FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER)
+        expect(String(systemContract?.content)).toContain(CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER)
+        expect(String(systemContract?.content)).toMatch(/index\.html/i)
+        expect(String(systemContract?.content)).not.toMatch(
+          /Call `propose_file_edits` \(or `search_replace`/i,
+        )
+        emitChunk('Could not create index.html — validation rejected all proposals.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    const streamId = 'eval-taskboard-work-direct-163-failure'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, TASKBOARD_WORK_DIRECT_USER_PROMPT),
+    })
+
+    expect(sampleCount).toBe(3)
+    expect(payloads.some((p) => p.phase === 'edit_proposal')).toBe(false)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' && p.activity.title === 'Harness: incremental file creation',
+      ),
+    ).toBe(true)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Finishing turn (repeated proposal rejections)',
+      ),
+    ).toBe(true)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Edit proposal failed' &&
+          p.activity.detail?.includes('index.html'),
+      ),
+    ).toBe(true)
+
+    expect(writeAgentTurnTrace).toHaveBeenCalled()
+    const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
+    expect(trace.editProposalCreated).toBe(false)
+    expect(trace.harnessMetrics?.maxIterationsReason).toBe('proposal_rejection_loop')
+    expect(trace.harnessMetrics?.nudgesIssued).toContain('creation_incremental_recovery')
+    expect(trace.harnessMetrics?.proposalRejectionsByPath?.[htmlPath]).toBeGreaterThanOrEqual(3)
+
+    const finalText = payloads
+      .filter((p) => p.phase === 'final_chunk')
+      .map((p) => p.delta)
+      .join('')
+    expect(finalText.length).toBeLessThan(FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS)
+    expect(finalText).not.toMatch(/```[\s\S]{2500,}```/)
+
+    const failedActivities = payloads
+      .filter((p) => p.phase === 'activity' && p.activity.title === 'Edit proposal failed')
+      .map((p) => (p.phase === 'activity' ? p.activity : null))
+      .filter((a): a is NonNullable<typeof a> => a !== null)
+
+    expect(
+      assistantReplyClaimsEditSuccessDespiteNoProposal(finalText, failedActivities),
+    ).toBe(false)
+    expect(sawPlanVerifyCommandNudge).toBe(false)
+
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_WORK_DIRECT_SUCCESS} ${AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL_ENFORCEMENT} — direct Work accepts shell after single-file HTML recovery`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-taskboard-work-direct-scaffold-163-'))
+    const projectId = 'eval-taskboard-work-direct-scaffold-163'
+    const htmlPath = join(root, 'index.html')
+
+    const corruptSmall = staticTodoCrushedIndexHtml()
+    const scaffoldShell = taskBoardMinimalShellIndexHtml()
+
+    let sampleCount = 0
+    let sawSingleFileHtmlRecoveryNudge = false
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion(request) {
+        sampleCount += 1
+        if (
+          request.messages.some(
+            (m) =>
+              m.role === 'user' &&
+              typeof m.content === 'string' &&
+              m.content.includes('single-file HTML creation recovery 162'),
+          )
+        ) {
+          sawSingleFileHtmlRecoveryNudge = true
+        }
+        if (sampleCount > 3) {
+          return { content: 'Scaffold complete.', toolCalls: [] }
+        }
+        const content = sampleCount <= 2 ? corruptSmall : scaffoldShell
+        return {
+          content: '',
+          toolCalls: [
+            {
+              id: `tc-work-direct-scaffold-${sampleCount}`,
+              type: 'function',
+              function: {
+                name: 'propose_file_edits',
+                arguments: JSON.stringify({
+                  version: AGENT_TOOL_PROTOCOL_VERSION,
+                  operations: [{ op: 'write_file', path: htmlPath, content }],
+                }),
+              },
+            },
+          ],
+        }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Minimal scaffold ready for review.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    vi.mocked(writeAgentTurnTrace).mockClear()
+    const streamId = 'eval-taskboard-work-direct-scaffold-163'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, TASKBOARD_WORK_DIRECT_USER_PROMPT),
+    })
+
+    expect(sawSingleFileHtmlRecoveryNudge).toBe(true)
+    expect(sampleCount).toBe(4)
+    expect(payloads.filter((p) => p.phase === 'edit_proposal')).toHaveLength(1)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Finishing turn (repeated proposal rejections)',
+      ),
+    ).toBe(false)
+
+    expect(writeAgentTurnTrace).toHaveBeenCalled()
+    const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
+    expect(trace.editProposalCreated).toBe(true)
+
+    expect(payloads.some((p) => p.phase === 'done')).toBe(true)
+  })
+
+  it(`${AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_WORK_DIRECT_SUCCESS} — direct Work accepts normalize-repaired one-line HTML on first propose`, async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-eval-taskboard-work-direct-normalize-163-'))
+    const projectId = 'eval-taskboard-work-direct-normalize-163'
+    const htmlPath = join(root, 'index.html')
+
+    let sampleCount = 0
+    const transport: AgentChatModelTransport = {
+      async sampleChatCompletion() {
+        sampleCount += 1
+        if (sampleCount === 1) {
+          return {
+            content: '',
+            toolCalls: [
+              {
+                id: 'tc-work-direct-normalize-1',
+                type: 'function',
+                function: {
+                  name: 'propose_file_edits',
+                  arguments: JSON.stringify({
+                    version: AGENT_TOOL_PROTOCOL_VERSION,
+                    operations: [
+                      {
+                        op: 'write_file',
+                        path: htmlPath,
+                        content: taskBoardCrushedOneLineIndexHtml(),
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }
+        }
+        return { content: 'Done.', toolCalls: [] }
+      },
+      async streamFinalAnswer(_request, _signal, emitChunk) {
+        emitChunk('Single-file prototype ready for review.')
+      },
+    }
+
+    const { win, payloads } = createEventSink()
+    setAgentChatTargetWindow(win)
+    restores.push(setAgentChatModelTransportForTesting(transport))
+    restores.push(
+      setGetCurrentProjectForTesting(() => ({
+        projectId,
+        manifest: manifestForRoot(root),
+      })),
+    )
+
+    vi.mocked(writeAgentTurnTrace).mockClear()
+    const streamId = 'eval-taskboard-work-direct-normalize-163'
+    primeActiveAgentTurn(streamId)
+    await runAgentTurnJobForEvaluation({
+      ...basePayload(streamId, TASKBOARD_WORK_DIRECT_USER_PROMPT),
+    })
+
+    expect(sampleCount).toBe(2)
+    expect(payloads.filter((p) => p.phase === 'edit_proposal')).toHaveLength(1)
+    expect(
+      payloads.some(
+        (p) =>
+          p.phase === 'activity' &&
+          p.activity.title === 'Finishing turn (repeated proposal rejections)',
+      ),
+    ).toBe(false)
+
+    expect(writeAgentTurnTrace).toHaveBeenCalled()
+    const trace = vi.mocked(writeAgentTurnTrace).mock.calls.at(-1)?.[1] as AgentTurnTraceV1
+    expect(trace.editProposalCreated).toBe(true)
+    expect(trace.harnessMetrics?.maxIterationsReason).not.toBe('proposal_rejection_loop')
+
     expect(payloads.some((p) => p.phase === 'done')).toBe(true)
   })
 
@@ -2976,7 +3886,7 @@ describe('agent runner evaluation harness', () => {
             toolCalls: [
               {
                 id: 'tc-css',
-                type: 'function',
+                type: 'function' as const,
                 function: {
                   name: 'propose_file_edits',
                   arguments: JSON.stringify({
@@ -3001,7 +3911,7 @@ describe('agent runner evaluation harness', () => {
 
       let sawScaffoldNudge = false
       const wrappedTransport: AgentChatModelTransport = {
-        async sampleChatCompletion(request) {
+        async sampleChatCompletion(request, signal) {
           sawScaffoldNudge = request.messages.some(
             (m) =>
               typeof m.content === 'string' && m.content.includes(SCAFFOLD_STRATEGY_NUDGE_MARKER),

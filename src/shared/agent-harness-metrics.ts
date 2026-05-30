@@ -34,6 +34,7 @@ export type HarnessNudgeId =
 
 export const MaxIterationsReasonSchema = z.enum([
   'search_replace_loop',
+  'proposal_rejection_loop',
   'discovery_stall',
   'post_escalation_stall',
   'generic',
@@ -64,6 +65,7 @@ export const AgentTurnHarnessMetricsSchema = z.object({
   resolvedEditScope: z.enum(['single_file', 'few_files', 'broad']).optional(),
   rereadLoopDetected: z.boolean().optional(),
   searchReplace: HarnessMetricsSearchReplaceSchema.optional(),
+  proposalRejectionsByPath: z.record(z.string(), z.number().int().nonnegative()).optional(),
   maxIterationsReason: MaxIterationsReasonSchema.optional(),
 })
 
@@ -77,6 +79,7 @@ export type HarnessMetricsScratch = {
   readOnlyRounds: number
   searchReplaceCountByPath: Map<string, number>
   searchReplaceFailuresByPath: Map<string, number>
+  proposalRejectionsByPath: Map<string, number>
   searchReplaceEscalationIssued: boolean
   searchReplaceEscalationAtFailureCount?: number
   searchReplaceBlockedAfterEscalationCount: number
@@ -96,6 +99,7 @@ export type FinalizeHarnessMetricsInput = {
   readOnlyRounds: number
   searchReplaceCountByPath: ReadonlyMap<string, number>
   searchReplaceFailuresByPath: ReadonlyMap<string, number>
+  proposalRejectionsByPath: ReadonlyMap<string, number>
   searchReplaceEscalationIssued: boolean
   searchReplaceEscalationAtFailureCount?: number
   searchReplaceBlockedAfterEscalationCount: number
@@ -120,6 +124,7 @@ export function createHarnessMetricsScratch(seed: {
     readOnlyRounds: 0,
     searchReplaceCountByPath: new Map(),
     searchReplaceFailuresByPath: new Map(),
+    proposalRejectionsByPath: new Map(),
     searchReplaceEscalationIssued: false,
     searchReplaceBlockedAfterEscalationCount: 0,
     searchReplaceLastFailureReasons: [],
@@ -171,6 +176,7 @@ export type ResolveMaxIterationsReasonInput = {
   readOnlyRounds?: number
   maxToolIterationsHit?: boolean
   forceFinalFromEditFailures?: boolean
+  proposalRejectionLoop?: boolean
 }
 
 export function resolveMaxIterationsReason(
@@ -181,6 +187,9 @@ export function resolveMaxIterationsReason(
   }
 
   if (input.forceFinalFromEditFailures) {
+    if (input.proposalRejectionLoop === true) {
+      return 'proposal_rejection_loop'
+    }
     if (
       input.iterativeWorkEdit === true &&
       input.searchReplaceBlockedAfterEscalationCount >= input.blockedBeforeForceFinalThreshold
@@ -251,6 +260,22 @@ export function syncSearchReplaceFailuresToScratch(
   }
 }
 
+export function syncProposalRejectionsToScratch(
+  scratch: HarnessMetricsScratch,
+  source: ReadonlyMap<string, number>,
+): void {
+  for (const [path, count] of source) {
+    if (count > 0) scratch.proposalRejectionsByPath.set(path, count)
+  }
+}
+
+export function capProposalRejectionsByPath(
+  map: ReadonlyMap<string, number>,
+  maxPaths = HARNESS_METRICS_MAX_SR_PATHS,
+): Record<string, number> | undefined {
+  return capSearchReplaceByPath(map, maxPaths)
+}
+
 export function topSearchReplaceFailurePathBasename(
   failuresByPath: ReadonlyMap<string, number>,
 ): string | undefined {
@@ -293,12 +318,14 @@ export function finalizeHarnessMetrics(input: FinalizeHarnessMetricsInput): Agen
   const srByPath = capSearchReplaceByPath(input.searchReplaceCountByPath)
   const totalFailures = [...input.searchReplaceFailuresByPath.values()].reduce((n, c) => n + c, 0)
   const searchReplace = buildSearchReplaceMetricsBlock(input, totalFailures)
+  const proposalRejectionsByPath = capProposalRejectionsByPath(input.proposalRejectionsByPath)
   const hasNudges = input.nudgesIssued.length > 0
   const hasActivity =
     input.toolRoundCount > 0 ||
     input.readOnlyRounds > 0 ||
     srByPath !== undefined ||
     searchReplace !== undefined ||
+    proposalRejectionsByPath !== undefined ||
     input.maxIterationsReason !== undefined ||
     hasNudges ||
     input.editProposalAtRound !== undefined ||
@@ -321,6 +348,7 @@ export function finalizeHarnessMetrics(input: FinalizeHarnessMetricsInput): Agen
     resolvedEditScope: input.resolvedEditScope,
     rereadLoopDetected: input.rereadLoopDetected || undefined,
     searchReplace,
+    proposalRejectionsByPath,
     maxIterationsReason: input.maxIterationsReason,
   }
 }

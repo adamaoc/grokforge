@@ -29,6 +29,10 @@ export const AGENT_EVAL_TAG_BEHAVIOR_SINGLE_FILE = 'behavior:single_file_edits' 
 /** Approve-and-run over empty/near-empty workspace with multi-file plan (124). */
 export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE = 'behavior:greenfield_execute' as const
 
+/** Direct Work on empty greenfield with create intent — Work bootstrap appendix (161). */
+export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_WORK_BOOTSTRAP =
+  'behavior:greenfield_work_bootstrap' as const
+
 /** Reject or recover crushed/invalid script.js proposals (124). */
 export const AGENT_EVAL_TAG_VALIDATION_JS_CORRUPTION = 'validation:js_corruption' as const
 
@@ -38,6 +42,18 @@ export const AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH = 'recovery:partial_batch' as
 /** Repeated integrity failures on a new path → incremental build-up nudge. */
 export const AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL =
   'recovery:creation_incremental' as const
+
+/** Post-nudge oversized bootstrap blocked with minimal scaffold reason (153). */
+export const AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL_ENFORCEMENT =
+  'recovery:creation_incremental_enforcement' as const
+
+/** Repeated same-path proposal rejections force final answer (151). */
+export const AGENT_EVAL_TAG_RECOVERY_PROPOSAL_REJECTION_LOOP =
+  'recovery:proposal_rejection_loop' as const
+
+/** Failed edit tools with no proposal — final answer honesty contract (152). */
+export const AGENT_EVAL_TAG_CONTRACT_FAILED_EDIT_HONESTY =
+  'contract:failed_edit_honesty' as const
 
 /** Approved plan with verify/install step → model should sample run_command (126). */
 export const AGENT_EVAL_TAG_BEHAVIOR_RUN_COMMAND_PLAN_VERIFY =
@@ -107,6 +123,10 @@ export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_STATIC_VERIFY_COPY =
 export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE_STATIC_VERIFY_NUDGE =
   'behavior:greenfield_execute_static_verify_nudge' as const
 
+/** Ultra-simple single-file static approve-and-run → no plan-verify command nudge (165). */
+export const AGENT_EVAL_TAG_BEHAVIOR_SUPPRESS_STATIC_SINGLE_FILE_VERIFY_NUDGE =
+  'behavior:suppress_static_single_file_verify_nudge' as const
+
 /** Vite plan → verification mentions npm run / typecheck in planner contract (132). */
 export const AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_NPM_VERIFY_COPY =
   'behavior:greenfield_plan_npm_verify_copy' as const
@@ -171,6 +191,18 @@ export const AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE =
 export const AGENT_EVAL_TAG_BEHAVIOR_TRACE_SEARCH_REPLACE_FAILURE_METRICS =
   'behavior:trace_search_replace_failure_metrics' as const
 
+/** TaskBoard single-file HTML prototype failure dogfood repro (156). */
+export const AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_PROTOTYPE_FAILURE =
+  'dogfood:taskboard_prototype_failure' as const
+
+/** Direct Work TaskBoard single-file HTML failure dogfood repro (163). */
+export const AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_WORK_DIRECT =
+  'dogfood:taskboard_work_direct' as const
+
+/** Direct Work TaskBoard single-file HTML happy path (163). */
+export const AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_WORK_DIRECT_SUCCESS =
+  'dogfood:taskboard_work_direct_success' as const
+
 export type AgentEvalTag =
   | typeof AGENT_EVAL_TAG_PROFILE_GROK_CODE_FAST
   | typeof AGENT_EVAL_TAG_PROFILE_GROK_4_3
@@ -181,9 +213,13 @@ export type AgentEvalTag =
   | typeof AGENT_EVAL_TAG_ROUTING_POST_PLAN
   | typeof AGENT_EVAL_TAG_BEHAVIOR_SINGLE_FILE
   | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_WORK_BOOTSTRAP
   | typeof AGENT_EVAL_TAG_VALIDATION_JS_CORRUPTION
   | typeof AGENT_EVAL_TAG_RECOVERY_PARTIAL_BATCH
   | typeof AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL
+  | typeof AGENT_EVAL_TAG_RECOVERY_CREATION_INCREMENTAL_ENFORCEMENT
+  | typeof AGENT_EVAL_TAG_RECOVERY_PROPOSAL_REJECTION_LOOP
+  | typeof AGENT_EVAL_TAG_CONTRACT_FAILED_EDIT_HONESTY
   | typeof AGENT_EVAL_TAG_BEHAVIOR_RUN_COMMAND_PLAN_VERIFY
   | typeof AGENT_EVAL_TAG_POLICY_NPM_INSTALL
   | typeof AGENT_EVAL_TAG_POLICY_GIT_STATUS_SAFE
@@ -202,6 +238,7 @@ export type AgentEvalTag =
   | typeof AGENT_EVAL_TAG_BEHAVIOR_SCAFFOLD_VERIFY_COMMAND_NOT_HYBRID
   | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_STATIC_VERIFY_COPY
   | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_EXECUTE_STATIC_VERIFY_NUDGE
+  | typeof AGENT_EVAL_TAG_BEHAVIOR_SUPPRESS_STATIC_SINGLE_FILE_VERIFY_NUDGE
   | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_PLAN_NPM_VERIFY_COPY
   | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_PLAN_EXECUTE_HAPPY
   | typeof AGENT_EVAL_TAG_BEHAVIOR_GREENFIELD_STATIC_NORMALIZED_MARKDOWN
@@ -218,3 +255,6 @@ export type AgentEvalTag =
   | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_QUALITY_SECTIONS
   | typeof AGENT_EVAL_TAG_BEHAVIOR_ITERATIVE_WORK_SR_TOOL_OVERRIDE
   | typeof AGENT_EVAL_TAG_BEHAVIOR_TRACE_SEARCH_REPLACE_FAILURE_METRICS
+  | typeof AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_PROTOTYPE_FAILURE
+  | typeof AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_WORK_DIRECT
+  | typeof AGENT_EVAL_TAG_DOGFOOD_TASKBOARD_WORK_DIRECT_SUCCESS

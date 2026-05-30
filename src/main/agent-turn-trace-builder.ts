@@ -174,6 +174,7 @@ export function finalizeTurnTrace(
           searchReplaceBlockedAfterEscalationCount:
             scratch.harnessMetricsScratch.searchReplaceBlockedAfterEscalationCount,
           searchReplaceLastFailureReasons: scratch.harnessMetricsScratch.searchReplaceLastFailureReasons,
+          proposalRejectionsByPath: scratch.harnessMetricsScratch.proposalRejectionsByPath,
           maxIterationsReason: scratch.harnessMetricsScratch.maxIterationsReason,
           nudgesIssued: scratch.harnessMetricsScratch.nudgesIssued,
           editProposalAtRound: scratch.harnessMetricsScratch.editProposalAtRound,

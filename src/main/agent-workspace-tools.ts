@@ -18,6 +18,7 @@ import { AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE, AGENT_TOOL_MAX_OPS } from '../sh
 import { CODE_QUALITY_CONTRACT_SHORT } from '../shared/agent-code-quality-contract'
 import { AGENT_CONTEXT_BUDGETS } from '../shared/agent-context-budget-contract'
 import { needsSourceLayoutRepair } from '../shared/agent-file-content-normalize'
+import { AGENT_NEW_FILE_EXPECTED_CONTENT_HASH_SENTINEL } from '../shared/agent-content-hash'
 import { computeAgentContentHash } from './agent-content-hash'
 
 export const AGENT_TOOL_MAX_ITERATIONS = 8
@@ -272,7 +273,7 @@ export const AGENT_TOOL_DEFINITIONS = [
                     expectedContentHash: {
                       type: 'string',
                       description:
-                        'For existing files: SHA-256 hex from read_file contentHash. Omit for new files.',
+                        `For existing files only: SHA-256 hex from read_file contentHash. For new files omit this field (or use the "${AGENT_NEW_FILE_EXPECTED_CONTENT_HASH_SENTINEL}" sentinel). Never fabricate a 64-character hash for creates.`,
                     },
                   },
                   required: ['op', 'path', 'content'],

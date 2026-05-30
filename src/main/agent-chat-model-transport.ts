@@ -95,11 +95,16 @@ function chatCompletionBody(
 export function createHttpAgentChatModelTransport(): AgentChatModelTransport {
   return {
     async sampleChatCompletion(request, signal) {
+      const toolOptions = request.disableTools
+        ? {}
+        : {
+            tools: request.tools.length > 0 ? request.tools : AGENT_TOOL_DEFINITIONS,
+            tool_choice: 'auto',
+            parallel_tool_calls: false,
+          }
       const res = await postChatCompletion(
         chatCompletionBody(request, {
-          tools: request.tools.length > 0 ? request.tools : AGENT_TOOL_DEFINITIONS,
-          tool_choice: 'auto',
-          parallel_tool_calls: false,
+          ...toolOptions,
           max_tokens: request.sampleMaxTokens ?? 1200,
           stream: false,
         }),

@@ -21,7 +21,9 @@ import { impliesCommandExecution, commandLikelyMutatesWorkspace } from '../share
 import {
   planNeedsVerificationCommand,
   resolveVerificationHint,
+  shouldInjectPlanVerifyCommandNudge,
   suggestVerificationCommands,
+  verificationHasCommandLikeToken,
 } from '../shared/agent-plan-verification'
 import { shouldIgnoreFsEntry } from './ignore-globs'
 import { isPathWithinWorkspaceRoots } from './workspace-path-guard'
@@ -109,15 +111,28 @@ import {
   totalIncompleteHtmlFailures,
 } from '../shared/agent-edit-corrupt-content'
 import {
+  extractPathsFromEditToolArguments,
+  pathsAtProposalRejectionForceFinalThreshold,
+  recordProposalRejection,
+  shouldForceFinalForRepeatedProposalRejections,
+} from '../shared/agent-proposal-rejection-loop'
+import {
+  creationRecoveryUnmetPathLabels,
+  recordCreationRecoveryEnforced,
+} from '../shared/agent-creation-recovery-enforcement'
+import { userRequestsSingleFileHtml } from '../shared/agent-single-file-html-intent'
+import {
   buildDiscoverySaturationNudge,
   buildEditIntentToolNudge,
   buildFinalAnswerContract,
+  resolveEditFinalAnswerHonestyContext,
   buildCrushedJavaScriptProposalNudge,
   buildCreationIncrementalRecoveryNudge,
   buildIncompleteHtmlProposalNudge,
   buildPartialBatchProposalNudge,
   buildPlanVerifyCommandNudge,
   buildPostScaffoldVerificationNudge,
+  buildProposalRejectionForceFinalHint,
   buildSearchReplaceEscalationNudge,
   isLikelyEditIntent,
   shouldInjectPartialBatchProposalNudge,
@@ -212,6 +227,7 @@ import {
   resolveMaxIterationsReason,
   syncSearchReplaceCountsToScratch,
   syncSearchReplaceFailuresToScratch,
+  syncProposalRejectionsToScratch,
   topSearchReplaceFailurePathBasename,
   type MaxIterationsReason,
 } from '../shared/agent-harness-metrics'
@@ -221,6 +237,13 @@ import {
   planImpliesMultiFileBootstrap,
   type GreenfieldIndexSnapshot,
 } from '../shared/workspace-greenfield'
+import { reviewAgentEditProposal } from './agent-proposal-reviewer'
+import {
+  AgentProposalReviewRequestSchema,
+  shouldAutoReviewProposal,
+  resolveAgentReviewerConfig,
+  type AgentProposalReviewResult,
+} from '../shared/agent-proposal-reviewer'
 const AGENT_TURN_TIMEOUT_BASE_MS = 120_000
 const AGENT_TURN_TIMEOUT_PER_ROUND_MS = 45_000
 const AGENT_TURN_TIMEOUT_MAX_MS = 600_000
@@ -463,6 +486,21 @@ function emitActivity(
   emit({ streamId, phase: 'activity', activity })
 }
 
+function summarizePlanForReview(plan: StoredPlanArtifact | null): string | undefined {
+  if (!plan) return undefined
+  const steps = plan.plan.steps.map((step) => `- ${step.id}: ${step.title}`).join('\n')
+  return [
+    `Plan summary: ${plan.plan.summary}`,
+    plan.plan.filesLikelyTouched.length > 0
+      ? `Files likely touched: ${plan.plan.filesLikelyTouched.join(', ')}`
+      : '',
+    steps ? `Steps:\n${steps}` : '',
+    plan.plan.verification ? `Verification: ${plan.plan.verification}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 function emitHarnessInterventionActivity(
   streamId: string,
   id: string,
@@ -649,7 +687,6 @@ function buildInitialMessages(
 function finalAnswerContract(
   userText: string,
   editProposalCreated: boolean,
-  editToolsFailed: boolean,
   editProposalComposedInTurn: boolean,
   chatMode: 'fast' | 'plan',
   harnessProfileKey: HarnessProfileKey,
@@ -663,6 +700,12 @@ function finalAnswerContract(
   searchReplaceEscalationRecovered: boolean,
   postScaffoldVerificationIncomplete: boolean,
   postScaffoldMissingPaths: readonly string[],
+  searchReplaceFailuresByPath: ReadonlyMap<string, number>,
+  incompleteHtmlFailuresByPath: ReadonlyMap<string, number>,
+  proposalRejectionsByPath: ReadonlyMap<string, number>,
+  creationIncrementalRecoveryIssued: boolean,
+  creationRecoveryEnforcedPaths: ReadonlySet<string>,
+  creationScaffoldAcceptedPaths: ReadonlySet<string>,
 ): AgentModelChatMessage {
   const scaffoldRecoveredForContract =
     scaffoldStrategyRecovered &&
@@ -670,13 +713,23 @@ function finalAnswerContract(
     (scaffoldStrategy === 'file_bootstrap' || !commandToolsFailed)
   const srEscalationRecoveredForContract =
     searchReplaceEscalationRecovered && editProposalCreated
+  const editHonesty = resolveEditFinalAnswerHonestyContext({
+    userText,
+    editProposalCreated,
+    executeFromApprovedPlan: harnessCtx.executeFromApprovedPlan,
+    searchReplaceFailuresByPath,
+    incompleteHtmlFailuresByPath,
+    proposalRejectionsByPath,
+  })
 
   return {
     role: 'system',
     content: buildFinalAnswerContract({
       userText,
       editProposalCreated,
-      editToolsFailed,
+      editAttemptOutcome: editHonesty.editAttemptOutcome,
+      failedEditPaths: editHonesty.failedEditPaths,
+      editToolsFailed: editHonesty.editToolsFailed,
       editProposalComposedInTurn,
       chatMode,
       profileKey: harnessProfileKey,
@@ -693,6 +746,11 @@ function finalAnswerContract(
       searchReplaceEscalationRecovered: srEscalationRecoveredForContract,
       postScaffoldVerificationIncomplete,
       postScaffoldMissingPaths,
+      creationIncrementalRecoveryIssued,
+      creationRecoveryUnmetPaths: creationRecoveryUnmetPathLabels({
+        creationRecoveryEnforcedPaths,
+        creationScaffoldAcceptedPaths,
+      }),
     }),
   }
 }
@@ -705,6 +763,7 @@ function resolveCommandIntentText(
   options?: {
     greenfieldWorkspace?: boolean
     scaffoldStrategy?: ScaffoldStrategy | null
+    singleFileHtmlIntent?: boolean
   },
 ): {
   commandIntent: boolean
@@ -712,7 +771,11 @@ function resolveCommandIntentText(
   suggestedCommands: readonly string[]
 } {
   const parts: string[] = []
-  if (impliesCommandExecution(userText)) parts.push(userText)
+  const skipUserTextCommandIntent =
+    options?.singleFileHtmlIntent === true &&
+    !verificationHasCommandLikeToken(userText) &&
+    !impliesCommandExecution(userText)
+  if (!skipUserTextCommandIntent && impliesCommandExecution(userText)) parts.push(userText)
 
   let suggestedCommands: readonly string[] = []
   if (executeFromApprovedPlan && approvedPlanId) {
@@ -801,22 +864,66 @@ function isRegularFileOnDisk(resolvedPath: string): boolean {
   }
 }
 
-function computeEditToolsFailed(
-  userText: string,
-  editProposalCreated: boolean,
-  searchReplaceFailuresByPath: ReadonlyMap<string, number>,
-  incompleteHtmlFailuresByPath: ReadonlyMap<string, number>,
-  executeFromApprovedPlan: boolean,
-  iterativeWorkEdit?: boolean,
-): boolean {
-  if (editProposalCreated) return false
-  const editIntent = executeFromApprovedPlan || isLikelyEditIntent(userText)
+function parseEditToolArguments(raw: string): unknown {
+  try {
+    return JSON.parse(raw) as unknown
+  } catch {
+    return null
+  }
+}
+
+function recordProposalRejectionsFromEditToolFailure(
+  proposalRejectionsByPath: Map<string, number>,
+  resolveProposalPath: (path: string) => string | null,
+  rejected: readonly { path?: string }[],
+  rawToolArgs: unknown,
+  detail?: string,
+  agentTurn?: AgentTurn,
+): void {
+  let recorded = false
+  for (const r of rejected) {
+    if (!r.path) continue
+    const resolved = resolveProposalPath(r.path)
+    if (!resolved) continue
+    recordProposalRejection(proposalRejectionsByPath, resolved)
+    agentTurn?.recordProposalRejection(resolved)
+    recorded = true
+  }
+  if (recorded) return
+  if (typeof detail === 'string') {
+    const pathMatch = detail.match(/^([^:]+):/)
+    if (pathMatch?.[1]) {
+      const resolved = resolveProposalPath(pathMatch[1].trim())
+      if (resolved) {
+        recordProposalRejection(proposalRejectionsByPath, resolved)
+        agentTurn?.recordProposalRejection(resolved)
+        return
+      }
+    }
+  }
+  for (const path of extractPathsFromEditToolArguments(rawToolArgs)) {
+    const resolved = resolveProposalPath(path)
+    if (!resolved) continue
+    recordProposalRejection(proposalRejectionsByPath, resolved)
+    agentTurn?.recordProposalRejection(resolved)
+  }
+}
+
+function shouldForceFinalForRepeatedProposalRejectionsOnTurn(input: {
+  isPlanMode: boolean
+  editProposalCreated: boolean
+  canProposeEdits: boolean
+  userText: string
+  executeFromApprovedPlan: boolean
+  proposalRejectionsByPath: ReadonlyMap<string, number>
+}): boolean {
+  if (input.isPlanMode || input.editProposalCreated || !input.canProposeEdits) return false
+  const editIntent = input.executeFromApprovedPlan || isLikelyEditIntent(input.userText)
   if (!editIntent) return false
-  const srOpts = { iterativeWorkEdit: iterativeWorkEdit === true }
-  return (
-    shouldInjectSearchReplaceEscalation(searchReplaceFailuresByPath, srOpts) ||
-    shouldInjectIncompleteHtmlProposalNudge(incompleteHtmlFailuresByPath)
-  )
+  return shouldForceFinalForRepeatedProposalRejections({
+    editProposalCreated: input.editProposalCreated,
+    rejectionsByPath: input.proposalRejectionsByPath,
+  })
 }
 
 function shouldForceFinalForRepeatedEditFailures(input: {
@@ -861,20 +968,21 @@ function buildMaxToolIterationsHint(input: {
   editProposalCreated: boolean
   searchReplaceFailuresByPath: ReadonlyMap<string, number>
   incompleteHtmlFailuresByPath: ReadonlyMap<string, number>
+  proposalRejectionsByPath: ReadonlyMap<string, number>
   executeFromApprovedPlan: boolean
   iterativeWorkEdit?: boolean
 }): string {
-  if (
-    !input.isPlanMode &&
-    computeEditToolsFailed(
-      input.userText,
-      input.editProposalCreated,
-      input.searchReplaceFailuresByPath,
-      input.incompleteHtmlFailuresByPath,
-      input.executeFromApprovedPlan,
-      input.iterativeWorkEdit,
-    )
-  ) {
+  const editHonesty = !input.isPlanMode
+    ? resolveEditFinalAnswerHonestyContext({
+        userText: input.userText,
+        editProposalCreated: input.editProposalCreated,
+        executeFromApprovedPlan: input.executeFromApprovedPlan,
+        searchReplaceFailuresByPath: input.searchReplaceFailuresByPath,
+        incompleteHtmlFailuresByPath: input.incompleteHtmlFailuresByPath,
+        proposalRejectionsByPath: input.proposalRejectionsByPath,
+      })
+    : null
+  if (editHonesty?.editToolsFailed) {
     const htmlFailures = totalIncompleteHtmlFailures(input.incompleteHtmlFailuresByPath)
     const htmlNote =
       htmlFailures > 0
@@ -883,8 +991,9 @@ function buildMaxToolIterationsHint(input: {
     return [
       'GrokForge reached the maximum tool iterations for this turn.',
       `Edit tools did not succeed (no reviewable edit proposal was created).${htmlNote}`,
-      'Summarize what you attempted; do not claim any workspace file was updated, saved, or written on disk.',
-      'Tell the user they can retry with propose_file_edits using the complete file from read_file rawContent, or edit manually.',
+      'Summarize what you attempted in a **short** honest message; do not claim any workspace file was updated, saved, or written on disk.',
+      'Do **not** paste a full replacement file in the final answer.',
+      'Tell the user what failed and that they can retry with clean `propose_file_edits` from `read_file` rawContent or edit manually in a new turn.',
     ].join(' ')
   }
   if (input.isPlanMode) {
@@ -1161,9 +1270,33 @@ async function runAgentTurn(
     if (approvedPlanForScaffold && planImpliesMultiFileBootstrap(approvedPlanForScaffold.plan)) {
       singleFilePrimary = false
     }
+  } else if (
+    greenfield &&
+    !postPlanIncremental &&
+    safePayload.activeContext.chatMode === 'fast' &&
+    safePayload.isApprovedPlanAutoRun !== true &&
+    isLikelyEditIntent(safePayload.userText)
+  ) {
+    resolvedScaffoldStrategy = resolveScaffoldStrategy({
+      greenfieldWorkspace: greenfield,
+      executeFromApprovedPlan: false,
+      postPlanIncremental,
+      userText: safePayload.userText,
+    })
   }
+  const singleFileHtmlIntent = userRequestsSingleFileHtml({
+    userText: safePayload.userText,
+    plan: approvedPlanForScaffold?.plan ?? null,
+  })
   const isPlanMode = safePayload.activeContext.chatMode === 'plan'
   const executeFromApprovedPlan = safePayload.isApprovedPlanAutoRun === true
+
+  const greenfieldWorkBootstrap =
+    greenfield &&
+    safePayload.activeContext.chatMode === 'fast' &&
+    !executeFromApprovedPlan &&
+    !postPlanIncremental &&
+    isLikelyEditIntent(safePayload.userText)
 
   const iterativeEditScope: IterativeEditScope | undefined =
     incrementalEditEnforcement && !executeFromApprovedPlan
@@ -1185,6 +1318,7 @@ async function runAgentTurn(
     singleFilePrimaryBasename: primaryFile?.basename,
     scaffoldStrategy: resolvedScaffoldStrategy,
     viteTemplateHint: scaffoldExpectedTemplate,
+    greenfieldWorkBootstrap,
   }
 
   if (scratch) {
@@ -1207,6 +1341,7 @@ async function runAgentTurn(
     {
       greenfieldWorkspace: greenfield,
       scaffoldStrategy: resolvedScaffoldStrategy,
+      singleFileHtmlIntent,
     },
   )
 
@@ -1229,6 +1364,61 @@ async function runAgentTurn(
   )
   pruneStaleAgentOffloads(projectId)
 
+  const reviewerConfig = resolveAgentReviewerConfig(manifest.reviewer)
+  const reviewPlanArtifact =
+    safePayload.approvedPlanId ? loadPlanArtifact(projectId, safePayload.approvedPlanId) : completedPlan
+  const reviewPlanSummary = summarizePlanForReview(reviewPlanArtifact)
+  const reviewProposalForTurn = async (
+    proposal: AgentEditProposalPayload,
+  ): Promise<AgentEditProposalPayload> => {
+    if (
+      !shouldAutoReviewProposal({
+        config: reviewerConfig,
+        proposal,
+        chatMode: safePayload.activeContext.chatMode,
+      })
+    ) {
+      return proposal
+    }
+    const id = activityId()
+    emitActivity(payload.streamId, {
+      id,
+      title: 'Reviewing edit proposal',
+      detail: `Reviewer model: ${reviewerConfig.model}`,
+      status: 'running',
+    })
+    const result = await reviewAgentEditProposal({
+      manifest,
+      proposal,
+      transport: activeAgentChatModelTransport,
+      abortSignal: ac.signal,
+      userText: safePayload.userText,
+      planSummary: reviewPlanSummary,
+      modelOverride: reviewerConfig.model,
+    })
+    if (!result.ok) {
+      emitActivity(payload.streamId, {
+        id,
+        title: 'Reviewer unavailable',
+        detail: result.error,
+        status: 'error',
+      })
+      return proposal
+    }
+    emitActivity(payload.streamId, {
+      id,
+      title:
+        result.review.overallVerdict === 'pass'
+          ? 'Reviewer passed proposal'
+          : 'Reviewer flagged proposal',
+      detail: `${result.review.overallVerdict.replace('_', ' ')} · ${result.review.summary}`,
+      status: result.review.overallVerdict === 'pass' ? 'done' : 'rejected',
+      harnessKind: result.review.overallVerdict === 'pass' ? 'info' : 'correction',
+    })
+    return { ...proposal, review: result.review }
+  }
+  const reviewEditProposalForTurn = reviewerConfig.autoReviewEdits ? reviewProposalForTurn : undefined
+
   let totalToolChars = 0
   let editProposalCreated = false
   let editProposalComposedInTurn = false
@@ -1237,7 +1427,10 @@ async function runAgentTurn(
   const incompleteHtmlFailuresByPath = new Map<string, number>()
   const crushedJavaScriptFailuresByPath = new Map<string, number>()
   const creationIntegrityFailuresByPath = new Map<string, number>()
+  const proposalRejectionsByPath = new Map<string, number>()
   let creationIncrementalRecoveryIssued = false
+  const creationRecoveryEnforcedPaths = new Set<string>()
+  const creationScaffoldAcceptedPaths = new Set<string>()
 
   // New: explicit per-turn state holder (step toward Pi-style lifecycle clarity)
   const agentTurn = new AgentTurn()
@@ -1293,6 +1486,7 @@ async function runAgentTurn(
     hm.rereadLoopDetected = rereadLoopDetected
     syncSearchReplaceCountsToScratch(hm, searchReplaceCountByPath)
     syncSearchReplaceFailuresToScratch(hm, searchReplaceFailuresByPath)
+    syncProposalRejectionsToScratch(hm, proposalRejectionsByPath)
     hm.searchReplaceBlockedAfterEscalationCount = searchReplaceBlockedAfterEscalationCount
   }
 
@@ -1339,14 +1533,6 @@ async function runAgentTurn(
       finalAnswerContract(
         safePayload.userText,
         editProposalCreated,
-        computeEditToolsFailed(
-          safePayload.userText,
-          editProposalCreated,
-          searchReplaceFailuresByPath,
-          incompleteHtmlFailuresByPath,
-          executeFromApprovedPlan,
-          incrementalEditEnforcement,
-        ),
         editProposalComposedInTurn,
         safePayload.activeContext.chatMode,
         routing.harnessProfileKey,
@@ -1365,6 +1551,12 @@ async function runAgentTurn(
         searchReplaceEscalationRecovered,
         postScaffoldVerificationIncomplete,
         postScaffoldMissingPaths,
+        searchReplaceFailuresByPath,
+        incompleteHtmlFailuresByPath,
+        proposalRejectionsByPath,
+        creationIncrementalRecoveryIssued,
+        creationRecoveryEnforcedPaths,
+        creationScaffoldAcceptedPaths,
       ),
     )
     messages.push({
@@ -1430,9 +1622,14 @@ async function runAgentTurn(
       const shouldNudgeForPlanVerify =
         !isPlanMode &&
         agentProfile.canProposeEdits &&
-        commandIntent &&
         !commandToolSampledThisTurn &&
-        !planVerifyCommandNudgeIssued
+        !planVerifyCommandNudgeIssued &&
+        shouldInjectPlanVerifyCommandNudge({
+          commandIntent,
+          singleFileHtmlIntent,
+          scaffoldStrategy: harnessCtx.scaffoldStrategy,
+          plan: approvedPlanForScaffold?.plan ?? null,
+        })
       if (shouldNudgeForPlanVerify) {
         planVerifyCommandNudgeIssued = true
         messages.push({
@@ -1503,10 +1700,18 @@ async function runAgentTurn(
           scaffoldExpectedTemplate,
           iterativeWorkEdit: incrementalEditEnforcement,
           searchReplaceEscalationNudgeIssued,
+          creationRecoveryEnforcedPaths,
+          creationScaffoldAcceptedPaths,
+          singleFileHtmlIntent,
           // Pass the new explicit turn lifecycle holder (future: more state will move here)
           agentTurn,
         },
-        { emit, approvalRequestId: activityId(), waitForCommandApproval },
+        {
+          emit,
+          approvalRequestId: activityId(),
+          waitForCommandApproval,
+          reviewEditProposal: reviewEditProposalForTurn,
+        },
       )
 
       if (outcome.searchReplaceBlockedAfterEscalation) {
@@ -1681,6 +1886,14 @@ async function runAgentTurn(
               )
             }
           }
+          recordProposalRejectionsFromEditToolFailure(
+            proposalRejectionsByPath,
+            resolveProposalPath,
+            rejected,
+            parseEditToolArguments(call.function.arguments),
+            detail,
+            agentTurn,
+          )
         } catch {
           /* ignore malformed tool JSON */
         }
@@ -1927,9 +2140,54 @@ async function runAgentTurn(
           editProposalCreated,
           searchReplaceFailuresByPath,
           incompleteHtmlFailuresByPath,
+          proposalRejectionsByPath,
           executeFromApprovedPlan,
           iterativeWorkEdit: incrementalEditEnforcement,
         }),
+      )
+      return
+    }
+
+    if (
+      shouldForceFinalForRepeatedProposalRejectionsOnTurn({
+        isPlanMode,
+        editProposalCreated,
+        canProposeEdits: agentProfile.canProposeEdits,
+        userText: safePayload.userText,
+        executeFromApprovedPlan,
+        proposalRejectionsByPath,
+      })
+    ) {
+      const blockedPaths = pathsAtProposalRejectionForceFinalThreshold(proposalRejectionsByPath)
+      setMaxIterationsReasonOnScratch(scratch, {
+        totalSearchReplaceFailures: totalSearchReplaceFailures(searchReplaceFailuresByPath),
+        searchReplaceBlockedAfterEscalationCount,
+        searchReplaceEscalationNudgeIssued,
+        incompleteHtmlNudgeIssued,
+        postEscalationToolRounds,
+        postEscalationMaxToolRounds: resolvePostEscalationMaxToolRounds({
+          iterativeWorkEdit: incrementalEditEnforcement,
+        }),
+        maxSearchReplaceFailuresPerTurn: resolveSearchReplaceMaxFailuresPerTurn({
+          iterativeWorkEdit: incrementalEditEnforcement,
+        }),
+        iterativeWorkEdit: incrementalEditEnforcement,
+        forceFinalFromEditFailures: true,
+        proposalRejectionLoop: true,
+      })
+      emitActivity(payload.streamId, {
+        id: activityId(),
+        title: 'Finishing turn (repeated proposal rejections)',
+        status: 'done',
+        detail:
+          blockedPaths.length > 0
+            ? `Stopping after repeated validation failures on ${blockedPaths
+                .map((p) => p.split(/[/\\]/).filter(Boolean).pop() ?? p)
+                .join(', ')} — no reviewable proposal was created.`
+            : 'Stopping after repeated edit proposal validation failures — no reviewable proposal was created.',
+      })
+      await completeTurnWithFinalStream(
+        buildProposalRejectionForceFinalHint(blockedPaths),
       )
       return
     }
@@ -2001,6 +2259,10 @@ async function runAgentTurn(
     if (shouldNudgeCreationIncremental) {
       creationIncrementalRecoveryIssued = true
       postEscalationToolRounds = 0
+      recordCreationRecoveryEnforced(
+        creationRecoveryEnforcedPaths,
+        pathsAtCreationIncrementalRecoveryThreshold(creationIntegrityFailuresByPath),
+      )
       if (scratch?.harnessMetricsScratch) {
         recordHarnessNudge(
           scratch.harnessMetricsScratch,
@@ -2018,6 +2280,7 @@ async function runAgentTurn(
         role: 'user',
         content: buildCreationIncrementalRecoveryNudge(
           pathsAtCreationIncrementalRecoveryThreshold(creationIntegrityFailuresByPath),
+          { singleFileHtmlIntent },
         ),
       })
       continue
@@ -2192,6 +2455,7 @@ async function runAgentTurn(
     editProposalCreated,
     searchReplaceFailuresByPath,
     incompleteHtmlFailuresByPath,
+    proposalRejectionsByPath,
     executeFromApprovedPlan,
     iterativeWorkEdit: incrementalEditEnforcement,
   })
@@ -2368,6 +2632,28 @@ export function registerAgentChatIpc(options: { getCurrentProject: () => Current
     if (!ac) return { ok: true }
     ac.abort(ABORT_USER)
     return { ok: true }
+  })
+
+  ipcMain.handle('agent-review-proposal', async (_, raw: unknown): Promise<AgentProposalReviewResult> => {
+    const parsed = AgentProposalReviewRequestSchema.safeParse(raw)
+    if (!parsed.success) return { ok: false, error: parsed.error.message }
+    const { projectId, manifest } = getCurrentProject()
+    if (!projectId || !manifest) return { ok: false, error: 'No project loaded.' }
+    if (!getXaiApiKey() && !getE2eMockReply()) {
+      return {
+        ok: false,
+        error: 'Missing XAI API key. Add it in Settings or set XAI_API_KEY / GROKFORGE_XAI_API_KEY.',
+      }
+    }
+    const ac = new AbortController()
+    return reviewAgentEditProposal({
+      manifest,
+      proposal: parsed.data.proposal,
+      userText: parsed.data.userText,
+      planSummary: parsed.data.planSummary,
+      transport: activeAgentChatModelTransport,
+      abortSignal: ac.signal,
+    })
   })
 
   ipcMain.handle('agent-command-approval-respond', async (_, raw: unknown): Promise<AgentCommandApprovalRespondResult> => {

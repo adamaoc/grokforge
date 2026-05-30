@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER,
+  isBrowserOnlyStaticVerification,
+  isUltraSimpleSingleFileStaticPlan,
   planNeedsVerificationCommand,
   resolveVerificationHint,
+  shouldInjectPlanVerifyCommandNudge,
   suggestVerificationCommands,
   verificationHasCommandLikeToken,
 } from './agent-plan-verification'
@@ -106,5 +109,69 @@ describe('agent-plan-verification', () => {
 
   it('prefers explicit verification text when command-like', () => {
     expect(resolveVerificationHint(staticPlanWithServe, [])).toContain('npx')
+  })
+
+  it('isUltraSimpleSingleFileStaticPlan detects single/tiny static plans', () => {
+    expect(isUltraSimpleSingleFileStaticPlan(ultraSimpleStaticPlan)).toBe(true)
+    expect(isUltraSimpleSingleFileStaticPlan(staticPlan)).toBe(true)
+    expect(isUltraSimpleSingleFileStaticPlan(largerStaticPlan)).toBe(false)
+    expect(isUltraSimpleSingleFileStaticPlan(vitePlan)).toBe(false)
+  })
+
+  it('isBrowserOnlyStaticVerification detects browser-only verification strings', () => {
+    expect(isBrowserOnlyStaticVerification(staticPlan)).toBe(true)
+    expect(isBrowserOnlyStaticVerification(ultraSimpleStaticPlan)).toBe(false)
+    expect(isBrowserOnlyStaticVerification(staticPlanWithServe)).toBe(false)
+    expect(isBrowserOnlyStaticVerification(vitePlan)).toBe(false)
+  })
+
+  describe('shouldInjectPlanVerifyCommandNudge', () => {
+    it('returns false without command intent', () => {
+      expect(
+        shouldInjectPlanVerifyCommandNudge({
+          commandIntent: false,
+          singleFileHtmlIntent: true,
+        }),
+      ).toBe(false)
+    })
+
+    it('returns false for single-file HTML intent (165)', () => {
+      expect(
+        shouldInjectPlanVerifyCommandNudge({
+          commandIntent: true,
+          singleFileHtmlIntent: true,
+        }),
+      ).toBe(false)
+    })
+
+    it('returns false for ultra-simple static plan with browser-only verification', () => {
+      expect(
+        shouldInjectPlanVerifyCommandNudge({
+          commandIntent: true,
+          scaffoldStrategy: 'file_bootstrap',
+          plan: ultraSimpleStaticPlan,
+        }),
+      ).toBe(false)
+    })
+
+    it('returns true for larger static plan with browser-only verification (132 regression)', () => {
+      expect(
+        shouldInjectPlanVerifyCommandNudge({
+          commandIntent: true,
+          scaffoldStrategy: 'file_bootstrap',
+          plan: largerStaticPlan,
+        }),
+      ).toBe(true)
+    })
+
+    it('returns true for npm/vite plan with typecheck verification (126 regression)', () => {
+      expect(
+        shouldInjectPlanVerifyCommandNudge({
+          commandIntent: true,
+          scaffoldStrategy: 'cli_scaffold',
+          plan: vitePlan,
+        }),
+      ).toBe(true)
+    })
   })
 })

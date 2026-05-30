@@ -3,11 +3,16 @@ import { AGENT_TOOL_FENCE_INFO } from './agent-tool-contract'
 import { GF_PLAN_FENCE } from './gf-plan-contract'
 import {
   buildFinalAnswerContract,
+  resolveEditFinalAnswerHonestyContext,
+  FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER,
+  FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS,
+  FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_LINES,
   buildEditIntentToolNudge,
   buildIncompleteHtmlProposalNudge,
   buildCrushedJavaScriptProposalNudge,
   buildCreationIncrementalRecoveryNudge,
   buildPartialBatchProposalNudge,
+  CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER,
   EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER,
   EDIT_CRUSHED_JS_NUDGE_MARKER,
   buildPlanVerifyCommandNudge,
@@ -66,7 +71,7 @@ describe('buildFinalAnswerContract', () => {
       executeFromApprovedPlan: true,
     })
     expect(content).toMatch(/approved `gf-plan`/i)
-    expect(content).toMatch(/search_replace/i)
+    expect(content).toMatch(/primary `edit` tool/i)
   })
 
   it('requires propose_file_edits for fast mode when user has edit intent', () => {
@@ -106,7 +111,7 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toContain(EDIT_SEARCH_REPLACE_ESCALATION_MARKER)
     expect(nudge).toContain('Harness: iterative search_replace escalation 138')
     expect(nudge).toContain('script.js')
-    expect(nudge).toMatch(/Do \*\*not\*\* call \*\*`search_replace`\*\*/i)
+    expect(nudge).toMatch(/retry with precise `edit`/i)
     expect(nudge).toMatch(/propose_file_edits/)
     expect(nudge).toMatch(/rawContent/)
     expect(nudge).toMatch(/115/)
@@ -135,15 +140,86 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).not.toMatch(/Do not retry with one full multi-line script/i)
   })
 
-  it('adds editToolsFailed appendix when edit tools did not succeed', () => {
+  it('builds single-file HTML creation recovery nudge with shell then edit (162)', () => {
+    const nudge = buildCreationIncrementalRecoveryNudge(['/proj/index.html'], {
+      singleFileHtmlIntent: true,
+    })
+    expect(nudge).toContain(EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER)
+    expect(nudge).toMatch(/single-file HTML creation recovery 162/i)
+    expect(nudge).toMatch(/No.*`<script>`/i)
+    expect(nudge).toMatch(/primary.*`edit`.*tool/i)
+    expect(nudge).toMatch(/32 lines.*1200 characters/i)
+  })
+
+  it('resolveEditFinalAnswerHonestyContext — failed after one proposal rejection', () => {
+    const ctx = resolveEditFinalAnswerHonestyContext({
+      userText: 'create index.html prototype',
+      editProposalCreated: false,
+      searchReplaceFailuresByPath: new Map(),
+      incompleteHtmlFailuresByPath: new Map(),
+      proposalRejectionsByPath: new Map([['/proj/index.html', 1]]),
+    })
+    expect(ctx.editAttemptOutcome).toBe('failed')
+    expect(ctx.editToolsFailed).toBe(true)
+    expect(ctx.failedEditPaths).toContain('index.html')
+  })
+
+  it('resolveEditFinalAnswerHonestyContext — not_attempted when edit intent but no failures', () => {
+    const ctx = resolveEditFinalAnswerHonestyContext({
+      userText: 'update overview.md',
+      editProposalCreated: false,
+      searchReplaceFailuresByPath: new Map(),
+      incompleteHtmlFailuresByPath: new Map(),
+      proposalRejectionsByPath: new Map(),
+    })
+    expect(ctx.editAttemptOutcome).toBe('not_attempted')
+    expect(ctx.editToolsFailed).toBe(false)
+  })
+
+  it('adds failed-edit honesty appendix when edit tools did not succeed (152)', () => {
     const content = buildFinalAnswerContract({
       userText: 'update overview.md tech stack',
       editProposalCreated: false,
+      editAttemptOutcome: 'failed',
+      failedEditPaths: ['overview.md'],
       editToolsFailed: true,
       chatMode: 'fast',
     })
-    expect(content).toMatch(/Edit tools did not succeed/i)
-    expect(content).toMatch(/Do \*\*not\*\* claim any workspace file was updated/i)
+    expect(content).toContain(FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER)
+    expect(content).toContain('overview.md')
+    expect(content).toMatch(/no workspace file was created, updated, saved, or written on disk/i)
+    expect(content).toMatch(/Do \*\*not\*\* paste a full replacement file/i)
+    expect(content).toContain(String(FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_LINES))
+    expect(content).toContain(String(FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS))
+    expect(content).not.toMatch(/Call `propose_file_edits` \(or `search_replace`/i)
+  })
+
+  it('adds creation incremental recovery honesty when recovery unmet (153)', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'create index.html prototype',
+      editProposalCreated: false,
+      editAttemptOutcome: 'failed',
+      failedEditPaths: ['index.html'],
+      editToolsFailed: true,
+      chatMode: 'fast',
+      creationIncrementalRecoveryIssued: true,
+      creationRecoveryUnmetPaths: ['index.html'],
+    })
+    expect(content).toContain(CREATION_INCREMENTAL_RECOVERY_HONESTY_MARKER)
+    expect(content).toMatch(/minimal scaffold/i)
+    expect(content).toMatch(/index\.html/)
+    expect(content).toMatch(/Do \*\*not\*\* claim any file was created/i)
+  })
+
+  it('keeps propose_file_edits pre-final guidance when edit not attempted', () => {
+    const content = buildFinalAnswerContract({
+      userText: 'update overview.md tech stack',
+      editProposalCreated: false,
+      editAttemptOutcome: 'not_attempted',
+      chatMode: 'fast',
+    })
+    expect(content).toMatch(/Call `propose_file_edits`/i)
+    expect(content).not.toContain(FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER)
   })
 
   it('adds merged-edit honesty appendix when proposals composed in-turn', () => {
@@ -175,7 +251,7 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toContain(EDIT_PARTIAL_BATCH_NUDGE_MARKER)
     expect(nudge).toContain('script.js')
     expect(nudge).toMatch(/2 file\(s\) are already in the pending diff review/i)
-    expect(nudge).toMatch(/Retry with \*\*one\*\* `propose_file_edits`/i)
+    expect(nudge).toMatch(/Retry with \*\*one\*\* focused `propose_file_edits`/i)
     expect(nudge).toMatch(/one statement per line/i)
   })
 

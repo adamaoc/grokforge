@@ -11,8 +11,11 @@ import {
   agentEditPathKey,
 } from '../shared/agent-edit-read-guard'
 import {
+  AGENT_EDIT_CREATE_HASH_STRIPPED_NOTE,
+  AGENT_EDIT_MALFORMED_CONTENT_HASH_REASON,
   AGENT_EDIT_MISSING_CONTENT_HASH_REASON,
   AGENT_EDIT_STALE_HASH_REASON,
+  AGENT_NEW_FILE_EXPECTED_CONTENT_HASH_SENTINEL,
 } from '../shared/agent-content-hash'
 import { computeAgentContentHash } from './agent-content-hash'
 import {
@@ -22,7 +25,17 @@ import {
 import {
   AGENT_EDIT_CORRUPT_CONTENT_REASON,
   AGENT_EDIT_INCOMPLETE_HTML_REASON,
+  AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
+  assessProposalWriteContent,
+  detectObviousCrushedRawContent,
 } from '../shared/agent-edit-corrupt-content'
+import { normalizeAgentWriteFileContent } from '../shared/agent-file-content-normalize'
+import { taskBoardCrushedOneLineIndexHtml } from './agent-eval-fixtures'
+import {
+  AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON,
+  AGENT_EDIT_SINGLE_FILE_HTML_SHELL_FIRST_REASON,
+  recordCreationRecoveryEnforced,
+} from '../shared/agent-creation-recovery-enforcement'
 
 function manifestForRoot(root: string): GrokProjectManifest {
   return {
@@ -179,7 +192,85 @@ describe('validateAgentEditProposal', () => {
     expect(result.ok).toBe(true)
     if (!result.ok) throw new Error(result.error)
     expect(result.proposal.batch.operations[0]?.path).toBe(resolve(target))
+    expect(result.proposal.batch.operations[0]).not.toHaveProperty('expectedContentHash')
     expect(result.proposal.rejected).toEqual([])
+    expect(result.createHashStrippedPaths).toBeUndefined()
+  })
+
+  it('accepts new-file write_file with sentinel or malformed hash and reports stripped paths (story 154)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+
+    const sentinel = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [
+          {
+            op: 'write_file',
+            path: 'src/sentinel.ts',
+            content: 'export const x = 1\n',
+            expectedContentHash: AGENT_NEW_FILE_EXPECTED_CONTENT_HASH_SENTINEL,
+          },
+        ],
+      },
+      env(root),
+    )
+    expect(sentinel.ok).toBe(true)
+    if (!sentinel.ok) throw new Error(sentinel.error)
+    expect(sentinel.proposal.batch.operations[0]).not.toHaveProperty('expectedContentHash')
+    expect(sentinel.createHashStrippedPaths).toEqual(['src/sentinel.ts'])
+
+    const malformed = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [
+          {
+            op: 'write_file',
+            path: 'src/malformed.ts',
+            content: 'export const y = 2\n',
+            expectedContentHash: 'not-a-valid-hash',
+          },
+        ],
+      },
+      env(root),
+    )
+    expect(malformed.ok).toBe(true)
+    if (!malformed.ok) throw new Error(malformed.error)
+    expect(malformed.proposal.batch.operations[0]).not.toHaveProperty('expectedContentHash')
+    expect(malformed.createHashStrippedPaths).toEqual(['src/malformed.ts'])
+    expect(AGENT_EDIT_CREATE_HASH_STRIPPED_NOTE).toContain('omit expectedContentHash')
+  })
+
+  it('rejects write_file on existing files with malformed expectedContentHash (story 154)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const existing = join(root, 'src', 'bad-hash.ts')
+    mkdirSync(join(root, 'src'), { recursive: true })
+    writeFileSync(existing, 'const x = 1\n')
+    const hash = computeAgentContentHash('const x = 1\n')
+
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [
+          {
+            op: 'write_file',
+            path: 'src/bad-hash.ts',
+            content: 'const x = 2\n',
+            expectedContentHash: 'bogus-hash',
+          },
+        ],
+      },
+      {
+        ...env(root),
+        readPathsThisTurn: new Set([agentEditPathKey(existing)]),
+        readHashesThisTurn: new Map([[agentEditPathKey(existing), hash]]),
+      },
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected rejection')
+    expect(result.proposal?.rejected).toEqual([
+      { path: 'src/bad-hash.ts', reason: AGENT_EDIT_MALFORMED_CONTENT_HASH_REASON },
+    ])
   })
 
   it('rejects write_file on existing files without expectedContentHash when not in read registry', () => {
@@ -313,8 +404,8 @@ The goal is to provide a lightweight app.
         ...env(root),
         readPathsThisTurn: new Set([agentEditPathKey(existing)]),
         readHashesThisTurn: new Map([[agentEditPathKey(existing), hash]]),
-        contentSource: 'search_replace',
       },
+      { contentSource: 'search_replace' },
     )
     expect(fromSr.ok).toBe(true)
     if (!fromSr.ok) throw new Error('expected search_replace validation to pass')
@@ -417,7 +508,7 @@ The goal is to provide a lightweight app.
     expect(op.content).toContain('React + TypeScript')
   })
 
-  it('repairs jammed standalone script.js when normalize can recover', () => {
+  it('rejects raw jammed standalone script.js before normalization', () => {
     const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
     const jammed =
       "const todos=[];function save(){localStorage.setItem('t',JSON.stringify(todos));}function init(){render();}updateCount();})// listenersfunction setup(){form.addEventListener('submit',onSubmit);}"
@@ -428,12 +519,9 @@ The goal is to provide a lightweight app.
       },
       env(root),
     )
-    expect(result.ok).toBe(true)
-    if (!result.ok) throw new Error(result.error)
-    const op = result.proposal.batch.operations[0]
-    if (op.op !== 'write_file') throw new Error('expected write_file')
-    expect(op.content).not.toMatch(/listenersfunction/)
-    expect(op.content.split('\n').length).toBeGreaterThan(3)
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected raw jammed script rejection')
+    expect(result.proposal?.rejected[0]?.reason).toMatch(/crushed|minified|rawContent/i)
   })
 
   it('rejects corrupt script.js with actionable orphan-paren reason', () => {
@@ -479,6 +567,61 @@ The goal is to provide a lightweight app.
     if (result.ok) throw new Error('expected early pre-validation rejection')
     const reason = result.proposal?.rejected[0]?.reason ?? ''
     expect(reason).toMatch(/crushed or minified|glued|pre-validation|rawContent/i)
+  })
+
+  it('accepts repairable one-line HTML after early normalize before pre-validation (story 160)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const htmlPath = join(root, 'index.html')
+    const raw = taskBoardCrushedOneLineIndexHtml()
+    expect(detectObviousCrushedRawContent(raw, htmlPath).crushed).toBe(true)
+    const normalized = normalizeAgentWriteFileContent(raw, htmlPath)
+    expect(
+      assessProposalWriteContent(normalized, { resolvedPath: htmlPath, isNewFile: true }).ok,
+    ).toBe(true)
+
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: htmlPath, content: raw }],
+      },
+      env(root),
+      { contentSource: 'propose' },
+    )
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(result.error)
+    const op = result.proposal.batch.operations[0]
+    expect(op?.op).toBe('write_file')
+    if (op?.op === 'write_file') {
+      expect(op.content.split('\n').length).toBeGreaterThan(3)
+      expect(
+        assessProposalWriteContent(op.content, { resolvedPath: htmlPath, isNewFile: true }).ok,
+      ).toBe(true)
+    }
+  })
+
+  it('rejects unrecoverable crushed HTML after early normalize (story 160)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const rawCrushedJs =
+      'const todos=[];function save(){localStorage.setItem("t",JSON.stringify(todos));}function init(){render();}updateCount();})// listenersfunction setup(){form.addEventListener("submit",onSubmit);}const x=1;function a(){}function b(){return x+1}document.getElementById("root").innerHTML="hi";'.repeat(
+        3,
+      )
+    const rawHtml = `<!DOCTYPE html><html><body><script>${rawCrushedJs}</script></body></html>`
+
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: join(root, 'index.html'), content: rawHtml }],
+      },
+      env(root),
+      { contentSource: 'propose' },
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected post-normalize rejection')
+    const reason = result.proposal?.rejected[0]?.reason ?? ''
+    expect(reason).not.toBe(AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON)
+    expect(reason).toMatch(/incomplete|jammed|script|corrupt/i)
   })
 
   it('accepts valid paths and rejects corrupt script.js in same batch', () => {
@@ -578,6 +721,120 @@ The goal is to provide a lightweight app.
     if (op?.op === 'write_file') {
       expect(op.content).toBe('# A\n\n## B\nok')
     }
+  })
+
+  it('rejects oversized bootstrap on enforced new path with minimal scaffold reason (153)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const htmlPath = join(root, 'index.html')
+    const enforced = new Set<string>()
+    recordCreationRecoveryEnforced(enforced, [htmlPath])
+    const largeHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>TaskBoard</title></head>
+<body>
+${'<div class="task">item</div>\n'.repeat(50)}
+</body>
+</html>`
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: htmlPath, content: largeHtml }],
+      },
+      env(root),
+      {
+        creationRecoveryEnforcedPaths: enforced,
+        creationScaffoldAcceptedPaths: new Set(),
+      },
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected minimal scaffold rejection')
+    expect(result.proposal?.rejected[0]?.reason).toBe(AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON)
+  })
+
+  it('allows small valid HTML scaffold on enforced new path (153)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const htmlPath = join(root, 'index.html')
+    const enforced = new Set<string>()
+    recordCreationRecoveryEnforced(enforced, [htmlPath])
+    const scaffold = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TaskBoard</title>
+</head>
+<body>
+<div id="app"></div>
+<script src="script.js"></script>
+</body>
+</html>`
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: htmlPath, content: scaffold }],
+      },
+      env(root),
+      {
+        creationRecoveryEnforcedPaths: enforced,
+        creationScaffoldAcceptedPaths: new Set(),
+      },
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error(result.error)
+    expect(result.proposal.batch.operations).toHaveLength(1)
+  })
+
+  it('rejects inline script before scaffold on enforced html with single-file intent (162)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const htmlPath = join(root, 'index.html')
+    const enforced = new Set<string>()
+    recordCreationRecoveryEnforced(enforced, [htmlPath])
+    const withScript = `<!DOCTYPE html>
+<html><head><title>T</title></head>
+<body><div id="board"></div><script>const x=1</script></body></html>`
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: htmlPath, content: withScript }],
+      },
+      env(root),
+      {
+        creationRecoveryEnforcedPaths: enforced,
+        creationScaffoldAcceptedPaths: new Set(),
+        singleFileHtmlIntent: true,
+      },
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected shell-first rejection')
+    expect(result.proposal?.rejected[0]?.reason).toBe(AGENT_EDIT_SINGLE_FILE_HTML_SHELL_FIRST_REASON)
+  })
+
+  it('rejects oversized div-only html with single-file intent using minimal scaffold reason (162)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    const htmlPath = join(root, 'index.html')
+    const enforced = new Set<string>()
+    recordCreationRecoveryEnforced(enforced, [htmlPath])
+    const largeHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>TaskBoard</title></head>
+<body>
+${'<div class="task">item</div>\n'.repeat(50)}
+</body>
+</html>`
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: htmlPath, content: largeHtml }],
+      },
+      env(root),
+      {
+        creationRecoveryEnforcedPaths: enforced,
+        creationScaffoldAcceptedPaths: new Set(),
+        singleFileHtmlIntent: true,
+      },
+    )
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected minimal scaffold rejection')
+    expect(result.proposal?.rejected[0]?.reason).toBe(AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON)
   })
 })
 

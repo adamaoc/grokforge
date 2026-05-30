@@ -7,6 +7,7 @@ import {
   AGENT_EDIT_JAMMED_JS_FILE_REASON,
   AGENT_EDIT_MALFORMED_JSX_REASON,
   AGENT_EDIT_INCOMPLETE_TS_REASON,
+  AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
   detectIncompleteTypeScriptSource,
   detectMalformedJsxAttributes,
   assessProposalWriteContent,
@@ -101,6 +102,14 @@ describe('detectCorruptSourceLines', () => {
     expect(map.get('/proj/new.js')).toBe(1)
     recordCreationIntegrityProposalFailure(map, '/proj/existing.js', AGENT_EDIT_EMPTY_WRITE_REASON, true)
     expect(map.has('/proj/existing.js')).toBe(false)
+    recordCreationIntegrityProposalFailure(map, '/proj/new.js', AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON, false)
+    expect(shouldInjectCreationIncrementalRecoveryNudge(map)).toBe(true)
+  })
+
+  it('counts raw crushed pre-validation as creation integrity rejection', () => {
+    const map = new Map<string, number>()
+    recordCreationIntegrityProposalFailure(map, '/proj/new.js', AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON, false)
+    expect(map.get('/proj/new.js')).toBe(1)
     recordCreationIntegrityProposalFailure(map, '/proj/new.js', AGENT_EDIT_JAMMED_JS_FILE_REASON, false)
     expect(shouldInjectCreationIncrementalRecoveryNudge(map)).toBe(true)
   })

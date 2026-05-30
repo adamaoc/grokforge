@@ -24,6 +24,10 @@ import type {
   AgentChatStartResult,
 } from '../shared/agent-chat-contract'
 import type {
+  AgentProposalReviewRequest,
+  AgentProposalReviewResult,
+} from '../shared/agent-proposal-reviewer'
+import type {
   ExportSanitizedAgentTurnTraceResult,
   GetLastAgentTurnTraceResult,
   ReplayAgentRetrievalPreviewResult,
@@ -173,6 +177,8 @@ export const electronAPI = {
     ipcRenderer.invoke('refresh-project-intelligence'),
   agentChatStart: (payload: AgentChatStartPayload): Promise<AgentChatStartResult> =>
     ipcRenderer.invoke('agent-chat-start', payload),
+  agentReviewProposal: (payload: AgentProposalReviewRequest): Promise<AgentProposalReviewResult> =>
+    ipcRenderer.invoke('agent-review-proposal', payload),
   computeAgentContentHash: (content: string): Promise<string | null> =>
     ipcRenderer.invoke('compute-agent-content-hash', content),
   agentChatCancel: (streamId: string): Promise<{ ok: boolean }> =>

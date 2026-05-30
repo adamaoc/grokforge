@@ -11,7 +11,7 @@ import type {
   AgentToolBatchSkippedFile,
   AgentUndoLastBatchResult,
 } from '../shared/agent-tool-contract'
-import { AGENT_EDIT_STALE_HASH_REASON } from '../shared/agent-content-hash'
+import { AGENT_EDIT_STALE_HASH_REASON, isAgentContentHash } from '../shared/agent-content-hash'
 import { normalizeAgentWriteFileContent } from '../shared/agent-file-content-normalize'
 import { AgentToolBatchPayloadSchema } from '../shared/agent-tool-schema'
 import { computeAgentContentHash } from './agent-content-hash'
@@ -67,9 +67,12 @@ export function applyAgentToolWriteBatch(manifest: GrokProjectManifest, raw: unk
       continue
     }
     const current = readSnapshotForPath(resolved)
-    if (op.expectedContentHash !== undefined) {
-      const diskHash =
-        current.content === null ? null : computeAgentContentHash(current.content)
+    if (op.expectedContentHash !== undefined && current.content !== null) {
+      if (!isAgentContentHash(op.expectedContentHash)) {
+        conflicts.push({ path: resolved, reason: AGENT_EDIT_STALE_HASH_REASON })
+        continue
+      }
+      const diskHash = computeAgentContentHash(current.content)
       if (diskHash !== op.expectedContentHash) {
         conflicts.push({ path: resolved, reason: AGENT_EDIT_STALE_HASH_REASON })
         continue

@@ -21,7 +21,12 @@ import {
   type AgentContextCompanionSnapshot,
 } from '@/lib/agent-context-companion'
 import type { EditorContextCompanionBubbleSummary } from '@/components/EditorContextBubble'
-import { VoiceControls } from '@/components/VoiceControls'
+import { VoiceExpandedPanel } from '@/components/VoiceControls'
+import type { VoiceControlsStatus } from '@/components/VoiceControls'
+import {
+  shouldAutoCollapseVoicePanelOnSessionEnd,
+  voiceHeaderIndicator,
+} from '@/lib/voice-ui-state'
 import { useVoiceSession } from '@/hooks/useVoiceSession'
 import { ProjectHeader } from '@/components/ProjectHeader'
 import { SearchPanel } from '@/components/SearchPanel'
@@ -75,7 +80,7 @@ import { basenamePath } from '@/lib/workspace-paths'
 import { isPathUnderWorkspaceRoots, normalizeFsPath } from '@/lib/workspace-path-check'
 import type { AgentContextPin } from '@/types'
 import { AGENT_CONTEXT_MAX_PINS_PER_PROJECT } from '@/types'
-import { workspaceGlobalShortcutTargetAllowsShortcut } from '@/lib/workspace-global-shortcuts'
+import { resolveWorkspaceGlobalShortcut } from '@/lib/workspace-global-shortcuts'
 import { EditorContextBubble } from '@/components/EditorContextBubble'
 
 type DiffSessionActions = {
@@ -442,6 +447,58 @@ function ProjectWorkspaceShell({
     setSearchPanelOpen(true)
   }, [ensureEditorPaneExpanded, setSearchPanelOpen])
 
+  const [voicePanelOpen, setVoicePanelOpen] = useState(false)
+  const voiceDisabled = project.voice.defaultVoiceMode === 'off'
+  const prevVoiceStatusRef = useRef<VoiceControlsStatus>('idle')
+  const prevVoiceActiveRef = useRef(false)
+
+  const voiceHeaderIndicatorValue = useMemo(
+    () =>
+      voiceHeaderIndicator(
+        voiceSession.status,
+        voiceSession.isActive,
+        voicePanelOpen,
+        voiceDisabled,
+      ),
+    [voiceSession.status, voiceSession.isActive, voicePanelOpen, voiceDisabled],
+  )
+
+  useEffect(() => {
+    const status = voiceSession.status
+    const isActive = voiceSession.isActive
+    const prevStatus = prevVoiceStatusRef.current
+    const prevIsActive = prevVoiceActiveRef.current
+
+    const becameConnecting = status === 'connecting' && prevStatus === 'idle'
+    const becameActive = isActive && !prevIsActive
+    const becameError = status === 'error' && prevStatus !== 'error'
+    if ((becameConnecting || becameActive || becameError) && !voicePanelOpen) {
+      setVoicePanelOpen(true)
+    }
+
+    if (shouldAutoCollapseVoicePanelOnSessionEnd(status, isActive, prevIsActive)) {
+      setVoicePanelOpen(false)
+    }
+
+    prevVoiceStatusRef.current = status
+    prevVoiceActiveRef.current = isActive
+  }, [voiceSession.status, voiceSession.isActive, voicePanelOpen])
+
+  useEffect(() => {
+    if (!voicePanelOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setVoicePanelOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [voicePanelOpen])
+
+  const handleVoiceHeaderClick = useCallback(() => {
+    if (voiceDisabled) return
+    setVoicePanelOpen((open) => !open)
+  }, [voiceDisabled])
+
   const openFileWithEditorPane = useCallback(
     (path: string) => {
       ensureEditorPaneExpanded()
@@ -524,41 +581,24 @@ function ProjectWorkspaceShell({
     [ensureEditorPaneExpanded, onSearchResultOpen],
   )
 
-  const focusChatComposer = useCallback(() => {
-    window.requestAnimationFrame(() => {
-      document.querySelector<HTMLTextAreaElement>('textarea.gf-chat-composer')?.focus()
-    })
-  }, [])
-
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (!workspaceGlobalShortcutTargetAllowsShortcut(e.target)) return
-      const mod = e.metaKey || e.ctrlKey
-      if (!mod) return
-
-      if (e.altKey && !e.shiftKey && e.code === 'KeyE') {
-        e.preventDefault()
-        handleToggleEditorPane()
-        return
-      }
-      if (e.altKey) return
-
-      if (e.shiftKey && e.code === 'KeyF') {
-        e.preventDefault()
-        openSearchWorkspace()
-        return
-      }
-      if (e.shiftKey) return
-
-      if (e.code === 'KeyJ') {
-        e.preventDefault()
-        setTerminalOpen((o) => !o)
-        return
-      }
-      if (e.code === 'KeyB') {
-        e.preventDefault()
-        handleToggleSidebar()
-        return
+      const shortcut = resolveWorkspaceGlobalShortcut(e)
+      if (!shortcut) return
+      e.preventDefault()
+      switch (shortcut) {
+        case 'search':
+          openSearchWorkspace()
+          break
+        case 'terminal':
+          setTerminalOpen((o) => !o)
+          break
+        case 'sidebar':
+          handleToggleSidebar()
+          break
+        case 'editor':
+          handleToggleEditorPane()
+          break
       }
     }
     window.addEventListener('keydown', onKeyDown, true)
@@ -659,6 +699,10 @@ function ProjectWorkspaceShell({
             onEditProjectName={onEditProjectName}
             onOpenSearch={openSearchWorkspace}
             onOpenTerminal={() => setTerminalOpen((o) => !o)}
+            onOpenVoice={handleVoiceHeaderClick}
+            voiceDisabled={voiceDisabled}
+            voicePanelOpen={voicePanelOpen}
+            voiceHeaderIndicator={voiceHeaderIndicatorValue}
             onOpenSettings={onOpenSettings}
           />
 
@@ -666,7 +710,7 @@ function ProjectWorkspaceShell({
             <ResizablePanelGroup
               id="grokforge-workspace-terminal-v1"
               orientation="vertical"
-              className="flex min-h-0 min-w-0 flex-1"
+              className="min-h-0 min-w-0 flex-1"
             >
               <ResizablePanel
                 id="workspace"
@@ -753,7 +797,6 @@ function ProjectWorkspaceShell({
                         onUnsavedChange={onEditorUnsavedChange}
                         onDirtyFilesChange={onDirtyFilesChange}
                         project={project}
-                        activeRoot={activeRoot}
                         diffSession={diffSession}
                         diffSessionActions={diffSessionActions}
                         onCloseDiffSession={onCloseDiffSession}
@@ -764,8 +807,6 @@ function ProjectWorkspaceShell({
                         onFileSaved={onAgentDiskFilesChanged}
                         onEditorSelectionChange={setEditorSelection}
                         selectionMaxChars={AGENT_CHAT_SELECTION_MAX_CHARS}
-                        onOpenSearch={openSearchWorkspace}
-                        onAskAgent={focusChatComposer}
                         onCollapseEditorPane={handleCollapseEditorPane}
                         contextCompanion={contextCompanionNode}
                         contextCompanionHighlight={companionView?.showProposalAccent}
@@ -823,16 +864,18 @@ function ProjectWorkspaceShell({
                 />
               </ResizablePanel>
             </ResizablePanelGroup>
-          </div>
 
-          <VoiceControls
-            isActive={voiceSession.isActive || voiceSession.status === 'connecting'}
-            status={voiceSession.status}
-            lastError={voiceSession.lastError}
-            onToggle={() => void voiceSession.toggle()}
-            onContinueInAgentChat={onVoiceContinueInAgentChat}
-            project={project}
-          />
+            <VoiceExpandedPanel
+              open={voicePanelOpen}
+              onOpenChange={setVoicePanelOpen}
+              isActive={voiceSession.isActive || voiceSession.status === 'connecting'}
+              status={voiceSession.status}
+              lastError={voiceSession.lastError}
+              onToggle={() => void voiceSession.toggle()}
+              onContinueInAgentChat={onVoiceContinueInAgentChat}
+              project={project}
+            />
+          </div>
         </ResizablePanel>
       </ResizablePanelGroup>
 
