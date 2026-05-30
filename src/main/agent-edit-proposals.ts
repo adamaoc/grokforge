@@ -25,6 +25,7 @@ import {
   assessProposalWriteContent,
   detectObviousCrushedRawContent,
 } from '../shared/agent-edit-corrupt-content'
+import { getPostEditRejection } from '../shared/agent-post-edit-checks'
 import {
   diagnoseMarkdownProposalRepair,
   formatMarkdownProposalDiagnostics,
@@ -228,6 +229,15 @@ export function validateAgentEditProposal(
           })
           continue
         }
+      }
+
+      // Stronger post-generation (post-edit) structural checks (Story initiative).
+      // These run after normalization but before the proposal is accepted.
+      // They are designed to be extensible (see agent-post-edit-checks.ts).
+      const postEditRejection = getPostEditRejection(normalizedContent, resolved)
+      if (postEditRejection) {
+        rejected.push({ path: op.path, reason: postEditRejection })
+        continue
       }
       const integrity = assessProposalWriteContent(normalizedContent, {
         resolvedPath: resolved,
