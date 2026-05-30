@@ -20,20 +20,19 @@ export const WORK_SURGICAL_EDIT_MARKER = '## Work surgical edit (harness 135)'
 /** Shared conservative edit rules for post-plan and iterative Work follow-ups. */
 export const INCREMENTAL_EDIT_CONSERVATIVE_LINES: readonly string[] = [
   '**Conservative edits:** This is a **small follow-up** on working code — **add or adjust only what the request needs**; keep every unrelated line identical to `read_file` **`rawContent`**.',
-  'On every **existing** file you change: call `read_file` on that path **first in this turn** (or reuse content from the immediately prior tool round) **before** `propose_file_edits` or `search_replace` — never guess or reconstruct the file from memory.',
-  '**Strongly discouraged:** Full-file rewrites, deleting most of the file, or shrinking a multi-line script/HTML file to one or two lines when the user asked to **add**, **persist**, **fix**, or **tweak** something — GrokForge rejects proposals that remove large sections.',
-  'On follow-up edits to **existing** files, default to **`search_replace`** on a block copied from **`rawContent`** — change only what the request needs; do not drop functions, listeners, or markup the user did not ask to remove.',
-  'A full-file `propose_file_edits` means the **entire current file** from `read_file` plus your **small patch** — not a stub, shortcut, or shortened rewrite that drops existing functions or markup.',
-  '**`.js` full-file writes:** draft readable multi-line source in the tool call (one statement per line). GrokForge rejects crushed one-liners, glued statements, code after `//` on the same line, and orphan `)` lines — match **Agent tool loop** code-layout rules.',
+  'On every **existing** file you change: call `read_file` on that path **first in this turn** **before** using `edit`, legacy search_replace, or propose_file_edits write_file — never guess.',
+  '**Strongly discouraged:** Full-file rewrites or shrinking working files when the user asked to add/fix/tweak — GrokForge blocks large destructive shrinks unless explicitly requested.',
+  'On follow-up modifications to **existing** files, default to the primary **`edit`** tool (precise oldText/newText from rawContent, multiple entries allowed in one call for related changes). Change only what the request needs. Do **not** jump to full `propose_file_edits` for small incremental changes.',
+  'Reserve `propose_file_edits` write_file **only** for new files or when the user explicitly requests a deliberate full rewrite / major refactor of an existing file.',
+  '**All edit output (newText or write_file):** must be clean readable multi-line source (one statement per line). GrokForge rejects crushed/minified proposals.',
 ]
 
 /** Behavior / DOM-logic follow-ups (remove button, handlers, changing existing functions). */
 export const INCREMENTAL_EDIT_STRUCTURAL_CHANGE_LINES: readonly string[] = [
-  '**Default tool for existing files:** `search_replace` with exact `old_string` from `rawContent`; use `propose_file_edits` only when fallback conditions in the Work iterative edit appendix apply.',
-  '**Structural / behavior changes** (new control wiring, remove/delete, changing an existing function or event flow): keep patches **surgical** — one contiguous block per file from **`rawContent`**. When the ask clearly spans markup and script (e.g. a new button **and** its handler, or title + related styling/dark mode), **one coordinated pass** (multiple related `search_replace` or one `propose_file_edits`) across 1–2 related files this turn is preferred over piecemeal one-piece-per-turn edits; split only unrelated multi-feature work (e.g. persistence **plus** a separate restyle).',
-  'After **one** `read_file` per path you will change, patch **one contiguous block** you copied from **`rawContent`** (a full function, listener setup, or list-item template) — not several guessed fragments across the file.',
-  'For `search_replace`: `old_string` must match **exactly** (whitespace included) from the latest `read_file`; include the **whole** function or DOM block you are changing. A failed match **is** a reason to `read_file` again (`startLine` / `maxLines` on that section if helpful), then **one** corrected `search_replace` or **one** full-file `propose_file_edits` — do not chain blind retries.',
-  'When markup and script both need changes, touch **at most 1–2 related paths** (e.g. `index.html` + `script.js`) in one turn — `read_file` each once, then propose coordinated edits; avoid ping-ponging reads/edits across more files.',
+  '**Default tool for modifications to existing files:** the primary **`edit`** tool with precise oldText/newText pairs from `rawContent` (one call can contain multiple related replacements). For incremental post-plan or Work turns, strongly prefer the `edit` tool over full `propose_file_edits` unless the user explicitly asked for a rewrite or the change is large/structural across many regions.',
+  '**Structural / behavior changes** (new control wiring, remove/delete, changing an existing function or event flow): keep changes **surgical and precise** using the `edit` tool. When the ask spans markup + script in related ways, include the coordinated replacements together in **one** `edit` call (multiple edits[] entries) or a small focused batch. Split only truly unrelated work.',
+  'After **one** `read_file` per path, target **contiguous, unique blocks** from **`rawContent`** with `edit`. A failed match is a reason to re-read the exact section, then issue a corrected `edit` with better context in oldText.',
+  'When markup and script both need changes, touch **at most 1–2 related paths** in one turn — read each once, then use `edit` (preferred) for the coordinated modifications.',
 ]
 
 export function shouldRouteIterativeWorkExecutor(input: {

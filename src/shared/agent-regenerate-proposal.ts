@@ -67,7 +67,7 @@ export function buildRegenerateProposalMessage(input: BuildRegenerateProposalMes
     'Before proposing again:',
     '1. Call read_file on each existing file you will modify in this same turn (use contentHash from the result).',
     '2. Make the smallest faithful change that satisfies the original request; do not rewrite unrelated sections.',
-    '3. Prefer search_replace for localized edits; otherwise propose_file_edits with expectedContentHash on each write.',
+    '3. Prefer the primary `edit` tool for modifications to existing files; use propose_file_edits write_file for new files or explicit full rewrites. Always include expectedContentHash on existing paths.',
     '4. Do not repeat the same full-file rewrite unless a deliberate whole-file change is required.',
   )
 

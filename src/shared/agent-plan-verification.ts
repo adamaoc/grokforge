@@ -62,6 +62,18 @@ function isStaticStrategy(
   return planImpliesStaticFileBootstrap(plan)
 }
 
+/** Heuristic: truly simple single-file or tiny vanilla static site (e.g. one index.html + optional css/js).
+ * For these, a full dev server is usually unnecessary overhead. */
+function isUltraSimpleStaticPlan(plan: GreenfieldScaffoldPlanHint): boolean {
+  const files = (plan.filesLikelyTouched ?? []).map((p) => p.replace(/\\/g, '/').toLowerCase())
+  if (files.length === 0) return false
+  const hasPackage = files.some((f) => f.endsWith('package.json'))
+  if (hasPackage) return false
+  const staticFiles = files.filter((f) => /\.(html|css|js)$/.test(f))
+  // Only 1-3 static web files, at least one html, no other complexity signals
+  return staticFiles.length <= 3 && staticFiles.some((f) => f.endsWith('.html')) && staticFiles.length === files.length
+}
+
 function isNpmStrategy(
   strategy: ScaffoldStrategy | null | undefined,
   plan: GreenfieldScaffoldPlanHint,
@@ -90,6 +102,10 @@ export function planNeedsVerificationCommand(
   const verification = (plan.verification ?? '').trim()
 
   if (isStaticStrategy(strategy ?? null, plan)) {
+    // For ultra-simple static (single/tiny vanilla HTML/JS), browser-only or "files correct" is sufficient — do not force a serve command.
+    if (isUltraSimpleStaticPlan(plan)) {
+      return false
+    }
     if (!verification) return true
     if (verificationHasCommandLikeToken(verification)) return false
     if (BROWSER_ONLY_VERIFY_RE.test(verification)) return true
@@ -115,6 +131,11 @@ export function suggestVerificationCommands(
   const text = planTextParts(plan)
 
   if (isStaticStrategy(strategy ?? null, plan)) {
+    // Ultra-simple static sites do not need (and should not be nudged toward) a dev server by default.
+    // Return empty so the nudge / executor prefers "files are complete + open locally".
+    if (isUltraSimpleStaticPlan(plan)) {
+      return []
+    }
     return [...STATIC_SERVE_COMMANDS]
   }
 
@@ -149,6 +170,10 @@ export function resolveVerificationHint(
   const verification = (plan.verification ?? '').trim()
   if (verification && (verificationHasCommandLikeToken(verification) || SERVE_COMMAND_RE.test(verification))) {
     return verification
+  }
+  // For ultra-simple static, prefer no command hint (lets executor / UI use lighter verification).
+  if (isStaticStrategy(undefined, plan) && isUltraSimpleStaticPlan(plan)) {
+    return verification || undefined
   }
   if (suggestions[0]) {
     return suggestions[0].command

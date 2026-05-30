@@ -45,16 +45,16 @@ describe('gf-plan-contract', () => {
     expect(finalAnswer).toContain('planner')
   })
 
-  it('plan quality lines include static serve and npm verify guidance when greenfield', () => {
+  it('plan quality lines include relaxed static verification guidance (no forced serve for simple sites) when greenfield', () => {
     const finalAnswer = buildGfPlanFinalAnswerContract({
       agentProfileId: 'planner',
       profileKey: 'grok_4_3',
       greenfieldWorkspace: true,
     })
     expect(finalAnswer).toContain(GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER)
-    expect(finalAnswer).toMatch(/npx --yes serve/i)
+    // Relaxed language: simple static can use direct open; serve is optional
+    expect(finalAnswer).toMatch(/simple single-file|Open index\.html directly|lightweight serve|optional.*serve/i)
     expect(finalAnswer).toMatch(/npm run typecheck/i)
-    expect(finalAnswer).toMatch(/browser-only verification/i)
   })
 
   it('stripGfPlanFence removes fence and incomplete tail', () => {

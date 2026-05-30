@@ -148,12 +148,13 @@ export async function executeAgentToolCall(
   } else if (state.totalToolChars >= AGENT_TOOL_TOTAL_RESULT_CHARS) {
     toolContent = JSON.stringify({ ok: false, error: 'Total tool result budget reached.' })
     doneTitle = 'Tool budget reached'
-  } else if (name === 'search_replace' || name === 'propose_file_edits') {
+  } else if (name === 'search_replace' || name === 'edit' || name === 'propose_file_edits') {
     const rawToolArgs = parseToolArgs(call.function.arguments)
+    const isEditTool = name === 'search_replace' || name === 'edit'
     const searchReplaceParsed =
-      name === 'search_replace' ? SearchReplaceToolArgsSchema.safeParse(rawToolArgs) : null
-    if (name === 'search_replace' && searchReplaceParsed && !searchReplaceParsed.success) {
-      doneTitle = 'Search replace failed'
+      isEditTool ? SearchReplaceToolArgsSchema.safeParse(rawToolArgs) : null
+    if (isEditTool && searchReplaceParsed && !searchReplaceParsed.success) {
+      doneTitle = name === 'edit' ? 'Edit failed' : 'Search replace failed'
       detail = searchReplaceParsed.error.message
       toolContent = JSON.stringify({ ok: false, error: searchReplaceParsed.error.message })
     } else {
@@ -161,7 +162,7 @@ export async function executeAgentToolCall(
       let searchReplaceResolved: string | null = null
       let blockedAfterEscalation = false
 
-      if (name === 'search_replace' && searchReplaceParsed?.success) {
+      if (isEditTool && searchReplaceParsed?.success) {
         searchReplaceResolved = resolveAgentWorkspacePath(searchReplaceParsed.data.path, ctx)
         if (searchReplaceResolved) {
           activitySubjectPath = searchReplaceResolved
@@ -189,10 +190,10 @@ export async function executeAgentToolCall(
 
       if (!blockedAfterEscalation) {
         const writeBatch =
-          name === 'search_replace' && searchReplaceParsed?.success
+          isEditTool && searchReplaceParsed?.success
             ? resolveSearchReplaceToWriteBatch(searchReplaceParsed.data, ctx, searchReplaceChain)
             : null
-        if (name === 'search_replace' && writeBatch && !writeBatch.ok) {
+        if (isEditTool && writeBatch && !writeBatch.ok) {
           doneTitle = 'Search replace failed'
           detail = writeBatch.error
           const failPayload: any = { ok: false, error: writeBatch.error }
@@ -209,7 +210,7 @@ export async function executeAgentToolCall(
             }
           }
         } else {
-          if (name === 'search_replace' && writeBatch && writeBatch.ok) {
+          if (isEditTool && writeBatch && writeBatch.ok) {
             ctx.recordPathRead(writeBatch.path, writeBatch.contentHash)
           }
           const proposalResult = validateAgentEditProposal(
@@ -220,14 +221,14 @@ export async function executeAgentToolCall(
               userMessageHint: state.userMessageHint,
               iterativeWorkEdit: state.iterativeWorkEdit,
               contentSource:
-                name === 'search_replace' && writeBatch && writeBatch.ok ? 'search_replace' : 'propose',
+                isEditTool && writeBatch && writeBatch.ok ? 'search_replace' : 'propose',
             },
           )
           const rejectedList = proposalResult.proposal?.rejected ?? []
           const acceptedCount = proposalResult.proposal?.batch.operations.length ?? 0
           validationSummary = buildEditProposalValidationSummary(rejectedList, acceptedCount)
           if (!proposalResult.ok) {
-            doneTitle = name === 'search_replace' ? 'Search replace failed' : 'Edit proposal failed'
+            doneTitle = isEditTool ? (name === 'edit' ? 'Edit failed' : 'Search replace failed') : 'Edit proposal failed'
             detail = `${proposalResult.error}${rejectedList.length > 0 ? ` · ${validationSummary}` : ''}`
             toolContent = JSON.stringify({
               ok: false,
@@ -255,7 +256,7 @@ export async function executeAgentToolCall(
             const count = turnProposalAccum.batch.operations.length
             const rejected = turnProposalAccum.rejected.length
             doneTitle =
-              name === 'search_replace' ? 'Prepared search_replace proposal' : 'Prepared edit proposal'
+              isEditTool ? (name === 'edit' ? 'Prepared edit proposal' : 'Prepared search_replace proposal') : 'Prepared edit proposal'
             const chainNote =
               name === 'search_replace' &&
               writeBatch &&
@@ -265,12 +266,12 @@ export async function executeAgentToolCall(
                 ? ` · composed with prior edit on ${searchReplaceResolved.split(/[/\\]/).filter(Boolean).pop() ?? 'file'}`
                 : ''
             detail = `${count} file${count === 1 ? '' : 's'} ready for review${rejected > 0 ? ` · ${validationSummary}` : ''}${chainNote}`
-            const isSearchReplaceSuccess = name === 'search_replace'
-            const followUp = isSearchReplaceSuccess && searchReplaceResolved
+            const isEditSuccess = isEditTool
+            const followUp = isEditSuccess && searchReplaceResolved
               ? {
                   forFollowUpEditsOnThisPath: true,
                   note: 'For additional small changes to the same file later in this turn, you can base your next oldText on the content you just successfully patched (the harness composes internally). Include 4-8 lines of unique context and send the same expectedContentHash you used for this call.',
-                  chained: !!writeBatch?.chainedFromAccumulated,
+                  chained: !!(writeBatch && 'chainedFromAccumulated' in writeBatch && writeBatch.chainedFromAccumulated),
                 }
               : undefined
 

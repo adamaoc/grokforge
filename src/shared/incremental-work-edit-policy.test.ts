@@ -33,17 +33,16 @@ describe('incremental-work-edit-policy', () => {
     const text = buildIncrementalEditHarnessSections().join('\n')
     expect(text).toContain(WORK_ITERATIVE_EDIT_MARKER)
     expect(text).toMatch(/propose_file_edits/i)
+    expect(text).toMatch(/edit.*tool/i)
     expect(text).not.toContain('## Work iterative search_replace quality')
   })
 
-  it('buildIncrementalEditHarnessSections prefers search_replace for existing files', () => {
+  it('buildIncrementalEditHarnessSections prefers edit tool for existing files', () => {
     const text = buildIncrementalEditHarnessSections().join('\n')
-    expect(text).toMatch(/Default tool \(existing files\)/i)
-    expect(text).toMatch(/search_replace/i)
-    expect(text).toMatch(/Fallback to `propose_file_edits`/i)
-    expect(text).not.toMatch(
-      /prefer \*\*one\*\* `propose_file_edits` whose `rawContent` is the \*\*full current file\*\*/i,
-    )
+    expect(text).toMatch(/Default.*preferred.*tool for modifications.*existing files/i)
+    expect(text).toMatch(/`edit` tool.*edits\[\]/i)
+    expect(text).toMatch(/propose_file_edits.*new files or.*large refactor/i)
+    expect(text).toMatch(/primary.*edit.*tool/i)
   })
 
   it('buildIncrementalEditHarnessSections discourages destructive rewrites on follow-ups', () => {
@@ -51,18 +50,17 @@ describe('incremental-work-edit-policy', () => {
     expect(text).toMatch(/Conservative edits/i)
     expect(text).toMatch(/read_file.*first in this turn/i)
     expect(text).toMatch(/Strongly discouraged/i)
-    expect(text).toMatch(/entire current file/i)
-    expect(text).toMatch(/shortened rewrite/i)
     expect(text).toMatch(/destructive shrink/i)
-    expect(text).toMatch(/script\.js.*one statement per line/i)
+    expect(text).toMatch(/one statement per line/i)
+    expect(text).toMatch(/primary.*edit.*tool/i)
   })
 
   it('buildIncrementalEditHarnessSections guides structural behavior edits', () => {
     const text = buildIncrementalEditHarnessSections().join('\n')
     expect(text).toMatch(/Structural \/ behavior changes/i)
-    expect(text).toMatch(/coordinated pass across 1–2 related files/i)
-    expect(text).toMatch(/failed match.*read_file/i)
-    expect(text).toMatch(/do not chain blind retries/i)
+    expect(text).toMatch(/primary.*edit.*tool/i)
+    expect(text).toMatch(/contiguous.*unique blocks.*from.*rawContent/i)
+    expect(text).toMatch(/read_file.*exact section/i)
   })
 
   it('pickIncrementalEditMidTurnNudge prioritizes stop_reread', () => {

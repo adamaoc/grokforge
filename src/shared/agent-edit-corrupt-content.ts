@@ -12,22 +12,22 @@ import {
 const ORPHAN_CLOSE_PAREN_LINE = /^\s*\)[;]?\s*$/
 
 export const AGENT_EDIT_JAMMED_SCRIPT_REASON =
-  'Embedded <script> looks crushed (statements glued like }function or });), or code on the same line after //). Retry with one propose_file_edits write_file: complete file from read_file rawContent, real line breaks in the script (prefer separate script.js for new apps).'
+  'Embedded <script> looks crushed (statements glued like }function or });), or code on the same line after //). For an existing file: re-read and use the primary `edit` tool with clean replacement blocks (one statement per line). For new or full-rewrite cases: one propose_file_edits write_file with the complete correct body from rawContent.'
 
 export const AGENT_EDIT_JAMMED_JS_FILE_REASON =
-  'JavaScript file looks crushed (statements glued like }function or });), or code on the same line after //). Retry with one propose_file_edits write_file: the **complete** script body with **one statement per line** — do not use search_replace on crushed text.'
+  'JavaScript file looks crushed (statements glued like }function or });), or code on the same line after //). For existing: use `edit` with precise clean newText blocks from rawContent. Only for new paths or explicit full rewrites: propose_file_edits write_file with the **complete** script (one statement per line).'
 
 export const AGENT_EDIT_MALFORMED_JSX_REASON =
-  'Proposal JSX/TSX has malformed attributes (escaped className quotes like className=\\"...). Use normal UTF-8 quotes in attributes (className="card") and one statement per line in the script block — retry with a complete file from read_file rawContent.'
+  'Proposal JSX/TSX has malformed attributes (escaped className quotes like className=\\"...). Re-read, then use the `edit` tool (preferred for existing) or propose_file_edits with normal UTF-8 quotes and clean one-statement-per-line formatting from rawContent.'
 
 export const AGENT_EDIT_INCOMPLETE_TS_REASON =
-  'TypeScript file looks truncated (const/type declaration missing an initializer). Re-read rawContent and submit one propose_file_edits with the **complete** file — one statement per line, no glued return/const on the same line.'
+  'TypeScript file looks truncated (const/type declaration missing an initializer). Re-read rawContent and use the primary `edit` tool with the missing/complete block, or (for new/large) one propose_file_edits write_file — one statement per line.'
 
 export const AGENT_EDIT_CORRUPT_JS_ORPHAN_PAREN_REASON =
-  'JavaScript file looks corrupted (orphan closing parentheses on their own lines). Re-read the plan, then submit one propose_file_edits write_file with the **full** script.js body and real line breaks — not a one-line stub or search_replace patches.'
+  'JavaScript file looks corrupted (orphan closing parentheses on their own lines). Re-read, then use `edit` (for existing files) with clean contiguous replacement blocks, or one propose_file_edits write_file with the **full** clean script.js body and real line breaks.'
 
 export const AGENT_EDIT_CORRUPT_CONTENT_REASON =
-  'Proposal content looks corrupted (orphan closing parentheses). Re-read rawContent and try search_replace or a clean rewrite.'
+  'Proposal content looks corrupted (orphan closing parentheses). Re-read rawContent and use the primary `edit` tool with precise clean replacements, or a focused clean rewrite via propose_file_edits.'
 
 export const AGENT_EDIT_INCOMPLETE_HTML_REASON =
   'Proposal HTML looks incomplete or malformed (missing tags or truncated). Emit a complete document with <!DOCTYPE html>, <html>, <head>, <body>, and closing tags.'
@@ -47,6 +47,10 @@ const JSON_UNICODE_ARTIFACT_RE = /\\u[0-9a-fA-F]{4}/
 
 export const AGENT_EDIT_EMPTY_WRITE_REASON =
   'write_file.content is empty. Emit the full runnable file body in propose_file_edits — for script.js include init, state, handlers, and DOM logic; opening the path in the editor before Apply does not create the file on disk.'
+
+/** Used by the early raw-content pre-validation gate (story 146) for propose_file_edits. */
+export const AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON =
+  'Proposal content looks obviously crushed or minified on first inspection (glued statements, extremely long lines, or very high statement density with almost no line breaks). Re-read the relevant section(s) from `read_file` `rawContent` and emit clean, properly formatted multi-line source with one statement per line.'
 
 const MIN_ORPHAN_LINES = 3
 /** Orphan lines must be a meaningful fraction of the file (avoids tiny snippets). */
@@ -277,6 +281,91 @@ export function isJammedJavaScriptSource(source: string): boolean {
   }
   if (hasGluedJavaScriptStatements(source)) return true
   return false
+}
+
+/**
+ * Very lightweight, regex-only pre-validation for raw write_file content.
+ * Intended to run extremely early (before any normalization) on propose_file_edits only.
+ * Catches the most obvious "the model just dumped minified garbage" cases.
+ */
+export function detectObviousCrushedRawContent(
+  rawContent: string,
+  resolvedPath?: string
+): { crushed: boolean; reason?: string } {
+  if (!rawContent || rawContent.trim().length === 0) {
+    return { crushed: false }
+  }
+
+  const isJsLike =
+    isJavaScriptFilePath(resolvedPath) ||
+    isTypeScriptSourcePath(resolvedPath) ||
+    looksLikeJsxOrTsxSource(rawContent)
+
+  const lineCount = (rawContent.match(/\n/g) ?? []).length + 1
+  const charCount = rawContent.length
+
+  // 1. Extremely long single line (common in fully minified dumps)
+  if (charCount > 1800 && lineCount <= 3) {
+    return {
+      crushed: true,
+      reason: AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
+    }
+  }
+
+  // 2. Glued statements (reuse existing cheap detector)
+  if (isJsLike && hasGluedJavaScriptStatements(rawContent)) {
+    return {
+      crushed: true,
+      reason: AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
+    }
+  }
+
+  // 3. Very high statement density (many ; { } ) relative to newlines)
+  if (isJsLike && charCount > 600) {
+    const statementTokens = (rawContent.match(/[;{}]/g) ?? []).length
+    const density = statementTokens / Math.max(lineCount, 1)
+    // Heuristic: > ~1.8 statement tokens per line on larger content is suspicious
+    if (density > 1.8 && lineCount < 40) {
+      return {
+        crushed: true,
+        reason: AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
+      }
+    }
+  }
+
+  // 4. Many orphan close parens (reuse existing logic)
+  const orphanCheck = detectCorruptSourceLines(rawContent, { resolvedPath })
+  if (orphanCheck.corrupt) {
+    return {
+      crushed: true,
+      reason: AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
+    }
+  }
+
+  // 5. Basic brace/paren imbalance on JS-like files (very cheap, not a full parser)
+  if (isJsLike && charCount > 400) {
+    const braceDelta = balanceDelta(rawContent, '{', '}')
+    const parenDelta = balanceDelta(rawContent, '(', ')')
+    // Large imbalance relative to size is a strong smell of minified or broken output
+    if (Math.abs(braceDelta) > 12 || Math.abs(parenDelta) > 18) {
+      return {
+        crushed: true,
+        reason: AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
+      }
+    }
+  }
+
+  // 6. Code after // comment on the same line (very common crush pattern)
+  if (isJsLike) {
+    if (/[^\n]\/\/[^\n]{3,}?[a-zA-Z0-9_({]/.test(rawContent)) {
+      return {
+        crushed: true,
+        reason: AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
+      }
+    }
+  }
+
+  return { crushed: false }
 }
 
 export function detectIncompleteTypeScriptSource(

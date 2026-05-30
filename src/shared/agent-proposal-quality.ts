@@ -11,7 +11,7 @@ export const TITLE_ONLY_MARKDOWN_STUB_REASON =
   'write_file.content was only the document title (or a tiny stub). Tool calls must use the complete read_file rawContent — markdown shown in your reply does not update the file until propose_file_edits succeeds.'
 
 export const SEARCH_REPLACE_SHRINK_STUB_REASON =
-  'search_replace would remove most of the file. new_string must include the full updated section or complete file body from rawContent — not a title line or shortened stub.'
+  'search_replace would remove most of the file. new_string must include the full updated section or complete file body from rawContent — not a title line or shortened stub. For substantial changes, switch to `propose_file_edits` and send the full relevant component/section from the latest `read_file` `rawContent`.'
 
 function markdownHeadingsFrom(text: string): string[] {
   return [...text.matchAll(/^#{1,6}\s+(.+)$/gm)].map((m) => m[1].trim()).filter(Boolean)
@@ -414,7 +414,7 @@ export function isUnacceptableCrushedMarkdownProposal(
 }
 
 const JAVASCRIPT_PROPOSAL_FORMAT_RETRY_HINT =
-  ' For .js files: write_file.content must be multi-line readable source — one statement per line; no minified one-liner; no glued }function or });); no code after // on the same line; no orphan ) lines by themselves.'
+  ' For .js/.ts files: output must follow the Code Quality Contract — one statement per line, real line breaks, no glued statements, no minified code. Send clean, readable source from rawContent.'
 
 export function formatProposalValidationError(
   rejected: Array<{ path: string; reason: string }>,

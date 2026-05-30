@@ -68,6 +68,29 @@ export function PlanModeCard({
     setLocal(getPlanInteraction(projectId, messageId, stepCount))
   }, [projectId, messageId, stepCount, refreshEpoch])
 
+  // Hydrate planId from backend if we have the plan content but no planId in local interaction yet.
+  // This fixes cases where the plan card doesn't appear until project re-open.
+  useEffect(() => {
+    const hasPlanContent = !!plan
+    const needsHydrate = projectId && !local.planId && hasPlanContent && window.electron?.getStoredPlanForMessage
+    if (needsHydrate) {
+      void (async () => {
+        try {
+          const res = await window.electron!.getStoredPlanForMessage!({
+            projectId: projectId!,
+            threadMessageId: messageId,
+          })
+          if (res?.ok && res.planId) {
+            const next = patchPlanInteraction(projectId!, messageId, { planId: res.planId }, stepCount)
+            setLocal(next)
+          }
+        } catch {
+          // ignore
+        }
+      })()
+    }
+  }, [projectId, messageId, plan, local.planId, stepCount])
+
   const uiPhase =
     uiPhaseProp ??
     derivePlanUiPhase(local, {

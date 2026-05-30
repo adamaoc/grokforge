@@ -183,6 +183,10 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 143 | Context panel: agent-aware file companion **(done)** | [`post-mvp/143-context-panel-agent-companion.md`](post-mvp/143-context-panel-agent-companion.md) |
 | 144 | Consolidate incremental Work edit policy **(done)** | [`post-mvp/144-consolidate-incremental-work-edit-policy.md`](post-mvp/144-consolidate-incremental-work-edit-policy.md) |
 | 145 | Intermittent plan not appearing in UI until project restart | [`post-mvp/145-plan-ui-state-sync-after-execute.md`](post-mvp/145-plan-ui-state-sync-after-execute.md) |
+| 146 | Pre-validation for edit proposals (lightweight syntax/format guard) **(done)** | [`post-mvp/146-pre-validation-for-edit-proposals.md`](post-mvp/146-pre-validation-for-edit-proposals.md) |
+| 147 | Stronger anti-crush and formatting enforcement **(done)** | [`post-mvp/147-stronger-anti-crush-and-formatting-enforcement.md`](post-mvp/147-stronger-anti-crush-and-formatting-enforcement.md) |
+| 148 | Better incremental editing strategy (surgical vs full rewrite) **(done)** | [`post-mvp/148-better-incremental-editing-strategy.md`](post-mvp/148-better-incremental-editing-strategy.md) |
+| 149 | Improved recovery loop after rejected proposals | [`post-mvp/149-improved-recovery-loop-after-rejected-proposals.md`](post-mvp/149-improved-recovery-loop-after-rejected-proposals.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 

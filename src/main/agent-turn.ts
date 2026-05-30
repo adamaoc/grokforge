@@ -11,9 +11,6 @@
  */
 
 import type { AgentEditProposalPayload } from '../shared/agent-chat-contract'
-import type { AgentProfile } from '../shared/agent-profile'
-import type { GrokProjectManifest } from './manifest'
-import type { ViteTemplateId } from '../shared/agent-scaffold-command'
 
 export type AgentTurnMutableState = {
   totalToolChars: number

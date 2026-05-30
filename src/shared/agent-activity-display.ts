@@ -52,7 +52,8 @@ const TOOL_LABELS: Record<AgentChatToolName | 'retrieval', string> = {
   list_directory: 'List directory',
   read_file: 'Read file',
   search_workspace: 'Search workspace',
-  search_replace: 'Search & replace',
+  search_replace: 'Search & replace (legacy)',
+  edit: 'Edit',
   run_command: 'Run command',
   propose_file_edits: 'Propose edits',
   spawn_subagent: 'Subagent exploration',
@@ -400,7 +401,7 @@ function buildPendingHarnessInterventionCopy(
         return {
           kind: 'correction',
           title: 'Scaffold routing: file proposals only',
-          detail: 'Static plan — use propose_file_edits, not npm create',
+          detail: 'Static plan — use `edit` (modifications) or propose_file_edits (new files), not hand-rolled without scaffold',
         }
       }
       return {
@@ -413,7 +414,7 @@ function buildPendingHarnessInterventionCopy(
         kind: 'correction',
         title: 'Edit path: full-file proposal',
         detail:
-          'search_replace failed repeatedly. Re-read rawContent and use propose_file_edits for localized changes.',
+          'Edit tool failed repeatedly. Re-read rawContent and retry with precise `edit` {edits[]}, or clean propose_file_edits for new/large-refactor cases.',
       }
     case 'post_scaffold_verify':
       return {

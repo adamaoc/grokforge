@@ -28,9 +28,9 @@ const GF_PLAN_OUTPUT_CONTRACT_TAIL: readonly string[] = [
   'Do **not** call `propose_file_edits` or propose file writes on this turn — execution happens after the user approves the plan.',
   'Do not put file-write payloads inside the plan JSON; use `propose_file_edits` after approval.',
   'For install/scaffold/verify steps, name **concrete shell commands** in `verification` and step titles — the executor will call **`run_command`** after user approval.',
-  '**Static HTML/CSS/JS:** include a serve command (e.g. `npx --yes serve . -l 3000` or `python3 -m http.server 3000`) before any manual browser check — not browser-only verification.',
+  '**Static HTML/CSS/JS (simple single-file or small vanilla Todo-like):** verification may be "Open index.html directly in the browser and confirm the UI works" — no serve command required. For larger static sites or when a live preview is useful, a lightweight serve (`npx --yes serve . -l 3000` or `python3 -m http.server 3000`) is acceptable but optional.',
   '**npm / Vite / React:** include `npm install`, `npm run dev`, `npm run typecheck`, or `npm run build` as appropriate.',
-  'In `filesLikelyTouched` and steps, be explicit about single-file vs multi-file layout. Mention code quality expectations (readable formatting, real line breaks, basic styling for greenfield UI).',
+  'In `filesLikelyTouched` and steps, be explicit about single-file vs multi-file layout. Mention code quality expectations (readable formatting, **one statement per line**, real line breaks, **no glued or minified output** — especially on medium+ files). GrokForge now strictly rejects crushed proposals.',
 ]
 
 /**
@@ -64,8 +64,9 @@ function planModeProfileQualityLines(
     'In `risksUnknowns`, list assumptions, missing context, and blockers — not generic filler.',
     'Each `steps` entry should be an actionable engineering step with a clear outcome; include at least one verification-oriented step.',
     '`verification` should name **concrete commands** or manual checks the executor runs via **`run_command`** after approval.',
-    '**Static:** serve command + browser check (e.g. `npx --yes serve . -l 3000`). **npm/Vite:** `npm install`, `npm run dev`, `npm run typecheck`, or `npm run build`.',
-    'Do not use browser-only verification for local static HTML/CSS/JS without a preceding serve command.',
+    '**Static (simple single-file vanilla):** browser-only verification ("open index.html locally") is acceptable and preferred to avoid unnecessary server steps. For larger static sites: optional lightweight serve + browser check.',
+    '**npm/Vite:** `npm install`, `npm run dev`, `npm run typecheck`, or `npm run build`.',
+    'Avoid forcing dev server runs for trivial static HTML/JS apps — only suggest serve when the plan involves multiple files or the user wants a live reload preview.',
     `When the greenfield harness appendix (${GREENFIELD_HARNESS_MARKER}) applied, follow ${GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER} for verification shape.`,
     'State **project shape** in the plan summary when obvious: **Vite+React+TS** (npm CLI + `package.json` tree) vs **static HTML/CSS/JS** (no build step).',
     'When obvious, state **scaffold strategy** in the summary: **`cli`** (npm/Vite CLI first) vs **`static_files`** (HTML/CSS/JS only) — do not mix both in one execute turn.',

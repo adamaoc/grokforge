@@ -9,6 +9,7 @@ import { SCAFFOLD_STRATEGY_NUDGE_MARKER } from './agent-scaffold-strategy'
 import { POST_SCAFFOLD_VERIFICATION_HONESTY_MARKER, POST_SCAFFOLD_VERIFICATION_MARKER } from './agent-scaffold-command'
 import { buildGfPlanFinalAnswerContract } from './gf-plan-contract'
 import { isPartialBatchIntegrityRejection } from './agent-edit-corrupt-content'
+import { getCodeQualityContractBlock } from './agent-code-quality-contract'
 
 export const EDIT_INTENT_RE =
   /\b(add|apply|build|change|create|delete|edit|fix|implement|make|move|patch|refactor|remove|rename|replace|update|write)\b/i
@@ -74,27 +75,28 @@ export function buildSearchReplaceEscalationNudge(
   const pathLine =
     labels.length > 0
       ? `Affected file(s): ${labels.join(', ')}.`
-      : 'One or more files had repeated search_replace failures.'
+      : 'One or more files had repeated edit tool failures.'
   const hasHtml = paths.some((p) => /\.html?$/i.test(p.replace(/\\/g, '/')))
   const hasJs = paths.some((p) => /\.jsx?$/i.test(p.replace(/\\/g, '/')))
   const iterative = options?.iterativeWorkEdit === true
 
   if (iterative) {
     const jsLine = hasJs
-      ? 'After **2** failed `search_replace` on this path: escalate to **one** `propose_file_edits` with the **full** file from `read_file` **`rawContent`** (e.g. `script.js`), changing **only** the handler block — do not rewrite unrelated application logic.'
-      : 'After **2** failed `search_replace`: escalate to **one** `propose_file_edits` with the **full** file from `read_file` **`rawContent`**, changing only what the user asked.'
+      ? 'After repeated failures on this path with the `edit` tool (or legacy search_replace): re-read the exact section(s) via `read_file`, then retry with precise `edit` { edits: [{ oldText, newText }, ...] } using sufficient unique context from `rawContent`. Only if the scope is truly a large refactor, escalate to one clean `propose_file_edits` write_file with the full relevant content.'
+      : 'After repeated `edit` / search_replace failures: re-read `rawContent`, retry with the primary `edit` tool using better excerpts, or (last resort) one focused `propose_file_edits`.'
     const preserveLine =
       hasJs || hasHtml
-        ? 'Preserve unchanged functions and markup; GrokForge still blocks destructive shrink (**115**) — send the **complete** correct file, not a stub.'
-        : 'Send the **complete** correct file from `rawContent`, not a shortened stub — **115** shrink guard still applies on code files.'
+        ? 'Preserve unchanged functions and markup; GrokForge blocks destructive shrink (**115**) — send clean, complete, readable code (one statement per line).'
+        : 'Send clean complete code from `rawContent` (not a stub) — **115** shrink guard applies.'
     return [
       `## ${EDIT_SEARCH_REPLACE_ESCALATION_MARKER}`,
       `## ${EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER}`,
       pathLine,
-      buildHarnessEditRecoveryBrief('search_replace_escalation'),
+      'Use the rich "not found" diagnostics + suggested excerpts from the last failure to construct accurate oldText values.',
       jsLine,
       preserveLine,
-      'Do **not** call **`search_replace`** again on this path this turn.',
+      getCodeQualityContractBlock(),
+      'Prefer the dedicated `edit` tool over legacy search_replace for recovery attempts.',
       'Do not tell the user the file was updated until an edit tool returns `ok: true` in this turn.',
     ]
       .filter(Boolean)
@@ -103,12 +105,12 @@ export function buildSearchReplaceEscalationNudge(
 
   if (options?.brief) {
     const htmlLine = hasHtml
-      ? 'For HTML with inline `<script>`, use one full-file `propose_file_edits` from `rawContent` — not `search_replace` on crushed script.'
+      ? 'For HTML with inline `<script>`, prefer the `edit` tool with clean replacement blocks from `rawContent`. Fall back to one full-file `propose_file_edits` only if needed.'
       : ''
     return [
       `## ${EDIT_SEARCH_REPLACE_ESCALATION_MARKER}`,
       pathLine,
-      buildHarnessEditRecoveryBrief('search_replace_escalation'),
+      'Re-read the file, use precise `edit` {edits[]} with the diagnostics provided, or one clean `propose_file_edits` write_file from `rawContent`.',
       htmlLine,
       'Do not tell the user the file was updated until an edit tool returns `ok: true` in this turn.',
     ]
@@ -117,18 +119,18 @@ export function buildSearchReplaceEscalationNudge(
   }
   const htmlLines = hasHtml
     ? [
-        'For **index.html** (or any HTML with inline `<script>`): do **not** patch the crushed script with `search_replace`. Use one `propose_file_edits` `write_file` with the **entire** file from `rawContent`, fixing the `<script>` block with **one statement per line** (no `}function`, no `}););`, no code after `//` on the same line). When the plan lists a separate `.js` path, prefer external `<script src="...">` over a large inline block.',
+        'For **index.html** (or HTML with inline `<script>`): do **not** guess small patches. Re-read, then use the primary `edit` tool with one or more clean, properly-formatted replacement blocks (one statement per line). Only if impractical, use one `propose_file_edits` `write_file` with the **entire** correct file from `rawContent`.',
       ]
     : []
   return [
     `## ${EDIT_SEARCH_REPLACE_ESCALATION_MARKER}`,
     pathLine,
-    'Do **not** retry `search_replace` with guessed or reformatted `old_string` text.',
-    'Call `read_file` again and copy text only from **`rawContent`** (not the line-numbered `content` field).',
-    'For small files or localized section edits: use one `propose_file_edits` with the **complete** file body from the latest `read_file` `rawContent` (every heading and section), changing only what the user asked for.',
+    'Do **not** retry with guessed fragments.',
+    'Call `read_file` (use startLine/maxLines for the relevant region on large files) and construct precise oldText values for the **`edit`** tool (the primary modification primitive). The previous failure response includes closest-match diagnostics and suggestedOldText excerpts — use them.',
+    'Recommended next action: Issue **one** `edit` call with accurate replacements (or a minimal `propose_file_edits` only if the requested change is large/structural). Do not rewrite unrelated sections.',
     ...htmlLines,
-    'Do not send only the changed bullets or a shortened stub — include the full document text in `write_file.content`.',
-    'On markdown/plain text under ~64 lines, GrokForge still accepts the proposal for diff review; on code files, destructive shrink stays blocked.',
+    getCodeQualityContractBlock(),
+    'The result must be readable professional source — no minified or glued output.',
     'Do not tell the user the file was updated until an edit tool returns `ok: true` in this turn.',
   ].join('\n')
 }
@@ -237,9 +239,10 @@ export function buildCrushedJavaScriptProposalNudge(paths: readonly string[]): s
   return [
     `## ${EDIT_CRUSHED_JS_NUDGE_MARKER}`,
     pathLine,
-    'Previous `propose_file_edits` bodies were **rejected** — do **not** resubmit the same crushed one-liner or glued tokens.',
-    'Retry with **one** `propose_file_edits` containing **only** the rejected `.js` path(s). Each `write_file.content` must be the **full** script with **real line breaks**.',
-    '**Required layout (example shape — adapt names/logic to the plan):**',
+    'Previous proposals were **rejected** for crushed/minified layout — do **not** resubmit glued or one-line code. GrokForge now applies much stricter formatting rules on medium+ files.',
+    'Recommended next action for existing .js: Re-read the relevant section from `rawContent`, then use the primary **`edit`** tool with one or more clean, properly-formatted replacement blocks (one statement per line, no glued tokens).',
+    'Only escalate to a full `propose_file_edits` write_file if the user explicitly requested a rewrite or the scope is large/structural.',
+    'Example clean shape (adapt to your logic):',
     '```javascript',
     'const STORAGE_KEY = "app-state";',
     'let items = [];',
@@ -252,7 +255,7 @@ export function buildCrushedJavaScriptProposalNudge(paths: readonly string[]): s
     '  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));',
     '}',
     '```',
-    'Do **not** put multiple statements on one line. Do **not** emit orphan `)` lines. Do not tell the user the script was written until validation passes.',
+    'Never multiple statements on one line. Do not tell the user the script was written until an edit tool succeeds.',
   ].join('\n')
 }
 
@@ -268,9 +271,9 @@ export function buildCreationIncrementalRecoveryNudge(paths: readonly string[]):
     pathLine,
     'Repeated **full-file** `propose_file_edits` for **new** path(s) failed validation (incomplete, truncated, or malformed).',
     '**Change strategy — do not retry the same large full-file write:**',
-    '1. Create a **minimal viable** version of each affected file first — valid structure and the **smallest working subset** the plan needs.',
-    '2. After a minimal file validates, call **`read_file`**, then extend with **`search_replace`** (preferred) or **small scoped** `propose_file_edits` — one logical addition per step.',
-    '3. Do **not** submit another large full-file rewrite for the same path this turn unless a minimal base already exists on disk.',
+    '1. Create a **minimal viable** version of each affected file first (smallest complete valid/runnable subset the plan needs).',
+    '2. After a minimal file validates, call **`read_file`**, then extend using the primary **`edit`** tool (preferred) with precise additions, or small scoped `propose_file_edits`.',
+    '3. Do **not** submit another giant full-file rewrite for the same path this turn.',
     'Do **not** tell the user the file was created until an edit tool returns `ok: true` in this turn.',
   ].join('\n')
 }
@@ -281,13 +284,14 @@ export function buildHarnessEditRecoveryBrief(
 ): string {
   if (kind === 'search_replace_escalation') {
     return [
-      'Do **not** retry `search_replace` with guessed `old_string` text.',
-      'Call `read_file` and copy from **`rawContent`**, then one `propose_file_edits` with the **complete** file — change only what the user asked for.',
+      'Do **not** retry with guessed fragments.',
+      'Re-read the exact relevant section(s) from `read_file` `rawContent` (use startLine/maxLines on large files). Then produce **one** clean replacement using the primary **`edit`** tool with precise oldText/newText (use the closest-match diagnostics + suggested excerpts from the failure).',
+      'Do **not** claim the file was updated until you receive an `ok: true` tool result for a valid proposal on this path.',
     ].join('\n')
   }
   return [
-    'Retry with **one** `propose_file_edits` containing **only the rejected paths**, each with a **complete** `write_file.content` body from `read_file` `rawContent`.',
-    'Do **not** tell the user every planned file was created until all rejected paths succeed in this turn.',
+    'Retry with **one** focused `propose_file_edits` (or `edit` tool for existing paths) containing *only* the rejected work. Each write must use the complete, clean, readable content from the latest `read_file` `rawContent`.',
+    'Do **not** tell the user every planned file was created or updated until all rejected paths have a successful `ok: true` proposal in this turn.',
   ].join('\n')
 }
 
@@ -357,12 +361,12 @@ export function buildPlanVerifyCommandNudge(options?: {
   const strategy = options?.scaffoldStrategy ?? null
   const exampleLine =
     strategy === 'file_bootstrap'
-      ? 'Examples: `npx --yes serve . -l 3000`, `python3 -m http.server 3000` — then manual browser check.'
+      ? 'For simple single-file or small vanilla static sites: verification can be "Open index.html directly in the browser". For larger static sites, optional lightweight serve (e.g. `npx --yes serve . -l 3000` or `python3 -m http.server 3000`) + manual browser check.'
       : 'Examples: `npm install`, `npm create`, `git init`, `npm run typecheck`, `npm test`, `npm run build`.'
 
   const scaffoldNote =
     strategy === 'file_bootstrap'
-      ? 'Use **`propose_file_edits`** for HTML/CSS/JS file content — serve commands are for verification only, not scaffold.'
+      ? 'Use **`propose_file_edits`** for HTML/CSS/JS file content — serve commands are optional verification only (avoid for trivial static single-file apps).'
       : 'Use **`propose_file_edits`** for file content — do not replace CLI scaffold/install steps with hand-written `package.json` only.'
 
   return [
@@ -476,10 +480,10 @@ function editToolsFailedAppendix(editToolsFailed?: boolean): string {
   return [
     '',
     '### Edit tools did not succeed (this turn)',
-    '**search_replace** failed repeatedly and GrokForge does **not** have a reviewable edit proposal from this turn.',
-    'Do **not** claim any workspace file was updated, changed, saved, or written on disk.',
-    'Tell the user what failed (exact match / validation), and that they can retry with `propose_file_edits` using the full file from `read_file` `rawContent`, or edit manually.',
-    'A full-file rewrite that keeps unrelated content is allowed; proposals that remove most of the file were blocked for safety.',
+    'GrokForge does **not** have a valid, accepted edit proposal from this turn (all proposals were rejected due to crushed formatting, validation failures, shrink guard, etc.).',
+    'Do **not** claim any workspace file was updated, changed, saved, created, or written on disk.',
+    'Tell the user exactly what failed on the last proposal and the specific recovery guidance that was given (e.g. "re-read rawContent and retry with the `edit` tool using better excerpts").',
+    'You may only claim success for a path if the final tool result for that path was `ok: true`.',
   ].join('\n')
 }
 

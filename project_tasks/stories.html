@@ -309,11 +309,11 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">144 stories</span>
-        <span class="pill">Done: 135</span>
+        <span class="pill">148 stories</span>
+        <span class="pill">Done: 138</span>
         <span class="pill">Closed: 6</span>
-        <span class="pill">Post-MVP: 3</span>
-        <span class="pill">Generated 2026-05-27</span>
+        <span class="pill">Post-MVP: 4</span>
+        <span class="pill">Generated 2026-05-30</span>
       </div>
       <div class="story-filters">
         <label>
@@ -11080,6 +11080,277 @@ maxIterationsReason?: 'search_replace_loop' | 'discovery_stall' | 'post_escalati
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-146" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">146</span><span class="story-name">Pre-validation for edit proposals (lightweight syntax/format guard)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/146-pre-validation-for-edit-proposals.md">post-mvp/146-pre-validation-for-edit-proposals.md</a>
+          </div>
+          <h2>146 — Pre-validation for edit proposals (lightweight syntax/format guard before diff review)</h2>
+<p><strong>Status:</strong> <strong>Done</strong>.</p>
+<p><strong>Priority:</strong> High — early rejection of obviously bad proposals reduces user-visible garbage diffs and follow-up turns (directly addresses recent TaskBoard-style full-file failures).</p>
+<p><strong>Design skill:</strong> N/A (harness validation + runner path); <code>@styleguide-design</code> only if new rejection toast / error copy changes in renderer.</p>
+<p><strong>Depends on:</strong> <strong><a href="060-agent-first-class-edit-proposals.md">060</a></strong> (propose_file_edits foundation), <strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong> (existing normalize), <strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong> + <strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong> (corrupt-content + proposal quality).</p>
+<h3>Why this story exists</h3>
+<p>In recent dogfood (e.g. the TaskBoard App.tsx case and similar greenfield / post-plan execute runs), the model produced catastrophically crushed/minified <code>propose_file_edits</code> write_file payloads (one-line glued JS, orphan <code>)</code>, broken formatting, obviously invalid syntax). These passed the initial tool call, reached the diff review UI, and were shown to the user — forcing manual rejection + follow-up prompts.</p>
+<p>Existing guards (<code>validateAgentEditProposal</code>, <code>isUnacceptableCrushedMarkdownProposal</code>, <code>assessProposalWriteContent</code> in <code>agent-edit-corrupt-content.ts</code>, shrink guard, post-normalize repair) catch many cases <strong>after</strong> the proposal object is built and sometimes after expensive work. There is no fast, cheap pre-filter right at proposal creation time that can reject obviously broken content <strong>before</strong> it is turned into a reviewable diff artifact and surfaced.</p>
+<p><strong>Observed pain:</strong></p>
+<ul>
+<li>Bad proposal reaches the user in the diff pane.</li>
+<li>Model is not given a tight, immediate &quot;this exact payload is invalid for reason X, re-read rawContent and produce clean multi-line&quot; signal.</li>
+<li>Wasted context + user time.</li>
+</ul>
+<p>The goal of this story is a narrow, fast pre-validation gate on the <code>propose_file_edits</code> path only.</p>
+<h3>Goals</h3>
+<ol>
+<li>Introduce a lightweight, synchronous or near-synchronous validation step that runs on every <code>propose_file_edits</code> payload <strong>before</strong> it is turned into a persisted proposal / diff review.</li>
+<li>Reject (with a clear, model-actionable error) when the proposed content exhibits obvious crushed formatting, glued statements, or basic syntax red flags for JS/TS/TSX/HTML (using existing heuristics + minimal new fast checks — no full parser yet).</li>
+<li>Surface the rejection back to the model in the same turn (via tool result or immediate recovery nudge) so it can correct on the next attempt without the bad diff ever reaching the user.</li>
+<li>Keep the check extremely cheap (regex + line heuristics + existing normalize passes) and only on the write_file op content.</li>
+</ol>
+<h3>Narrow acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> A new or extended fast path (e.g. <code>preValidateWriteFileContent</code> or call inside <code>validateAgentEditProposal</code> before proposal creation) runs for every <code>write_file</code> operation in a <code>propose_file_edits</code> batch.</li>
+<li><input type="checkbox" disabled> Obvious crushed / one-line / glued / orphan-paren / obviously malformed JS/TSX/HTML in a proposed <code>content</code> field causes immediate rejection with a precise reason (e.g. &quot;Crushed JS detected: 1 line, 47 statements glued — re-read rawContent and emit clean multi-line source with one statement per line&quot;).</li>
+<li><input type="checkbox" disabled> Rejected proposals never produce a diff review card for the user (the bad payload is dropped at the harness layer).</li>
+<li><input type="checkbox" disabled> The model receives the rejection + guidance in the tool result / recovery context within the same turn.</li>
+<li><input type="checkbox" disabled> No new heavy dependencies (no full TS compiler, no shadow FS, no LSP). Simple string + regex + reuse of <code>needsSourceLayoutRepair</code> / <code>hasGluedJavaScriptStatements</code> style checks only.</li>
+<li><input type="checkbox" disabled> Existing good proposals (clean multi-line, properly formatted) are unaffected (zero false positives on real clean code).</li>
+<li><input type="checkbox" disabled> <code>npm run typecheck</code> + relevant unit tests (<code>agent-edit-proposals.test.ts</code>, <code>agent-proposal-quality.test.ts</code>) pass; new fast-path covered by at least one unit test.</li>
+</ul>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/main/agent-edit-proposals.ts</code> — primary call site: insert the pre-validation right after parsing the batch but before <code>validateAgentEditProposal</code> / proposal object creation and event emission.</li>
+<li><code>src/shared/agent-proposal-quality.ts</code> or <code>src/shared/agent-edit-corrupt-content.ts</code> — extend or add the narrow fast pre-check functions (keep new logic tiny).</li>
+<li><code>src/shared/agent-file-content-normalize.ts</code> — reuse / extend existing layout repair detection if it helps the pre-filter (no new heavy reflow).</li>
+<li><code>src/main/agent-tool-executor.ts</code> (or the edit path) — ensure rejection surfaces cleanly as a tool result error with guidance for the model.</li>
+<li>Test files: <code>src/main/agent-edit-proposals.test.ts</code> and/or <code>src/shared/agent-proposal-quality.test.ts</code> (add 1–2 fast synthetic cases for crushed JS/HTML payloads).</li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Any full TypeScript / JS parsing, AST validation, or type checking (no acorn, typescript API, etc. in this story).</li>
+<li>Shadow workspace, on-disk temp copies, or running the code (that would be a later &quot;real pre-apply eval&quot; story).</li>
+<li>Changes to <code>search_replace</code> / new <code>edit</code> tool paths (this story is strictly <code>propose_file_edits</code> write_file only).</li>
+<li>UI changes to how rejections are shown to the *human* (beyond ensuring the bad diff never appears).</li>
+<li>Broad refactoring of the proposal pipeline or new event types.</li>
+<li>Plan-mode or greenfield-specific logic (keep it general to the proposal creation path).</li>
+<li>Performance measurements or caching beyond the absolute minimum.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong> — previous proposal recovery and corrupt-content work (this is the &quot;catch even earlier&quot; follow-up).</li>
+<li><strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong> — normalize/repair foundation.</li>
+<li><strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong>, <strong><a href="133-greenfield-execute-quality-regression-guard.md">133</a></strong> — related quality gates.</li>
+<li><strong><a href="060-agent-first-class-edit-proposals.md">060</a></strong> — the proposal creation path this guards.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table (add 146), run <strong><code>npm run stories:html</code></strong>. Add a one-line note to <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> if manual verification steps change.</p>
+        </div>
+      </details>
+      <details id="story-147" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">147</span><span class="story-name">Stronger anti-crush and formatting enforcement</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/147-stronger-anti-crush-and-formatting-enforcement.md">post-mvp/147-stronger-anti-crush-and-formatting-enforcement.md</a>
+          </div>
+          <h2>147 — Stronger anti-crush and formatting enforcement (prompt + validation hardening)</h2>
+<p><strong>Status:</strong> <strong>Done</strong>.</p>
+<p><strong>Priority:</strong> High — directly targets the root generative cause of mangled first proposals (TaskBoard App.tsx and similar recent crushed full-file outputs).</p>
+<p><strong>Design skill:</strong> N/A (harness prompts, contracts, and validation rules); <code>@styleguide-design</code> only for any new rejection messaging copy.</p>
+<p><strong>Depends on:</strong> <strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong>, <strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong>, <strong><a href="139-iterative-work-search-replace-quality-guidance.md">139</a></strong>, <strong><a href="002-shadcn-ui-baseline.md">002</a></strong> (Code Quality Contract foundation from earlier work).</p>
+<h3>Why this story exists</h3>
+<p>Despite the existing <code>CODE_QUALITY_CONTRACT</code>, <code>JAVASCRIPT_CODE_QUALITY_RULES</code>, <code>isUnacceptableCrushedMarkdownProposal</code>, <code>needsSourceLayoutRepair</code>, and repeated prompt injections (&quot;one statement per line&quot;, &quot;real line breaks&quot;, &quot;no glued tokens&quot;), the model still frequently emits crushed, minified, or poorly formatted code on the <strong>first</strong> <code>propose_file_edits</code> or large write attempt — especially on medium-to-large files during greenfield execute or post-plan Work.</p>
+<p>Recent concrete example (TaskBoard <code>src/App.tsx</code>): the initial proposal was a single-line blob of glued JSX/TS + broken event handlers + formatting collapse. It reached the user because the generative interface (&quot;here is the entire new file content&quot;) gives the model too much freedom to collapse under token or time pressure. Existing post-hoc repairs and rejections help on retry but do not prevent the bad first output.</p>
+<p>The problem is a combination of:</p>
+<ul>
+<li>Insufficiently aggressive / specific language in the contracts and harness profiles for &quot;medium-to-large files&quot;.</li>
+<li>Validation that is good at *detecting* but not yet strong enough at *preventing* via prompt pressure + strict pre-accept rules.</li>
+<li>Lack of a &quot;formatting tax&quot; or hard requirement that makes minified output expensive for the model to produce.</li>
+</ul>
+<h3>Goals</h3>
+<ol>
+<li>Make crushed / glued / minified output <strong>much more expensive</strong> for the model by strengthening the rules in the Code Quality Contract and all injection points (executor profiles, iterative Work sections, final-answer contracts, greenfield bootstrap).</li>
+<li>Tighten detection heuristics (<code>agent-proposal-quality.ts</code>, <code>agent-edit-corrupt-content.ts</code>) with more specific patterns for common failure modes on JS/TS/TSX and larger files.</li>
+<li>Add a narrow post-generation strict formatting gate (or normalization + re-validate) so that a proposal is only accepted if it meets a higher bar after any auto-repair passes.</li>
+<li>Provide clearer &quot;penalties&quot; language (&quot;GrokForge will reject and charge an extra round for any proposal that still contains glued statements after normalization&quot;).</li>
+</ol>
+<h3>Narrow acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> <code>CODE_QUALITY_CONTRACT</code> and <code>SHORT</code> version updated with stronger, file-size-aware rules (e.g. &quot;On files &gt; ~80 lines: zero tolerance for any glued statements or &gt;2 consecutive lines without proper breaks; first violation triggers hard rejection + explicit re-read instruction&quot;).</li>
+<li><input type="checkbox" disabled checked> All major injection sites (<code>agent-harness-profile.ts</code> AGENT_TOOL_LOOP_CORE + GREENFIELD_*/EXECUTOR sections, <code>agent-final-answer-contract.ts</code>, <code>gf-plan-contract.ts</code>, <code>incremental-work-edit-policy.ts</code>) contain the strengthened language.</li>
+<li><input type="checkbox" disabled checked> Detection in <code>agent-proposal-quality.ts</code> / <code>agent-edit-corrupt-content.ts</code> catches at least two additional common crush patterns (documented in the PR) with actionable rejection messages.</li>
+<li><input type="checkbox" disabled checked> A proposal containing crushed content on a medium+ file is rejected (or normalized + re-validated and rejected if still bad) <strong>before</strong> it becomes a user-visible diff.</li>
+<li><input type="checkbox" disabled checked> No behavior change for already-clean proposals.</li>
+<li><input type="checkbox" disabled checked> Unit tests updated / added for the new detection cases; <code>npm run typecheck</code> + <code>npm run test</code> pass.</li>
+</ul>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/shared/agent-code-quality-contract.ts</code> — primary contract text (the single source of truth).</li>
+<li><code>src/shared/agent-harness-profile.ts</code> — all places that inject the contract or have their own edit-quality paragraphs.</li>
+<li><code>src/shared/agent-final-answer-contract.ts</code> — final-answer and recovery sections.</li>
+<li><code>src/shared/gf-plan-contract.ts</code> — plan quality lines.</li>
+<li><code>src/shared/incremental-work-edit-policy.ts</code> + <code>src/shared/iterative-work-edit.ts</code> — Work/iterative guidance.</li>
+<li><code>src/shared/agent-proposal-quality.ts</code> and/or <code>src/shared/agent-edit-corrupt-content.ts</code> — detection rule strengthening (narrow additions only).</li>
+<li><code>src/shared/agent-file-content-normalize.ts</code> — if a stricter post-normalize gate is added.</li>
+<li>Relevant tests: <code>src/shared/agent-proposal-quality.test.ts</code>, <code>src/shared/agent-harness-profile.test.ts</code>, <code>src/main/agent-edit-proposals.test.ts</code>.</li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Any change to the <code>edit</code> tool (multi-edit) path or <code>search_replace</code> — this story is about <code>propose_file_edits</code> / full write_file quality.</li>
+<li>Introducing a real formatter (Prettier) or running external tools at proposal time.</li>
+<li>Large architectural changes (e.g. moving all writes through a new &quot;formatted edit&quot; primitive).</li>
+<li>UI copy or rejection toast improvements beyond the minimal model-facing messages.</li>
+<li>Work on incremental vs full-rewrite routing (<strong>148</strong> is a separate story).</li>
+<li>New eval tags or broad harness eval additions (minimal test updates only to cover the rule changes).</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong> and <strong><a href="139-iterative-work-search-replace-quality-guidance.md">139</a></strong> — direct predecessors on quality and first-attempt success.</li>
+<li><strong><a href="100-proposal-quality-auto-normalize.md">100</a></strong> — the normalize layer this strengthens.</li>
+<li><strong><a href="060-agent-first-class-edit-proposals.md">060</a></strong>, <strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong> — proposal and guard context.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table (add 147), run <strong><code>npm run stories:html</code></strong>. Add a short note to the Code Quality Contract header if the contract itself changed.</p>
+        </div>
+      </details>
+      <details id="story-148" data-status="done">
+        <summary>
+          <span class="story-title"><span class="story-id">148</span><span class="story-name">Better incremental editing strategy (surgical vs full rewrite)</span></span>
+          <span class="status status-done">Done</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/148-better-incremental-editing-strategy.md">post-mvp/148-better-incremental-editing-strategy.md</a>
+          </div>
+          <h2>148 — Better incremental editing strategy (prefer surgical edits over full rewrites after plan execution)</h2>
+<p><strong>Status:</strong> <strong>Done</strong>.</p>
+<p><strong>Priority:</strong> Medium-High — reduces unnecessary large proposals and context waste on follow-up Work turns (common pattern after TaskBoard-style and other post-plan execute sessions).</p>
+<p><strong>Design skill:</strong> N/A (harness routing + prompt policy); <code>@styleguide-design</code> only if any new routing UI hints are added (unlikely in this narrow story).</p>
+<p><strong>Depends on:</strong> <strong><a href="144-consolidate-incremental-work-edit-policy.md">144</a></strong>, <strong><a href="130-work-iterative-edit-harness.md">130</a></strong>, <strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong>, <strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong>, <strong><a href="136-iterative-edit-scope-and-combine-heuristics.md">136</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>After a plan is approved and executed (or during iterative Work on an existing project), the model still frequently jumps to large <code>propose_file_edits</code> full-file rewrites even when the user request is a small, localized, incremental change (e.g. &quot;add dark mode toggle&quot;, &quot;fix the delete button handler&quot;, &quot;tweak one list item style&quot;).</p>
+<p>This produces:</p>
+<ul>
+<li>Overly broad diffs that are harder for the user to review.</li>
+<li>Higher risk of introducing new bugs or crushing formatting in unrelated code (the exact TaskBoard App.tsx class of failure on follow-ups).</li>
+<li>Unnecessary re-transmission of large file bodies.</li>
+</ul>
+<p>Existing policy files (<code>incremental-work-edit-policy.ts</code>, <code>iterative-work-edit.ts</code>, single-file bias, surgical edit enforcement) have good intent but the routing decision + prompt language still allows/encourages the &quot;safer to just send the whole file&quot; path too often. The model needs stronger, more automatic preference for <code>search_replace</code> (legacy) / the new <code>edit</code> tool (preferred) or tiny scoped <code>propose_file_edits</code> when the change is clearly incremental.</p>
+<h3>Goals</h3>
+<ol>
+<li>Improve the decision heuristics / routing so that post-plan or iterative Work turns with small user requests default to targeted edits (<code>edit</code> tool with precise <code>edits[]</code>, or small <code>search_replace</code>) rather than full <code>propose_file_edits</code>.</li>
+<li>Add clear, narrow escalation rules in the harness: &quot;stay surgical unless ≥2 failures on the path this turn <strong>or</strong> the user explicitly asks for a rewrite <strong>or</strong> the file is &lt;20 lines / already crushed&quot;.</li>
+<li>Strengthen the prompt guidance in the relevant policy sections so the model has less freedom to choose the large-rewrite path for obviously incremental work.</li>
+</ol>
+<h3>Narrow acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled checked> Updated logic in <code>buildIncrementalEditHarnessSections</code> / <code>resolveScaffoldStrategy</code> or a new narrow helper that biases toward <code>edit</code> / <code>search_replace</code> for post-execute incremental turns when file count changed is low and change description is localized.</li>
+<li><input type="checkbox" disabled checked> Prompt language in <code>incremental-work-edit-policy.ts</code> and <code>iterative-work-edit.ts</code> (and any injection in <code>agent-harness-profile.ts</code>) now contains explicit &quot;default to targeted <code>edit</code> tool or small <code>search_replace</code> for incremental changes; full <code>propose_file_edits</code> only on explicit rewrite intent or repeated surgical failure&quot; rules.</li>
+<li><input type="checkbox" disabled checked> In a post-plan Work turn with a small request on an existing file, the first edit attempt uses a surgical tool (observable in tool sample or activity) unless the plan or user text clearly signals &quot;rewrite this component&quot;.</li>
+<li><input type="checkbox" disabled checked> No regression on legitimate large-refactor or greenfield cases (they still get full <code>propose_file_edits</code> when appropriate).</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> + relevant policy + harness tests pass.</li>
+</ul>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/shared/incremental-work-edit-policy.ts</code> — the main policy builder and fallback rules.</li>
+<li><code>src/shared/iterative-work-edit.ts</code> — <code>INCREMENTAL_EDIT_*_LINES</code> and structural change guidance.</li>
+<li><code>src/shared/agent-harness-profile.ts</code> — any cross-references or executor-from-plan incremental sections that pull in the above.</li>
+<li>Possibly a tiny helper in <code>src/shared/agent-scaffold-strategy.ts</code> or a new small file if routing needs a shared predicate (keep change &lt;15 lines if possible).</li>
+<li>Tests: <code>src/shared/incremental-work-edit-policy.test.ts</code>, <code>src/shared/iterative-edit-scope.test.ts</code>, <code>src/shared/agent-harness-profile.test.ts</code> (update expectations only where wording changed).</li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Changes to the core <code>edit</code> tool implementation or fuzzy matching (<strong>146</strong> pre-validation and <strong>147</strong> quality are separate).</li>
+<li>New UI affordances for &quot;force surgical vs power edit&quot; (that would be a follow-on).</li>
+<li>Broad changes to plan execution or greenfield bootstrap (this story is narrowly about <strong>post-plan / iterative Work incremental turns</strong>).</li>
+<li>Altering the shrink guard or cascade counting logic (<strong>115</strong>).</li>
+<li>Adding new tool surface (the <code>edit</code> tool is already preferred in recent work; this just makes the router honor it more aggressively).</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="144-consolidate-incremental-work-edit-policy.md">144</a></strong>, <strong><a href="130-work-iterative-edit-harness.md">130</a></strong>, <strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong>, <strong><a href="136-iterative-edit-scope-and-combine-heuristics.md">136</a></strong>, <strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — the direct policy and routing ancestors this tightens.</li>
+<li><strong>[148</strong> is the &quot;stay surgical&quot; companion to the quality enforcement in <strong>147</strong> and pre-validation in <strong>146</strong>.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table (add 148), run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-149" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">149</span><span class="story-name">Improved recovery loop after rejected proposals</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/149-improved-recovery-loop-after-rejected-proposals.md">post-mvp/149-improved-recovery-loop-after-rejected-proposals.md</a>
+          </div>
+          <h2>149 — Improved recovery loop after rejected proposals (clearer, directed feedback + loop prevention)</h2>
+<p><strong>Status:</strong> Post-MVP backlog.</p>
+<p><strong>Priority:</strong> High — closes the loop on the most painful recent failure mode (TaskBoard + similar crushed proposal sessions where the model entered repeated rejection + weak recovery cycles).</p>
+<p><strong>Design skill:</strong> N/A (harness recovery messaging and runner loop control); <code>@styleguide-design</code> only for any new model-facing rejection copy.</p>
+<p><strong>Depends on:</strong> <strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong>, <strong><a href="134-harness-conflict-recovery-activity-honesty.md">134</a></strong>, <strong><a href="092-agent-edit-failure-self-correction.md">092</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="138-iterative-work-search-replace-escalation.md">138</a></strong>, <strong><a href="140-search-replace-failure-loop-observability.md">140</a></strong>.</p>
+<h3>Why this story exists</h3>
+<p>When a <code>propose_file_edits</code> (or <code>search_replace</code>) is rejected — crushed, too destructive (shrink guard), validation failure, partial batch, etc. — the feedback the model receives is often too generic or too weak.</p>
+<p>Recent TaskBoard-style runs showed:</p>
+<ul>
+<li>Model receives &quot;Edit proposal failed: crushed&quot; or a shrink-stub reason.</li>
+<li>It then either retries almost the identical bad payload, or escalates to an even larger full-file rewrite that also fails.</li>
+<li>Or it gives up and claims success in the final answer even though the proposal was never accepted.</li>
+<li>The turn either loops on the same file or ends in a degraded state (user sees partial or broken results).</li>
+</ul>
+<p>Existing mechanisms (escalation nudges after 2 failures, partial-batch honesty, creation recovery, <code>buildSearchReplaceEscalationNudge</code>, <code>buildHarnessEditRecoveryBrief</code>) exist but are not consistent enough, not specific enough about *what the model should do on the very next attempt*, and do not always prevent the model from claiming disk success when no valid proposal was produced.</p>
+<h3>Goals</h3>
+<ol>
+<li>Make every rejection carry a tight, actionable, &quot;what to do on the next tool round&quot; instruction (e.g. &quot;Re-read the exact section with startLine/maxLines from <code>rawContent</code>. Then produce <strong>one</strong> clean, properly formatted full replacement for *only* the rejected path using the <code>edit</code> tool or a minimal <code>propose_file_edits</code> — do not rewrite unrelated code.&quot;).</li>
+<li>Add or strengthen per-turn guards so the same file cannot be the source of &gt;2–3 rejections without forcing a final answer or a very narrow recovery path.</li>
+<li>Ensure final-answer contracts and runner logic forbid the model from claiming &quot;the file was updated&quot; or &quot;the plan step is complete&quot; when the last proposal for that path was rejected.</li>
+<li>Make the recovery path for the two most common cases (crushed formatting + destructive shrink) extremely directive and consistent.</li>
+</ol>
+<h3>Narrow acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Every rejection path (crushed, shrink, corrupt, partial batch, validation) produces a recovery message that tells the model (a) why it was rejected, (b) the single recommended next action (re-read + targeted <code>edit</code> vs clean minimal full replacement), and (c) &quot;do not claim success until you receive an <code>ok: true</code> tool result&quot;.</li>
+<li><input type="checkbox" disabled> A per-file rejection counter (or reuse/enhance of existing failure counts) in the turn state limits repeated attempts on the same rejected path within one turn; after the limit the runner injects a strong final guidance or forces final answer.</li>
+<li><input type="checkbox" disabled> Final-answer contract sections (edit-intent, post-plan, Work iterative, greenfield execute) contain explicit &quot;if your last proposal on path X was rejected, you may not claim the change succeeded&quot; language.</li>
+<li><input type="checkbox" disabled> In a repro scenario (intentionally bad proposal → rejection → recovery), the model receives directed guidance and either produces a clean follow-up or honestly reports the remaining work instead of claiming victory.</li>
+<li><input type="checkbox" disabled> No change to successful happy-path proposals.</li>
+<li><input type="checkbox" disabled> Relevant tests (runner evaluation, final-answer contract tests, proposal tests) updated; <code>npm run typecheck</code> + <code>npm run test</code> pass.</li>
+</ul>
+<h3>Files / areas that should be touched (tight scope)</h3>
+<ul>
+<li><code>src/shared/agent-final-answer-contract.ts</code> — <code>buildSearchReplaceEscalationNudge</code>, <code>buildHarnessEditRecoveryBrief</code>, <code>buildCreationIncrementalRecoveryNudge</code>, <code>buildPartialBatchProposalNudge</code>, <code>buildCrushedJavaScriptProposalNudge</code>, and the various appendix builders.</li>
+<li><code>src/main/agent-runner.ts</code> — the places that decide to inject recovery nudges and the logic that prevents &quot;success&quot; claims after rejection (around edit proposal handling and final answer construction).</li>
+<li><code>src/shared/agent-edit-failure-context.ts</code> and/or <code>src/shared/agent-regenerate-proposal.ts</code> — failure context and regenerate guidance.</li>
+<li><code>src/main/agent-tool-executor.ts</code> — if richer rejection payloads need to be shaped for the model.</li>
+<li>Test files: <code>src/shared/agent-final-answer-contract.test.ts</code>, <code>src/main/agent-runner-evaluation.test.ts</code> (use or extend existing failure tags).</li>
+</ul>
+<h3>What is explicitly out of scope</h3>
+<ul>
+<li>Redesign of the entire edit proposal / merge / accumulation system (keep the existing batch + merge behavior).</li>
+<li>New UI surfaces for the human (this is about model-facing recovery messaging and loop control).</li>
+<li>Changes to the underlying validation rules themselves (<strong>146</strong> and <strong>147</strong> cover pre-validation and anti-crush).</li>
+<li>Incremental editing routing strategy (<strong>148</strong>).</li>
+<li>Adding new tool calls or major changes to how proposals are stored.</li>
+</ul>
+<h3>Related</h3>
+<ul>
+<li><strong><a href="124-greenfield-executor-code-quality-and-proposal-recovery.md">124</a></strong>, <strong><a href="134-harness-conflict-recovery-activity-honesty.md">134</a></strong>, <strong><a href="092-agent-edit-failure-self-correction.md">092</a></strong> — the recovery ancestors this makes more reliable.</li>
+<li><strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong> + <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="138-iterative-work-search-replace-escalation.md">138</a></strong>, <strong><a href="140-search-replace-failure-loop-observability.md">140</a></strong> — failure counting and escalation siblings.</li>
+<li><strong><a href="144-consolidate-incremental-work-edit-policy.md">144</a></strong> — the policy that this recovery guidance must stay consistent with.</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table (add 149), run <strong><code>npm run stories:html</code></strong>. Consider a one-line addition to <a href="../../docs/harness-eval-checklist.md"><code>docs/harness-eval-checklist.md</code></a> § proposal recovery if the manual repro steps change.</p>
         </div>
       </details>
     </section>

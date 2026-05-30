@@ -14,8 +14,9 @@ export const AGENT_TOOLSET_READ_ONLY: readonly AgentChatToolName[] = [
 ] as const
 
 export const AGENT_TOOLSET_EDIT: readonly AgentChatToolName[] = [
-  'search_replace',
-  'propose_file_edits',
+  'edit',           // Preferred structured edit tool (Pi-style precise replacements). Use this for modifications.
+  'search_replace', // Legacy alias (still works during transition). Will be removed in a future version.
+  'propose_file_edits', // Primarily for new files or very large refactors now.
 ] as const
 
 export const AGENT_TOOLSET_COMMAND: readonly AgentChatToolName[] = ['run_command'] as const

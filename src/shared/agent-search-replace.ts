@@ -2,7 +2,7 @@ import {
   hasDominantLiteralEscapedNewlines,
   unescapeLiteralNewlinesWhenDominant,
 } from './agent-file-content-normalize'
-import { applyEdits, normalizeForFuzzyMatch } from './agent-edit-fuzzy'
+import { applyEdits } from './agent-edit-fuzzy'
 
 const NOT_FOUND_MESSAGE_MAX_CHARS = 500
 

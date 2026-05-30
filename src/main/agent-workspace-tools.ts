@@ -15,6 +15,7 @@ import { isPathUnderProjectAgentOffload } from './agent-offload-store'
 import { isPathUnderProjectAgentPlans } from './agent-plan-store'
 import { isPathUnderProjectChatStaging, toolPathLabelForAgent } from './chat-attachment-staging'
 import { AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE, AGENT_TOOL_MAX_OPS } from '../shared/agent-tool-contract'
+import { CODE_QUALITY_CONTRACT_SHORT } from '../shared/agent-code-quality-contract'
 import { AGENT_CONTEXT_BUDGETS } from '../shared/agent-context-budget-contract'
 import { needsSourceLayoutRepair } from '../shared/agent-file-content-normalize'
 import { computeAgentContentHash } from './agent-content-hash'
@@ -113,7 +114,7 @@ export const AGENT_TOOL_DEFINITIONS = [
     function: {
       name: 'read_file',
       description:
-        'Read a capped line range from a text file under the workspace roots. The JSON result includes contentHash (SHA-256 of the full file on disk) — copy it into expectedContentHash on write_file, search_replace, or propose_file_edits for existing files. Use rawContent (exact file text) as the source for edits — do not copy the line-numbered content field. For large files before editing, use startLine and maxLines to read the relevant section instead of guessing unseen content.',
+        'Read a capped line range from a text file under the workspace roots. The JSON result includes contentHash (SHA-256 of the full file on disk) — copy it into expectedContentHash on `edit` (preferred), search_replace (legacy), or propose_file_edits write_file for existing files. Use rawContent (exact file text) as the source for constructing oldText values in the `edit` tool. For large files before editing, use startLine and maxLines to read the relevant section instead of guessing unseen content.',
       parameters: {
         type: 'object',
         properties: {
@@ -131,7 +132,7 @@ export const AGENT_TOOL_DEFINITIONS = [
     function: {
       name: 'search_replace',
       description:
-        'Apply one or more targeted text replacements to an existing file and create a diff review proposal (does not write to disk until the user applies). This is the preferred surgical edit tool. Supports legacy single-edit and preferred multi-edit (edits[]) form. Strong fuzzy + normalization (whitespace, quotes, dashes, line endings, extra blank lines) + closest-match diagnostics on failure (returns actual file excerpts + suggested oldText you can copy). On repeated failures you will also receive suggestedMinimalProposal (a small localized write_file hunk) — use that with propose_file_edits instead of full-file rewrites. For follow-up edits on the same file in the same turn, the success result includes followUpGuidance. Always send expectedContentHash from the latest read_file contentHash.',
+        `**Legacy internal name.** The \`edit\` tool is the primary and preferred interface for all modifications (Pi-style structured multi-edit). This legacy form is still supported for compatibility but routes to the same implementation. ${CODE_QUALITY_CONTRACT_SHORT} Always send expectedContentHash. Prefer \`edit\` with edits[] for new work.`,
       parameters: {
         type: 'object',
         properties: {
@@ -165,6 +166,39 @@ export const AGENT_TOOL_DEFINITIONS = [
         required: ['path', 'expectedContentHash'],
         // old_string + new_string (legacy single) OR edits[] (preferred multi) must be present.
         // Validation for presence/shape happens in the executor + schema parser.
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'edit',
+      description:
+        'PRIMARY tool for modifying EXISTING files (Pi-style). Provide { path, edits: [{ oldText, newText }, ...], expectedContentHash }. Every oldText is matched exactly (or fuzzy) against the ORIGINAL file content at the snapshot identified by expectedContentHash — edits are NOT applied incrementally. Merge nearby changes into single entries; keep oldText minimal but unique. Never pad with large unchanged regions. Always produces a reviewable proposal. Use this for virtually all modifications. Reserve propose_file_edits write_file for new files or explicit large refactors.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Absolute path or path relative to the active workspace root.' },
+          edits: {
+            type: 'array',
+            description: 'One or more targeted replacements. All matched against the original snapshot (reverse-order apply for stability). No overlaps allowed between edits in one call.',
+            items: {
+              type: 'object',
+              properties: {
+                oldText: { type: 'string', description: 'Exact contiguous text from the original file (must occur exactly once). Include enough context to be unique.' },
+                newText: { type: 'string', description: 'Replacement text. Must be clean, readable, one statement per line, preserving style of surrounding code.' },
+              },
+              required: ['oldText', 'newText'],
+              additionalProperties: false,
+            },
+          },
+          expectedContentHash: {
+            type: 'string',
+            description: 'SHA-256 hex of the full original file from the read_file that produced this snapshot. Required for existing files.',
+          },
+        },
+        required: ['path', 'edits', 'expectedContentHash'],
         additionalProperties: false,
       },
     },
@@ -210,7 +244,7 @@ export const AGENT_TOOL_DEFINITIONS = [
     function: {
       name: 'propose_file_edits',
       description:
-        'Create a first-class GrokForge diff review proposal for workspace file changes. This does not write files; the user reviews and applies the proposal in the app. Each write_file must include complete file text from read_file rawContent, but prefer minimal edits for unchanged sections. For existing files: call read_file first and set expectedContentHash from contentHash. Rejected proposals return validation reasons (path scope, stale hash, crushed markdown, incomplete HTML, cascade guard). Use delete_file for single-file deletes. For several new files in the same task, include all write_file operations in one call (up to 32 ops).',
+        `Create a reviewable proposal. **Use ONLY for: (1) creating brand new files (write_file on paths that do not exist), or (2) deliberate full-file rewrites of existing files as part of a large structural refactor (rare — prefer the \`edit\` tool for normal modifications).** For virtually all changes to existing files, use the PRIMARY \`edit\` tool (structured edits[] against original snapshot). ${CODE_QUALITY_CONTRACT_SHORT} When write_file is appropriate, send the complete correct text from \`read_file\` \`rawContent\`.`,
       parameters: {
         type: 'object',
         properties: {
@@ -233,7 +267,7 @@ export const AGENT_TOOL_DEFINITIONS = [
                       type: 'string',
                       maxLength: AGENT_TOOL_MAX_CONTENT_CHARS_PER_FILE,
                       description:
-                        'Complete file text required by the protocol. Base this on read_file output and change only what the request needs; preserve indentation and line breaks for unchanged sections (do not minify). Use real line breaks (standard JSON escaping)—never the whole file on one line and not the literal two-character sequence backslash-n. One-line files make // comments swallow the rest of the source.',
+                        `Complete file text from \`read_file\` \`rawContent\`. ${CODE_QUALITY_CONTRACT_SHORT} Preserve indentation and comments for unchanged sections. Never emit one-line or glued code.`,
                     },
                     expectedContentHash: {
                       type: 'string',

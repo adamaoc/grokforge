@@ -25,6 +25,7 @@ import {
   SCAFFOLD_STRATEGY_ROUTING_MARKER,
   type ScaffoldStrategy,
 } from './agent-scaffold-strategy'
+import { getCodeQualityContractBlock } from './agent-code-quality-contract'
 import {
   buildNpmCreateViteCommand,
   SCAFFOLD_COMMAND_EXAMPLES,
@@ -65,22 +66,22 @@ const GREENFIELD_PLAN_SECTIONS: readonly string[] = [
   '- **Static site (vanilla):** list `index.html`, `styles.css`, `script.js` with external `<script src="script.js">` — no `package.json` unless the user asked for a build tool.',
   '**File list:** Every `filesLikelyTouched` entry and each step title must name **concrete paths** under workspace roots (e.g. `src/App.tsx`, `package.json`, `index.html`) — no vague “add components” without paths.',
   '**Dependencies:** When the app needs npm, include `package.json` in `filesLikelyTouched`, an install step, and name verification commands (`npm install`, `npm run typecheck`, `npm test`) in `verification` and in step titles where appropriate.',
-  '**Verification:** Include at least one **command-shaped** string the executor can run via approvable `run_command` — not browser-only checks for local static assets.',
-  '- **Static (`file_bootstrap`):** name a local serve command in `verification` and a step title (e.g. `npx --yes serve . -l 3000` or `python3 -m http.server 3000`), then manual browser UI check. User may substitute an equivalent serve command on their OS.',
-  '- **npm / Vite / React (`cli_scaffold`):** `npm install` (if needed), then `npm run dev`, `npm run typecheck`, or `npm run build` in `verification` and step titles.',
-  'Do **not** end with verification that is **only** “open in browser” when files are local HTML/CSS/JS — always include a preceding serve or build command.',
+  '**Verification:** Prefer concrete commands where useful, but for simple single-file or small vanilla static sites (just index.html + small CSS/JS, no package.json), "Open the generated index.html directly in a browser and verify the UI" is valid and preferred verification — it avoids unnecessary serve processes, approvals, and timeouts.',
+  '- **Simple static (`file_bootstrap` with 1-3 files):** browser-only or "files created and look correct" verification is encouraged. Optional lightweight serve only if the site is larger or live preview adds value.',
+  '- **Larger static or framework (`cli_scaffold` etc.):** name a serve / `npm run dev` / typecheck / build in `verification` and step titles as appropriate.',
+  'Do **not** force a dev server run for trivial single-file static HTML/CSS/JS apps.',
   '**Formatting:** Require real line breaks in HTML/CSS/JS — never one-line minified markup in the plan.',
   '**Tool budget:** Call `list_directory` once (plus retrieval if needed), then **stop discovery** and emit the `gf-plan` fence in your final answer — do not loop on more listing/search tools.',
 ]
 
 /** Final-answer pointer; detailed edit/search rules live in AGENT_TOOL_LOOP_SHARED. */
 export const EXECUTOR_FROM_PLAN_FINAL_ANSWER_POINTER =
-  'Follow the approved `gf-plan` step order from thread context. Do not replan from scratch. Apply **Agent tool loop** rules above for read-before-edit, `search_replace` vs `propose_file_edits`, and `run_command` approval. On static bootstrap, every planned path (especially **`script.js`**) must have **complete runnable** content before you finish — not empty placeholders.'
+  'Follow the approved `gf-plan` step order from thread context. Do not replan from scratch. Apply **Agent tool loop** rules: use the primary `edit` tool for modifications to existing files (precise edits[] against snapshot); use propose_file_edits write_file for new files or explicit large rewrites. On bootstrap, every planned path must have complete runnable content.'
 
 const EXECUTOR_FROM_PLAN_SECTIONS: readonly string[] = [
   '## Execute approved plan (harness 101)',
   'Follow the **approved `gf-plan` step order** from thread context. Do not replan from scratch or invent a new architecture unless a step is blocked.',
-  'Use **Agent tool loop** rules above for discovery, read-before-edit, localized `search_replace`, and `propose_file_edits` for new or multi-file work.',
+  'Use **Agent tool loop** rules: `edit` (primary for modifications to existing files) and propose_file_edits (new files or explicit large refactors).',
   'When the plan lists **install, scaffold, git init, or verification** steps (`npm install`, `npm create`, `git init`, `npm run typecheck` / `test` / `build`), call **`run_command`** with a clear `purpose` tied to the plan step — do **not** hand-roll `package.json` or skip CLI steps because file edits are available.',
   'When the approved plan lists **multiple concrete paths** (e.g. `index.html`, `styles.css`, `script.js`), bootstrap **every named file** — do not collapse all JavaScript into a crushed inline `<script>` in HTML unless the plan explicitly specifies a single-file app.',
   '**`script.js` (and app `.js`) on bootstrap:** never **empty**, placeholder-only, or missing core logic — include **runnable** code the plan describes (state, DOM/render helpers, event listeners, init on `DOMContentLoaded` or equivalent).',
@@ -96,19 +97,20 @@ function buildPostPlanIncrementalSections(): readonly string[] {
     'An **approved or superseded plan** already exists for this project. This turn is a **small incremental change** in Work mode — do **not** emit a new `gf-plan` or replan from scratch.',
     ...INCREMENTAL_EDIT_CONSERVATIVE_LINES,
     ...INCREMENTAL_EDIT_STRUCTURAL_CHANGE_LINES,
-    'Use read/search tools only as needed, then localized **`search_replace`** on existing files (default) or **`propose_file_edits`** for new paths / escalation after failed S&R. Follow the approved plan artifact in context when paths or steps are unclear.',
+    getCodeQualityContractBlock(),
+    'Use read/search tools only as needed, then the **`edit`** tool (structured precise replacements) for modifications to existing files. For post-plan incremental Work, **strongly prefer** the `edit` tool for small/localized changes. Reserve `propose_file_edits` for new files or when the user explicitly wants a large refactor/rewrite. Follow the approved plan artifact in context when paths or steps are unclear.',
     POST_PLAN_INCREMENTAL_ENFORCEMENT_LINE,
   ]
 }
 
 const SINGLE_FILE_EDIT_BIAS_SECTIONS: readonly string[] = [
   SINGLE_FILE_EDIT_BIAS_MARKER,
-  'This workspace has **one primary file** for app code. After **one** `read_file` on that file, prefer **one** `propose_file_edits` with the **full** file from `rawContent` (minimal edits to unchanged sections).',
-  'Do **not** chain three or more `search_replace` calls on the same path in one turn — use a single full-file proposal instead (GrokForge merges in-order S&R, but full-file proposals are more reliable for HTML/JS).',
+  'This workspace has **one primary file** for app code. After **one** `read_file`, prefer the **`edit`** tool (with one or more precise entries in the edits[] array drawn from rawContent) for modifications. This yields cleaner results than full-file proposals.',
+  'Reserve `propose_file_edits` write_file for new files or when the user explicitly wants a deliberate full rewrite of the primary file.',
 ]
 
 const POPULATED_STACK_HINT_SECTIONS: readonly string[] = [
-  'For Vite/React feature work, prefer editing **`src/App.tsx`** and co-located CSS with **localized** `search_replace` or **one** `propose_file_edits` per file — avoid re-reading the whole tree.',
+  'For Vite/React feature work on existing files, prefer the **`edit`** tool (precise oldText/newText from a prior read_file) for **`src/App.tsx`** and co-located CSS. One call can contain multiple disjoint edits when changes are related.',
 ]
 
 export const GREENFIELD_EXECUTE_CLI_MARKER = 'Harness: greenfield execute CLI'
@@ -120,11 +122,12 @@ export const GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS: readonly string[] = [
   'When the approved plan mentions **npm**, **install**, **scaffold**, or **git init**, prefer **`run_command`** first (`npm create`, `npm install`, `git init`) — then **`read_file`** / **`propose_file_edits`** only for customization. Do not invent a full template tree by hand when a CLI scaffold exists.',
   'For **vanilla static** plans without a build step, prefer **one `propose_file_edits`** with every new file the plan lists (`index.html`, `styles.css`, `script.js`, etc.) when the combined payload is reasonably small.',
   'When the plan names **`script.js`** (or another JS path), use **external** `<script src="script.js">` in HTML — do **not** put all application logic in a crushed inline `<script>` block.',
+  'For modifications to existing files, strongly prefer the **`edit`** tool (precise `edits[]` array) over full `propose_file_edits`. This produces much cleaner, higher-quality results.',
   'For **package.json** / **tsconfig.json** / **vite.config.***: emit **valid JSON** (double-quoted keys). Minified one-line JSON is acceptable if parseable; invalid JSON is rejected — prefer **`run_command`** (`npm create`, `npm init`) when the plan names a framework CLI.',
-  'Each `write_file` must be a **complete**, **multi-line** file (HTML with `</body></html>`, valid CSS, valid JS). Use real line breaks — not one-line stubs.',
+  'Each `write_file` (in propose_file_edits) must be a **complete**, **multi-line** file. Use real line breaks.',
   'HTML must use **plain UTF-8 text** in attributes and body copy — no HTML entity encoding (&#34;, &quot;) or JSON-style backslash-u escapes in the file body.',
   'In JavaScript (`script.js`, etc.): **one statement per line** with real line breaks — not a one-line stub. No glued `}function` / `}););`, no code after `//` on the same line, no orphan `)` lines; comments on their own lines only.',
-  '**`script.js` must be runnable:** include state, DOM/update helpers, and event wiring the plan describes — never an empty file, a lone `// TODO`, or logic deferred to HTML when the plan lists external JS.',
+  '**`script.js` (and all first-proposal code) must be runnable on the first write:** Before emitting the `propose_file_edits`, mentally review: (1) every DOM selector matches an element you created in the HTML, (2) event listeners are attached after the DOM exists (DOMContentLoaded, defer, or script after the elements), (3) no reference errors or undefined variables at runtime, (4) buttons / inputs actually trigger the intended logic. Fix any issues in the same proposal. Include state, DOM/update helpers, and event wiring the plan describes — never an empty file, a lone `// TODO`, or logic deferred to HTML when the plan lists external JS.',
   'After install/scaffold commands succeed, **`read_file`** new paths before editing; GrokForge refreshes the workspace index when commands create files.',
   'If GrokForge rejects one path in a multi-file proposal, retry with **complete bodies for the failed paths only** — other accepted files are already in the pending review.',
   SCAFFOLD_COMMAND_GUIDANCE_MARKER,
@@ -138,9 +141,9 @@ export const SCAFFOLD_STRATEGY_ROUTING_SECTIONS: readonly string[] = [
   'Pick **one strategy** per execute turn. **Never** mix CLI scaffold and hand-written template files in the **same tool round**.',
   '| Strategy | When | This turn / phase | After success |',
   '|----------|------|-------------------|---------------|',
-  '| **`cli_scaffold`** | Plan/user asks for Vite/React/npm template, `npm create`, or `npm init` | **`run_command` only** for create/install/init — **no** `propose_file_edits` / `search_replace` on template paths until CLI succeeds | `read_file` generated files; **`propose_file_edits` only for customization** |',
+  '| **`cli_scaffold`** | Plan/user asks for Vite/React/npm template, `npm create`, or `npm init` | **`run_command` only** for create/install/init — **no** edit tools on template paths until CLI succeeds | `read_file` generated files; `edit` (preferred) or `propose_file_edits` only for customization of existing |',
   '| **`file_bootstrap`** | Static multi-file site (HTML/CSS/JS) with **no** package manager / build step | **`propose_file_edits`** for all new paths — **no** `npm create` / `npm init` unless user explicitly asked | Optional **`run_command`** only for verify when plan names a command |',
-  '| **`cli_then_customize`** | Plan lists CLI step **then** customization files | **Phase 1:** command(s) only. **Phase 2** (after CLI success + index refresh): targeted edits only | Never interleave command + full-tree `write_file` in one tool round |',
+  '| **`cli_then_customize`** | Plan lists CLI step **then** customization files | **Phase 1:** command(s) only. **Phase 2** (after CLI success + index refresh): use `edit` tool for targeted modifications to generated files | Never interleave command + full write in one round |',
 ]
 
 function scaffoldStrategyDetailLine(strategy: ScaffoldStrategy): string {
@@ -182,22 +185,20 @@ export const AGENT_TOOL_LOOP_EXPLORE_RULES: readonly string[] = [
 /** Bounded discovery for iterative Work edits on existing projects (story 130). */
 export const AGENT_TOOL_LOOP_EXPLORE_RULES_ITERATIVE: readonly string[] = [
   'When the user names a feature without a path, use `search_workspace` once if needed — then `read_file` the target file. Do not ask for an absolute path unless search is ambiguous.',
-  'On edit intents in an existing project: spend at most **two** read-only tool rounds before `propose_file_edits` or `search_replace` — do not loop on broad discovery.',
+  'On edit intents in an existing project: spend at most **two** read-only tool rounds before using the `edit` tool (preferred for modifications) — do not loop on broad discovery.',
 ]
 
 /** Shared tool-loop rules excluding explore (assembled per turn via buildAgentToolLoopSharedSections). */
 export const AGENT_TOOL_LOOP_CORE: readonly string[] = [
   'You may use the provided read/search tools to inspect this workspace before answering. Use tools when exact file contents or paths matter. You may request one-shot commands with run_command for tests, typecheck, git inspection, or diagnostics, but GrokForge will always ask the user before running model-requested commands. Do not claim a command ran unless the tool result says it ran. During tool planning, prefer tool calls over drafting the full answer; GrokForge will ask for the final response after tool use finishes.',
-  'For localized edits on existing files, prefer `search_replace` with an exact old_string that appears once, or `propose_file_edits` with minimal full-file content. Both create a GrokForge diff review without writing disk until the user applies. Use full `write_file` only for new files or intentional whole-file rewrites.',
-  'Multiple `search_replace` calls on the **same file in one turn** are applied **in order** on the in-memory proposal (each patch builds on the prior). For many unrelated regions (e.g. restyle + markup + script), prefer one larger `search_replace` with a unique `old_string`, or a single `propose_file_edits` with the full file.',
-  'For any **existing** file you modify, you MUST call `read_file` on that path earlier in this same turn before `propose_file_edits` or a write fence. New files do not require a prior read.',
-  'Copy `contentHash` from `read_file` into `expectedContentHash` on `search_replace` and `propose_file_edits` write ops for existing files. Re-read if the file may have changed on disk.',
-  'Each `write_file` must contain complete file text with **real line breaks** (never one semicolon-separated line for the whole file). Base proposals on `read_file` `rawContent` (not the line-numbered `content` field): preserve indentation and line breaks for unchanged sections. Use `startLine` / `maxLines` when reading large files before editing.',
-  '**Code layout (HTML/CSS/JS/TSX):** `.js` / `.ts` **`write_file` bodies** must be **readable multi-line source** — **one statement per line**, never a single minified line. Avoid glued tokens (`}function`, `}););`, `[] function`, `const x = 1 return y`). Put each `//` comment on its own line with **no executable code after `//` on the same line**; do not emit orphan `)` or `};` on a line by itself. Each `import` on its own line (never `from \'react\'import`). GrokForge **rejects** crushed scripts before diff review. In React/TSX use normal `className="..."` quotes. External `<script src="...">` when the plan lists a separate `.js` path.',
-  '**Bootstrap / new `.js` files:** `write_file.content` must be **non-empty** and **runnable** — include init, state, render/update helpers, and handlers the feature needs; empty bodies and placeholder-only scripts are rejected.',
-  '**Surgical edits:** For existing files **~80+ lines** or several unrelated regions, prefer localized **`search_replace`** or a **minimal** full-file proposal that changes only what the request needs — do not rewrite the entire file in one crushed dump. Split large multi-file work across focused proposals when possible.',
-  'When creating **multiple new files** in one task (e.g. bootstrap), prefer **one** `propose_file_edits` call with several `write_file` operations (up to 32), not separate calls per file — but each `write_file` body must still be complete and multi-line.',
-  'When the user reports **syntax errors** or broken formatting in an existing file, call `read_file`, then one `propose_file_edits` with the **full** file from `rawContent` — do not loop on `search_replace` against crushed one-line scripts.',
+  'PRIMARY edit primitive for **existing files**: the **`edit`** tool (structured { path, edits: [{ oldText, newText }, ...], expectedContentHash }). Every oldText is matched against the original snapshot from read_file (Pi-style, not incremental). Use one call with multiple entries in edits[] for several closely-related changes in the same file. This is the reliable, high-quality path for virtually all modifications.',
+  'For any **existing** file you modify with `edit`, `search_replace` (legacy), or propose write_file, you MUST have called `read_file` on that path earlier in the same turn and pass its `contentHash` as expectedContentHash. New files (write_file via propose_file_edits) do not require a prior read.',
+  'Copy `contentHash` from `read_file` into `expectedContentHash` when using `edit` (preferred), legacy search_replace, or propose_file_edits write ops on existing files.',
+  'Legacy `search_replace` (single old_string/new_string or edits[]): supported for compatibility and very simple single-hunk cases, but prefer the dedicated `edit` tool for all new modification work.',
+  'Each `write_file` (only via propose_file_edits, and only appropriate for new files or explicit large refactors) must contain complete file text with **real line breaks**. Base on `read_file` `rawContent`. Preserve indentation/comments for unchanged sections. Use startLine/maxLines for large files.',
+  '**Code Quality (non-negotiable, strictly enforced on medium+ files):** All output must be clean, readable, professional source with **one statement per line** and real line breaks. On files > ~80 lines: zero tolerance for glued statements, minified output, or runs of lines without proper breaks — GrokForge will hard-reject and force re-read + clean rewrite. See the strengthened Code Quality Contract (injected below) for full rules.',
+  'When creating **multiple new files**, prefer **one** `propose_file_edits` with several `write_file` ops (each body complete and multi-line).',
+  'When syntax or formatting is broken in an existing file: `read_file` (full or relevant range), then use the **`edit`** tool with precise clean replacements for the broken regions. Only fall back to a full clean `propose_file_edits` write_file if the `edit` approach is impractical for the scope.',
   'Large tool results may be replaced with an offload pointer (`offloaded: true`); use `read_file` on `offloadPath` to load the full text.',
 ]
 

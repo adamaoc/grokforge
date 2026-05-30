@@ -21,7 +21,10 @@ import {
 } from '../shared/agent-file-content-normalize'
 import { AgentToolBatchPayloadSchema } from '../shared/agent-tool-schema'
 import { assessEditCascadeGuard } from '../shared/agent-edit-cascade-guard'
-import { assessProposalWriteContent } from '../shared/agent-edit-corrupt-content'
+import {
+  assessProposalWriteContent,
+  detectObviousCrushedRawContent,
+} from '../shared/agent-edit-corrupt-content'
 import {
   diagnoseMarkdownProposalRepair,
   formatMarkdownProposalDiagnostics,
@@ -33,6 +36,7 @@ import {
   SEARCH_REPLACE_SHRINK_STUB_REASON,
   tryRepairMarkdownProposalFromDisk,
 } from '../shared/agent-proposal-quality'
+import { JAVASCRIPT_CODE_QUALITY_RULES } from '../shared/agent-code-quality-contract'
 
 function isDevMode(): boolean {
   return process.env.NODE_ENV === 'development'
@@ -88,12 +92,13 @@ export function buildEditProposalValidationSummary(
  * Validation pipeline for `propose_file_edits` / search_replace-derived batches (order matters):
  * 1. Zod parse (`AgentToolBatchPayloadSchema`)
  * 2. Per op: resolve path → workspace roots + ignore rules + sensitive path block
- * 3. write_file: read-before-write guard → disk read → expectedContentHash (missing/stale)
- * 4. normalizeAgentWriteFileContent (+ layout repair passes)
- * 5. assessProposalWriteContent (integrity)
- * 6. search_replace path: destructive shrink check; else crushed-markdown repair/reject
- * 7. assessEditCascadeGuard (repeated S&R failures + large shrink)
- * 8. delete_file: hash guard when file exists
+ * 3. **NEW (146)**: Early raw-content pre-validation for propose_file_edits only (cheap regex + heuristics on the exact bytes the model sent, before any I/O or normalization)
+ * 4. write_file: read-before-write guard → disk read → expectedContentHash (missing/stale)
+ * 5. normalizeAgentWriteFileContent (+ layout repair passes)
+ * 6. assessProposalWriteContent (integrity)
+ * 7. search_replace path: destructive shrink check; else crushed-markdown repair/reject
+ * 8. assessEditCascadeGuard (repeated S&R failures + large shrink)
+ * 9. delete_file: hash guard when file exists
  * Empty accepted ops → `{ ok: false, error: formatProposalValidationError(rejected) }`
  */
 
@@ -159,7 +164,18 @@ export function validateAgentEditProposal(
       rejected.push({ path: op.path, reason: 'Path looks sensitive and is excluded from agent edit proposals' })
       continue
     }
+
     if (op.op === 'write_file') {
+      // Story 146: Early cheap pre-validation on *raw* content, before any disk I/O,
+      // normalization, or heavier integrity checks. Only for direct propose_file_edits.
+      if (options?.contentSource !== 'search_replace') {
+        const pre = detectObviousCrushedRawContent(op.content, resolved)
+        if (pre.crushed && pre.reason) {
+          rejected.push({ path: op.path, reason: pre.reason })
+          continue
+        }
+      }
+
       let fileExistsOnDisk = false
       if (existsSync(resolved)) {
         try {
@@ -199,6 +215,19 @@ export function validateAgentEditProposal(
       let normalizedContent = normalizeAgentWriteFileContent(op.content, resolved)
       for (let pass = 0; pass < 2 && needsSourceLayoutRepair(normalizedContent); pass += 1) {
         normalizedContent = normalizeAgentWriteFileContent(normalizedContent, resolved)
+      }
+
+      // Extra early guard for code files: if still jammed after normalization passes, reject with clear guidance
+      // before we get to general crushed checks. This helps prevent the exact failure mode on App.tsx etc.
+      if (/\.(tsx?|jsx?|js)$/.test(resolved) && needsSourceLayoutRepair(normalizedContent)) {
+        normalizedContent = normalizeAgentWriteFileContent(normalizedContent, resolved)
+        if (needsSourceLayoutRepair(normalizedContent)) {
+          rejected.push({
+            path: op.path,
+            reason: `Code proposal still looks crushed/jammed after normalization. ${JAVASCRIPT_CODE_QUALITY_RULES} Send the full clean multi-line source from \`read_file\` \`rawContent\`.`,
+          })
+          continue
+        }
       }
       const integrity = assessProposalWriteContent(normalizedContent, {
         resolvedPath: resolved,
@@ -248,14 +277,20 @@ export function validateAgentEditProposal(
               resolved,
             )
             logProposalValidationDev(resolved, originalOnDisk, normalizedContent, crushedReason)
+            const diag = diagnoseMarkdownProposalRepair(originalOnDisk, normalizedContent, resolved)
             const diagSuffix = isAgentEditDiagnosticsInToolErrorsEnabled()
-              ? ` (${formatMarkdownProposalDiagnostics(
-                  diagnoseMarkdownProposalRepair(originalOnDisk, normalizedContent, resolved),
-                )})`
+              ? ` (${formatMarkdownProposalDiagnostics(diag)})`
               : ''
+            let reason = crushedReason + diagSuffix
+
+            // Provide a suggested cleaned version when repair got close (high impact for model learning)
+            if (diag.repaired && isAgentEditDiagnosticsInToolErrorsEnabled()) {
+              reason += `\n\nSuggested cleaned version (consider using this):\n${diag.repaired.slice(0, 800)}...`
+            }
+
             rejected.push({
               path: op.path,
-              reason: crushedReason + diagSuffix,
+              reason,
             })
             continue
           }

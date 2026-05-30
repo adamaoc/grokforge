@@ -13,9 +13,23 @@ const staticPlan = {
   verification: 'Open in browser and test the todo app',
 }
 
+// Ultra-simple single-file static (the common vanilla Todo case) — should NOT force a serve command.
+const ultraSimpleStaticPlan = {
+  filesLikelyTouched: ['index.html'],
+  steps: [{ title: 'Create a single-file static todo app in index.html' }],
+  verification: 'Open index.html directly in the browser and verify the UI works',
+}
+
 const staticPlanWithServe = {
   ...staticPlan,
   verification: 'Run npx --yes serve . -l 3000, then open http://localhost:3000 in browser',
+}
+
+// Larger static site still benefits from (optional) serve suggestion.
+const largerStaticPlan = {
+  filesLikelyTouched: ['index.html', 'styles.css', 'script.js', 'app.js', 'utils.js'],
+  steps: [{ title: 'Create multi-file static site' }],
+  verification: 'Open in browser and test',
 }
 
 const vitePlan = {
@@ -36,8 +50,14 @@ describe('agent-plan-verification', () => {
     expect(verificationHasCommandLikeToken('Open in browser and test')).toBe(false)
   })
 
-  it('flags static plan with browser-only verification', () => {
-    expect(planNeedsVerificationCommand(staticPlan, 'file_bootstrap')).toBe(true)
+  it('does NOT require verification command for ultra-simple single-file static (browser-only is fine)', () => {
+    expect(planNeedsVerificationCommand(ultraSimpleStaticPlan, 'file_bootstrap')).toBe(false)
+    expect(suggestVerificationCommands(ultraSimpleStaticPlan, 'file_bootstrap').length).toBe(0)
+  })
+
+  it('still flags larger static plans that lack a command-like verification (serve optional but suggested)', () => {
+    // The old 3-file case is now treated as ultra-simple; use larger fixture for "still wants command-like"
+    expect(planNeedsVerificationCommand(largerStaticPlan, 'file_bootstrap')).toBe(true)
   })
 
   it('does not flag static plan when verification includes serve command', () => {
@@ -61,10 +81,13 @@ describe('agent-plan-verification', () => {
     expect(planNeedsVerificationCommand(vitePlan, 'cli_scaffold')).toBe(false)
   })
 
-  it('suggests serve commands for static file bootstrap', () => {
-    const suggestions = suggestVerificationCommands(staticPlan, 'file_bootstrap')
+  it('suggests serve commands for larger static file bootstrap (but not ultra-simple single-file)', () => {
+    const suggestions = suggestVerificationCommands(largerStaticPlan, 'file_bootstrap')
     expect(suggestions.some((s) => s.command.includes('npx'))).toBe(true)
     expect(suggestions.some((s) => s.command.includes('http.server'))).toBe(true)
+
+    // Ultra-simple should get zero suggestions (prefer direct open)
+    expect(suggestVerificationCommands(ultraSimpleStaticPlan, 'file_bootstrap').length).toBe(0)
   })
 
   it('suggests npm commands for vite plan', () => {
@@ -72,9 +95,13 @@ describe('agent-plan-verification', () => {
     expect(suggestions.some((s) => s.command.includes('npm'))).toBe(true)
   })
 
-  it('resolves hint from suggestions when verification is vague', () => {
-    const suggestions = suggestVerificationCommands(staticPlan, 'file_bootstrap')
-    expect(resolveVerificationHint(staticPlan, suggestions)).toMatch(/npx|serve/)
+  it('resolves hint from suggestions for larger static; empty/unchanged for ultra-simple', () => {
+    const suggestions = suggestVerificationCommands(largerStaticPlan, 'file_bootstrap')
+    expect(resolveVerificationHint(largerStaticPlan, suggestions)).toMatch(/npx|serve/)
+
+    // For ultra-simple, no forced serve hint
+    const simpleSuggestions = suggestVerificationCommands(ultraSimpleStaticPlan, 'file_bootstrap')
+    expect(resolveVerificationHint(ultraSimpleStaticPlan, simpleSuggestions)).toBe(ultraSimpleStaticPlan.verification)
   })
 
   it('prefers explicit verification text when command-like', () => {

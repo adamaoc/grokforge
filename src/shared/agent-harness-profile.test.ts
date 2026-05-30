@@ -110,8 +110,8 @@ describe('buildHarnessTurnPromptSections', () => {
     expect(joined).toContain(GREENFIELD_SCAFFOLD_MANIFEST_MARKER)
     expect(joined).toContain(GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER)
     expect(joined).toMatch(/Vite \+ React \+ TS/i)
-    expect(joined).toMatch(/npx --yes serve/i)
-    expect(joined).toMatch(/python3 -m http\.server/i)
+    // Relaxed for simple static: browser-only ok; serve language is now conditional/optional
+    expect(joined).toMatch(/browser-only|Open index\.html directly|lightweight serve|ultra-simple|simple static/i)
   })
 
   it('includes greenfield execute strategy routing when scaffoldStrategy set', () => {
@@ -160,7 +160,7 @@ describe('buildHarnessTurnPromptSections', () => {
     expect(text).toContain(POST_PLAN_INCREMENTAL_MARKER)
     expect(text).toMatch(/do \*\*not\*\* emit a new `gf-plan`/i)
     expect(text).toMatch(
-      /localized \*\*`search_replace`\*\* on existing files \(default\) or \*\*`propose_file_edits`\*\*/i,
+      /primary.*`edit`.*tool.*modifications.*existing|propose_file_edits.*new files/i,
     )
   })
 
@@ -191,7 +191,7 @@ describe('buildHarnessTurnPromptSections', () => {
     expect(sections.join('\n')).toContain('src/App.tsx')
     expect(sections.join('\n')).toMatch(/do \*\*not\*\* emit a new `gf-plan`/i)
     expect(sections.join('\n')).toMatch(/persistence|script\.js/i)
-    expect(sections.join('\n')).toMatch(/Do \*\*not\*\* call `read_file` again/i)
+    expect(sections.join('\n')).toMatch(/Do \*\*not\*\* re-read a path you already successfully edited/i)
   })
 
   it('uses bounded explore rules for iterative Work edits', () => {
@@ -206,8 +206,7 @@ describe('buildHarnessTurnPromptSections', () => {
     })
     const text = sections.join('\n')
     expect(text).toContain(WORK_ITERATIVE_EDIT_MARKER)
-    expect(text).toMatch(/Default tool \(existing files\)/i)
-    expect(text).toMatch(/search_replace/i)
+    expect(text).toMatch(/primary.*edit.*tool|Default.*preferred.*tool for modifications/i)
     expect(text).toMatch(/propose_file_edits/i)
     expect(text).not.toContain('## Work iterative search_replace quality')
   })

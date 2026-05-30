@@ -73,7 +73,7 @@ export function formatAgentEditFailureSystemMessage(event: AgentEditFailureEvent
     '',
     'Next steps for the agent:',
     '1. Call read_file on each path you will modify (use contentHash from the result).',
-    '2. Propose a corrected edit with expectedContentHash on writes/search_replace.',
+    '2. Propose a corrected `edit` (preferred) or search_replace with expectedContentHash.',
     '3. Make the smallest change that fixes the failure; do not repeat the same broken proposal.',
   )
 
@@ -114,7 +114,7 @@ export function buildFixFailedEditFollowUpMessage(
     '',
     'Before proposing again:',
     '1. Call read_file on each existing file you will modify in this same turn (use contentHash from the result).',
-    '2. Use expectedContentHash on search_replace and propose_file_edits writes for existing files.',
+    '2. Use expectedContentHash on `edit` (primary), search_replace (legacy), and propose_file_edits writes for existing files.',
     '3. Make the smallest faithful change; do not repeat the same full-file rewrite unless required.',
   )
 

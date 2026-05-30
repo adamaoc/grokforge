@@ -455,7 +455,30 @@ The goal is to provide a lightweight app.
     )
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected reject')
-    expect(result.proposal?.rejected[0]?.reason).toMatch(/full.*script/i)
+    // Story 146: Early raw pre-validation may now fire first with a general crushed reason.
+    const reason = result.proposal?.rejected[0]?.reason ?? ''
+    expect(reason).toMatch(/crushed|corrupt|script|rawContent/i)
+  })
+
+  it('pre-validates raw crushed content early for propose_file_edits (story 146)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'gf-agent-proposal-'))
+    // Extremely long single-line glued blob — reliably triggers the early raw pre-validation
+    const rawCrushed = 'const todos=[];function save(){localStorage.setItem("t",JSON.stringify(todos));}function init(){render();}updateCount();})// listenersfunction setup(){form.addEventListener("submit",onSubmit);}const x=1;function a(){}function b(){return x+1}document.getElementById("root").innerHTML="hi";'.repeat(3)
+
+    const result = validateAgentEditProposal(
+      {
+        version: AGENT_TOOL_PROTOCOL_VERSION,
+        operations: [{ op: 'write_file', path: join(root, 'app.js'), content: rawCrushed }],
+      },
+      env(root),
+      // Explicitly not search_replace path → triggers early pre-validation
+      { contentSource: 'propose' },
+    )
+
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('expected early pre-validation rejection')
+    const reason = result.proposal?.rejected[0]?.reason ?? ''
+    expect(reason).toMatch(/crushed or minified|glued|pre-validation|rawContent/i)
   })
 
   it('accepts valid paths and rejects corrupt script.js in same batch', () => {
@@ -513,7 +536,10 @@ The goal is to provide a lightweight app.
 
     expect(result.ok).toBe(false)
     if (result.ok) throw new Error('expected corrupt rejection')
-    expect(result.proposal?.rejected[0]?.reason).toBe(AGENT_EDIT_CORRUPT_CONTENT_REASON)
+    // Story 146: Early pre-validation may now catch this first with a more general "crushed" reason.
+    // We only care that it was rejected for corruption-related reasons.
+    const reason = result.proposal?.rejected[0]?.reason ?? ''
+    expect(reason).toMatch(/corrupt|crushed|orphan/i)
   })
 
   it('rejects truncated HTML document proposals', () => {

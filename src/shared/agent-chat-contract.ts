@@ -102,6 +102,7 @@ export type AgentChatToolName =
   | 'read_file'
   | 'search_workspace'
   | 'search_replace'
+  | 'edit'              // New preferred structured edit tool (Pi-style)
   | 'run_command'
   | 'propose_file_edits'
   | 'spawn_subagent'

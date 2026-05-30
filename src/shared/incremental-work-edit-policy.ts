@@ -67,19 +67,15 @@ export function buildIncrementalEditHarnessSections(
     ...INCREMENTAL_EDIT_CONSERVATIVE_LINES,
     ...INCREMENTAL_EDIT_STRUCTURAL_CHANGE_LINES,
     'This is an **existing project** — do **not** emit a new `gf-plan` or replan from scratch.',
-    '**Turn goal:** One user request → one reviewable edit proposal (merged **`search_replace`** patches and/or **`propose_file_edits`** — often **1–2 related files**). When changes are closely related and part of the same request, group them in that single proposal; split only unrelated work across turns.',
-    '**Default tool (existing files):** After **one** `read_file` per path, use **`search_replace`** (or one `propose_file_edits`) with an exact `old_string` from **`rawContent`** for small/medium localized changes. When the request describes several closely-related adjustments that form one logical unit (title + styling, feature + handler, etc.), include the coordinated pieces together in the same proposal rather than one tiny piece per turn.',
-    '**Fallback to `propose_file_edits` only when:** the path is **new**; the change is large/structural across many regions where multiple S&R would be worse; the file is crushed/one long line or under ~20 lines; or **≥2** failed `search_replace` on that path this turn.',
-    'Do **not** use `propose_file_edits` to replace an existing multi-line file with a 1–2 line stub when a targeted `search_replace` would suffice — GrokForge rejects destructive shrink proposals.',
-    'If the user asked to **add** or **tweak** something, proposals on existing files must **preserve or extend** working code — dramatic shrink (>50% lines/chars) is blocked unless they explicitly asked for a rewrite.',
+    '**Turn goal:** One user request → one reviewable edit proposal (typically via the primary **`edit`** tool, occasionally a focused `propose_file_edits` for new files or large refactors). When closely-related changes belong together, group them in one tool call (multiple edits[] entries for the same file, or a small multi-file batch).',
+    '**Default (and strongly preferred) tool for modifications to existing files:** After **one** `read_file` per path, use the **`edit`** tool with a precise `edits[]` array (oldText/newText pairs matched against the original snapshot). This is the Pi-style primitive that produces the cleanest, most reliable results. Multiple related adjustments belong in a single `edit` call. For small, localized, incremental changes on existing files, **do not** default to full `propose_file_edits` — stay surgical with `edit`.',
+    'Use `propose_file_edits` (write_file) **only** when the path is **new**, or when the user explicitly requests a deliberate full rewrite / major refactor. For routine modifications or small follow-ups on existing files, full-file proposals are strongly discouraged.',
+    'Preserve or extend working code on existing files. Dramatic shrink proposals are blocked by the harness unless the user explicitly requested a rewrite.',
     activeHint,
-    'If **Active file** is set in context, `read_file` that path first before broad `search_workspace` / `list_directory`.',
+    'If **Active file** is set in context, `read_file` that path first before broad discovery.',
     `Spend at most **${INCREMENTAL_EDIT_POLICY.discoverySaturationMinRounds}** read-only tool rounds before the first edit on this turn.`,
-    'When (re)building **`script.js`** or rewriting a crushed script: send the **complete** file with real line breaks in `write_file.content` — never paste a minified one-liner; if validation failed once, fix formatting (one statement per line) before retrying logic.',
-    'Up to **2** `search_replace` calls per path per turn when the ask needs two localized regions; after **2 failed** matches on a path, escalate to **one** full-file `propose_file_edits` from `read_file` **`rawContent`**.',
-    'Do **not** call `read_file` again on a path you already edited this turn unless `search_replace` failed on that path.',
-    `After **2** failed \`search_replace\` on a path, use one full-file \`propose_file_edits\` from \`read_file\` **\`rawContent\`** (${EDIT_SEARCH_REPLACE_ESCALATION_MARKER}).`,
-    'When using `search_replace`: copy `old_string` only from `read_file` **`rawContent`**; include 3–8 complete context lines; pass `expectedContentHash`. Skip S&R when the file is one long line or under ~20 lines — use `propose_file_edits` instead.',
+    'When editing a crushed or minified script: `read_file`, then use **`edit`** with clean, properly formatted replacement block(s) (one statement per line). GrokForge now applies strict formatting rules on medium+ files — any remaining glued or minified output after normalization will be hard-rejected. Escalate to full `propose_file_edits` **only** after repeated `edit` tool failures on this path this turn, or if the user explicitly asked for a rewrite.',
+    'Do **not** re-read a path you already successfully edited this turn.',
     'Touch at most **2–3 paths** per turn unless the user listed more.',
     'Call **`run_command`** only when the user or plan implies install, scaffold, git, or verify — not for pure UI or component edits.',
   ]
@@ -91,7 +87,7 @@ export function buildIncrementalEditHarnessSections(
 
 /** One-line cross-reference for post-plan incremental turns (story 144). */
 export const POST_PLAN_INCREMENTAL_ENFORCEMENT_LINE =
-  'Same turn contract as Work iterative edits: one reviewable proposal, at most two read-only discovery rounds, then commit **`search_replace`** or **`propose_file_edits`**.'
+  'Same turn contract as Work iterative edits: one reviewable proposal via the primary `edit` tool for modifications on existing files (strongly preferred for incremental changes). Use propose_file_edits only for new files or explicit large rewrites. At most two read-only discovery rounds.'
 
 export type PickIncrementalEditMidTurnNudgeInput = {
   issued: ReadonlySet<IncrementalEditMidTurnNudgeKind>
@@ -154,7 +150,7 @@ export function incrementalEditMidTurnNudgeActivityDetail(
     case 'stop_reread':
       return 'Stop re-reading a file you already edited this turn — finalize the proposal or one corrective patch.'
     case 'commit_proposal':
-      return 'Escalate to one full-file propose_file_edits from rawContent after repeated search_replace failures.'
+      return 'After repeated surgical edit failures, consider one focused full-section edit — but prefer retrying the `edit` tool with better excerpts from rawContent first.'
     default: {
       const _exhaustive: never = kind
       return _exhaustive
@@ -176,15 +172,15 @@ export function buildIncrementalEditMidTurnNudge(
       return [
         header,
         'You called **`read_file`** on a path you already edited this turn.',
-        'Do **not** re-read edited paths unless `search_replace` failed — finalize with one corrective **`search_replace`** or escalate to **`propose_file_edits`**.',
+        'Do **not** re-read paths you already edited this turn. Use the `edit` tool for modifications; escalate to propose only for new/large-refactor cases.',
         'Follow **Work iterative edit (harness 130)** — commit one proposal, then stream the final answer.',
       ].join('\n')
     case 'commit_proposal':
       return [
         header,
-        `Repeated \`search_replace\` failures or edit thrash on ${pathHint} — **escalate** to **one** \`propose_file_edits\` with complete \`rawContent\` from the latest \`read_file\`.`,
+        `Repeated surgical \`edit\` tool failures on ${pathHint} — re-read the relevant section from \`rawContent\`, then retry with precise \`edit\` {edits[]} using better unique context. Only consider one clean \`propose_file_edits\` if the change is large/structural or the user explicitly asked for a rewrite.`,
         scope?.rationale ?? 'One reviewable proposal per turn.',
-        `After 2 failed search_replace on a path, full-file propose_file_edits is mandatory (${EDIT_SEARCH_REPLACE_ESCALATION_MARKER}).`,
+        `Stay surgical with the \`edit\` tool unless the scope genuinely requires a broader rewrite (${EDIT_SEARCH_REPLACE_ESCALATION_MARKER}).`,
       ].join('\n')
     default: {
       const _exhaustive: never = kind

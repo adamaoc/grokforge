@@ -115,8 +115,8 @@ describe('buildFinalAnswerContract', () => {
   it('adds HTML script guidance when escalation paths include .html', () => {
     const nudge = buildSearchReplaceEscalationNudge(['/proj/app/index.html'])
     expect(nudge).toMatch(/index\.html/i)
-    expect(nudge).toMatch(/propose_file_edits/)
-    expect(nudge).toMatch(/<script src/i)
+    expect(nudge).toMatch(/primary `edit` tool|propose_file_edits/)
+    expect(nudge).toMatch(/inline `<script>`|external `<script src/i)
   })
 
   it('builds incomplete HTML nudge with stable marker and closing-tag guidance', () => {
@@ -131,7 +131,7 @@ describe('buildFinalAnswerContract', () => {
     const nudge = buildCreationIncrementalRecoveryNudge(['/proj/app.js'])
     expect(nudge).toContain(EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER)
     expect(nudge).toMatch(/minimal viable/i)
-    expect(nudge).toMatch(/search_replace/i)
+    expect(nudge).toMatch(/primary.*`edit` tool|small scoped `propose_file_edits`/i)
     expect(nudge).not.toMatch(/Do not retry with one full multi-line script/i)
   })
 
@@ -175,7 +175,7 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toContain(EDIT_PARTIAL_BATCH_NUDGE_MARKER)
     expect(nudge).toContain('script.js')
     expect(nudge).toMatch(/2 file\(s\) are already in the pending diff review/i)
-    expect(nudge).toMatch(/only the rejected paths/i)
+    expect(nudge).toMatch(/Retry with \*\*one\*\* `propose_file_edits`/i)
     expect(nudge).toMatch(/one statement per line/i)
   })
 
@@ -226,15 +226,15 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toMatch(/npm install/)
   })
 
-  it('builds static file-bootstrap plan verify nudge with serve examples', () => {
+  it('builds static file-bootstrap plan verify nudge with relaxed serve guidance for simple sites', () => {
     const nudge = buildPlanVerifyCommandNudge({
       verificationHint: 'Open in browser and test',
       scaffoldStrategy: 'file_bootstrap',
       suggestedCommands: ['npx --yes serve . -l 3000'],
     })
     expect(nudge).toContain(PLAN_VERIFY_COMMAND_NUDGE_MARKER)
-    expect(nudge).toMatch(/npx --yes serve/i)
-    expect(nudge).toMatch(/python3 -m http\.server/i)
+    // Now relaxed: mentions direct open for simple static; serve is optional/larger-site only
+    expect(nudge).toMatch(/Open index\.html directly|simple single-file|lightweight serve/i)
     expect(nudge).not.toMatch(/npm create/)
   })
 
