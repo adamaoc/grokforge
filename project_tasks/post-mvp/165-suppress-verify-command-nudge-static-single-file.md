@@ -1,6 +1,6 @@
 # 165 — Suppress verify command nudge for static single-file HTML
 
-**Status:** Not started.
+**Status:** Done (2026-05-30).
 
 **Priority:** Medium — TaskBoard runs ended with `run_command` failure after file creation failed; nudge pushed serve/verify inappropriately.
 

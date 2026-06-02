@@ -310,9 +310,9 @@
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
         <span class="pill">164 stories</span>
-        <span class="pill">Done: 154</span>
+        <span class="pill">Done: 155</span>
         <span class="pill">Closed: 6</span>
-        <span class="pill">Post-MVP: 4</span>
+        <span class="pill">Post-MVP: 3</span>
         <span class="pill">Generated 2026-05-30</span>
       </div>
       <div class="story-filters">
@@ -12344,11 +12344,11 @@ console.log('post norm:', assessProposalWriteContent(norm, { resolvedPath: path,
 <li>Returns text unchanged on happy path (proposal created or no edit failures).</li>
 <li>When <code>hadEditFailures &amp;&amp; !editProposalCreated</code>: strips or replaces fenced blocks exceeding <strong>152</strong> caps with honest summary placeholder (e.g. “Code block removed — edit tools did not succeed; nothing was written to disk.”).</li>
 <li>Preserves small fenced snippets under caps if labeled as unapplied reference (optional v1: strip all fences on failed-create turns for simplicity — document choice).</li>
-<li><input type="checkbox" disabled> <code>ChatThread</code> (or markdown renderer wrapper) applies sanitizer to <strong>displayed</strong> assistant content for completed turns matching failure context.</li>
-<li><input type="checkbox" disabled> Existing toast from <code>assistantReplyClaimsEditSuccessDespiteNoProposal</code> still fires (don’t duplicate annoyingly — coordinate copy).</li>
-<li><input type="checkbox" disabled> Unit tests mirror <strong>156</strong> bad fallback example (<code>Here is your complete single-file HTML prototype…</code> + large fence) → sanitized output.</li>
-<li><input type="checkbox" disabled> No main-process change required for v1 (renderer-only enforcement acceptable).</li>
-<li><input type="checkbox" disabled> <code>npm run typecheck</code> + <code>npm run test</code> pass.</li>
+<li><input type="checkbox" disabled checked> <code>ChatThread</code> (or markdown renderer wrapper) applies sanitizer to <strong>displayed</strong> assistant content for completed turns matching failure context.</li>
+<li><input type="checkbox" disabled checked> Existing toast from <code>assistantReplyClaimsEditSuccessDespiteNoProposal</code> still fires (don’t duplicate annoyingly — coordinate copy).</li>
+<li><input type="checkbox" disabled checked> Unit tests mirror <strong>156</strong> bad fallback example (<code>Here is your complete single-file HTML prototype…</code> + large fence) → sanitized output.</li>
+<li><input type="checkbox" disabled checked> No main-process change required for v1 (renderer-only enforcement acceptable).</li>
+<li><input type="checkbox" disabled checked> <code>npm run typecheck</code> + <code>npm run test</code> pass.</li>
 </ul>
 <h3>Suggested implementation notes</h3>
 <ul>
@@ -12380,10 +12380,10 @@ console.log('post norm:', assessProposalWriteContent(norm, { resolvedPath: path,
 <p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-165" data-status="post-mvp">
+      <details id="story-165" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">165</span><span class="story-name">Suppress verify command nudge for static single-file HTML</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -12391,7 +12391,7 @@ console.log('post norm:', assessProposalWriteContent(norm, { resolvedPath: path,
             <a class="story-link" href="post-mvp/165-suppress-verify-command-nudge-static-single-file.md">post-mvp/165-suppress-verify-command-nudge-static-single-file.md</a>
           </div>
           <h2>165 — Suppress verify command nudge for static single-file HTML</h2>
-<p><strong>Status:</strong> Not started.</p>
+<p><strong>Status:</strong> Done (2026-05-30).</p>
 <p><strong>Priority:</strong> Medium — TaskBoard runs ended with <code>run_command</code> failure after file creation failed; nudge pushed serve/verify inappropriately.</p>
 <p><strong>Design skill:</strong> N/A (runner nudge policy + shared heuristics).</p>
 <p><strong>Depends on:</strong> <strong><a href="126-agent-terminal-command-execution.md">126</a></strong>, <strong><a href="132-greenfield-plan-verification-commands.md">132</a></strong>, <strong><a href="161-greenfield-work-bootstrap-prompt-appendix.md">161</a></strong>, <strong><a href="162-single-file-html-creation-recovery-exception.md">162</a></strong>.</p>

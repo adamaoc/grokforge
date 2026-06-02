@@ -202,7 +202,7 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 162 | Single-file HTML creation recovery exception **(done)** | [`post-mvp/162-single-file-html-creation-recovery-exception.md`](post-mvp/162-single-file-html-creation-recovery-exception.md) |
 | 163 | Direct Work TaskBoard greenfield eval **(done)** | [`post-mvp/163-direct-work-taskboard-greenfield-eval.md`](post-mvp/163-direct-work-taskboard-greenfield-eval.md) |
 | 164 | Renderer final-answer fence guard (enforce 152) **(done)** | [`post-mvp/164-renderer-final-answer-fence-guard.md`](post-mvp/164-renderer-final-answer-fence-guard.md) |
-| 165 | Suppress verify command nudge for static single-file HTML | [`post-mvp/165-suppress-verify-command-nudge-static-single-file.md`](post-mvp/165-suppress-verify-command-nudge-static-single-file.md) |
+| 165 | Suppress verify command nudge for static single-file HTML **(done)** | [`post-mvp/165-suppress-verify-command-nudge-static-single-file.md`](post-mvp/165-suppress-verify-command-nudge-static-single-file.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
@@ -232,6 +232,6 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **Prototype write failure recovery:** ~~**151**~~ same-path proposal failure stop **(done)** → ~~**152**~~ final-answer honesty **(done)** → ~~**153**~~ enforced creation recovery **(done)** → ~~**154**~~ new-file hash ergonomics **(done)** → ~~**155**~~ compact failure UI **(done)** → ~~**156**~~ TaskBoard regression eval **(done)**.
 
-**TaskBoard / single-file HTML harness stabilization (next):** ~~**160**~~ normalize-before-prevalidate **(done)** → ~~**161**~~ greenfield Work bootstrap prompts **(done)** → ~~**162**~~ single-file HTML recovery exception **(done)** → ~~**163**~~ direct Work TaskBoard eval **(done)** → ~~**164**~~ renderer fence guard **(done)** → **165** suppress verify nudge for static single-file.
+**TaskBoard / single-file HTML harness stabilization:** ~~**160**~~ normalize-before-prevalidate **(done)** → ~~**161**~~ greenfield Work bootstrap prompts **(done)** → ~~**162**~~ single-file HTML recovery exception **(done)** → ~~**163**~~ direct Work TaskBoard eval **(done)** → ~~**164**~~ renderer fence guard **(done)** → ~~**165**~~ suppress verify nudge for static single-file **(done)**.
 
-*Last progress update: **2026-05-30** — Shipped **163** (direct Work TaskBoard eval: `dogfood:taskboard_work_direct` + success paths); next **164–165**.*
+*Last progress update: **2026-05-30** — Shipped **165** (`shouldInjectPlanVerifyCommandNudge` gate for static single-file HTML; completes TaskBoard stabilization wave **160–165**).*
