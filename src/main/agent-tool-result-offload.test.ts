@@ -17,7 +17,7 @@ vi.mock('./app-project-store', async () => {
   }
 })
 
-import { applyToolResultOffload } from './agent-tool-result-offload'
+import { applyToolResultOffload } from '../harness/compaction/tool-result-offload'
 
 const projectId = 'proj-apply'
 

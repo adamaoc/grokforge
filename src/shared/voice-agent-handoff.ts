@@ -3,8 +3,8 @@
  */
 
 import { AGENT_CHAT_MAX_USER_TEXT_CHARS } from './agent-chat-contract'
-import { HARNESS_CROSS_SURFACE_EXPLORE_RULES } from './agent-harness-profile'
-import type { HarnessProfileKey } from './agent-harness-profile-contract'
+import { HARNESS_CROSS_SURFACE_EXPLORE_RULES } from '../harness/profiles/harness-profile'
+import type { HarnessProfileKey } from '../harness/profiles/contracts/harness-profile-key'
 
 export type VoiceHandoffLine = {
   role: 'user' | 'assistant'

@@ -4,9 +4,9 @@
  */
 
 import { z } from 'zod'
-import { ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON } from './agent-edit-cascade-guard'
-import type { IterativeEditScopeKind } from './iterative-edit-scope'
-import type { IncrementalEditMidTurnNudgeKind } from './incremental-work-edit-policy'
+import { ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON } from '../harness/policy/edit/cascade-guard'
+import type { IterativeEditScopeKind } from '../harness/routing/iterative-edit-scope'
+import type { IncrementalEditMidTurnNudgeKind } from '../harness/policy/incremental/work-edit-policy'
 
 export const HARNESS_METRICS_MAX_NUDGES = 12 as const
 export const HARNESS_METRICS_MAX_SR_PATHS = 8 as const

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { GrokProjectManifest } from './manifest'
-import { runCommandInRootForAgent } from './run-command'
+import { runCommandInRootForAgent } from '../harness/tools/run-command'
 
 function manifestForRoot(root: string): GrokProjectManifest {
   return {

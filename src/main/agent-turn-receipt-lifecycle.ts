@@ -6,7 +6,7 @@ import {
   type AgentTurnReceipt,
   type TerminalTurnReceiptStatus,
 } from '../shared/agent-turn-receipt-contract'
-import { appendTurnReceipt, readLastTurnReceipt } from './agent-turn-receipt-store'
+import { appendTurnReceipt, readLastTurnReceipt } from '../harness/session/turn-receipt-store'
 
 type ActiveTurnReceiptState = {
   projectId: string

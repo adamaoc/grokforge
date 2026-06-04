@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveHarnessProfileKey } from './agent-harness-profile-contract'
+import { resolveHarnessProfileKey } from '../harness/profiles/contracts/harness-profile-key'
 
 describe('resolveHarnessProfileKey', () => {
   it('maps grok-build-0.1 and grok-code-fast-1 to grok_code_fast', () => {

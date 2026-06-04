@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { agentEditPathKey, isWriteFileBlockedWithoutRead } from './agent-edit-read-guard'
+import { agentEditPathKey, isWriteFileBlockedWithoutRead } from '../harness/policy/edit/read-guard'
 
 describe('isWriteFileBlockedWithoutRead', () => {
   const path = '/workspace/src/app.ts'

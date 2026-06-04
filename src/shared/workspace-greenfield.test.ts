@@ -4,7 +4,7 @@ import {
   planImpliesMultiFileBootstrap,
   planImpliesNpmScaffold,
   planImpliesStaticFileBootstrap,
-} from './workspace-greenfield'
+} from '../harness/context/workspace-greenfield'
 
 function indexFixture(overrides: {
   fileCountScanned?: number

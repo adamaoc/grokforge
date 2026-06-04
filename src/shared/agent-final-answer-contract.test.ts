@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { AGENT_TOOL_FENCE_INFO } from './agent-tool-contract'
-import { GF_PLAN_FENCE } from './gf-plan-contract'
+import { AGENT_TOOL_FENCE_INFO } from '../harness/tools/contracts/tool-contract'
+import { GF_PLAN_FENCE } from '../harness/plan/contracts/gf-plan-contract'
 import {
   buildFinalAnswerContract,
   resolveEditFinalAnswerHonestyContext,
@@ -29,7 +29,7 @@ import {
   PLAN_VERIFY_COMMAND_NUDGE_MARKER,
   shouldInjectPartialBatchProposalNudge,
   isLikelyEditIntent,
-} from './agent-final-answer-contract'
+} from '../harness/policy/final-answer/final-answer-contract'
 
 describe('buildFinalAnswerContract', () => {
   it('requires gf-plan and forbids edit tools when chatMode is plan', () => {

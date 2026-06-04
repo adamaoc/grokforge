@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildFinalAnswerContract } from './agent-final-answer-contract'
+import { buildFinalAnswerContract } from '../harness/policy/final-answer/final-answer-contract'
 import {
   appendHarnessProfileToSystemPrompt,
   buildAgentToolLoopSharedSections,
@@ -7,24 +7,24 @@ import {
   buildVoiceHarnessAppendix,
   getHarnessProfile,
   getHarnessProfileForModelId,
-} from './agent-harness-profile'
-import { POST_PLAN_INCREMENTAL_ENFORCEMENT_LINE } from './incremental-work-edit-policy'
+} from '../harness/profiles/harness-profile'
+import { POST_PLAN_INCREMENTAL_ENFORCEMENT_LINE } from '../harness/policy/incremental/work-edit-policy'
 import {
   POST_PLAN_INCREMENTAL_MARKER,
   SINGLE_FILE_EDIT_BIAS_MARKER,
-} from './post-plan-incremental'
-import { POPULATED_WORK_EDIT_MARKER } from './populated-workspace-edit'
-import { WORK_ITERATIVE_EDIT_MARKER, WORK_SURGICAL_EDIT_MARKER } from './iterative-work-edit'
-import { ITERATIVE_EDIT_SCOPE_MARKER, resolveIterativeEditScope } from './iterative-edit-scope'
-import { GREENFIELD_HARNESS_MARKER } from './workspace-greenfield'
-import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from './agent-plan-verification'
-import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER } from './agent-bootstrap-manifest'
-import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from './agent-scaffold-strategy'
+} from '../harness/plan/routing/post-plan-incremental'
+import { POPULATED_WORK_EDIT_MARKER } from '../harness/routing/populated-workspace-edit'
+import { WORK_ITERATIVE_EDIT_MARKER, WORK_SURGICAL_EDIT_MARKER } from '../harness/routing/iterative-work-edit'
+import { ITERATIVE_EDIT_SCOPE_MARKER, resolveIterativeEditScope } from '../harness/routing/iterative-edit-scope'
+import { GREENFIELD_HARNESS_MARKER } from '../harness/context/workspace-greenfield'
+import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from '../harness/plan/verification/plan-verification'
+import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER } from '../harness/context/bootstrap-manifest'
+import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from '../harness/routing/scaffold-strategy'
 import {
   GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS,
   GREENFIELD_EXECUTE_CLI_MARKER,
   GREENFIELD_WORK_BOOTSTRAP_MARKER,
-} from './agent-harness-profile'
+} from '../harness/profiles/harness-profile'
 
 describe('getHarnessProfile', () => {
   it('returns distinct profiles for grok_code_fast and grok_4_3', () => {

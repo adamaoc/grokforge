@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AgentProviderRequest } from '../shared/agent-turn-snapshot'
+import type { AgentProviderRequest } from '../harness/compaction/turn-snapshot'
 import { createRecordingTransport } from './agent-eval-recording-transport'
 
 describe('createRecordingTransport', () => {

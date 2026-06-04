@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import type { WorkspaceFsChangeReason, WorkspaceFsChangedPayload } from '../shared/workspace-fs-change-contract'
-import { refreshWorkspaceIndex } from './agent-index-store'
+import { refreshWorkspaceIndex } from '../harness/context/index-store'
 import type { GrokProjectManifest } from './manifest'
 
 const REFRESH_DEBOUNCE_MS = 750

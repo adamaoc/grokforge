@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { GF_PLAN_FENCE } from '../shared/gf-plan-contract'
+import { GF_PLAN_FENCE } from '../harness/plan/contracts/gf-plan-contract'
 
 const userDataRoot = mkdtempSync(join(tmpdir(), 'grokforge-plans-'))
 
@@ -25,7 +25,7 @@ import {
   planJsonPath,
   setPlanArtifactStatus,
   upsertPlanArtifactFromAssistantMessage,
-} from './agent-plan-store'
+} from '../harness/plan/store/plan-store'
 
 const projectId = 'proj-plan-test'
 

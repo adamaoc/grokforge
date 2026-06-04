@@ -7,14 +7,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { BrowserWindow } from 'electron'
 import type { AgentChatEventPayload, AgentChatStartPayload } from '../shared/agent-chat-contract'
 import type { GrokProjectManifest } from './manifest'
-import { AGENT_TOOL_MAX_ITERATIONS } from './agent-workspace-tools'
-import type { AgentChatModelTransport } from './agent-chat-model-transport'
-import { POPULATED_WORK_EDIT_MARKER } from '../shared/populated-workspace-edit'
-import { WORK_ITERATIVE_EDIT_MARKER } from '../shared/iterative-work-edit'
-import { INCREMENTAL_EDIT_MID_TURN_NUDGE_MARKER } from '../shared/incremental-work-edit-policy'
-import { ITERATIVE_EDIT_SCOPE_MARKER } from '../shared/iterative-edit-scope'
-import { GREENFIELD_HARNESS_MARKER } from '../shared/workspace-greenfield'
-import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from '../shared/agent-plan-verification'
+import { AGENT_TOOL_MAX_ITERATIONS } from '../harness/tools/workspace-tools'
+import type { AgentChatModelTransport } from '../harness/agent/chat-model-transport'
+import { POPULATED_WORK_EDIT_MARKER } from '../harness/routing/populated-workspace-edit'
+import { WORK_ITERATIVE_EDIT_MARKER } from '../harness/routing/iterative-work-edit'
+import { INCREMENTAL_EDIT_MID_TURN_NUDGE_MARKER } from '../harness/policy/incremental/work-edit-policy'
+import { ITERATIVE_EDIT_SCOPE_MARKER } from '../harness/routing/iterative-edit-scope'
+import { GREENFIELD_HARNESS_MARKER } from '../harness/context/workspace-greenfield'
+import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from '../harness/plan/verification/plan-verification'
 import {
   AGENT_EVAL_TAG_AGENT_EXECUTOR,
   AGENT_EVAL_TAG_AGENT_PLANNER,
@@ -70,13 +70,13 @@ import {
 import {
   POST_PLAN_INCREMENTAL_MARKER,
   SINGLE_FILE_EDIT_BIAS_MARKER,
-} from '../shared/post-plan-incremental'
-import { GF_PLAN_FENCE } from '../shared/gf-plan-contract'
-import type { StoredPlanArtifact } from '../shared/agent-plan-artifact'
-import { buildApprovedPlanExecuteUserText } from '../shared/agent-plan-artifact'
-import { planJsonPath } from './agent-plan-store'
-import { appendTurnReceipt } from './agent-turn-receipt-store'
-import { writeAgentTurnTrace } from './agent-turn-trace-store'
+} from '../harness/plan/routing/post-plan-incremental'
+import { GF_PLAN_FENCE } from '../harness/plan/contracts/gf-plan-contract'
+import type { StoredPlanArtifact } from '../harness/plan/contracts/plan-artifact'
+import { buildApprovedPlanExecuteUserText } from '../harness/plan/contracts/plan-artifact'
+import { planJsonPath } from '../harness/plan/store/plan-store'
+import { appendTurnReceipt } from '../harness/session/turn-receipt-store'
+import { writeAgentTurnTrace } from '../harness/logger/turn-trace-store'
 import { _resetTurnReceiptLifecycleForTesting } from './agent-turn-receipt-lifecycle'
 import { TURN_RECOVERY_HINT_MARKER } from '../shared/agent-turn-receipt-contract'
 import type { AgentTurnTraceV1 } from '../shared/agent-turn-trace-contract'
@@ -94,21 +94,21 @@ import {
   PLAN_VERIFY_COMMAND_NUDGE_MARKER,
   SCAFFOLD_STRATEGY_HONESTY_MARKER,
   SCAFFOLD_STRATEGY_NUDGE_MARKER,
-} from '../shared/agent-final-answer-contract'
-import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from '../shared/agent-scaffold-strategy'
+} from '../harness/policy/final-answer/final-answer-contract'
+import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from '../harness/routing/scaffold-strategy'
 import {
   GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS,
   GREENFIELD_EXECUTE_CLI_MARKER,
   GREENFIELD_WORK_BOOTSTRAP_MARKER,
-} from '../shared/agent-harness-profile'
-import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER, AGENT_EDIT_INVALID_JSON_MANIFEST_REASON } from '../shared/agent-bootstrap-manifest'
-import { assessProposalWriteContent } from '../shared/agent-edit-corrupt-content'
-import { AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON } from '../shared/agent-creation-recovery-enforcement'
-import { AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
+} from '../harness/profiles/harness-profile'
+import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER, AGENT_EDIT_INVALID_JSON_MANIFEST_REASON } from '../harness/context/bootstrap-manifest'
+import { assessProposalWriteContent } from '../harness/diff/edit-corrupt-content'
+import { AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON } from '../harness/policy/edit/creation-recovery'
+import { AGENT_TOOL_PROTOCOL_VERSION } from '../harness/tools/contracts/tool-contract'
 import {
   ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON,
   SEARCH_REPLACE_FAILURES_BEFORE_ESCALATION_GUARD,
-} from '../shared/agent-edit-cascade-guard'
+} from '../harness/policy/edit/cascade-guard'
 import { computeAgentContentHash } from './agent-content-hash'
 import {
   baseEvalPayload,
@@ -146,8 +146,8 @@ vi.mock('electron', () => ({
   app: { getPath: () => '/tmp/grokforge-agent-eval-user-data' },
 }))
 
-vi.mock('./agent-turn-trace-store', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('./agent-turn-trace-store')>()
+vi.mock('../harness/logger/turn-trace-store', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../harness/logger/turn-trace-store')>()
   return {
     ...actual,
     writeAgentTurnTrace: vi.fn(),

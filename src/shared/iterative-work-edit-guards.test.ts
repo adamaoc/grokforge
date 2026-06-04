@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   INCREMENTAL_EDIT_POLICY,
   resolveIncrementalMaxToolIterations,
-} from './incremental-work-edit-policy'
+} from '../harness/policy/incremental/work-edit-policy'
 import {
   ITERATIVE_WORK_MAX_TOOL_ROUNDS,
   resolveIterativeMaxToolIterations,
-} from './iterative-work-edit-guards'
+} from '../harness/policy/incremental/work-edit-guards'
 
 describe('iterative-work-edit-guards', () => {
   it('re-exports round cap from incremental policy (144)', () => {

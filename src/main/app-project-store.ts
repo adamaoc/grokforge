@@ -4,8 +4,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { randomUUID } from 'node:crypto'
 import type { GrokProjectManifest } from './manifest'
 import { validateManifest } from './manifest'
-import { discoverAgentInstructionRelativePaths } from './agent-instructions-discover'
-import { DUAL_MODEL_FALLBACKS } from '../shared/model-router'
+import { discoverAgentInstructionRelativePaths } from '../harness/context/instructions-discover'
+import { DUAL_MODEL_FALLBACKS } from '../harness/routing/model-router'
 import {
   AGENT_REVIEWER_DEFAULT_MIN_CHANGED_LINES,
   AGENT_REVIEWER_DEFAULT_MODEL,

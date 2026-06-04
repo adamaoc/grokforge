@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { defaultManifestForFirstRoot } from './app-project-store'
-import { DUAL_MODEL_FALLBACKS } from '../shared/model-router'
+import { DUAL_MODEL_FALLBACKS } from '../harness/routing/model-router'
 
 describe('defaultManifestForFirstRoot', () => {
   it('uses dual-model harness defaults from model-router', () => {

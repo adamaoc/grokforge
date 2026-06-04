@@ -4,7 +4,7 @@ import {
   assessJsonManifestContent,
   isBootstrapManifestPath,
   normalizeJsonManifestContent,
-} from './agent-bootstrap-manifest'
+} from '../harness/context/bootstrap-manifest'
 
 describe('isBootstrapManifestPath', () => {
   it('matches package.json and vite config', () => {

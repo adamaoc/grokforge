@@ -11,8 +11,8 @@ import {
   shouldBlockSearchReplaceAfterEscalation,
   shouldInjectSearchReplaceEscalation,
   totalSearchReplaceFailures,
-} from './agent-edit-cascade-guard'
-import { agentEditPathKey } from './agent-edit-read-guard'
+} from '../harness/policy/edit/cascade-guard'
+import { agentEditPathKey } from '../harness/policy/edit/read-guard'
 
 const TODO_ORIGINAL = `<!DOCTYPE html>
 <html>

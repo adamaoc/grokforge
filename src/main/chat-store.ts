@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync } from 
 import { dirname } from 'path'
 import { CHAT_STORE_SCHEMA_VERSION } from '../shared/chat-thread-schema'
 import { chatThreadPathForProject } from './app-project-store'
-import { upsertPlanArtifactFromAssistantMessage } from './agent-plan-store'
+import { upsertPlanArtifactFromAssistantMessage } from '../harness/plan/store/plan-store'
 
 /**
  * Append-only JSONL chat log under the app project directory (`userData/workspace-projects/<id>/chat/`).

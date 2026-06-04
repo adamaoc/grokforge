@@ -2,11 +2,11 @@ import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
-import { getAgentProfile } from '../shared/agent-profile'
+import type { AgentToolExecutionContext } from '../harness/tools/contracts/execution-context'
+import { getAgentProfile } from '../harness/profiles/agent-profile'
 import { computeAgentContentHash } from './agent-content-hash'
-import { executeAgentToolCall } from './agent-tool-executor'
-import { agentEditPathKey } from '../shared/agent-edit-read-guard'
+import { executeAgentToolCall } from '../harness/tools/tool-executor'
+import { agentEditPathKey } from '../harness/policy/edit/read-guard'
 
 function minimalCtx(overrides?: Partial<AgentToolExecutionContext>): AgentToolExecutionContext {
   return {
@@ -88,6 +88,27 @@ describe('executeAgentToolCall', () => {
     )
     expect(outcome.ok).toBe(false)
     expect(outcome.toolContent).toContain('not available inside a child session')
+  })
+
+  it('recognizes edit tool name (does not return Unknown tool)', async () => {
+    const outcome = await executeAgentToolCall(
+      minimalCtx(),
+      {
+        id: 'tc-edit',
+        type: 'function',
+        function: { name: 'edit', arguments: '{}' },
+      },
+      {
+        totalToolChars: 0,
+        editProposalCreated: false,
+        turnProposalAccum: null,
+        agentProfile: getAgentProfile('default'),
+        manifest: minimalCtx().manifest,
+        searchReplaceFailuresByPath: new Map(),
+      },
+      { emit: vi.fn(), approvalRequestId: 'req-edit' },
+    )
+    expect(outcome.toolContent).not.toContain('Unknown tool: edit')
   })
 
   it('blocks propose_file_edits for planner profile', async () => {

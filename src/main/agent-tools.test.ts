@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { applyAgentToolWriteBatch, undoLastAgentWriteBatch } from './agent-tools'
+import { applyAgentToolWriteBatch, undoLastAgentWriteBatch } from '../harness/tools/write-batch'
 import { computeAgentContentHash } from './agent-content-hash'
 import { AGENT_EDIT_STALE_HASH_REASON } from '../shared/agent-content-hash'
 import type { GrokProjectManifest } from './manifest'

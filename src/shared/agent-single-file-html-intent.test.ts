@@ -3,7 +3,7 @@ import {
   htmlProposalContainsInlineScript,
   isHtmlCreationPath,
   userRequestsSingleFileHtml,
-} from './agent-single-file-html-intent'
+} from '../harness/policy/edit/single-file-html-intent'
 
 describe('agent-single-file-html-intent', () => {
   it('detects inline script in HTML proposal', () => {

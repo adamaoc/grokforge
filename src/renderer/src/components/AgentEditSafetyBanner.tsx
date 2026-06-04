@@ -1,6 +1,6 @@
 import { AlertTriangle } from 'lucide-react'
-import type { AgentEditSafetyResult } from '../../../shared/agent-edit-safety-warnings'
-import { mergeAgentEditSafetyResults } from '../../../shared/agent-edit-safety-warnings'
+import type { AgentEditSafetyResult } from '../../../harness/policy/edit/safety-warnings'
+import { mergeAgentEditSafetyResults } from '../../../harness/policy/edit/safety-warnings'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 

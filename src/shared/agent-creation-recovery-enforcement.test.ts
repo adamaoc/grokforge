@@ -13,7 +13,7 @@ import {
   qualifiesAsCreationRecoveryScaffold,
   recordCreationRecoveryEnforced,
   recordCreationScaffoldAccepted,
-} from './agent-creation-recovery-enforcement'
+} from '../harness/policy/edit/creation-recovery'
 
 describe('agent-creation-recovery-enforcement', () => {
   it('normalizes paths with backslashes', () => {

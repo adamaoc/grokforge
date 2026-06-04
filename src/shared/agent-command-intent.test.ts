@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { commandLikelyMutatesWorkspace, impliesCommandExecution, isBootstrapScaffoldUserText } from './agent-command-intent'
+import { commandLikelyMutatesWorkspace, impliesCommandExecution, isBootstrapScaffoldUserText } from '../harness/routing/command-intent'
 
 describe('impliesCommandExecution', () => {
   it('detects install and verify commands', () => {

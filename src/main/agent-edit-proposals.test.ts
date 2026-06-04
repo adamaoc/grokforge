@@ -3,13 +3,13 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { GrokProjectManifest } from './manifest'
-import { buildEditProposalValidationSummary, validateAgentEditProposal } from './agent-edit-proposals'
-import type { AgentToolExecutionContext } from '../shared/agent-tool-execution-context'
-import { AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
+import { buildEditProposalValidationSummary, validateAgentEditProposal } from '../harness/diff/edit-proposals'
+import type { AgentToolExecutionContext } from '../harness/tools/contracts/execution-context'
+import { AGENT_TOOL_PROTOCOL_VERSION } from '../harness/tools/contracts/tool-contract'
 import {
   AGENT_EDIT_READ_BEFORE_WRITE_REASON,
   agentEditPathKey,
-} from '../shared/agent-edit-read-guard'
+} from '../harness/policy/edit/read-guard'
 import {
   AGENT_EDIT_CREATE_HASH_STRIPPED_NOTE,
   AGENT_EDIT_MALFORMED_CONTENT_HASH_REASON,
@@ -21,21 +21,21 @@ import { computeAgentContentHash } from './agent-content-hash'
 import {
   AGENT_EDIT_CASCADE_GUARD_REASON,
   recordSearchReplaceFailure,
-} from '../shared/agent-edit-cascade-guard'
+} from '../harness/policy/edit/cascade-guard'
 import {
   AGENT_EDIT_CORRUPT_CONTENT_REASON,
   AGENT_EDIT_INCOMPLETE_HTML_REASON,
   AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
   assessProposalWriteContent,
   detectObviousCrushedRawContent,
-} from '../shared/agent-edit-corrupt-content'
-import { normalizeAgentWriteFileContent } from '../shared/agent-file-content-normalize'
+} from '../harness/diff/edit-corrupt-content'
+import { normalizeAgentWriteFileContent } from '../harness/context/file-content-normalize'
 import { taskBoardCrushedOneLineIndexHtml } from './agent-eval-fixtures'
 import {
   AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON,
   AGENT_EDIT_SINGLE_FILE_HTML_SHELL_FIRST_REASON,
   recordCreationRecoveryEnforced,
-} from '../shared/agent-creation-recovery-enforcement'
+} from '../harness/policy/edit/creation-recovery'
 
 function manifestForRoot(root: string): GrokProjectManifest {
   return {

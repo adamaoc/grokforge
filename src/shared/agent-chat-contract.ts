@@ -1,10 +1,10 @@
-import type { AgentToolBatchPayload } from './agent-tool-contract'
-import type { AgentContextPin } from './agent-context-pins-contract'
-import type { AgentProfileId } from './agent-profile'
-import type { HarnessProfileKey } from './agent-harness-profile-contract'
-import type { ReasoningEffort } from './agent-reasoning-effort'
-import type { ModelIntent } from './model-router'
-import type { AgentSubagentEventPayload } from './agent-subagent-contract'
+import type { AgentToolBatchPayload } from '../harness/tools/contracts/tool-contract'
+import type { AgentContextPin } from '../harness/context/context-pins-contract'
+import type { AgentProfileId } from '../harness/profiles/agent-profile'
+import type { HarnessProfileKey } from '../harness/profiles/contracts/harness-profile-key'
+import type { ReasoningEffort } from '../harness/profiles/reasoning-effort'
+import type { ModelIntent } from '../harness/routing/model-router'
+import type { AgentSubagentEventPayload } from '../harness/subagent/contracts/subagent-contract'
 import type { AgentProposalReview } from './agent-proposal-reviewer'
 
 /**

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON } from './agent-edit-cascade-guard'
+import { ITERATIVE_SEARCH_REPLACE_BLOCKED_REASON } from '../harness/policy/edit/cascade-guard'
 import {
   HARNESS_METRICS_MAX_NUDGES,
   HARNESS_METRICS_MAX_SR_PATHS,

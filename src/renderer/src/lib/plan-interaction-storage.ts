@@ -2,7 +2,7 @@ import {
   GF_PLAN_FENCE,
   parseGfPlanFromAssistantContent,
   type GfPlanV1,
-} from '../../../shared/gf-plan-contract'
+} from '../../../harness/plan/contracts/gf-plan-contract'
 
 export type PlanWorkflowMessage = {
   id: string

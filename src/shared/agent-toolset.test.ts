@@ -4,7 +4,7 @@ import {
   AGENT_TOOLSET_READ_ONLY,
   expandToolset,
   isToolInToolset,
-} from './agent-toolset'
+} from '../harness/profiles/contracts/toolset'
 
 describe('agent-toolset', () => {
   it('read_only excludes edit and command tools', () => {

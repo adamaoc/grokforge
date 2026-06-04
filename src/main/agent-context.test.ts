@@ -11,8 +11,8 @@ import {
   getAllowedContextBases,
   isPathUnderAnyBase,
   recordAgentRetrievalDebug,
-} from './agent-context'
-import { AGENT_CONTEXT_BUDGETS } from '../shared/agent-context-budget-contract'
+} from '../harness/context/context'
+import { AGENT_CONTEXT_BUDGETS } from '../harness/compaction/context-budget-contract'
 import type { GrokProjectManifest } from './manifest'
 
 function testManifest(overrides: Partial<GrokProjectManifest> = {}): GrokProjectManifest {

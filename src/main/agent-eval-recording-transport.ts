@@ -1,5 +1,5 @@
-import type { AgentChatModelTransport } from './agent-chat-model-transport'
-import type { AgentProviderRequest } from '../shared/agent-turn-snapshot'
+import type { AgentChatModelTransport } from '../harness/agent/chat-model-transport'
+import type { AgentProviderRequest } from '../harness/compaction/turn-snapshot'
 
 export type AgentEvalProviderCallPhase = 'sample' | 'final'
 

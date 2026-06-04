@@ -7,9 +7,9 @@ import {
   isIncrementalEditEnforcementTurn,
   pickIncrementalEditMidTurnNudge,
   resolveIncrementalMaxToolIterations,
-} from './incremental-work-edit-policy'
-import { WORK_ITERATIVE_EDIT_MARKER } from './iterative-work-edit'
-import { resolveIterativeEditScope } from './iterative-edit-scope'
+} from '../harness/policy/incremental/work-edit-policy'
+import { WORK_ITERATIVE_EDIT_MARKER } from '../harness/routing/iterative-work-edit'
+import { resolveIterativeEditScope } from '../harness/routing/iterative-edit-scope'
 
 describe('incremental-work-edit-policy', () => {
   it('isIncrementalEditEnforcementTurn is true for either flag', () => {

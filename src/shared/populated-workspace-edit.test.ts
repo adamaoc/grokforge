@@ -3,8 +3,8 @@ import {
   isPopulatedWorkspace,
   POPULATED_WORK_EDIT_MARKER,
   shouldRoutePopulatedWorkExecutor,
-} from './populated-workspace-edit'
-import type { GreenfieldIndexSnapshot } from './workspace-greenfield'
+} from '../harness/routing/populated-workspace-edit'
+import type { GreenfieldIndexSnapshot } from '../harness/context/workspace-greenfield'
 
 function indexWithFiles(fileCountScanned: number, packages: GreenfieldIndexSnapshot['intelligence']['packages'] = []): GreenfieldIndexSnapshot {
   return {

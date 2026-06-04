@@ -17,7 +17,7 @@ vi.mock('./app-project-store', async () => {
   }
 })
 
-import { readLastTurnReceipt } from './agent-turn-receipt-store'
+import { readLastTurnReceipt } from '../harness/session/turn-receipt-store'
 import {
   _resetTurnReceiptLifecycleForTesting,
   beginTurnReceipt,

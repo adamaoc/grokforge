@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getAgentProfile, isToolAllowedForProfile, resolveAgentProfileId } from './agent-profile'
+import { getAgentProfile, isToolAllowedForProfile, resolveAgentProfileId } from '../harness/profiles/agent-profile'
 
 describe('getAgentProfile', () => {
   it('planner excludes edit and command tools', () => {

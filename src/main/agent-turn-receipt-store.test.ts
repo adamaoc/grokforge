@@ -23,7 +23,7 @@ import {
   readLastTurnReceipt,
   readLastTurnReceiptBoundaryStatus,
   turnReceiptsPath,
-} from './agent-turn-receipt-store'
+} from '../harness/session/turn-receipt-store'
 
 const projectId = 'proj-receipt-test'
 

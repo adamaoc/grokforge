@@ -22,11 +22,11 @@ import {
   shouldInjectCreationIncrementalRecoveryNudge,
   shouldInjectCrushedJavaScriptProposalNudge,
   shouldInjectIncompleteHtmlProposalNudge,
-} from './agent-edit-corrupt-content'
+} from '../harness/diff/edit-corrupt-content'
 import {
   hasGluedJavaScriptStatements,
   normalizeAgentWriteFileContent,
-} from './agent-file-content-normalize'
+} from '../harness/context/file-content-normalize'
 
 const CORRUPT_SAMPLE = `<!DOCTYPE html>
 <html>
