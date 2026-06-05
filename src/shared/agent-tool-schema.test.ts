@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { AGENT_TOOL_FENCE_INFO, AGENT_TOOL_PROTOCOL_VERSION } from '../shared/agent-tool-contract'
-import { AgentToolBatchPayloadSchema, stripAgentToolFenceFromAssistantDisplay } from '../shared/agent-tool-schema'
+import { AGENT_TOOL_FENCE_INFO, AGENT_TOOL_PROTOCOL_VERSION } from '../harness-support/tools/contracts/tool-contract'
+import { AgentToolBatchPayloadSchema, stripAgentToolFenceFromAssistantDisplay } from '../harness-support/tools/contracts/tool-schema'
 
 describe('AgentToolBatchPayloadSchema', () => {
   it('parses write_file with malformed expectedContentHash (story 154)', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveReasoningEffort } from './agent-reasoning-effort'
+import { resolveReasoningEffort } from '../harness-support/profiles/reasoning-effort'
 
 describe('resolveReasoningEffort', () => {
   it('returns medium for grok_4_3 planner turns', () => {

@@ -5,7 +5,7 @@ import {
   buildPreviewLines,
   estimateUtf8Bytes,
   shouldOffloadToolResult,
-} from './agent-context-offload'
+} from '../harness-support/compaction/context-offload'
 
 describe('shouldOffloadToolResult', () => {
   it('offloads payloads above char threshold', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildVoiceHandoffUserText } from './voice-agent-handoff'
-import { buildVoiceHarnessAppendix } from './agent-harness-profile'
+import { buildVoiceHarnessAppendix } from '../harness-support/profiles/harness-profile'
 
 describe('buildVoiceHarnessAppendix', () => {
   it('includes adapter note and profile key', () => {

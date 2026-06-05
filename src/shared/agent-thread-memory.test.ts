@@ -4,8 +4,8 @@ import {
   AGENT_THREAD_MEMORY_MAX_CHARS,
   AGENT_THREAD_MEMORY_MAX_DECISIONS,
   AGENT_THREAD_MEMORY_MAX_FILES_READ,
-} from './agent-thread-memory-contract'
-import { emptyThreadMemory, formatThreadMemoryBlock, mergeTraceIntoThreadMemory } from './agent-thread-memory'
+} from '../harness-support/compaction/thread-memory-contract'
+import { emptyThreadMemory, formatThreadMemoryBlock, mergeTraceIntoThreadMemory } from '../harness-support/compaction/thread-memory'
 
 function trace(partial: Partial<AgentTurnTraceV1> & Pick<AgentTurnTraceV1, 'toolSteps'>): AgentTurnTraceV1 {
   return {

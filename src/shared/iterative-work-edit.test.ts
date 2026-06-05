@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { shouldRouteIterativeWorkExecutor, WORK_ITERATIVE_EDIT_MARKER } from './iterative-work-edit'
-import type { GreenfieldIndexSnapshot } from './workspace-greenfield'
+import { shouldRouteIterativeWorkExecutor, WORK_ITERATIVE_EDIT_MARKER } from '../harness-support/routing/iterative-work-edit'
+import type { GreenfieldIndexSnapshot } from '../harness-support/context/workspace-greenfield'
 
 function indexWithFiles(
   fileCountScanned: number,

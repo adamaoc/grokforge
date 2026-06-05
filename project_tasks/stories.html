@@ -309,11 +309,11 @@
       <h1>GrokForge Stories</h1>
       <p class="lede">A static viewer generated from <code>project_tasks/README.md</code> and the story Markdown files. Open a row to read the full story without leaving the overview.</p>
       <div class="meta">
-        <span class="pill">164 stories</span>
+        <span class="pill">168 stories</span>
         <span class="pill">Done: 155</span>
         <span class="pill">Closed: 6</span>
-        <span class="pill">Post-MVP: 3</span>
-        <span class="pill">Generated 2026-05-30</span>
+        <span class="pill">Post-MVP: 7</span>
+        <span class="pill">Generated 2026-06-05</span>
       </div>
       <div class="story-filters">
         <label>
@@ -12472,6 +12472,484 @@ console.log('post norm:', assessProposalWriteContent(norm, { resolvedPath: path,
 </ul>
 <h3>Completion bookkeeping</h3>
 <p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-166" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">166</span><span class="story-name">Deprecate `search_replace` tool alias (consolidate on `edit`)</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/166-deprecate-search-replace-tool-alias.md">post-mvp/166-deprecate-search-replace-tool-alias.md</a>
+          </div>
+          <h2>166 — Deprecate <code>search_replace</code> tool alias (consolidate on <code>edit</code>)</h2>
+<p><strong>Status:</strong> Not started.</p>
+<p><strong>Priority:</strong> Harness hygiene — reduces duplicate tool schemas, token overhead, and model confusion after the Pi-style <strong><code>edit</code></strong> tool shipped. Safe to schedule after iterative Work stabilization (<strong>130–140</strong>, <strong>144</strong>) and TaskBoard wave (<strong>160–165</strong>).</p>
+<p><strong>Design skill:</strong> N/A (harness / agent tool surface only).</p>
+<p><strong>Depends on:</strong> <strong><a href="085-agent-search-replace-tool.md">085</a></strong> (original S&amp;R tool), <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong> (toolsets), <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong> (eval updates). Related policy: <strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="138-iterative-work-search-replace-escalation.md">138</a></strong> — metrics and nudges today use the <code>search_replace</code> name.</p>
+<h3>Why this story exists</h3>
+<p>GrokForge exposes <strong>two</strong> model-facing edit primitives that share one implementation path:</p>
+<p>| Tool | Role today | |------|------------| | <strong><code>edit</code></strong> | Primary Pi-style <code>{ path, edits: [{ oldText, newText }], expectedContentHash }</code> | | <strong><code>search_replace</code></strong> | Documented legacy alias; also accepts snake_case <strong><code>old_string</code> / <code>new_string</code></strong> single-hunk form |</p>
+<p>Both route through <a href="../../src/harness/tools/tool-executor.ts"><code>tool-executor.ts</code></a> → <a href="../../src/harness/diff/search-replace-tool.ts"><code>search-replace-tool.ts</code></a> → reviewable proposal. Keeping both:</p>
+<ul>
+<li>Wastes tool-definition tokens in every executor turn.</li>
+<li>Splits model behavior despite prompts saying “prefer <code>edit</code>”.</li>
+<li>Leaves harness copy, metrics (<code>search_replace_escalation</code>), routing (<code>EDIT_TOOL_NAMES</code>), and evals tied to the legacy tool name.</li>
+</ul>
+<p><strong>Non-goal:</strong> Removing patch/fuzzy-match logic — only the <strong>second tool name</strong> and redundant schema entry.</p>
+<p>Reference: <a href="../../src/harness/tools/TOOLS.md"><code>src/harness/tools/TOOLS.md</code></a> (inventory + ampnet comparison).</p>
+<h3>Goals</h3>
+<h4>Phase 1 — Stop advertising <code>search_replace</code> to the model</h4>
+<ul>
+<li>Remove <code>search_replace</code> from <a href="../../src/harness/tools/workspace-tools.ts"><code>AGENT_TOOL_DEFINITIONS</code></a> and <a href="../../src/harness/profiles/contracts/toolset.ts"><code>AGENT_TOOLSET_EDIT</code></a> so <a href="../../src/harness/tools/workspace-tools.ts"><code>buildToolDefinitionsForTurn</code></a> no longer sends it to xAI.</li>
+<li><strong>Keep</strong> executor handling for <code>name === 'search_replace'</code> (compat shim): parse args, run same path as <code>edit</code>, optional dev-only log <code>deprecated_tool:search_replace</code>.</li>
+</ul>
+<h4>Phase 2 — Absorb legacy param shape on <code>edit</code></h4>
+<ul>
+<li>Extend <strong><code>edit</code></strong> JSON schema + <a href="../../src/harness/diff/search-replace-tool.ts"><code>SearchReplaceToolArgsSchema</code></a> so models can still send optional <strong><code>old_string</code> / <code>new_string</code></strong> (same validation as today’s legacy branch).</li>
+<li>Document in <code>edit</code> description: prefer <code>edits[]</code>; <code>old_string</code>/<code>new_string</code> accepted for compatibility only.</li>
+</ul>
+<h4>Phase 3 — Rename harness copy and observability (user-facing text → <code>edit</code>)</h4>
+<p>Sweep strings and constants that tell the model or user “use search_replace”:</p>
+<p>| Area | Examples | |------|----------| | Prompts | <a href="../../src/harness/profiles/harness-profile.ts"><code>harness-profile.ts</code></a> <code>AGENT_TOOL_LOOP_CORE</code>, <a href="../../src/harness/context/context.ts"><code>context.ts</code></a>, <a href="../../src/harness/policy/final-answer/final-answer-contract.ts"><code>final-answer-contract.ts</code></a> | | Routing | <a href="../../src/harness/routing/scaffold-strategy.ts"><code>scaffold-strategy.ts</code></a> <code>EDIT_TOOL_NAMES</code>, <a href="../../src/harness/routing/iterative-work-edit.ts"><code>iterative-work-edit.ts</code></a> | | Metrics / nudges | <code>search_replace_escalation</code>, <code>HARNESS_NUDGE_*</code>, cascade guard messages — **rename to <code>edit_*</code> or generic <code>patch_edit_*</code>** while preserving behavior | | Runner | <a href="../../src/main/agent-runner.ts"><code>agent-runner.ts</code></a> tool-round instrumentation | | Docs | <a href="../../src/harness/tools/TOOLS.md"><code>TOOLS.md</code></a>, <a href="../../AGENTS.md"><code>AGENTS.md</code></a> if referenced |</p>
+<p>Internal module filenames (<code>search-replace-tool.ts</code>, etc.) may stay; rename only if a follow-up cleanup is cheap.</p>
+<h4>Phase 4 — Remove compat shim and contract member</h4>
+<ul>
+<li>Delete <code>search_replace</code> branch from <a href="../../src/harness/tools/tool-executor.ts"><code>tool-executor.ts</code></a> <code>isAllowedToolName</code> / edit dispatch.</li>
+<li>Remove <code>'search_replace'</code> from <a href="../../src/shared/agent-chat-contract.ts"><code>AgentChatToolName</code></a> and any UI activity labels that branch on tool name.</li>
+<li>Update eval mocks in <a href="../../src/main/agent-runner-evaluation.test.ts"><code>agent-runner-evaluation.test.ts</code></a> and shared <code>*.test.ts</code> files to call <strong><code>edit</code></strong> instead of <strong><code>search_replace</code></strong>.</li>
+</ul>
+<h3>Non-goals</h3>
+<ul>
+<li>Changing proposal → diff review → apply semantics (<strong>060</strong>, <strong>047</strong>).</li>
+<li>Replacing <a href="../../src/harness/tools/workspace-tools.ts"><code>propose_file_edits</code></a> for new files / large refactors.</li>
+<li>Renaming <strong>085</strong> story file or rewriting historical post-MVP narrative (085 remains the record of introducing patch edits).</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Executor/default/approved-plan turns expose <strong>one</strong> structured edit tool: <strong><code>edit</code></strong> (plus <code>propose_file_edits</code>, read tools, <code>run_command</code> as today).</li>
+<li><input type="checkbox" disabled> Models can still succeed with legacy <code>old_string</code>/<code>new_string</code> payloads <strong>via <code>edit</code></strong> after Phase 2.</li>
+<li><input type="checkbox" disabled> Harness nudges, escalation, and iterative Work guards behave as before <strong>138</strong> / <strong>116</strong> (eval tags updated, not removed).</li>
+<li><input type="checkbox" disabled> <code>npm run test</code> passes; harness eval cases that mocked <code>search_replace</code> use <code>edit</code>.</li>
+<li><input type="checkbox" disabled> <a href="../../src/harness/tools/TOOLS.md"><code>TOOLS.md</code></a> lists a single edit primitive; no “legacy alias” row for <code>search_replace</code>.</li>
+</ul>
+<h3>Suggested implementation order</h3>
+<ol>
+<li>Phase 1 + Phase 2 (one PR — hide tool, extend <code>edit</code> schema).</li>
+<li>Phase 3 (copy/metrics sweep; can split by folder: <code>policy/</code> → <code>profiles/</code> → <code>main/agent-runner</code>).</li>
+<li>Phase 4 + eval updates (second PR after dogfood or eval green).</li>
+</ol>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="085-agent-search-replace-tool.md">085</a></strong> — introduced <code>search_replace</code>.</li>
+<li><strong><a href="114-deprecate-fenced-agent-tools-protocol.md">114</a></strong> — precedent for deprecating a duplicate write surface.</li>
+<li><strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong>–<strong><a href="140-search-replace-failure-loop-observability.md">140</a></strong> — policy built on S&amp;R name; update during Phase 3.</li>
+<li><strong><a href="148-better-incremental-editing-strategy.md">148</a></strong> — surgical vs full rewrite (unchanged; tool name only).</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>166</strong> <strong>Done</strong>, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-167" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">167</span><span class="story-name">Post-plan incremental: nudge on empty first tool sample</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/167-post-plan-zero-tool-calls-nudge.md">post-mvp/167-post-plan-zero-tool-calls-nudge.md</a>
+          </div>
+          <h2>167 — Post-plan incremental: nudge when first tool sample is empty</h2>
+<p><strong>Status:</strong> Not started.</p>
+<p><strong>Priority:</strong> <strong>High</strong> — field report (2026-06-03, Todo App post-plan follow-up): executor turn with <code>postPlanIncremental: true</code> completed in ~14s with <strong><code>toolSteps: []</code></strong>, <strong><code>totalToolCharsAccumulated: 0</code></strong>, and a final answer that <strong>described failed <code>read_file</code> / <code>edit</code> / <code>search_replace</code> attempts</strong> from an earlier chat turn. Trace showed only <code>tool_sample</code> (zero tool calls) → <code>final_stream</code> — no harness intervention.</p>
+<p><strong>Design skill:</strong> N/A (harness loop + optional activity copy per <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a>).</p>
+<p><strong>Depends on:</strong> <strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> (post-plan incremental routing), <strong><a href="152-failed-edit-final-answer-honesty-contract.md">152</a></strong> (honesty when edits fail), <strong><a href="166-deprecate-search-replace-tool-alias.md">166</a></strong> (ensure <code>edit</code> is executable — separate allowlist fix; this story is the <strong>empty first sample → premature final</strong> path).</p>
+<h3>Why this story exists</h3>
+<p><strong>120</strong> routes short Work-mode follow-ups after a completed plan to <strong>executor</strong> + incremental harness copy. Today, when <code>shouldRoutePostPlanIncremental()</code> is true, <code>incrementalEditEnforcement</code> is also true (<code>iterativeWorkEdit || postPlanIncremental</code> in <a href="../../src/main/agent-runner.ts"><code>agent-runner.ts</code></a>).</p>
+<p>On the <strong>first</strong> <code>tool_sample</code>, if the model returns <strong>no</strong> <code>tool_calls</code>, the runner skips the edit-intent nudge because:</p>
+<pre><code>const shouldNudgeForEditIntent = /* ... */ &amp;&amp; !incrementalEditEnforcement</code></pre>
+<p>Then it falls through to <code>completeTurnWithFinalStream()</code> — <strong>no tools run</strong>, but the slim post-plan final contract still pressures a human summary. The model often <strong>re-narrates failures from <code>threadSnapshot</code> / thread memory</strong> instead of calling tools on disk state.</p>
+<p>| Observed (trace <code>542d6928-…</code>) | Harness behavior | |------------------------------|------------------| | <code>toolSteps: []</code>, <code>outcome: completed</code> | Zero tools executed | | <code>providerRounds</code>: <code>tool_sample</code> then <code>final_stream</code> only | No second tool round | | <code>harnessMetrics.postPlanIncremental: true</code> | Incremental path active | | Final text: “multiple read_file + edit attempts failed…” | Confusing vs trace (prior turn or confabulation) |</p>
+<p><strong>Root cause:</strong> post-plan incremental <strong>disables</strong> the same <strong>edit-intent tool nudge</strong> used on generic Work edit turns, without a <strong>replacement</strong> nudge when the first sample is empty.</p>
+<h3>Goals</h3>
+<h4>1. Do not finalize on empty first sample (post-plan incremental + edit intent)</h4>
+<p>In <a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a>, when <strong>all</strong> of:</p>
+<ul>
+<li><code>postPlanIncremental === true</code> (or document if <code>iterativeWorkEdit</code> should share the same rule),</li>
+<li><code>isLikelyEditIntent(userText)</code> (existing heuristic),</li>
+<li><code>!editProposalCreated</code>,</li>
+<li>first (or any?) <code>tool_sample</code> in the turn has <code>sampled.toolCalls.length === 0</code>,</li>
+<li>nudge not already issued this turn,</li>
+</ul>
+<p>then <strong>do not</strong> call <code>completeTurnWithFinalStream()</code> immediately.</p>
+<p>Instead inject <strong>one</strong> mid-turn user message (new builder in <a href="../../src/harness/policy/final-answer/final-answer-contract.ts"><code>src/harness/policy/final-answer/final-answer-contract.ts</code></a> or <a href="../../src/harness/plan/routing/post-plan-incremental.ts"><code>src/harness/plan/routing/post-plan-incremental.ts</code></a>) that:</p>
+<ul>
+<li>Requires <strong><code>read_file</code></strong> on the target file(s) from disk <strong>this turn</strong> (ignore stale chat prose about prior failures).</li>
+<li>Requires <strong><code>edit</code></strong> (preferred) or <code>propose_file_edits</code> for localized UI changes — not a <code>gf-plan</code> fence.</li>
+<li>Mentions <code>rawContent</code> / <code>contentHash</code> for <code>index.html</code> (or resolved scope from <strong>136</strong> <code>resolvedEditScope</code> when available).</li>
+</ul>
+<p>Re-sample <code>tool_sample</code> (same pattern as <code>buildEditIntentToolNudge</code>).</p>
+<h4>2. Bounded retries</h4>
+<p>| Constant | Suggested default | |----------|-------------------| | Max empty-first-sample nudges per turn | <strong>1</strong> | | Max extra tool rounds after nudge | <strong>2</strong> (reuse executor <code>maxToolRounds</code> budget) |</p>
+<p>If the model still returns zero tool calls after the nudge, allow final stream but append honesty guidance: <strong>no edit tools ran this turn</strong> — do not claim prior-turn failures as this-turn outcomes (align <strong>152</strong> <code>not_attempted</code> vs <code>failed</code>).</p>
+<h4>3. Trace / metrics</h4>
+<p>Extend <a href="../../src/shared/agent-turn-trace-contract.ts"><code>agent-turn-trace-contract.ts</code></a> / <a href="../../src/harness/logger/turn-trace-builder.ts"><code>turn-trace-builder.ts</code></a> <code>harnessMetrics</code> (optional, backward compatible):</p>
+<ul>
+<li><code>postPlanEmptyToolSampleNudgeIssued?: boolean</code></li>
+<li><code>postPlanEmptyToolSampleRecovered?: boolean</code> (true if a later round produced <code>edit_proposal</code> or successful edit tool)</li>
+</ul>
+<p>Emit a compact harness activity row when the nudge fires (story <strong>119</strong> style).</p>
+<h4>4. Final-answer contract alignment</h4>
+<p>When <code>postPlanIncremental</code> and <strong>this turn</strong> has <code>editAttemptOutcome: 'not_attempted'</code> (no tool failures in scratch maps), slim final contract must <strong>not</strong> invite a paragraph summarizing “failed edit attempts” unless thread memory explicitly documents <strong>this</strong> turn’s tool results.</p>
+<p>Add marker string for evals (e.g. <code>POST_PLAN_EMPTY_SAMPLE_NUDGE_MARKER</code>) in post-plan appendix module.</p>
+<h3>Non-goals</h3>
+<ul>
+<li>Changing <strong><code>shouldRoutePostPlanIncremental</code></strong> heuristics in <a href="../../src/harness/plan/routing/post-plan-incremental.ts"><code>post-plan-incremental.ts</code></a> (length cap, replan detection).</li>
+<li>Replacing thread trim (<code>threadSnapshotLimit: 24</code>) — may tune in a follow-up if nudge alone is insufficient.</li>
+<li>Forcing tools on non-edit chit-chat after a plan exists.</li>
+</ul>
+<h3>Scope (files)</h3>
+<ul>
+<li><a href="../../src/main/agent-runner.ts"><code>src/main/agent-runner.ts</code></a> — empty <code>toolCalls</code> branch (~1782–1826)</li>
+<li><a href="../../src/harness/plan/routing/post-plan-incremental.ts"><code>src/harness/plan/routing/post-plan-incremental.ts</code></a> — nudge copy + stable marker</li>
+<li><a href="../../src/harness/policy/final-answer/final-answer-contract.ts"><code>src/harness/policy/final-answer/final-answer-contract.ts</code></a> — <code>not_attempted</code> + post-plan final honesty</li>
+<li><a href="../../src/shared/agent-eval-tags.ts"><code>src/shared/agent-eval-tags.ts</code></a> + <a href="../../src/main/agent-runner-evaluation.test.ts"><code>src/main/agent-runner-evaluation.test.ts</code></a></li>
+<li><a href="../../src/harness/tools/TOOLS.md"><code>src/harness/tools/TOOLS.md</code></a> — one-line “post-plan must not zero-tool finalize” note (optional)</li>
+</ul>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Eval: completed plan exists + short edit user text + mock transport returns <strong>zero</strong> tool calls on first sample → harness injects post-plan empty-sample nudge → <strong>second</strong> sample includes <code>read_file</code> or <code>edit</code> / <code>propose_file_edits</code>.</li>
+<li><input type="checkbox" disabled> Eval: after nudge, trace records <code>toolSteps.length &gt;= 1</code> OR explicit <code>postPlanEmptyToolSampleNudgeIssued</code> with final <code>not_attempted</code> honesty (no “failed S&amp;R this turn” when none ran).</li>
+<li><input type="checkbox" disabled> Manual: Todo App post-plan follow-up (“change add button…”) does not complete in &amp;lt;15s with empty <code>toolSteps</code> unless user cancels.</li>
+<li><input type="checkbox" disabled> <code>npm run test</code> and focused <code>npm run test:agent-eval</code> for new tag pass.</li>
+</ul>
+<h3>Suggested implementation order</h3>
+<ol>
+<li>Nudge builder + agent-runner branch (smallest behavior fix).</li>
+<li>Trace metric + activity row.</li>
+<li>Final-contract / honesty tweak for <code>not_attempted</code> post-plan finals.</li>
+<li>Eval tag + regression test.</li>
+</ol>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — introduced post-plan incremental routing.</li>
+<li><strong><a href="130-work-iterative-edit-harness.md">130</a></strong> / <strong><a href="135-iterative-work-surgical-edit-enforcement.md">135</a></strong> — iterative Work also sets <code>incrementalEditEnforcement</code>; decide whether empty-first-sample nudge applies to <strong><code>iterativeWorkEdit</code></strong> only, <strong><code>postPlanIncremental</code></strong> only, or both.</li>
+<li><strong><a href="152-failed-edit-final-answer-honesty-contract.md">152</a></strong> — distinguish <code>not_attempted</code> vs <code>failed</code> in final copy.</li>
+<li><strong><a href="166-deprecate-search-replace-tool-alias.md">166</a></strong> — tool surface cleanup (orthogonal).</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>167</strong> <strong>Done</strong>, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-168" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">168</span><span class="story-name">Greenfield empty workspace vs stale plan routing + tool budgets</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/168-greenfield-empty-vs-post-plan-routing.md">post-mvp/168-greenfield-empty-vs-post-plan-routing.md</a>
+          </div>
+          <h2>168 — Greenfield empty workspace vs stale plan routing + tool-round budgets</h2>
+<p><strong>Status:</strong> Not started.</p>
+<p><strong>Priority:</strong> <strong>High</strong> — field report (2026-06-03, “cleared” Todo App workspace): user asked to <strong>plan and create</strong> a blank HTML todo app in <strong>Work</strong> mode, but harness routed <strong><code>postPlanIncremental: true</code></strong> + <strong>executor</strong> because an <strong>old approved plan</strong> still lives under app <code>userData</code> while the <strong>workspace root is empty</strong>. Turn trace <code>472b95d2-…</code>: <strong>4 read-only</strong> tool rounds (<code>list_directory</code>, <code>read_file</code> on plan artifact, <code>search_workspace</code>, <code>workspace_index</code>), <strong><code>maxToolIterationsHit: true</code></strong>, <strong><code>editProposalCreated: false</code></strong>, long final prose — <strong>no file</strong> in the workspace.</p>
+<p><strong>Design skill:</strong> N/A for routing/budgets; optional <strong>Last agent turn trace</strong> UI copy polish per <a href="../../.cursor/skills/styleguide-design/SKILL.md"><code>.cursor/skills/styleguide-design/SKILL.md</code></a> if Phase D adds inspector rows.</p>
+<p><strong>Depends on:</strong> <strong><a href="101-greenfield-plan-quality.md">101</a></strong> (greenfield detection), <strong><a href="109-rpi-plan-artifacts-on-disk.md">109</a></strong> (plan persistence), <strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> (post-plan incremental), <strong><a href="161-greenfield-work-bootstrap-prompt-appendix.md">161</a></strong> (Work greenfield bootstrap). Related: <strong><a href="167-post-plan-zero-tool-calls-nudge.md">167</a></strong> (empty first tool sample on incremental turns).</p>
+<h3>Why this story exists</h3>
+<p>Clearing <strong>files in the workspace</strong> does <strong>not</strong> clear <strong><code>userData/workspace-projects/&lt;projectId&gt;/plans/</code></strong>. The harness therefore mis-classifies a <strong>greenfield recreate</strong> as a <strong>small post-plan edit</strong> on an “existing project.”</p>
+<p>| User intent (observed) | What harness did | |------------------------|------------------| | Empty folder, “plan out some work”, create todo app | <code>postPlanIncremental</code> + incremental enforcement | | Wants planning or first <code>index.html</code> | Post-plan copy: <strong>no new <code>gf-plan</code></strong>, prefer <strong><code>edit</code></strong> on <strong>existing</strong> files | | Needs bootstrap / <code>propose_file_edits</code> | Skipped <strong>greenfield Work bootstrap</strong> (<code>!postPlanIncremental</code>) | | Needs more discovery before write | Capped at <strong>4</strong> tool rounds (<code>INCREMENTAL_EDIT_MAX_TOOL_ROUNDS</code>) | | Needs “proceed to edits” nudge after 2 read-only rounds | <strong>Discovery saturation</strong> blocked when <code>greenfieldWorkspace === true</code> |</p>
+<p><strong>Comparison (ampnet-harness-p8):</strong> CLI harness uses <strong><code>MAX_ITERATIONS = 25</code></strong> in <code>loop.ts</code> with a single <code>tools.ts</code> and three profiles. GrokForge stacks <strong>routing × profiles × toolsets × incremental caps × nudges</strong> — harder to reason about without a <strong>single routing decision record</strong> per turn (see Phase D).</p>
+<h4>Current tool-round ceiling (reference)</h4>
+<p>| Layer | Value | Where | |-------|-------|--------| | Global max | <strong>8</strong> | <code>AGENT_TOOL_MAX_ITERATIONS</code> (<code>workspace-tools.ts</code>) | | Executor profile | <strong>6</strong> | <code>agent-profile.ts</code> <code>maxToolRounds</code> | | Planner profile | <strong>3</strong> | same | | Post-plan / iterative enforcement cap | <strong>4</strong> | <code>INCREMENTAL_EDIT_MAX_TOOL_ROUNDS</code> (<code>work-edit-policy.ts</code>) | | Approved plan auto-run | min(8, <strong>6</strong>) | <code>APPROVED_PLAN_EXECUTE_MAX_TOOL_ROUNDS</code> | | ampnet-harness (reference) | <strong>25</strong> | <code>ampnet-harness-p8/src/harness/loop.ts</code> |</p>
+<p>Field-report turn hit <strong>4</strong> and stopped with only read tools — not because the model chose to stop, but because <strong>incremental cap + policy</strong> ended the loop.</p>
+<h3>Goals</h3>
+<h4>Phase A — Routing: empty workspace ≠ post-plan incremental</h4>
+<p>In <a href="../../src/harness/plan/routing/post-plan-incremental.ts"><code>shouldRoutePostPlanIncremental</code></a> (and call sites in <a href="../../src/main/agent-runner.ts"><code>agent-runner.ts</code></a>):</p>
+<ul>
+<li><strong>Do not</strong> set <code>postPlanIncremental</code> when <strong><code>isGreenfieldWorkspace</code></strong> is true for the current project (empty or trivial index), even if <code>findLatestCompletedPlanArtifact()</code> returns a plan.</li>
+<li><strong>Or</strong> require <strong>at least one non-trivial file</strong> under workspace roots before post-plan incremental applies.</li>
+</ul>
+<p>When user text indicates <strong>blank / from scratch / new app</strong> (extend heuristics beyond <code>REPLAN_REQUEST_RE</code> — e.g. “blank app”, “empty folder”, “no files yet”):</p>
+<ul>
+<li>Prefer <strong>Plan mode</strong> suggestion in UI (out of scope) <strong>or</strong> route to <strong>greenfield Work bootstrap</strong> / <strong>planner</strong> — not executor incremental.</li>
+<li>Treat “<strong>plan out</strong> some work” on an empty tree as <strong>replan / plan intent</strong>, not <code>isLikelyEditIntent</code> incremental follow-up (today <code>create</code> in user text falsely triggers edit-intent incremental).</li>
+</ul>
+<p>Inject <strong>completed plan</strong> system block only when incremental routing is actually active (not when greenfield recreate).</p>
+<h4>Phase B — Greenfield create path when disk is empty</h4>
+<p>When <code>greenfieldWorkspace &amp;&amp; !editProposalCreated</code> and user has create/bootstrap intent:</p>
+<ul>
+<li>Apply <strong><code>GREENFIELD_WORK_BOOTSTRAP_SECTIONS</code></strong> (or equivalent) even if a stale plan exists — <strong>or</strong> clear supersede messaging: “workspace empty — create files with <code>propose_file_edits</code>, not <code>edit</code> on missing paths.”</li>
+<li>Fire <strong>discovery saturation</strong> (or a dedicated <strong>greenfield create nudge</strong>) after <strong>≤2</strong> read-only rounds — <strong>remove</strong> the <code>!greenfieldWorkspace</code> guard for this case, or add a parallel <code>buildGreenfieldCreateNudge</code>.</li>
+<li>First successful write should be <strong><code>propose_file_edits</code></strong> <code>write_file</code> for <code>index.html</code> (or plan paths), not <code>edit</code> / <code>search_replace</code> on non-existent files.</li>
+</ul>
+<h4>Phase C — Tool-round budget review (increase + document)</h4>
+<ol>
+<li>Add a <strong>single markdown table</strong> (e.g. <a href="../../docs/harness-turn-budgets.md"><code>docs/harness-turn-budgets.md</code></a> or section in <a href="../../src/harness/tools/TOOLS.md"><code>src/harness/tools/TOOLS.md</code></a>) listing: profile, routing flags, effective <code>maxToolIterations</code>, timeout formula, and when caps apply.</li>
+</ol>
+<ol>
+<li><strong>Raise</strong> caps for turns that must bootstrap files (proposal — tune in implementation):</li>
+</ol>
+<p>| Turn class | Current effective max | Target (initial proposal) | |------------|----------------------|---------------------------| | Post-plan incremental (populated repo) | 4 | 4–6 (keep tight) | | Greenfield Work bootstrap (empty tree) | 4 (if mis-routed) | <strong>8–12</strong> (or global 8 un-capped) | | Default / executor (no incremental enforcement) | 6–8 | <strong>10–12</strong> | | Planner (plan mode) | 3 | <strong>4–6</strong> (plan discovery only) |</p>
+<p>Do <strong>not</strong> blindly set <strong>25</strong> everywhere — GrokForge turns are heavier (proposals, approval, traces). Document tradeoff vs ampnet.</p>
+<ol>
+<li>Centralize cap resolution in one function (e.g. extend <code>resolveMaxToolIterationsForTurn</code> + <code>resolveIncrementalMaxToolIterations</code>) so <code>agent-runner.ts</code> is not the only place to discover effective limits.</li>
+</ol>
+<h4>Phase D — Observability: why did the harness route this way?</h4>
+<p>Extend <strong><code>AgentTurnTraceV1.harnessMetrics</code></strong> (or top-level trace fields) with a <strong>routing decision</strong> block, for example:</p>
+<pre><code>routingDecision: {
+  postPlanIncremental: boolean
+  iterativeWorkEdit: boolean
+  greenfieldWorkspace: boolean
+  hasCompletedPlanArtifact: boolean
+  effectiveMaxToolIterations: number
+  incrementalEditEnforcement: boolean
+  reasonCodes: string[]  // e.g. 'post_plan_blocked_greenfield_empty'
+}</code></pre>
+<p>Surface the same summary in <strong>Last agent turn trace</strong> inspector (one collapsed “Routing” section) so debugging does not require reading 20k chars of JSON.</p>
+<h4>Phase E — Complexity debt (document only in this story)</h4>
+<p>Add a short <strong>“Harness routing map”</strong> section to <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> or <a href="../../src/harness/README.md"><code>src/harness/README.md</code></a>:</p>
+<ul>
+<li>One diagram: composer input → <code>resolvePostPlanRoutingInput</code> / <code>resolveAgentTurnRouting</code> / <code>resolveAgentProfileId</code> → tool defs → loop caps → nudges.</li>
+<li>List <strong>candidates to consolidate</strong> (not implement here): merge post-plan + iterative policy modules; shared nudge registry; ampnet-style single <code>maxIterations</code> with profile overrides.</li>
+</ul>
+<p><strong>Non-goal for 168:</strong> Full harness rewrite or deleting stories <strong>130–140</strong> behavior.</p>
+<h3>Acceptance criteria</h3>
+<ul>
+<li><input type="checkbox" disabled> Eval: completed plan in app data + <strong>empty</strong> workspace + “blank app… create todo… plan out” → <strong><code>postPlanIncremental</code> false</strong> (or blocked), <strong>greenfield bootstrap</strong> markers in system prompt, turn reaches <strong><code>propose_file_edits</code></strong> or plan mode path — not 4× read-only then final only.</li>
+<li><input type="checkbox" disabled> Eval: populated workspace + short post-plan edit → <strong><code>postPlanIncremental</code> still true</strong> (regression <strong>120</strong>).</li>
+<li><input type="checkbox" disabled> Manual: clear workspace files only, same project, recreate todo → <strong><code>index.html</code> proposal</strong> or explicit Plan-mode <code>gf-plan</code> path; trace <code>toolSteps</code> includes write tool.</li>
+<li><input type="checkbox" disabled> Docs: harness turn budget table committed; effective max for executor default ≥ prior <strong>8</strong> or justified in doc.</li>
+<li><input type="checkbox" disabled> Trace: <code>routingDecision</code> (or equivalent) visible in last-turn inspector for the field-report scenario.</li>
+<li><input type="checkbox" disabled> <code>npm run test</code> + targeted <code>npm run test:agent-eval</code> for new tags pass.</li>
+</ul>
+<h3>Suggested implementation order</h3>
+<ol>
+<li>Phase A (routing guard) — fixes mis-routing immediately.</li>
+<li>Phase B (greenfield create nudge + bootstrap sections).</li>
+<li>Phase C (budget table + cap tweaks).</li>
+<li>Phase D (trace + inspector).</li>
+<li>Phase E (doc diagram).</li>
+</ol>
+<h3>Related stories</h3>
+<ul>
+<li><strong><a href="120-post-plan-executor-routing-and-single-file-edits.md">120</a></strong> — introduced post-plan incremental (needs greenfield empty guard).</li>
+<li><strong><a href="167-post-plan-zero-tool-calls-nudge.md">167</a></strong> — empty first tool sample on incremental turns.</li>
+<li><strong><a href="111-harness-roadmap-and-retrospective-doc.md">111</a></strong> — roadmap index for debt.</li>
+<li><strong><a href="166-deprecate-search-replace-tool-alias.md">166</a></strong> — tool surface (orthogonal).</li>
+</ul>
+<h3>Completion bookkeeping</h3>
+<p>When implemented: mark <strong>168</strong> <strong>Done</strong>, update <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
+        </div>
+      </details>
+      <details id="story-169" data-status="post-mvp">
+        <summary>
+          <span class="story-title"><span class="story-id">169</span><span class="story-name">Harness v2: promote minimal loop, delete legacy harness</span></span>
+          <span class="status status-post-mvp">Post-MVP</span>
+        </summary>
+        <div class="story-body">
+          <div class="source-row">
+            <span>Post-MVP</span>
+            <a class="story-link" href="post-mvp/169-harness-v2-legacy-removal.md">post-mvp/169-harness-v2-legacy-removal.md</a>
+          </div>
+          <h2>169 — Harness v2: promote minimal loop, remove legacy harness</h2>
+<p><strong>Status:</strong> Done.</p>
+<p><strong>Priority:</strong> <strong>Critical</strong> — field validation (2026-06-04/05, GrokForgeMini-ToDo-app): the experimental <strong><code>GROKFORGE_MINIMAL_HARNESS=1</code></strong> path completed greenfield → iterate → split-files with <strong>zero tool failures</strong>, while the legacy <strong><code>agent-runner.ts</code></strong> loop (~3k lines + <code>src/harness/{loop,plan,policy,routing,...}</code>) routinely mis-routed, capped, or stalled on the same tasks. This story <strong>makes the minimal implementation the only harness</strong> (no “minimal” naming, no feature flag, no duplicate code paths).</p>
+<p><strong>Design skill:</strong> N/A for harness deletion; <strong>styleguide-design</strong> only if renderer changes touch chat chrome (edit-proposal removal, activity labels, trace inspector).</p>
+<p><strong>Depends on:</strong> Proven on branch <code>harness-minimal</code> (see <a href="../../src/harness/minimal/"><code>src/harness/minimal/</code></a>). <strong>Does not depend on</strong> completing post-mvp <strong>166–168</strong> (legacy routing fixes become <strong>obsolete</strong> when legacy is deleted).</p>
+<p><strong>Out of scope (follow-up stories after 169 ships):</strong> items in deferred-features doc (multi-root agent paths, diff review UI, plan mode, <code>run_command</code>, subagents, full prompt inspector). UI fixes (editor reload after write, file tree refresh) may land in parallel but are <strong>not</strong> blockers for deleting legacy code.</p>
+<p>---</p>
+<h3>Charter</h3>
+<p>| Principle | Rule | |-----------|------| | <strong>One harness</strong> | Single tool loop, single system prompt builder, single turn runner. No <code>isMinimalHarnessEnabled()</code>, no <code>GROKFORGE_MINIMAL_HARNESS</code>. | | <strong>No “minimal” in product paths</strong> | Rename module tree and app-data dirs (<code>minimal/logs</code> → <code>harness/logs</code>). | | <strong>Delete, don’t shim</strong> | Remove legacy files; do not leave <code>*-legacy.ts</code> re-exports “for later.” Git history is the archive. | | <strong>Keep shared primitives</strong> | Retain <strong><code>harness/diff/</code></strong> (fuzzy edit), <strong><code>harness/agent/content-hash.ts</code></strong>, and anything the new <strong><code>edit</code></strong> tool imports. Delete orchestration built only for proposals/plan/routing. | | <strong>Docs live in <code>docs/</code></strong> | Move research/visibility/deferred markdown out of <code>src/harness/minimal/</code> into <a href="../../docs/"><code>docs/</code></a>. Code README stays one short pointer in <code>src/harness/README.md</code>. | | <strong>Tests match reality</strong> | Drop or rewrite eval suites that assert legacy routing/nudges; add harness-v2 smoke tests for greenfield + edit chain. |</p>
+<p>---</p>
+<h3>Target architecture (end state)</h3>
+<pre><code>src/harness/
+  README.md                 # short map → docs/harness-architecture.md
+  index.ts                  # public exports
+  loop.ts                   # was minimal/loop.ts
+  run-turn.ts               # was minimal/run-minimal-turn.ts
+  tools.ts                  # list_files, read_file, write_file, edit
+  edit-tool.ts
+  profile.ts                # WORK_PROFILE, system prompt, routing metadata for IPC
+  paths.ts
+  session.ts
+  logger.ts
+  compaction.ts
+  model-client.ts
+  config.ts                 # MAX_TOOL_ITERATIONS only (no feature flag)
+  diff/                     # KEEP (edit-fuzzy, search-replace, search-replace-tool schema)
+  agent/
+    content-hash.ts         # KEEP
+src/main/
+  agent-runner.ts           # THIN (~200–400 lines): IPC, emit, runTurnJob → harness.runTurn</code></pre>
+<p><strong>App data (per project):</strong></p>
+<pre><code>userData/workspace-projects/&lt;projectId&gt;/harness/
+  logs/&lt;streamId&gt;.jsonl
+  sessions/&lt;streamId&gt;.jsonl   # optional; revisit if thread-only is enough</code></pre>
+<p>---</p>
+<h3>Phase 0 — Inventory &amp; branch hygiene</h3>
+<ol>
+<li>On branch <code>harness-minimal</code> (or successor <code>harness-v2</code>), run <code>git diff main --stat</code> and produce a <strong>delete list</strong> vs <strong>promote list</strong> (check into <code>docs/harness-v2-migration-inventory.md</code> during Phase 0, delete that scratch doc at end of 169 or fold into architecture doc).</li>
+</ol>
+<ol>
+<li>Grep for imports of legacy harness from <code>src/main/</code>, <code>src/renderer/</code>, <code>src/shared/</code>, <code>e2e/</code>:</li>
+</ol>
+<p>| Area | Expected legacy touchpoints | |------|----------------------------| | Main | <code>agent-runner.ts</code>, <code>agent-turn.ts</code>, <code>agent-turn-receipt-*</code>, <code>voice-realtime.ts</code> (harness profiles), write-batch IPC | | Renderer | <code>edit_proposal</code> phase, plan execute, command approval, subagent activity, turn trace inspector | | Shared | <code>agent-chat-contract.ts</code> tool names, routing types, proposal schemas | | Tests | <code>agent-runner-evaluation.test.ts</code>, <code>src/shared/agent-*.test.ts</code> (30+ files) |</p>
+<ol>
+<li>Confirm greenfield + edit session still passes manually (Todo app arc from field report).</li>
+</ol>
+<p><strong>Exit:</strong> Signed-off inventory; no code moves yet.</p>
+<p>---</p>
+<h3>Phase 1 — Promote &amp; rename (no legacy delete yet)</h3>
+<p>Move <code>src/harness/minimal/*</code> → <code>src/harness/</code> (top-level files). Update all imports.</p>
+<p>| Old | New | |-----|-----| | <code>runMinimalAgentTurn</code> | <code>runAgentHarnessTurn</code> or <code>runTurn</code> | | <code>MinimalHarnessLogger</code> | <code>HarnessLogger</code> | | <code>MinimalSession</code> | <code>HarnessSession</code> | | <code>executeMinimalTool</code> | <code>executeTool</code> | | <code>WORK_PROFILE</code> | <code>WORK_PROFILE</code> (unchanged id) | | <code>MINIMAL_MAX_TOOL_ITERATIONS</code> | <code>HARNESS_MAX_TOOL_ITERATIONS</code> | | <code>isMinimalHarnessEnabled</code> | <strong>delete</strong> |</p>
+<p><strong>Storage path migration</strong> in <code>run-turn.ts</code>:</p>
+<ul>
+<li>Write new logs to <code>harness/logs/</code>.</li>
+<li>Optional one-release read fallback from <code>minimal/logs/</code> (or document “old logs orphaned” — prefer clean break if no users in prod).</li>
+</ul>
+<p><strong>Rename test file:</strong> <code>minimal-tools.test.ts</code> → <code>harness-tools.test.ts</code>.</p>
+<p><strong>Temporary:</strong> Keep legacy <code>agent-runner.ts</code> path behind flag until Phase 2 completes (or flip default immediately if team agrees).</p>
+<p><strong>Exit:</strong> <code>npm run typecheck</code> + <code>npm run test</code> green; <code>dev</code> runs new harness without env flag.</p>
+<p>---</p>
+<h3>Phase 2 — Thin <code>agent-runner.ts</code></h3>
+<p>Replace the body of <code>runAgentTurn</code> / <code>runTurnJob</code> with harness v2:</p>
+<ol>
+<li><strong>Keep in <code>agent-runner.ts</code> (or <code>agent-chat-ipc.ts</code>):</strong></li>
+</ol>
+<ul>
+<li>IPC handlers (<code>agent-chat-start</code>, cancel, capabilities)</li>
+<li><code>emit</code> / <code>emitActivity</code> to renderer</li>
+<li><code>activeTurns</code> / AbortController registry</li>
+<li>E2E mock hooks (<code>GROKFORGE_E2E_AGENT_REPLY</code>) wired into harness deps</li>
+<li><code>getCurrentProject()</code> guard</li>
+<li>Timeout wrapper (use <code>HARNESS_MAX_TOOL_ITERATIONS</code> for budget, not legacy incremental caps)</li>
+</ul>
+<ol>
+<li><strong>Remove from <code>agent-runner.ts</code> imports and code:</strong></li>
+</ol>
+<ul>
+<li>Entire legacy tool loop (<code>for (maxToolIterations)</code>, nudges, <code>completeTurnWithFinalStream</code> contract stack)</li>
+<li><code>buildChatSystemPrompt</code>, lexical retrieval injection, plan artifacts, <code>edit_proposal</code> emit</li>
+<li>Turn trace scratch that legacy never filled in minimal mode (either wire harness logger → trace store in Phase 4 or remove empty traces)</li>
+</ul>
+<ol>
+<li><strong>Target size:</strong> <code>agent-runner.ts</code> ≤ <strong>400 lines</strong>; all turn logic in <code>harness/run-turn.ts</code> + <code>harness/loop.ts</code>.</li>
+</ol>
+<p><strong>Exit:</strong> <code>GROKFORGE_MINIMAL_HARNESS</code> removed from <code>package.json</code> (<code>dev:minimal</code> → delete or alias to <code>dev</code>). Single code path.</p>
+<p>---</p>
+<h3>Phase 3 — Delete legacy harness tree</h3>
+<p>Delete directories/files that exist <strong>only</strong> for legacy orchestration (verify zero imports after Phase 2):</p>
+<h4>Delete entirely</h4>
+<pre><code>src/harness/loop/           # turn-setup, harness-decisions, final-answer, provider-round, ...
+src/harness/plan/           # gf-plan, plan-store, post-plan-incremental, verification
+src/harness/policy/         # incremental, cascade-guard, final-answer-contract, creation-recovery, ...
+src/harness/routing/        # turn-routing, iterative-work-edit, scaffold-strategy, model-router (agent)
+src/harness/profiles/       # agent-profile, harness-profile, toolsets (replace with profile.ts)
+src/harness/subagent/
+src/harness/ipc/            # if duplicated in main; keep one IPC home
+src/harness/session/        # write-history-store, turn-receipt-store, subagent-session (agent-specific)
+src/harness/logger/         # turn-trace-builder, turn-trace-store (replace with harness/logger.ts or Phase 4 bridge)
+src/harness/compaction/     # turn-snapshot, offload, thread-memory (legacy provider snapshots)
+src/harness/context/        # agent retrieval, greenfield sections, bootstrap prompts (NOT workspace index if used elsewhere — see keep list)
+src/harness/tools/          # workspace-tools, tool-executor, run-command, write-batch, execution-context-builder
+src/harness/agent/chat-model-transport.ts   # replaced by harness/model-client.ts
+src/main/agent-turn.ts      # legacy mutable turn state
+src/main/agent-turn-receipt-lifecycle.ts
+src/main/agent-turn-receipt-store.ts</code></pre>
+<h4>Keep (relocate if needed)</h4>
+<p>| Path | Reason | |------|--------| | <code>src/harness/diff/edit-fuzzy.ts</code> | <code>edit-tool.ts</code> | | <code>src/harness/diff/search-replace.ts</code> | legacy single-edit path in edit-tool | | <code>src/harness/diff/search-replace-tool.ts</code> | <code>SearchReplaceToolArgsSchema</code> | | <code>src/harness/diff/proposal-quality.ts</code> | destructive shrink guard (if edit-tool uses it — else trim) | | <code>src/harness/agent/content-hash.ts</code> | read/edit hashing | | <code>src/main/workspace-path-guard.ts</code> | paths.ts uses it | | <code>src/main/ignore-globs.ts</code> | future: wire into tools.ts (deferred) |</p>
+<h4>Diff / proposal UI pipeline</h4>
+<p>Delete or stub renderer + main IPC for <strong>apply proposal</strong> only if no other feature needs <code>write-batch.ts</code>. If git diff viewer still needs write-batch for manual apply, <strong>delete agent proposal path</strong> but keep low-level fs write helpers in <code>src/main/</code> if editor uses them.</p>
+<p><strong>Explicit deletes in renderer (grep-driven):</strong></p>
+<ul>
+<li><code>edit_proposal</code> event handling / diff review cards in chat (hide or remove components)</li>
+<li>Plan “Approve and run” execute handoff that assumed legacy executor</li>
+<li>Command approval modal (no <code>run_command</code> in v2)</li>
+<li>Subagent nested activity</li>
+<li>Harness intervention copy tied to nudges that no longer exist</li>
+</ul>
+<p><strong>Exit:</strong> <code>rg &quot;harness/loop|harness/plan|tool-executor|runMinimal|isMinimalHarness&quot;</code> returns <strong>zero</strong> in <code>src/</code> (except <code>docs/</code> and <code>project_tasks/</code>).</p>
+<p>---</p>
+<h3>Phase 4 — Shared contracts &amp; tests</h3>
+<h4><code>src/shared/agent-chat-contract.ts</code></h4>
+<ul>
+<li>Simplify <code>AgentChatToolName</code> to v2 set: <code>list_files</code>, <code>read_file</code>, <code>write_file</code>, <code>edit</code> (drop <code>propose_file_edits</code>, <code>search_replace</code>, <code>spawn_subagent</code>, <code>run_command</code>, …) <strong>or</strong> keep union members as deprecated unused until renderer cleaned — prefer <strong>delete unused</strong> in same PR.</li>
+<li><code>AgentChatTurnRouting</code>: keep for UI chips but populate from <code>profile.ts</code> (<code>modelId</code>, <code>agentProfileId: 'executor'</code>, <code>harnessProfileKey</code> from model map).</li>
+<li>Remove / stub event phases: <code>edit_proposal</code>, <code>command_approval_required</code>, <code>subagent</code>.</li>
+</ul>
+<h4>Tests</h4>
+<p>| Action | Files | |--------|-------| | <strong>Delete</strong> | <code>src/main/agent-runner-evaluation.test.ts</code> (legacy routing matrix), bulk of <code>src/shared/agent-*</code> tests tied to proposals/plan/routing | | <strong>Keep &amp; move</strong> | <code>src/harness/harness-tools.test.ts</code> | | <strong>Add</strong> | <code>src/harness/run-turn.test.ts</code> (mock model client): greenfield write, read→edit, stale-hash chain | | <strong>Update</strong> | <code>e2e/</code> smoke: agent chat completes without <code>edit_proposal</code> phase |</p>
+<h4>Voice (<code>voice-realtime.ts</code>)</h4>
+<ul>
+<li>Remove imports of legacy <code>buildChatSystemPrompt</code> / harness profiles.</li>
+<li>Point voice agent at <strong><code>buildHarnessSystemPrompt</code></strong> (same as text chat) or document voice <strong>off</strong> until re-wired (acceptable short-term if voice is dev-only).</li>
+</ul>
+<p><strong>Exit:</strong> <code>npm run test</code> + <code>npm run test:agent-eval</code> replaced by <code>npm run test:harness</code> (new script, 3–5 tests).</p>
+<p>---</p>
+<h3>Phase 5 — Docs consolidation</h3>
+<p>Move from <code>src/harness/minimal/</code> → <code>docs/</code>:</p>
+<p>| Source | Destination | |--------|-------------| | <code>DEFERRED-FEATURES.md</code> | <a href="../../docs/harness-deferred-features.md"><code>docs/harness-deferred-features.md</code></a> | | <code>PROMPT-VISIBILITY.md</code> | <a href="../../docs/harness-prompt-visibility.md"><code>docs/harness-prompt-visibility.md</code></a> | | <code>minimal/README.md</code> (architecture) | <a href="../../docs/harness-architecture.md"><code>docs/harness-architecture.md</code></a> |</p>
+<p>Update / replace:</p>
+<p>| File | Action | |------|--------| | <a href="../../src/harness/README.md"><code>src/harness/README.md</code></a> | <strong>Replace</strong> with ~40 lines: module map + links to <code>docs/harness-*.md</code> | | <a href="../../src/harness/tools/TOOLS.md"><code>src/harness/tools/TOOLS.md</code></a> | <strong>Delete</strong> or archive to <code>docs/research/legacy-harness-tools-reference.md</code> | | <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> | Add “v2 shipped” section; mark Waves 1–3 items <strong>superseded by 169</strong> where applicable | | <a href="../../docs/field-reports/grokforge-todoapp-comparison.md"><code>docs/field-reports/grokforge-todoapp-comparison.md</code></a> | Add pointer to v2 session logs |</p>
+<p>Remove all references to <code>GROKFORGE_MINIMAL_HARNESS</code>, “minimal harness”, and “legacy harness” in user-facing docs (use <strong>GrokForge harness</strong> or <strong>harness v2</strong>).</p>
+<p><strong>Exit:</strong> No markdown under <code>src/harness/minimal/</code>; folder deleted.</p>
+<p>---</p>
+<h3>Phase 6 — Manifest &amp; project defaults</h3>
+<ol>
+<li><strong><code>app-project-store.ts</code>:</strong> Update default <code>customInstructions</code> to match v2 (direct tools, no diff-review prose). Harness <strong>may</strong> optionally read a future <code>context.harnessInstructions</code> — default should not contradict tools.</li>
+</ol>
+<ol>
+<li><strong>Plan artifacts on disk:</strong> Stop writing new plans from chat until plan mode returns; <strong>do not</strong> delete existing <code>userData/.../plans/</code> (orphan data is fine).</li>
+</ol>
+<ol>
+<li><strong>Workspace index</strong> (<code>context/index-store</code> if kept in main): Retain for file tree / search UI if independent of agent retrieval; remove agent auto-retrieval injection.</li>
+</ol>
+<p>---</p>
+<h3>Phase 7 — Backlog hygiene</h3>
+<p>Mark <strong>obsolete</strong> (do not implement on legacy — cancel or add “superseded by 169” banner):</p>
+<ul>
+<li><strong>166–168</strong> (search_replace alias, post-plan nudge, greenfield routing) — routing under test no longer exists</li>
+<li><strong>130–140</strong> iterative Work / S&amp;R escalation — replaced by simple loop + <code>edit</code></li>
+<li><strong>105–107</strong> turn snapshots / offload — revisit as new observability story if needed</li>
+<li><strong>109, 120</strong> plan execute routing — plan mode is deferred, not legacy fix</li>
+</ul>
+<p>Add <strong>new</strong> post-169 backlog items (separate stories, not part of 169):</p>
+<p>| ID | Topic | |----|--------| | TBD | Multi-root path resolution in <code>paths.ts</code> | | TBD | Editor + file tree refresh after <code>write_file</code> / <code>edit</code> | | TBD | Harness trace inspector UI (read <code>harness/logs</code>) | | TBD | Plan mode reintroduction on v2 loop | | TBD | Optional diff review layer on direct writes |</p>
+<p>---</p>
+<h3>Acceptance criteria</h3>
+<ol>
+<li><strong><code>npm run dev</code></strong> starts app; agent chat uses <strong>only</strong> <code>src/harness/{loop,run-turn,tools,...}</code> — no env flag.</li>
+<li><strong>Greenfield smoke:</strong> empty folder → user asks for todo app → <code>index.html</code> (or multi-file) on disk, chat <code>done</code> phase, no <code>edit_proposal</code>.</li>
+<li><strong>Edit smoke:</strong> <code>read_file</code> → <code>edit</code> → success; chained edits on same file without spurious stale failure (regression test).</li>
+<li><strong>Logs:</strong> <code>.../harness/logs/&lt;streamId&gt;.jsonl</code> with <code>context_snapshot</code>, <code>model_step</code>, <code>tool</code> events.</li>
+<li><strong>Repo grep:</strong> no <code>src/harness/minimal</code>, no <code>isMinimalHarnessEnabled</code>, no <code>tool-executor.ts</code>, no <code>agent-runner</code> tool loop &gt;500 lines.</li>
+<li><strong>Docs:</strong> <code>docs/harness-architecture.md</code>, <code>docs/harness-deferred-features.md</code>, <code>docs/harness-prompt-visibility.md</code> exist; <code>src/harness/README.md</code> links to them.</li>
+<li><strong>Tests:</strong> CI green; legacy eval suite removed or replaced.</li>
+</ol>
+<p>---</p>
+<h3>Suggested implementation order (single PR or stacked PRs)</h3>
+<p>| PR | Contents | Risk | |----|----------|------| | <strong>PR1</strong> | Phase 1 rename + path migration + default flag on | Low | | <strong>PR2</strong> | Phase 2 thin runner; delete flag | Medium | | <strong>PR3</strong> | Phase 3 legacy tree delete + renderer stub removal | High — largest diff | | <strong>PR4</strong> | Phase 4 tests + shared contract trim | Medium | | <strong>PR5</strong> | Phase 5–7 docs + backlog + manifest default | Low |</p>
+<p>Prefer <strong>stacked PRs</strong> over one 10k-line delete for reviewability.</p>
+<p>---</p>
+<h3>Risks &amp; mitigations</h3>
+<p>| Risk | Mitigation | |------|------------| | Renderer crashes on missing <code>edit_proposal</code> phase | Grep all <code>phase ===</code> handlers; provide no-op or remove UI slots in PR3 | | E2E relied on proposal apply | Update fixtures to expect direct writes | | Voice breaks | Document “text chat only” until voice rewired; gate voice menu if needed | | Accidental delete of diff math | <code>harness-tools.test.ts</code> + edit chain test must pass before PR3 merge | | Users lose old <code>minimal/logs</code> | Accept break in dev; note in changelog |</p>
+<p>---</p>
+<h3>Reference session (validation)</h3>
+<p>Project <code>51a3dc42-…</code>, five turns, <strong>0 tool failures</strong> — logs under <code>minimal/logs/</code> (to become <code>harness/logs/</code>). See chat thread: create → localStorage → dark theme → clear completed → split HTML/CSS/JS.</p>
+<p>---</p>
+<h3>Completion bookkeeping</h3>
+<p>When this story ships:</p>
+<ol>
+<li>Set <strong>Status:</strong> <strong>Done</strong> in this file.</li>
+<li>Add row <strong>169</strong> to <a href="../README.md"><code>project_tasks/README.md</code></a> post-mvp table.</li>
+<li>Run <strong><code>npm run stories:html</code></strong>.</li>
+<li>Merge <code>harness-minimal</code> → main; delete feature branch.</li>
+<li>Update <a href="../../docs/harness-roadmap.md"><code>docs/harness-roadmap.md</code></a> with v2 charter.</li>
+</ol>
         </div>
       </details>
     </section>

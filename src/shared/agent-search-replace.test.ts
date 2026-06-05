@@ -5,7 +5,7 @@ import {
   countSearchReplaceMatches,
   looksLikeReadFileNumberedContent,
   stripReadFileLineNumberPrefixes,
-} from './agent-search-replace'
+} from '../harness/diff/search-replace'
 
 describe('applySearchReplace', () => {
   it('replaces when old_string occurs exactly once', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { resolveAgentChatModelIntent, resolveAgentTurnRouting, isExplicitComposerModelIntent } from './agent-turn-routing'
-import type { ModelRoutingManifest } from './model-router'
+import { resolveAgentChatModelIntent, resolveAgentTurnRouting, isExplicitComposerModelIntent } from '../harness-support/routing/turn-routing'
+import type { ModelRoutingManifest } from '../harness-support/routing/model-router'
 
 const manifest: ModelRoutingManifest = {
   models: {

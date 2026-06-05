@@ -5,7 +5,7 @@ import {
   isReplanRequestUserText,
   isSingleFilePrimaryWorkspace,
   primaryNonTrivialFile,
-} from './post-plan-incremental'
+} from '../harness-support/plan/routing/post-plan-incremental'
 
 function indexWithFiles(files: { relativePath: string; basename: string }[]) {
   return {

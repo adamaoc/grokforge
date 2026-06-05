@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { GrokProjectManifest } from './manifest'
-import type { AgentChatModelTransport } from './agent-chat-model-transport'
-import type { AgentProviderRequest } from '../shared/agent-turn-snapshot'
+import type { AgentChatModelTransport } from '../harness-support/agent/chat-model-transport'
+import type { AgentProviderRequest } from '../harness-support/compaction/turn-snapshot'
 import type { AgentEditProposalPayload } from '../shared/agent-chat-contract'
 import {
   AGENT_REVIEWER_DEFAULT_MODEL,

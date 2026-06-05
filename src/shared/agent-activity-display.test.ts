@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentChatActivityPayload } from './agent-chat-contract'
-import { AGENT_EDIT_JAMMED_JS_FILE_REASON } from './agent-edit-corrupt-content'
+import { AGENT_EDIT_JAMMED_JS_FILE_REASON } from '../harness-support/diff/edit-corrupt-content'
 import {
   agentActivityPhaseLabel,
   agentActivitySummaryDetail,

@@ -22,7 +22,7 @@
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
-    "test:agent-eval": "vitest run src/main/agent-runner-evaluation.test.ts src/main/agent-eval-recording-transport.test.ts",
+    "test:harness": "vitest run src/harness/harness-tools.test.ts src/harness/run-turn.test.ts",
     "test:e2e": "npm run build && vitest run -c vitest.e2e.config.ts",
     "test:e2e:ui": "npm run build && playwright test -c playwright.e2e.config.ts",
     "test:e2e:ui:headed": "npm run build && playwright test -c playwright.e2e.config.ts --headed",

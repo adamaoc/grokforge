@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentModelChatMessage } from '../shared/agent-model-message'
-import { buildTurnSnapshot } from './agent-turn-snapshot-builder'
+import { buildTurnSnapshot } from '../harness-support/compaction/turn-snapshot-builder'
 
 const baseRouting = {
   modelIntent: 'chat_default' as const,

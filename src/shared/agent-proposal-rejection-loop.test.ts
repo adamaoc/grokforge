@@ -6,7 +6,7 @@ import {
   recordProposalRejection,
   shouldForceFinalForRepeatedProposalRejections,
 } from './agent-proposal-rejection-loop'
-import { AGENT_TOOL_PROTOCOL_VERSION } from './agent-tool-contract'
+import { AGENT_TOOL_PROTOCOL_VERSION } from '../harness-support/tools/contracts/tool-contract'
 
 describe('agent-proposal-rejection-loop', () => {
   it('recordProposalRejection increments per normalized path', () => {

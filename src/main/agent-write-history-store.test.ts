@@ -26,8 +26,8 @@ import {
   buildHistorySnapshotsFromUndo,
   getAgentWriteHistory,
   revertAgentWriteBatch,
-} from './agent-write-history-store'
-import { applyAgentToolWriteBatch, undoLastAgentWriteBatch } from './agent-tools'
+} from '../harness-support/session/write-history-store'
+import { applyAgentToolWriteBatch, undoLastAgentWriteBatch } from '../harness-support/tools/write-batch'
 
 function manifest(rootPath: string): GrokProjectManifest {
   return {

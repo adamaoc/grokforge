@@ -20,7 +20,7 @@ vi.mock('./app-project-store', async () => {
   }
 })
 
-import { validateContextPinsForManifest } from './agent-context-pins-store'
+import { validateContextPinsForManifest } from '../harness-support/context/context-pins-store'
 
 function manifest(rootPath: string): GrokProjectManifest {
   return {

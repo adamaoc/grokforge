@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { resolve } from 'node:path'
 import type { GrokProjectManifest } from './manifest'
-import type { StoredWorkspaceIndex } from './agent-index-store'
-import { rankRetrievalCandidates } from './agent-retrieval'
+import type { StoredWorkspaceIndex } from '../harness-support/context/index-store'
+import { rankRetrievalCandidates } from '../harness-support/context/retrieval'
 
 vi.mock('electron', () => ({
   app: {

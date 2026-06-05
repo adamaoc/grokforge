@@ -3,7 +3,7 @@ import {
   applyEdits,
   fuzzyFindText,
   normalizeForFuzzyMatch,
-} from './agent-edit-fuzzy'
+} from '../harness/diff/edit-fuzzy'
 
 describe('agent-edit-fuzzy', () => {
   it('exact match wins', () => {

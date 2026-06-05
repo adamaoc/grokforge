@@ -6,7 +6,7 @@ import {
   diffStatsLabelForStatus,
   formatDiffSessionSummary,
   summarizeDiffSessionStats,
-} from '../../../shared/diff-line-stats'
+} from '../../../harness/diff/line-stats'
 import { RootTypeDot } from '@/components/grokforge/RootTypeDot'
 import { DiffEditorPane } from '@/components/DiffEditorPane'
 import { getLanguageFromPath } from '@/lib/getLanguageFromPath'

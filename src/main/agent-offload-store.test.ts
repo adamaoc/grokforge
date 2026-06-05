@@ -23,7 +23,7 @@ import {
   agentOffloadFilePath,
   isPathUnderProjectAgentOffload,
   writeAgentOffloadFile,
-} from './agent-offload-store'
+} from '../harness-support/compaction/offload-store'
 
 const projectId = 'proj-offload-test'
 

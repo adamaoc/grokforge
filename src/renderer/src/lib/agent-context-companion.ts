@@ -1,6 +1,6 @@
 import type { DiffSession } from '@/types'
 import { basenamePath } from './workspace-paths'
-import { formatDiffSessionSummary, summarizeDiffSessionStats } from '../../../shared/diff-line-stats'
+import { formatDiffSessionSummary, summarizeDiffSessionStats } from '../../../harness/diff/line-stats'
 import type { AgentFileFocus } from '@/lib/agent-file-focus'
 
 export type AgentContextCompanionSnapshot = {

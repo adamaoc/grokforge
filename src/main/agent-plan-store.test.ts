@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { GF_PLAN_FENCE } from '../shared/gf-plan-contract'
+import { GF_PLAN_FENCE } from '../harness-support/plan/contracts/gf-plan-contract'
 
 const userDataRoot = mkdtempSync(join(tmpdir(), 'grokforge-plans-'))
 
@@ -25,7 +25,7 @@ import {
   planJsonPath,
   setPlanArtifactStatus,
   upsertPlanArtifactFromAssistantMessage,
-} from './agent-plan-store'
+} from '../harness-support/plan/store/plan-store'
 
 const projectId = 'proj-plan-test'
 
@@ -34,6 +34,7 @@ const validPlanFence = `\`\`\`${GF_PLAN_FENCE}
 \`\`\``
 
 afterEach(() => {
+  vi.useRealTimers()
   rmSync(join(userDataRoot, 'workspace-projects', projectId), { recursive: true, force: true })
 })
 
@@ -62,8 +63,11 @@ describe('agent-plan-store', () => {
   })
 
   it('findLatestCompletedPlanArtifact returns newest approved or superseded', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'))
     const older = upsertPlanArtifactFromAssistantMessage(projectId, 'msg-old', validPlanFence)!
     setPlanArtifactStatus(projectId, older.planId, 'approved')
+    vi.setSystemTime(new Date('2026-01-01T00:00:01.000Z'))
     const newer = upsertPlanArtifactFromAssistantMessage(projectId, 'msg-new', validPlanFence)!
     setPlanArtifactStatus(projectId, newer.planId, 'superseded')
 

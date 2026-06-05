@@ -1,11 +1,10 @@
 import WebSocket from 'ws'
 import { app, type BrowserWindow } from 'electron'
 import type { GrokProjectManifest } from './manifest'
-import { getModelForIntent } from './model-router'
+import { getModelForIntent } from '../harness-support/routing/model-router'
 import { getXaiApiKey } from './grok-stream'
-import { buildChatSystemPrompt } from './agent-context'
-import { buildVoiceHarnessAppendix } from '../shared/agent-harness-profile'
-import { resolveHarnessProfileKey } from '../shared/agent-harness-profile-contract'
+import { buildHarnessSystemPrompt } from '../harness/profile'
+import { resolveHarnessProfileKey } from '../harness/profile-key'
 import { VOICE_THREAD_SUMMARY_EFFECTIVE_MAX } from '../shared/voice-session-contract'
 import { normalizeTtsVoiceId } from '../shared/tts-read-aloud-contract'
 
@@ -41,11 +40,12 @@ function buildSessionUpdatePayload(manifest: GrokProjectManifest, opts?: { threa
     console.debug('[GrokForge voice] harness routing', { voiceModelId, harnessProfileKey })
   }
 
-  let instructions =
-    manifest.context.customInstructions?.trim() ||
-    'You are GrokForge, a concise voice coding assistant for a multi-root workspace.'
+  const activeRoot = manifest.roots[0]
+  let instructions = buildHarnessSystemPrompt(
+    manifest,
+    activeRoot?.label || activeRoot?.path || 'workspace root',
+  )
   try {
-    const { systemPrompt, warnings } = buildChatSystemPrompt(manifest)
     const summary = opts?.threadSummary?.trim()
     const summaryBlock =
       summary && summary.length > 0
@@ -57,14 +57,10 @@ function buildSessionUpdatePayload(manifest: GrokProjectManifest, opts?: { threa
           ].join('\n')
         : ''
     instructions = [
-      systemPrompt.slice(0, 31_000),
-      '',
-      buildVoiceHarnessAppendix(harnessProfileKey),
+      instructions.slice(0, 31_000),
+      `Voice model: ${voiceModelId}; harness profile: ${harnessProfileKey}.`,
       summaryBlock,
     ].join('\n')
-    if (warnings.length > 0) {
-      console.warn('[GrokForge voice] context warnings:', warnings.slice(0, 3).join(' · '))
-    }
   } catch (e) {
     console.warn('[GrokForge voice] instructions fallback:', e)
   }

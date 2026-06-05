@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { AgentEditProposalPayload } from './agent-chat-contract'
-import type { AgentToolBatchPayload } from './agent-tool-contract'
+import type { AgentToolBatchPayload } from '../harness-support/tools/contracts/tool-contract'
 
 export const AGENT_REVIEWER_DEFAULT_MODEL = 'grok-build-0.1'
 export const AGENT_REVIEWER_DEFAULT_MIN_CHANGED_LINES = 80

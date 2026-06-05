@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateAgentCommandRisk, evaluateRunCommandPolicy, resolveRunCommandPolicyTier } from './run-command-policy'
+import { evaluateAgentCommandRisk, evaluateRunCommandPolicy, resolveRunCommandPolicyTier } from '../harness-support/policy/command/run-command-policy'
 
 describe('run command policy', () => {
   it('hard-blocks catastrophic commands', () => {

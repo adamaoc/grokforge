@@ -1,4 +1,4 @@
-import { buildApprovedPlanExecuteUserText } from '../../../shared/agent-plan-artifact'
+import { buildApprovedPlanExecuteUserText } from '../../../harness-support/plan/contracts/plan-artifact'
 
 /** Legacy fallback when no durable plan artifact id is available. */
 export const APPROVED_PLAN_AUTO_RUN_USER_TEXT_LEGACY =

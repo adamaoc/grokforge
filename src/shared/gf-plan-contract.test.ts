@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AGENT_TOOL_FENCE_INFO } from './agent-tool-contract'
+import { AGENT_TOOL_FENCE_INFO } from '../harness-support/tools/contracts/tool-contract'
 import {
   buildGfPlanFinalAnswerContract,
   buildGfPlanToolLoopBlock,
@@ -7,8 +7,8 @@ import {
   GF_PLAN_OUTPUT_CONTRACT,
   parseGfPlanFromAssistantContent,
   stripGfPlanFenceFromAssistantDisplay,
-} from './gf-plan-contract'
-import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from './agent-plan-verification'
+} from '../harness-support/plan/contracts/gf-plan-contract'
+import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from '../harness-support/plan/verification/plan-verification'
 
 const validJson = JSON.stringify({
   schemaVersion: 1,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { AGENT_TOOL_PROTOCOL_VERSION } from './agent-tool-contract'
-import { findAccumulatedWriteForPath, mergeAgentEditProposals } from './agent-edit-proposal-merge'
+import { AGENT_TOOL_PROTOCOL_VERSION } from '../harness-support/tools/contracts/tool-contract'
+import { findAccumulatedWriteForPath, mergeAgentEditProposals } from '../harness-support/diff/edit-proposal-merge'
 import type { AgentEditProposalPayload } from './agent-chat-contract'
 
 function proposal(

@@ -1,18 +1,20 @@
-import { cn } from '@/lib/utils'
+import { cn } from "@/lib/utils";
 
 export function GrokForgeWordmark({
   className,
   compact,
-  variant = 'brand',
+  variant = "brand",
 }: {
-  className?: string
-  compact?: boolean
+  className?: string;
+  compact?: boolean;
   /** `muted` matches empty states (low-contrast chrome). */
-  variant?: 'brand' | 'muted'
+  variant?: "brand" | "muted";
 }) {
-  const isMuted = variant === 'muted'
+  const isMuted = variant === "muted";
   return (
-    <div className={cn('flex flex-wrap items-end justify-center gap-0', className)}>
+    <div
+      className={cn("flex flex-wrap items-end justify-center gap-0", className)}
+    >
       <svg
         width={176}
         height={66}
@@ -20,9 +22,9 @@ export function GrokForgeWordmark({
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         className={cn(
-          'w-auto shrink-0',
-          isMuted ? 'text-zinc-600' : 'text-gf-accent',
-          compact ? 'h-8 sm:h-9' : 'h-10 sm:h-12',
+          "w-auto shrink-0",
+          isMuted ? "text-zinc-600" : "text-gf-accent",
+          compact ? "h-8 sm:h-9" : "h-10 sm:h-12",
         )}
         aria-hidden
       >
@@ -34,7 +36,10 @@ export function GrokForgeWordmark({
           d="M68.6362 24.9815C64.8074 24.9815 62.7335 22.2662 62.7335 18.7979C62.7335 15.3068 64.8074 12.6143 68.6362 12.6143C72.4878 12.6143 74.5389 15.3068 74.5389 18.7979C74.5389 22.2662 72.4878 24.9815 68.6362 24.9815ZM65.4228 18.7979C65.4228 21.4904 66.8813 22.8366 68.6362 22.8366C70.4139 22.8366 71.8497 21.4904 71.8497 18.7979C71.8497 16.1054 70.4139 14.7363 68.6362 14.7363C66.8813 14.7363 65.4228 16.1054 65.4228 18.7979Z"
           fill="currentColor"
         />
-        <path d="M55.5659 24.7077V14.782L57.731 12.9109H62.3347V15.1014H58.1413V24.7077H55.5659Z" fill="currentColor" />
+        <path
+          d="M55.5659 24.7077V14.782L57.731 12.9109H62.3347V15.1014H58.1413V24.7077H55.5659Z"
+          fill="currentColor"
+        />
         <path
           d="M45.7187 25.009C40.8101 25.009 37.8834 21.4448 37.8834 16.5846C37.8834 11.6788 40.9146 8.02795 45.8145 8.02795C49.6433 8.02795 52.4466 9.99027 53.1075 13.6411H50.1675C49.7345 11.5647 48.0024 10.401 45.8145 10.401C42.282 10.401 40.7322 13.4586 40.7322 16.5846C40.7322 19.7106 42.282 22.7454 45.8145 22.7454C49.1875 22.7454 50.6689 20.3039 50.7828 18.2731H45.7006V15.9105H53.381L53.3684 17.1457C53.3684 21.7359 51.4978 25.009 45.7187 25.009Z"
           fill="currentColor"
@@ -50,13 +55,13 @@ export function GrokForgeWordmark({
       </svg>
       <span
         className={cn(
-          'font-semibold leading-[1.4] tracking-tighter',
-          isMuted ? 'text-zinc-500' : 'text-white',
-          compact ? 'text-xl sm:text-[1.35rem]' : 'text-[2rem]',
+          "font-semibold leading-[1.4] tracking-tighter pb-[2px]",
+          isMuted ? "text-zinc-500" : "text-white",
+          compact ? "text-xl sm:text-[1.35rem]" : "text-[2rem]",
         )}
       >
         Forge
       </span>
     </div>
-  )
+  );
 }

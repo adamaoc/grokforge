@@ -4,8 +4,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { randomUUID } from 'node:crypto'
 import type { GrokProjectManifest } from './manifest'
 import { validateManifest } from './manifest'
-import { discoverAgentInstructionRelativePaths } from './agent-instructions-discover'
-import { DUAL_MODEL_FALLBACKS } from '../shared/model-router'
+import { discoverAgentInstructionRelativePaths } from '../harness-support/context/instructions-discover'
+import { DUAL_MODEL_FALLBACKS } from '../harness-support/routing/model-router'
 import {
   AGENT_REVIEWER_DEFAULT_MIN_CHANGED_LINES,
   AGENT_REVIEWER_DEFAULT_MODEL,
@@ -108,7 +108,7 @@ export function defaultManifestForFirstRoot(rootAbs: string, displayName: string
     context: {
       alwaysInclude: discoverAgentInstructionRelativePaths([{ path: resolved }], defaultIgnore),
       customInstructions:
-        "You are GrokForge's coding agent. Act as a senior engineer in this multi-root workspace: base conclusions on the repository and GrokForge's workspace tools (list, read, search), say when you lack evidence, and use the app's edit proposal / diff flow for file changes—not prose-only descriptions. Be concise and precise.",
+        "You are GrokForge's coding agent. Act as a senior engineer in this workspace: inspect files before changing them, use list_files/read_file/write_file/edit for file work, and be concise about what changed. Say when you lack evidence.",
     },
     metadata: {
       createdAt: now,
