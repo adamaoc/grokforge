@@ -206,6 +206,7 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 166 | Deprecate `search_replace` tool alias (consolidate on `edit`) | [`post-mvp/166-deprecate-search-replace-tool-alias.md`](post-mvp/166-deprecate-search-replace-tool-alias.md) |
 | 167 | Post-plan incremental: nudge on empty first tool sample | [`post-mvp/167-post-plan-zero-tool-calls-nudge.md`](post-mvp/167-post-plan-zero-tool-calls-nudge.md) |
 | 168 | Greenfield empty workspace vs stale plan routing + tool budgets | [`post-mvp/168-greenfield-empty-vs-post-plan-routing.md`](post-mvp/168-greenfield-empty-vs-post-plan-routing.md) |
+| 169 | **Harness v2:** promote minimal loop, delete legacy harness | [`post-mvp/169-harness-v2-legacy-removal.md`](post-mvp/169-harness-v2-legacy-removal.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**
 
@@ -239,6 +240,8 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **Tool surface cleanup (next):** **166** deprecate `search_replace` alias → single model-facing **`edit`** tool (see [`post-mvp/166-deprecate-search-replace-tool-alias.md`](post-mvp/166-deprecate-search-replace-tool-alias.md); precedent **114**).
 
-**Post-plan follow-up reliability (next):** **167** empty first `tool_sample` → **168** stale plan + empty workspace mis-routing (4 read-only rounds, no file) → tool budget doc + trace routing summary. Depends on **120**; complements **166** / **167**.
+**Post-plan follow-up reliability (next):** **167** empty first `tool_sample` → **168** stale plan + empty workspace mis-routing (4 read-only rounds, no file) → tool budget doc + trace routing summary. Depends on **120**; complements **166** / **167**. **Superseded if 169 ships first.**
 
-*Last progress update: **2026-06-03** — Added backlog **168** (greenfield empty vs post-plan routing, iteration caps, routing observability; not started).*
+**Harness v2 (priority override):** **169** — delete legacy harness; promote `src/harness/minimal/` to sole `src/harness/` implementation; move deferred/visibility docs to `docs/`; thin `agent-runner.ts`. Field-validated on Todo app session (2026-06-05). **166–168** and most iterative-work stories become obsolete after **169**.
+
+*Last progress update: **2026-06-05** — Added backlog **169** (harness v2 legacy removal; not started).*

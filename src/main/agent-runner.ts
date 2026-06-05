@@ -102,6 +102,10 @@ import type {
 } from "../shared/agent-chat-contract";
 import type { AgentToolExecutionContext } from "../harness/tools/contracts/execution-context";
 import {
+  isMinimalHarnessEnabled,
+  runMinimalAgentTurn,
+} from "../harness/minimal/run-minimal-turn";
+import {
   pathsAtSearchReplaceEscalationThreshold,
   ITERATIVE_SEARCH_REPLACE_BLOCKED_BEFORE_FORCE_FINAL,
   resolvePostEscalationMaxToolRounds,
@@ -1208,6 +1212,22 @@ async function runAgentTurn(
       error: "No project loaded",
     });
     throw new Error("No project loaded");
+  }
+
+  if (isMinimalHarnessEnabled()) {
+    await runMinimalAgentTurn(
+      {
+        emit,
+        emitActivity,
+        newActivityId: activityId,
+        getE2eMockReply,
+      },
+      payload,
+      manifest,
+      projectId,
+      ac,
+    );
+    return;
   }
 
   const { postPlanIncremental, completedPlan } = resolvePostPlanRoutingInput(

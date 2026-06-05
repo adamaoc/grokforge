@@ -4,6 +4,10 @@ This folder is the runtime home for the GrokForge coding-agent harness.
 
 The mental model mirrors the smaller `ampnet-harness` shape, with a few GrokForge-specific areas for desktop UX, plan mode, diff review, and safety policy.
 
+## Minimal harness (experimental)
+
+Set `GROKFORGE_MINIMAL_HARNESS=1` to bypass the legacy loop in `agent-runner.ts` and use **`minimal/`** (ampnet-style `list_files` / `read_file` / `write_file`). See [`minimal/README.md`](./minimal/README.md) and [`minimal/DEFERRED-FEATURES.md`](./minimal/DEFERRED-FEATURES.md).
+
 ## Start Here
 
 - `ipc/` receives renderer requests and emits chat/activity events back to the UI.

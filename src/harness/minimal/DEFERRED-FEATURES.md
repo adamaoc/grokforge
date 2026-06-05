@@ -1,0 +1,108 @@
+# Features intentionally deferred (minimal harness)
+
+GrokForge’s **legacy harness** (`src/main/agent-runner.ts` + `src/harness/*`) remains in the tree but is **not used** when minimal mode is on. Re-enable capabilities here as deliberate PRs — do not grow minimal loop ad hoc.
+
+## How to turn minimal mode on
+
+- Environment: `GROKFORGE_MINIMAL_HARNESS=1` (main process / dev script)
+- See [`README.md`](./README.md) for architecture
+
+---
+
+## Product / UX (deferred)
+
+| Feature | Legacy location | Notes for re-entry |
+|---------|----------------|-------------------|
+| **Diff review & apply** | `edit_proposal` IPC, diff UI, `write-batch.ts` | Wire `write_file` → optional proposal mirror first |
+| **Plan mode & `gf-plan`** | `plan/`, Plan composer, story 109 | Separate `TurnMode.plan` |
+| **Approve and run** | `isApprovedPlanAutoRun`, executor-from-plan | After plan mode returns |
+| **`run_command` + approval** | `tools/run-command-tool.ts`, command policy | After basic writes work |
+| **Subagents (`spawn_subagent`)** | `subagent/` | ampnet had `delegate` |
+| **Voice handoff** | `voice-realtime.ts`, voice profiles | Independent |
+| **Proposal reviewer** | `agent-proposal-reviewer.ts` | Post-diff |
+| **Edit safety banners / pre-apply warnings** | renderer + `policy/edit/safety-warnings` | With diffs |
+| **Trust mode / auto-apply** | settings + apply path | With diffs |
+| **Activity compaction / issue cards** | `agent-activity-display.ts` | UX polish |
+
+---
+
+## Tools (deferred)
+
+| Tool | Why deferred |
+|------|----------------|
+| `workspace_index` | Use `list_files` for v0 |
+| `list_directory` (GrokForge name) | Minimal uses ampnet name `list_files` |
+| `search_workspace` | Add when search is needed |
+| `search_replace` (legacy alias) | Use minimal `edit` instead |
+| **Direct `edit` with proposals** | Minimal has **`edit`** (immediate disk); legacy adds review UI |
+| `propose_file_edits` | Proposal pipeline; minimal writes directly |
+| `run_command` | Shell policy + approval |
+| `spawn_subagent` | Child sessions |
+
+---
+
+## Routing & profiles (deferred)
+
+| Feature | Legacy location |
+|---------|----------------|
+| Multiple agent profiles (`planner`, `executor`, `default`, `explorer`) | `profiles/agent-profile.ts` |
+| Per-model harness profiles (`grok_code_fast`, `grok_4_3`) | `profiles/harness-profile.ts` |
+| Post-plan incremental auto-routing | `plan/routing/post-plan-incremental.ts` |
+| Iterative Work edit enforcement | `routing/iterative-work-edit.ts`, `policy/incremental/` |
+| Greenfield / scaffold strategy | `routing/scaffold-strategy.ts` |
+| Model intent chips (planning / execution) | `routing/turn-routing.ts` |
+| Harness mid-turn nudges (20+ kinds) | `policy/`, `agent-runner.ts` |
+
+Minimal uses **one profile**: `WORK_PROFILE` in [`profile.ts`](./profile.ts).
+
+---
+
+## Context & retrieval (deferred)
+
+| Feature | Legacy location |
+|---------|----------------|
+| **Multi-root workspace** | `manifest.roots[]`, active root switching | **High priority after minimal is stable** — v0 uses **one** root (active or first) |
+| Lexical retrieval / pins / attachments | `context/retrieval.ts`, pins, staging |
+| Thread memory compaction store | `compaction/thread-memory-store.ts` |
+| Tool result offload | `compaction/tool-result-offload.ts` |
+| Turn snapshots for provider | `compaction/turn-snapshot.ts` |
+| Content-hash stale guards | `agent/content-hash.ts` |
+| Ignore globs (partial) | Not applied in minimal tools yet — add in `paths.ts` |
+| Sensitive path denylist | `workspace-tools.ts` `isLikelySensitivePath` |
+
+---
+
+## Observability (partial in minimal, rest deferred)
+
+| Feature | Minimal v0 | Full legacy |
+|---------|------------|-------------|
+| JSONL event log per stream | Yes — `logger.ts` → `minimal/logs/` | traces + receipts |
+| Console `[minimal]` lines | Yes | `[GrokForge agent-runner]` |
+| Token usage per model step | Yes — logged on each API call | turn traces |
+| **Exact system + user messages in UI** | Logged sizes + step counts; **full text in log file** on `context_snapshot` / future inspector | turn snapshot |
+| Turn trace inspector UI | Deferred | `AgentTurnTraceInspector` |
+| Harness metrics / eval tags | Deferred | `agent-runner-evaluation.test.ts` |
+
+See [`PROMPT-VISIBILITY.md`](./PROMPT-VISIBILITY.md) for what we log now vs later.
+
+---
+
+## Persistence (deferred / different path)
+
+| Feature | Minimal v0 | Legacy |
+|---------|------------|--------|
+| Chat `thread.jsonl` UI thread | End of turn via main (if wired) | full pipeline |
+| Turn receipts | No | `turn-receipt-store.ts` |
+| Plan artifacts on disk | Still exist but ignored by minimal | `plan/store/` |
+| Write history / undo batches | No | `session/write-history-store.ts` |
+
+---
+
+## Suggested re-entry order
+
+1. **Multi-root** path resolution + tool descriptions (same as legacy guard)
+2. **Ignore globs + sensitive paths** on read/write/list
+3. **Diff proposals** optional layer on `write_file`
+4. **Plan mode** (separate loop or `TurnMode` switch)
+5. **`run_command`** with approval
+6. Retrieval / pins (only if needed)
