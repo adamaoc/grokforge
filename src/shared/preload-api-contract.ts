@@ -6,7 +6,7 @@ import type {
   ReadDirectoryResult,
   Root,
 } from '../main/manifest'
-import type { GetAgentContextPreviewResult, GetChatSystemPromptResult } from '../harness/context/context'
+import type { GetAgentContextPreviewResult, GetChatSystemPromptResult } from '../harness-support/context/context'
 import type {
   GrokStreamCapabilitiesResult,
   GrokStreamEventPayload,
@@ -29,7 +29,7 @@ import type {
   MarkStoredPlansSupersededResult,
   SetStoredPlanStatusArgs,
   SetStoredPlanStatusResult,
-} from '../harness/plan/contracts/plan-artifact'
+} from '../harness-support/plan/contracts/plan-artifact'
 import type {
   AgentChatCapabilitiesResult,
   AgentCommandApprovalRespondResult,
@@ -48,7 +48,7 @@ import type {
   GetLastAgentTurnTraceResult,
   ReplayAgentRetrievalPreviewResult,
 } from './agent-turn-trace-contract'
-import type { AgentToolBatchPayload, AgentToolBatchResult, AgentUndoLastBatchResult } from '../harness/tools/contracts/tool-contract'
+import type { AgentToolBatchPayload, AgentToolBatchResult, AgentUndoLastBatchResult } from '../harness-support/tools/contracts/tool-contract'
 import type {
   GetAgentWriteHistoryResult,
   RevertAgentWriteBatchResult,
@@ -57,7 +57,7 @@ import type {
   GetProjectContextPinsResult,
   SetProjectContextPinsResult,
   AgentContextPin,
-} from '../harness/context/context-pins-contract'
+} from '../harness-support/context/context-pins-contract'
 import type { AppInfoPayload } from './app-info-contract'
 import type {
   DeleteProjectResult,

@@ -4,7 +4,7 @@
  * This file intentionally has no Electron/Node imports so main, preload, and renderer
  * can all agree on the same DTO shape.
  */
-import type { AgentEditSafetyResult } from '../harness/policy/edit/safety-warnings'
+import type { AgentEditSafetyResult } from '../harness-support/policy/edit/safety-warnings'
 
 export type DiffFileStatus = 'created' | 'modified' | 'deleted' | 'renamed'
 

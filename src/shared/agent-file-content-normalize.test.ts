@@ -18,7 +18,7 @@ import {
   looksLikeMarkdownDocument,
   repairJammedJavaScriptSource,
   looksLikeJavaScriptSource,
-} from '../harness/context/file-content-normalize'
+} from '../harness-support/context/file-content-normalize'
 
 describe('normalizeAgentWriteFileContent', () => {
   it('returns unchanged when there are no literal backslash-n sequences', () => {

@@ -1,6 +1,6 @@
 # 169 — Harness v2: promote minimal loop, remove legacy harness
 
-**Status:** Not started.
+**Status:** Done.
 
 **Priority:** **Critical** — field validation (2026-06-04/05, GrokForgeMini-ToDo-app): the experimental **`GROKFORGE_MINIMAL_HARNESS=1`** path completed greenfield → iterate → split-files with **zero tool failures**, while the legacy **`agent-runner.ts`** loop (~3k lines + `src/harness/{loop,plan,policy,routing,...}`) routinely mis-routed, capped, or stalled on the same tasks. This story **makes the minimal implementation the only harness** (no “minimal” naming, no feature flag, no duplicate code paths).
 

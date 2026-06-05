@@ -10,7 +10,7 @@ import {
   resolveAgentChatSampleMaxTokens,
   splitSystemAndProviderMessages,
   type AgentTurnSnapshot,
-} from '../harness/compaction/turn-snapshot'
+} from '../harness-support/compaction/turn-snapshot'
 
 function minimalSnapshot(
   overrides: Partial<AgentTurnSnapshot> & Pick<AgentTurnSnapshot, 'agentProfileId' | 'roundKind'>,

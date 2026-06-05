@@ -121,21 +121,21 @@ import {
   sanitizeFailedEditFinalAnswerDisplay,
   shouldSanitizeFailedEditFinalAnswerDisplay,
 } from "@/lib/assistant-final-answer-sanitize";
-import type { ParsedAgentToolBatch } from "../../../harness/tools/contracts/tool-schema";
-import { stripAgentToolFenceFromAssistantDisplay } from "../../../harness/tools/contracts/tool-schema";
-import { AGENT_TOOL_FENCE_INFO } from "../../../harness/tools/contracts/tool-contract";
-import { normalizeAgentWriteFileContent } from "../../../harness/context/file-content-normalize";
+import type { ParsedAgentToolBatch } from "../../../harness-support/tools/contracts/tool-schema";
+import { stripAgentToolFenceFromAssistantDisplay } from "../../../harness-support/tools/contracts/tool-schema";
+import { AGENT_TOOL_FENCE_INFO } from "../../../harness-support/tools/contracts/tool-contract";
+import { normalizeAgentWriteFileContent } from "../../../harness-support/context/file-content-normalize";
 import { normalizeProposalBatch } from "@/lib/normalize-proposal-batch";
 import {
   agentEditProposalPathKey,
   mergeAgentEditProposals,
-} from "../../../harness/diff/edit-proposal-merge";
+} from "../../../harness-support/diff/edit-proposal-merge";
 import {
   analyzeAgentEditSafety,
   mergeAgentEditSafetyResults,
   type AgentEditSafetyResult,
-} from "../../../harness/policy/edit/safety-warnings";
-import { buildRegenerateProposalMessage } from "../../../harness/diff/regenerate-proposal";
+} from "../../../harness-support/policy/edit/safety-warnings";
+import { buildRegenerateProposalMessage } from "../../../harness-support/diff/regenerate-proposal";
 import {
   AGENT_CHAT_MAX_THREAD_MESSAGES,
   type AgentChatThreadMessage,
@@ -147,13 +147,13 @@ import {
   formatAgentEditFailureSystemMessage,
   isAgentEditFailureSystemMessage,
   pruneEditFailureMessages,
-} from "../../../harness/diff/edit-failure-context";
+} from "../../../harness-support/diff/edit-failure-context";
 import { AgentEditSafetyBanner } from "@/components/AgentEditSafetyBanner";
 import {
   GF_PLAN_FENCE,
   parseGfPlanFromAssistantContent,
   stripGfPlanFenceFromAssistantDisplay,
-} from "../../../harness/plan/contracts/gf-plan-contract";
+} from "../../../harness-support/plan/contracts/gf-plan-contract";
 import { PlanModeCard } from "@/components/PlanModeCard";
 import { PlanPhaseStepper } from "@/components/PlanPhaseStepper";
 import {

@@ -1,7 +1,7 @@
 import {
   hasDominantLiteralEscapedNewlines,
   unescapeLiteralNewlinesWhenDominant,
-} from '../context/file-content-normalize'
+} from '../../harness-support/context/file-content-normalize'
 import { applyEdits } from './edit-fuzzy'
 
 const NOT_FOUND_MESSAGE_MAX_CHARS = 500

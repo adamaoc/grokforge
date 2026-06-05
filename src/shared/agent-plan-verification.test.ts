@@ -8,7 +8,7 @@ import {
   shouldInjectPlanVerifyCommandNudge,
   suggestVerificationCommands,
   verificationHasCommandLikeToken,
-} from '../harness/plan/verification/plan-verification'
+} from '../harness-support/plan/verification/plan-verification'
 
 const staticPlan = {
   filesLikelyTouched: ['index.html', 'styles.css', 'script.js'],

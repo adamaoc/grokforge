@@ -7,11 +7,11 @@ import {
   setWorkspaceFsNotifyTargetWindow,
 } from './workspace-fs-notify'
 
-vi.mock('../harness/context/index-store', () => ({
+vi.mock('../harness-support/context/index-store', () => ({
   refreshWorkspaceIndex: vi.fn(),
 }))
 
-import { refreshWorkspaceIndex } from '../harness/context/index-store'
+import { refreshWorkspaceIndex } from '../harness-support/context/index-store'
 
 const manifest: GrokProjectManifest = {
   name: 'Test',

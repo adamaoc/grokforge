@@ -3,12 +3,12 @@ import type {
   AgentChatToolName,
   HarnessInterventionKind,
 } from './agent-chat-contract'
-import { AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON } from '../harness/policy/edit/creation-recovery'
+import { AGENT_EDIT_MINIMAL_SCAFFOLD_REQUIRED_REASON } from '../harness-support/policy/edit/creation-recovery'
 import {
   AGENT_EDIT_INCOMPLETE_JSON_MANIFEST_REASON,
   AGENT_EDIT_INVALID_JSON_MANIFEST_REASON,
-} from '../harness/context/bootstrap-manifest'
-import { AGENT_EDIT_CASCADE_GUARD_REASON } from '../harness/policy/edit/cascade-guard'
+} from '../harness-support/context/bootstrap-manifest'
+import { AGENT_EDIT_CASCADE_GUARD_REASON } from '../harness-support/policy/edit/cascade-guard'
 import {
   AGENT_EDIT_CORRUPT_CONTENT_REASON,
   AGENT_EDIT_CORRUPT_ENCODING_REASON,
@@ -21,14 +21,14 @@ import {
   AGENT_EDIT_JAMMED_SCRIPT_REASON,
   AGENT_EDIT_MALFORMED_JSX_REASON,
   AGENT_EDIT_RAW_CRUSHED_PREVALIDATION_REASON,
-} from '../harness/diff/edit-corrupt-content'
-import { AGENT_EDIT_READ_BEFORE_WRITE_REASON } from '../harness/policy/edit/read-guard'
+} from '../harness-support/diff/edit-corrupt-content'
+import { AGENT_EDIT_READ_BEFORE_WRITE_REASON } from '../harness-support/policy/edit/read-guard'
 import {
   AGENT_EDIT_MALFORMED_CONTENT_HASH_REASON,
   AGENT_EDIT_MISSING_CONTENT_HASH_REASON,
   AGENT_EDIT_STALE_HASH_REASON,
 } from './agent-content-hash'
-import type { ScaffoldConflictKind } from '../harness/routing/scaffold-strategy'
+import type { ScaffoldConflictKind } from '../harness-support/routing/scaffold-strategy'
 
 export const AGENT_ACTIVITY_DETAIL_MAX_CHARS = 200
 

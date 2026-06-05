@@ -6,7 +6,7 @@ import {
   AgentTurnTraceV1Schema,
   type AgentTurnTraceV1,
 } from '../shared/agent-turn-trace-contract'
-import { redactUserHomeInString, sanitizeTraceForExport } from '../harness/logger/turn-trace-store'
+import { redactUserHomeInString, sanitizeTraceForExport } from '../harness-support/logger/turn-trace-store'
 
 function minimalTrace(overrides: Partial<AgentTurnTraceV1> = {}): AgentTurnTraceV1 {
   return AgentTurnTraceV1Schema.parse({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { analyzeAgentEditSafety, mergeAgentEditSafetyResults } from '../harness/policy/edit/safety-warnings'
+import { analyzeAgentEditSafety, mergeAgentEditSafetyResults } from '../harness-support/policy/edit/safety-warnings'
 
 const DALLAS_ADMIN_ORIGINAL = `import Link from 'next/link';
 

@@ -3,7 +3,7 @@ import {
   ITERATIVE_EDIT_SCOPE_MARKER,
   buildIterativeEditScopeSections,
   resolveIterativeEditScope,
-} from '../harness/routing/iterative-edit-scope'
+} from '../harness-support/routing/iterative-edit-scope'
 
 describe('resolveIterativeEditScope', () => {
   it('localStorage persistence → single_file with search_replace default on script.js', () => {

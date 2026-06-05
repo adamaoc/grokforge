@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GrokProjectManifest } from './manifest'
-import { DUAL_MODEL_FALLBACKS, getModelForIntent, MODEL_INTENT_MANIFEST_KEYS } from '../harness/routing/model-router'
+import { DUAL_MODEL_FALLBACKS, getModelForIntent, MODEL_INTENT_MANIFEST_KEYS } from '../harness-support/routing/model-router'
 
 function baseManifest(overrides: Partial<GrokProjectManifest['models']> = {}): GrokProjectManifest {
   return {

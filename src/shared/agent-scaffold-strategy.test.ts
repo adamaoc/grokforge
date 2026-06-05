@@ -5,7 +5,7 @@ import {
   isCliScaffoldCommand,
   resolveScaffoldStrategy,
   toolSampleHasEditTools,
-} from '../harness/routing/scaffold-strategy'
+} from '../harness-support/routing/scaffold-strategy'
 
 describe('resolveScaffoldStrategy', () => {
   it('returns null for populated non-greenfield context', () => {

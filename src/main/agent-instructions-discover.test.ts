@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import {
   discoverAgentInstructionRelativePaths,
   mergeDiscoveredAgentInstructions,
-} from '../harness/context/instructions-discover'
+} from '../harness-support/context/instructions-discover'
 
 describe('discoverAgentInstructionRelativePaths', () => {
   it('finds AGENTS.md at root and CLAUDE.md one level deep', () => {

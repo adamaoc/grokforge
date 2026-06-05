@@ -12756,7 +12756,7 @@ console.log('post norm:', assessProposalWriteContent(norm, { resolvedPath: path,
             <a class="story-link" href="post-mvp/169-harness-v2-legacy-removal.md">post-mvp/169-harness-v2-legacy-removal.md</a>
           </div>
           <h2>169 — Harness v2: promote minimal loop, remove legacy harness</h2>
-<p><strong>Status:</strong> Not started.</p>
+<p><strong>Status:</strong> Done.</p>
 <p><strong>Priority:</strong> <strong>Critical</strong> — field validation (2026-06-04/05, GrokForgeMini-ToDo-app): the experimental <strong><code>GROKFORGE_MINIMAL_HARNESS=1</code></strong> path completed greenfield → iterate → split-files with <strong>zero tool failures</strong>, while the legacy <strong><code>agent-runner.ts</code></strong> loop (~3k lines + <code>src/harness/{loop,plan,policy,routing,...}</code>) routinely mis-routed, capped, or stalled on the same tasks. This story <strong>makes the minimal implementation the only harness</strong> (no “minimal” naming, no feature flag, no duplicate code paths).</p>
 <p><strong>Design skill:</strong> N/A for harness deletion; <strong>styleguide-design</strong> only if renderer changes touch chat chrome (edit-proposal removal, activity labels, trace inspector).</p>
 <p><strong>Depends on:</strong> Proven on branch <code>harness-minimal</code> (see <a href="../../src/harness/minimal/"><code>src/harness/minimal/</code></a>). <strong>Does not depend on</strong> completing post-mvp <strong>166–168</strong> (legacy routing fixes become <strong>obsolete</strong> when legacy is deleted).</p>

@@ -6,7 +6,7 @@ import {
   buildFallbackSubagentArtifact,
   capSubagentArtifact,
   serializeSubagentResultForParent,
-} from '../harness/subagent/contracts/subagent-contract'
+} from '../harness-support/subagent/contracts/subagent-contract'
 
 describe('agent-subagent-contract', () => {
   it('parses spawn args', () => {

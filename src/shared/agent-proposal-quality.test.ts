@@ -9,7 +9,7 @@ import {
   TITLE_ONLY_MARKDOWN_STUB_REASON,
   tryRepairMarkdownProposalFromDisk,
   formatProposalValidationError,
-} from '../harness/diff/proposal-quality'
+} from '../harness-support/diff/proposal-quality'
 
 describe('isUnacceptableCrushedMarkdownProposal', () => {
   const original = `# TaskBoard Overview

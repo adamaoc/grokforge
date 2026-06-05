@@ -7,7 +7,7 @@ import type {
   ReadDirectoryResult,
   Root,
 } from '../main/manifest'
-import type { GetAgentContextPreviewResult, GetChatSystemPromptResult } from '../harness/context/context'
+import type { GetAgentContextPreviewResult, GetChatSystemPromptResult } from '../harness-support/context/context'
 import type {
   GrokStreamCapabilitiesResult,
   GrokStreamEventPayload,
@@ -45,12 +45,12 @@ import type {
   MarkStoredPlansSupersededResult,
   SetStoredPlanStatusArgs,
   SetStoredPlanStatusResult,
-} from '../harness/plan/contracts/plan-artifact'
+} from '../harness-support/plan/contracts/plan-artifact'
 import type {
   GetProjectContextPinsResult,
   SetProjectContextPinsResult,
   AgentContextPin,
-} from '../harness/context/context-pins-contract'
+} from '../harness-support/context/context-pins-contract'
 import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../main/voice-realtime'
 import type { VoiceSessionStartPayload } from '../shared/voice-session-contract'
 import type { GitDiffSessionResult, GitStatusSummary } from '../main/git'
@@ -87,7 +87,7 @@ import type {
   SetXaiApiKeyResult,
   XaiKeyStatusPayload,
 } from '../shared/xai-key-settings-contract'
-import type { AgentToolBatchPayload, AgentToolBatchResult, AgentUndoLastBatchResult } from '../harness/tools/contracts/tool-contract'
+import type { AgentToolBatchPayload, AgentToolBatchResult, AgentUndoLastBatchResult } from '../harness-support/tools/contracts/tool-contract'
 import type {
   GetAgentWriteHistoryResult,
   RevertAgentWriteBatchResult,

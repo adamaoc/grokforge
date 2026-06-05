@@ -2,12 +2,12 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import type { AgentToolExecutionContext } from '../harness/tools/contracts/execution-context'
+import type { AgentToolExecutionContext } from '../harness-support/tools/contracts/execution-context'
 import { AGENT_EDIT_STALE_HASH_REASON } from '../shared/agent-content-hash'
 import { computeAgentContentHash } from './agent-content-hash'
 import type { GrokProjectManifest } from './manifest'
-import { SEARCH_REPLACE_SHRINK_STUB_REASON } from '../harness/diff/proposal-quality'
-import { resolveSearchReplaceToWriteBatch } from '../harness/diff/search-replace-tool'
+import { SEARCH_REPLACE_SHRINK_STUB_REASON } from '../harness-support/diff/proposal-quality'
+import { resolveSearchReplaceToWriteBatch } from '../harness-support/diff/search-replace-tool'
 
 function manifestForRoot(root: string): GrokProjectManifest {
   return {

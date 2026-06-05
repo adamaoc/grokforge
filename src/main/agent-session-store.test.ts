@@ -24,7 +24,7 @@ import {
   finalizeSession,
   initChildSessionFile,
   loadSessionEvents,
-} from '../harness/subagent/session-store'
+} from '../harness-support/subagent/session-store'
 
 const projectId = 'proj-session-test'
 const childSessionId = 'child-abc'

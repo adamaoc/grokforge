@@ -5,7 +5,7 @@ import {
   formatAgentEditFailureSystemMessage,
   isAgentEditFailureSystemMessage,
   pruneEditFailureMessages,
-} from '../harness/diff/edit-failure-context'
+} from '../harness-support/diff/edit-failure-context'
 
 describe('agent-edit-failure-context', () => {
   const sampleEvent = {

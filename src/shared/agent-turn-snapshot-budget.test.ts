@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AgentModelChatMessage } from './agent-model-message'
-import { buildContextBudgetReport } from '../harness/compaction/turn-snapshot'
+import { buildContextBudgetReport } from '../harness-support/compaction/turn-snapshot'
 
 describe('buildContextBudgetReport offload', () => {
   it('counts pointer size in toolResultChars and tracks offloaded original', () => {

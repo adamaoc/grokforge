@@ -10,7 +10,7 @@ import {
 } from 'react'
 import type { AgentChatEventPayload, ChatTurnContextV1, PersistedChatLineV1 } from '@/types'
 import { CHAT_STORE_SCHEMA_VERSION } from '@/types'
-import { parseGfPlanFromAssistantContent } from '../../../harness/plan/contracts/gf-plan-contract'
+import { parseGfPlanFromAssistantContent } from '../../../harness-support/plan/contracts/gf-plan-contract'
 import { patchPlanInteraction } from '@/lib/plan-interaction-storage'
 import {
   clearAgentChatUnread,

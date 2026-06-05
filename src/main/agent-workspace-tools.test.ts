@@ -20,8 +20,8 @@ vi.mock('./app-project-store', async () => {
 })
 import { computeAgentContentHash } from './agent-content-hash'
 import type { GrokProjectManifest } from './manifest'
-import { getAgentProfile } from '../harness/profiles/agent-profile'
-import type { AgentToolExecutionContext } from '../harness/tools/contracts/execution-context'
+import { getAgentProfile } from '../harness-support/profiles/agent-profile'
+import type { AgentToolExecutionContext } from '../harness-support/tools/contracts/execution-context'
 import {
   AGENT_TOOL_DEFINITIONS,
   AGENT_SEARCH_MAX_RESULTS,
@@ -32,10 +32,10 @@ import {
   executeWorkspaceTool,
   parseReadFileToolContentHash,
   runReadFileTool,
-} from '../harness/tools/workspace-tools'
-import { writeAgentOffloadFile } from '../harness/compaction/offload-store'
-import { planJsonPath, upsertPlanArtifactFromAssistantMessage } from '../harness/plan/store/plan-store'
-import { GF_PLAN_FENCE } from '../harness/plan/contracts/gf-plan-contract'
+} from '../harness-support/tools/workspace-tools'
+import { writeAgentOffloadFile } from '../harness-support/compaction/offload-store'
+import { planJsonPath, upsertPlanArtifactFromAssistantMessage } from '../harness-support/plan/store/plan-store'
+import { GF_PLAN_FENCE } from '../harness-support/plan/contracts/gf-plan-contract'
 
 function manifestForRoot(root: string): GrokProjectManifest {
   return {

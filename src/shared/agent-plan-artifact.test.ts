@@ -3,7 +3,7 @@ import {
   buildApprovedPlanExecuteSummary,
   renderPlanMarkdown,
   StoredPlanArtifactSchema,
-} from '../harness/plan/contracts/plan-artifact'
+} from '../harness-support/plan/contracts/plan-artifact'
 
 const sampleArtifact = {
   schemaVersion: 1 as const,

@@ -7,7 +7,7 @@ import {
   buildNpxCreateViteCommand,
   detectScaffoldOutputFailure,
   inferViteTemplateFromText,
-} from '../harness/tools/helpers/scaffold-command'
+} from '../harness-support/tools/helpers/scaffold-command'
 
 describe('inferViteTemplateFromText', () => {
   it('detects react-ts from plan copy', () => {

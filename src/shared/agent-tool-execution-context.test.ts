@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createThrottledProgress } from '../harness/tools/contracts/execution-context'
+import { createThrottledProgress } from '../harness-support/tools/contracts/execution-context'
 
 describe('createThrottledProgress', () => {
   beforeEach(() => {

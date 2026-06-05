@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRegenerateProposalMessage } from '../harness/diff/regenerate-proposal'
+import { buildRegenerateProposalMessage } from '../harness-support/diff/regenerate-proposal'
 
 describe('buildRegenerateProposalMessage', () => {
   it('includes original request, paths, safety, and rework instructions', () => {

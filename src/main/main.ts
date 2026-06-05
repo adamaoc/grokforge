@@ -28,7 +28,7 @@ import {
 } from "./voice-realtime";
 import { shouldIgnoreFsEntry } from "./ignore-globs";
 import { invalidateRepoIgnoreCheckerCache } from "./repo-ignore";
-import { mergeDiscoveredAgentInstructions } from "../harness/context/instructions-discover";
+import { mergeDiscoveredAgentInstructions } from "../harness-support/context/instructions-discover";
 import { applyWorkspaceFsMutate } from "./workspace-fs-mutate";
 import { isPathWithinWorkspaceRoots as pathIsWithinWorkspaceRoots } from "./workspace-path-guard";
 import {
@@ -36,20 +36,20 @@ import {
   clearLastUndoBatch,
   peekLastUndoSnapshots,
   undoLastAgentWriteBatch,
-} from "../harness/tools/write-batch";
+} from "../harness-support/tools/write-batch";
 import {
   appendAgentWriteHistory,
   getAgentWriteHistory,
   removeLatestAgentWriteHistoryEntry,
   revertAgentWriteBatch,
-} from "../harness/session/write-history-store";
+} from "../harness-support/session/write-history-store";
 import { computeAgentContentHash } from "./agent-content-hash";
 import {
   buildAgentContextPreview,
   buildChatSystemPrompt,
   type GetAgentContextPreviewResult,
   type GetChatSystemPromptResult,
-} from "../harness/context/context";
+} from "../harness-support/context/context";
 import {
   registerGrokStreamIpc,
   setGrokStreamTargetWindow,
@@ -59,12 +59,12 @@ import {
   registerAgentChatIpc,
   setAgentChatTargetWindow,
 } from "./agent-runner";
-import { refreshWorkspaceIndex } from "../harness/context/index-store";
+import { refreshWorkspaceIndex } from "../harness-support/context/index-store";
 import {
   scheduleWorkspaceFilesystemRefresh,
   setWorkspaceFsNotifyTargetWindow,
 } from "./workspace-fs-notify";
-import { isGreenfieldWorkspace } from "../harness/context/workspace-greenfield";
+import { isGreenfieldWorkspace } from "../harness-support/context/workspace-greenfield";
 import type { RefreshProjectIntelligenceResult } from "../shared/agent-chat-contract";
 import {
   appendChatMessage,
@@ -76,20 +76,20 @@ import {
   findPlanByThreadMessageId,
   markPlansSupersededForMessageIds,
   setPlanArtifactStatus,
-} from "../harness/plan/store/plan-store";
+} from "../harness-support/plan/store/plan-store";
 import {
   buildApprovedPlanExecuteSummary,
   PlanArtifactStatusSchema,
-} from "../harness/plan/contracts/plan-artifact";
+} from "../harness-support/plan/contracts/plan-artifact";
 import {
   loadProjectContextPins,
   saveProjectContextPins,
-} from "../harness/context/context-pins-store";
-import { clearThreadMemory } from "../harness/compaction/thread-memory-store";
+} from "../harness-support/context/context-pins-store";
+import { clearThreadMemory } from "../harness-support/compaction/thread-memory-store";
 import {
   AgentContextPinSchema,
   AGENT_CONTEXT_MAX_PINS_PER_PROJECT,
-} from "../harness/context/context-pins-contract";
+} from "../harness-support/context/context-pins-contract";
 import { StageChatAttachmentPayloadSchema } from "../shared/chat-attachment-contract";
 import { parseAllowedExternalOpenUrl } from "../shared/external-open-url";
 import { VoiceSessionStartPayloadSchema } from "../shared/voice-session-contract";
