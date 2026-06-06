@@ -5,7 +5,7 @@ import {
   AGENT_TOOL_MAX_OPS,
   AGENT_TOOL_PROTOCOL_VERSION,
 } from './tool-contract'
-/** Lenient at parse time — strict create vs update rules run in validateAgentEditProposal (story 154). */
+/** Lenient at parse time; callers decide create-vs-update hash rules. */
 const expectedContentHashSchema = z.string().max(128).optional()
 
 const WriteOpSchema = z.object({

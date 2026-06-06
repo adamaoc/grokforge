@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import type { AgentTurnTraceV1 } from '../../shared/agent-turn-trace-contract'
+import type { AgentTurnTraceV1 } from '../../shared/agent/turn-trace-contract'
 import {
   AGENT_THREAD_MEMORY_SCHEMA_VERSION,
   AgentThreadMemoryV1Schema,
   type AgentThreadMemoryV1,
 } from './thread-memory-contract'
 import { emptyThreadMemory, mergeTraceIntoThreadMemory } from './thread-memory'
-import { chatThreadPathForProject } from '../../main/app-project-store'
+import { chatThreadPathForProject } from '../../main/project/store'
 
 function threadMemoryPath(projectId: string): string {
   return resolve(dirname(chatThreadPathForProject(projectId)), 'thread-memory.json')

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { DirectoryEntry } from '@/types'
-import type { WorkspaceFsMutateRequest } from '../../../../shared/workspace-fs-mutation-contract'
+import type { WorkspaceFsMutateRequest } from '../../../../shared/workspace/fs-mutation-contract'
 import { basenamePath, dirnamePath, joinPathDirAndName, relativePathFromWorkspaceRoot } from '@/lib/workspace-paths'
 import { isSameOrDescendantPath } from '@/lib/workspace-fs-mutation-state'
 import { ContextMenu, ContextMenuTrigger } from '@/components/ui/context-menu'

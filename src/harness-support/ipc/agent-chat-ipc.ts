@@ -2,4 +2,4 @@ export {
   flushActiveAgentTurnReceiptsAsInterruptedForApp,
   registerAgentChatIpc,
   setAgentChatTargetWindow,
-} from '../../main/agent-runner'
+} from '../../main/agent/runner'

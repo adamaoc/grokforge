@@ -8,10 +8,10 @@ import {
   scaffoldCommandHasOverwrite,
   type ViteTemplateId,
 } from './helpers/scaffold-command'
-import { scheduleWorkspaceFilesystemRefresh } from '../../main/workspace-fs-notify'
-import { listScaffoldTargetEntryNames, resolveScaffoldTargetAbsolutePath } from '../../main/scaffold-target-fs'
+import { scheduleWorkspaceFilesystemRefresh } from '../../main/workspace/fs-notify'
+import { listScaffoldTargetEntryNames, resolveScaffoldTargetAbsolutePath } from '../../main/workspace/scaffold-target-fs'
 import type { AgentToolExecutionContext } from './contracts/execution-context'
-import type { GrokProjectManifest } from '../../main/manifest'
+import type { GrokProjectManifest } from '../../main/project/manifest'
 import { evaluateAgentCommandRisk } from '../policy/command/run-command-policy'
 import { runCommandInRootForAgent } from './run-command'
 import type { AgentWorkspaceToolResult } from './workspace-tools'

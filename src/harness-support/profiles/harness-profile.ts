@@ -2,7 +2,7 @@
  * Per-model harness profiles (story 103). Keys from agent-harness-profile-contract.
  */
 
-import type { AgentChatToolName } from '../../shared/agent-chat-contract'
+import type { AgentChatToolName } from '../../shared/agent/chat-contract'
 import type { HarnessProfileKey } from './contracts/harness-profile-key'
 import { resolveHarnessProfileKey } from './contracts/harness-profile-key'
 import {

@@ -1,4 +1,4 @@
-import type { DiffFileEntry, DiffFileStatus } from '../../shared/diff-session-contract'
+import type { DiffFileEntry, DiffFileStatus } from '../../shared/diff/session-contract'
 
 export type DiffLineStats = {
   additions: number

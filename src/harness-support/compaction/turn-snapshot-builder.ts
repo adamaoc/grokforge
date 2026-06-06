@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import type { AgentChatActiveContext, AgentChatTurnRouting } from '../../shared/agent-chat-contract'
-import type { AgentModelChatMessage } from '../../shared/agent-model-message'
+import type { AgentChatActiveContext, AgentChatTurnRouting } from '../../shared/agent/chat-contract'
+import type { AgentModelChatMessage } from '../../shared/agent/model-message'
 import type { AgentToolDefinition } from '../tools/workspace-tools'
 import {
   buildContextBudgetReport,

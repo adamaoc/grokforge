@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import type { GrokProjectManifest } from '../../main/manifest'
-import { shouldIgnoreFsEntry } from '../../main/ignore-globs'
-import { isPathWithinWorkspaceRoots } from '../../main/workspace-path-guard'
+import type { GrokProjectManifest } from '../../main/project/manifest'
+import { shouldIgnoreFsEntry } from '../../main/workspace/ignore-globs'
+import { isPathWithinWorkspaceRoots } from '../../main/workspace/path-guard'
 import { isLikelySensitivePath } from '../tools/workspace-tools'
-import { projectDir } from '../../main/app-project-store'
+import { projectDir } from '../../main/project/store'
 import {
   AGENT_CONTEXT_MAX_PINS_PER_PROJECT,
   AGENT_CONTEXT_PINS_SCHEMA_VERSION,

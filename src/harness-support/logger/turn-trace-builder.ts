@@ -5,15 +5,15 @@ import type {
   AgentChatActiveContext,
   AgentChatStartPayload,
   AgentChatTurnRouting,
-} from '../../shared/agent-chat-contract'
+} from '../../shared/agent/chat-contract'
 import type { AgentTurnSnapshot } from '../compaction/turn-snapshot'
 import { summarizeSnapshotForTrace } from '../compaction/turn-snapshot'
-import type { AgentTurnTraceV1 } from '../../shared/agent-turn-trace-contract'
-import { AGENT_TURN_TRACE_SCHEMA_VERSION } from '../../shared/agent-turn-trace-contract'
+import type { AgentTurnTraceV1 } from '../../shared/agent/turn-trace-contract'
+import { AGENT_TURN_TRACE_SCHEMA_VERSION } from '../../shared/agent/turn-trace-contract'
 import {
   finalizeHarnessMetrics,
   type HarnessMetricsScratch,
-} from '../../shared/agent-harness-metrics'
+} from '../../shared/agent/harness-metrics'
 
 export const AGENT_TURN_TRACE_MAX_PROVIDER_ROUNDS = 32
 

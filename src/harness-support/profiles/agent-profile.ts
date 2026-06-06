@@ -3,7 +3,7 @@
  * Harness copy tuning remains in agent-harness-profile (103).
  */
 
-import type { AgentChatStartPayload, AgentChatToolName } from '../../shared/agent-chat-contract'
+import type { AgentChatStartPayload, AgentChatToolName } from '../../shared/agent/chat-contract'
 import { AGENT_TOOLSET_FULL, AGENT_TOOLSET_READ_ONLY, expandToolset } from './contracts/toolset'
 
 export type AgentProfileId = 'default' | 'planner' | 'executor' | 'explorer'

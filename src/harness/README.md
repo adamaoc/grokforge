@@ -1,28 +1,48 @@
 # GrokForge Harness
 
-This folder contains the single runtime harness used by agent chat.
+This is the minimal agent runtime used by text agent chat. It intentionally keeps the base small: one active workspace root, direct file tools, a compact model/tool loop, and JSONL session/log output. Larger product features such as plan mode, reviewable diff application, richer context retrieval, and multi-root orchestration should be added back through explicit runtime boundaries rather than by expanding one large harness module.
 
-## Runtime Modules
+## Folders
 
-| File | Role |
-|------|------|
-| `run-turn.ts` | Main-process turn entry; emits IPC phases and streams final text |
-| `loop.ts` | Model → tool loop with iteration budget |
-| `tools.ts` | `list_files`, `read_file`, `write_file`, `edit` schemas and execution |
-| `edit-tool.ts` | Direct surgical edit application with content-hash checking |
-| `profile.ts` | Work profile, system prompt, routing metadata |
-| `paths.ts` | Workspace-root path resolution and guard |
-| `session.ts` | Per-stream JSONL message history |
-| `logger.ts` | Per-stream JSONL harness logs |
-| `model-client.ts` | Non-streaming xAI Chat Completions client |
-| `compaction.ts` | Lightweight visible-context compaction |
-| `diff/` | Kept edit primitives: fuzzy matching, search-replace, line stats |
-| `agent/content-hash.ts` | Shared content-hash helpers for read/edit staleness |
+| Folder | Role |
+| --- | --- |
+| `runtime/` | Turn entrypoint, model/tool loop, lightweight compaction, iteration caps |
+| `tools/` | Minimal tool definitions and execution: `list_files`, `read_file`, `write_file`, `edit` |
+| `workspace/` | Active-root selection and path guards |
+| `profile/` | Work profile, system prompt, routing metadata |
+| `model/` | Non-streaming xAI Chat Completions client |
+| `session/` | Per-stream in-memory history with JSONL persistence |
+| `logging/` | Per-stream JSONL harness logs |
+| `diff/` | Local edit/search primitives and diff stats used by minimal tools and UI helpers |
+| `agent/` | Small agent utility helpers such as content hashing |
 
-## Docs
+## Public Surface
 
-- `docs/harness-architecture.md`
-- `docs/harness-deferred-features.md`
-- `docs/harness-prompt-visibility.md`
+Import runtime entrypoints from `src/harness/index.ts`. Avoid deep imports from app code unless a module is explicitly a low-level helper such as `diff/line-stats`.
 
-Runtime logs currently remain under `userData/workspace-projects/<projectId>/minimal/logs/` so existing validation logs stay grouped with the field-report sessions.
+Current public exports include:
+
+- `runAgentHarnessTurn`
+- `runHarnessTurnLoop`
+- `resolveHarnessWorkspace`
+- `resolveWithinWorkspace`
+- `buildHarnessSystemPrompt`
+- `harnessTurnRouting`
+- `resolveHarnessProfileKey`
+
+## Tests
+
+Harness tests live next to the code they cover under `__tests__/` folders. Run them with:
+
+```sh
+npm run test:harness
+```
+
+## Notes For Future Features
+
+- Keep the minimal tool loop direct and understandable.
+- Put UI compatibility at the event/contract boundary, not inside the core loop.
+- When adding plan mode, diff review, or multi-root support, introduce small modules with narrow interfaces and tests before wiring renderer behavior.
+- Comments should explain current invariants and safety decisions. Historical story/task references belong in docs, not source comments.
+
+Runtime logs remain under `userData/workspace-projects/<projectId>/minimal/logs/`.

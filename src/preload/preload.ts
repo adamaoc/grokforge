@@ -6,14 +6,14 @@ import type {
   ProjectSessionSnapshot,
   ReadDirectoryResult,
   Root,
-} from '../main/manifest'
+} from '../main/project/manifest'
 import type { GetAgentContextPreviewResult, GetChatSystemPromptResult } from '../harness-support/context/context'
 import type {
   GrokStreamCapabilitiesResult,
   GrokStreamEventPayload,
   GrokStreamStartPayload,
   GrokStreamStartResult,
-} from '../main/grok-types'
+} from '../main/xai/types'
 import type {
   AgentChatCapabilitiesResult,
   AgentCommandApprovalRespondResult,
@@ -22,22 +22,22 @@ import type {
   RefreshProjectIntelligenceResult,
   AgentChatStartPayload,
   AgentChatStartResult,
-} from '../shared/agent-chat-contract'
+} from '../shared/agent/chat-contract'
 import type {
   AgentProposalReviewRequest,
   AgentProposalReviewResult,
-} from '../shared/agent-proposal-reviewer'
+} from '../shared/agent/proposal-reviewer'
 import type {
   ExportSanitizedAgentTurnTraceResult,
   GetLastAgentTurnTraceResult,
   ReplayAgentRetrievalPreviewResult,
-} from '../shared/agent-turn-trace-contract'
+} from '../shared/agent/turn-trace-contract'
 import type {
   AppendChatMessageResult,
   ClearChatThreadResult,
   LoadChatThreadResult,
   PersistedChatLineV1,
-} from '../main/chat-store'
+} from '../main/chat/store'
 import type {
   GetStoredPlanForMessageArgs,
   GetStoredPlanForMessageResult,
@@ -51,14 +51,14 @@ import type {
   SetProjectContextPinsResult,
   AgentContextPin,
 } from '../harness-support/context/context-pins-contract'
-import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../main/voice-realtime'
-import type { VoiceSessionStartPayload } from '../shared/voice-session-contract'
-import type { GitDiffSessionResult, GitStatusSummary } from '../main/git'
+import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../main/voice/realtime'
+import type { VoiceSessionStartPayload } from '../shared/voice/session-contract'
+import type { GitDiffSessionResult, GitStatusSummary } from '../main/git/service'
 import type {
   SearchWorkspaceProgressPayload,
   SearchWorkspaceRequest,
   SearchWorkspaceResult,
-} from '../shared/workspace-search-contract'
+} from '../shared/workspace/search-contract'
 import type {
   TerminalSessionData,
   TerminalSessionError,
@@ -69,34 +69,34 @@ import type {
   TerminalSessionResizeRequest,
   TerminalSessionStartRequest,
   TerminalSessionStartResult,
-} from '../shared/terminal-session-contract'
+} from '../shared/terminal/session-contract'
 import type {
   RecentProjectEntry,
   OpenProjectByIdFailure,
   DeleteProjectResult,
   RemoveRecentProjectResult,
   UpdateRecentPickerNameResult,
-} from '../shared/recent-projects-contract'
+} from '../shared/projects/recent-projects-contract'
 import type {
   TtsReadAloudRequest,
   TtsReadAloudResult,
   TtsVerifyVoiceResult,
-} from '../shared/tts-read-aloud-contract'
+} from '../shared/voice/tts-read-aloud-contract'
 import type {
   ClearXaiApiKeyResult,
   SetXaiApiKeyResult,
   XaiKeyStatusPayload,
-} from '../shared/xai-key-settings-contract'
+} from '../shared/settings/xai-key-settings-contract'
 import type { AgentToolBatchPayload, AgentToolBatchResult, AgentUndoLastBatchResult } from '../harness-support/tools/contracts/tool-contract'
 import type {
   GetAgentWriteHistoryResult,
   RevertAgentWriteBatchResult,
-} from '../shared/agent-write-history-contract'
-import type { WorkspaceFsMutateRequest, WorkspaceFsMutateResult } from '../shared/workspace-fs-mutation-contract'
-import type { WorkspaceFsChangedPayload } from '../shared/workspace-fs-change-contract'
-import type { AppInfoPayload } from '../shared/app-info-contract'
-import type { StageChatAttachmentPayload, StageChatAttachmentResult } from '../shared/chat-attachment-contract'
-import type { ElectronAPI } from '../shared/preload-api-contract'
+} from '../shared/agent/write-history-contract'
+import type { WorkspaceFsMutateRequest, WorkspaceFsMutateResult } from '../shared/workspace/fs-mutation-contract'
+import type { WorkspaceFsChangedPayload } from '../shared/workspace/fs-change-contract'
+import type { AppInfoPayload } from '../shared/app/info-contract'
+import type { StageChatAttachmentPayload, StageChatAttachmentResult } from '../shared/chat/attachment-contract'
+import type { ElectronAPI } from '../shared/bridge/preload-api-contract'
 
 export const electronAPI = {
   /** Host OS — renderer uses for macOS title-bar inset (`hiddenInset`). */

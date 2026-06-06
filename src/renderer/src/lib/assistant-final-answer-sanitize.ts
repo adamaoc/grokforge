@@ -1,8 +1,8 @@
-import type { AgentChatActivityPayload } from '../../../shared/agent-chat-contract'
+import type { AgentChatActivityPayload } from '../../../shared/agent/chat-contract'
 import {
   turnHadAcceptedEditProposal,
   turnHadFailedEditActivities,
-} from '../../../shared/agent-activity-display'
+} from '../../../shared/agent/activity-display'
 import {
   FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS,
   FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_LINES,

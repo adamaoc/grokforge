@@ -1,20 +1,20 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import { projectDir } from '../../main/app-project-store'
+import { projectDir } from '../../main/project/store'
 import {
   AGENT_TURN_TRACE_MAX_FILES,
   AgentTurnTraceV1Schema,
   type AgentTurnTraceV1,
-} from '../../shared/agent-turn-trace-contract'
+} from '../../shared/agent/turn-trace-contract'
 import type {
   ExportSanitizedAgentTurnTraceResult,
   GetLastAgentTurnTraceResult,
   ReplayAgentRetrievalPreviewResult,
-} from '../../shared/agent-turn-trace-contract'
-import type { GrokProjectManifest } from '../../main/manifest'
+} from '../../shared/agent/turn-trace-contract'
+import type { GrokProjectManifest } from '../../main/project/manifest'
 import { buildLexicalRetrievalContext } from '../tools/workspace-tools'
-import type { AgentChatActiveContext } from '../../shared/agent-chat-contract'
+import type { AgentChatActiveContext } from '../../shared/agent/chat-contract'
 
 function tracesDir(projectId: string): string {
   return join(projectDir(projectId), 'agent-traces')

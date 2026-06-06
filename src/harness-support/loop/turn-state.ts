@@ -10,7 +10,7 @@
  * This is intentionally incremental. We are not rewriting the entire runner yet.
  */
 
-import type { AgentEditProposalPayload } from '../../shared/agent-chat-contract'
+import type { AgentEditProposalPayload } from '../../shared/agent/chat-contract'
 
 export type AgentTurnNudgeKind =
   | 'searchReplaceEscalation'

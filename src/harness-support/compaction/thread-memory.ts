@@ -1,4 +1,4 @@
-import type { AgentTurnTraceV1 } from "../../shared/agent-turn-trace-contract";
+import type { AgentTurnTraceV1 } from "../../shared/agent/turn-trace-contract";
 import {
   AGENT_THREAD_MEMORY_MAX_CHARS,
   AGENT_THREAD_MEMORY_MAX_DECISIONS,

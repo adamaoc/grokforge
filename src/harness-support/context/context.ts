@@ -1,7 +1,7 @@
 import { closeSync, existsSync, openSync, readdirSync, readSync, statSync } from 'node:fs'
 import { basename, extname, isAbsolute, relative, resolve } from 'node:path'
-import type { GrokProjectManifest } from '../../main/manifest'
-import { shouldIgnoreFsEntry } from '../../main/ignore-globs'
+import type { GrokProjectManifest } from '../../main/project/manifest'
+import { shouldIgnoreFsEntry } from '../../main/workspace/ignore-globs'
 import { AGENT_TOOL_MAX_OPS } from '../tools/contracts/tool-contract'
 import {
   AGENT_CONTEXT_BUDGETS,

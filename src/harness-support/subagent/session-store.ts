@@ -7,7 +7,7 @@ import type {
   SubagentResultArtifact,
   SubagentSessionStatus,
 } from './contracts/subagent-contract'
-import { projectDir } from '../../main/app-project-store'
+import { projectDir } from '../../main/project/store'
 
 const SESSIONS_SEGMENT = 'agent-sessions'
 

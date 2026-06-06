@@ -6,7 +6,7 @@ import remarkBreaks from 'remark-breaks'
 import rehypeSanitize from 'rehype-sanitize'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { isAllowedExternalOpenUrl } from '../../../shared/external-open-url'
+import { isAllowedExternalOpenUrl } from '../../../shared/security/external-open-url'
 
 export type ChatMarkdownRole = 'assistant' | 'user'
 

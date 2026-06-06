@@ -2,7 +2,7 @@
  * Agent turn model routing (story 097). Profile axis: agent-profile; model axis: model-router.
  */
 
-import type { AgentChatStartPayload, AgentChatTextModelIntent, AgentChatTurnRouting } from '../../shared/agent-chat-contract'
+import type { AgentChatStartPayload, AgentChatTextModelIntent, AgentChatTurnRouting } from '../../shared/agent/chat-contract'
 import { resolveAgentProfileId } from '../profiles/agent-profile'
 import { resolveHarnessProfileKey } from '../profiles/contracts/harness-profile-key'
 import { resolveReasoningEffort } from '../profiles/reasoning-effort'

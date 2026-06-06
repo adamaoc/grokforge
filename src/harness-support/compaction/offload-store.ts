@@ -3,7 +3,7 @@ import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { realpathSync } from 'node:fs'
 import { AGENT_CONTEXT_OFFLOAD } from './context-offload'
-import { projectDir } from '../../main/app-project-store'
+import { projectDir } from '../../main/project/store'
 
 const OFFLOAD_SEGMENT = 'agent-offload'
 

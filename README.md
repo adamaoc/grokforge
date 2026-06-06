@@ -48,6 +48,7 @@ On the **welcome** screen, start a **new project** by choosing a folder (first w
 | Doc | Contents |
 |-----|----------|
 | [`AGENTS.md`](AGENTS.md) | Architecture, IPC, workspace manifest, keys, terminal vs agent commands, testing commands |
+| [`src/main/README.md`](src/main/README.md) | Main-process folder map and naming conventions |
 | [`project_tasks/README.md`](project_tasks/README.md) | Numbered MVP stories and status |
 | [`docs/dependency-runtime-watchlist.md`](docs/dependency-runtime-watchlist.md) | Dependency and runtime upgrade notes |
 | [`docs/harness-102-xai-investigation.md`](docs/harness-102-xai-investigation.md) | xAI model catalog, redirects, and GrokForge defaults (last reviewed 2026-05-26) |
@@ -72,7 +73,7 @@ GrokForge keeps **per-project data** under Electron **`userData`**, not next to 
 
 ## Workspace manifest
 
-The Zod schema lives in **`src/main/manifest.ts`**. **`example.grokproject.json`** illustrates the JSON shape of the `manifest` object (GrokForge does **not** write this filename into your trees; it persists manifest inside `project.json` under userData).
+The Zod schema lives in **`src/main/project/manifest.ts`**. **`example.grokproject.json`** illustrates the JSON shape of the `manifest` object (GrokForge does **not** write this filename into your trees; it persists manifest inside `project.json` under userData).
 
 ## Current status
 

@@ -1,8 +1,8 @@
-import type { AgentChatActiveContext, AgentChatTextModelIntent, AgentChatTurnRouting } from '../../shared/agent-chat-contract'
+import type { AgentChatActiveContext, AgentChatTextModelIntent, AgentChatTurnRouting } from '../../shared/agent/chat-contract'
 import type { AgentProfileId } from '../profiles/agent-profile'
 import type { HarnessProfileKey } from '../profiles/contracts/harness-profile-key'
 import type { ReasoningEffort } from '../profiles/reasoning-effort'
-import type { AgentModelChatMessage } from '../../shared/agent-model-message'
+import type { AgentModelChatMessage } from '../../shared/agent/model-message'
 import { parseOffloadedToolOriginalChars } from './context-offload'
 
 /** JSON-serializable tool definition frozen for a provider round (story 105). */

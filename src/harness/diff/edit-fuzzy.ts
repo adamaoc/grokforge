@@ -277,7 +277,7 @@ export function applySearchReplaceWithFuzzy(
     return { ok: true, content: result.content, matchCount: 1 }
   }
 
-  // Fall back to the original (very defensive) not-found messaging for single-edit legacy path
+  // Fall back to defensive not-found messaging for single-edit callers.
   // We import the original builder lazily to avoid circular deps at module load time.
   // In practice the caller (agent-search-replace.ts) will still use the richer buildSearchReplaceNotFoundMessage.
   const diag = findClosestMatchDiagnostic(content, oldString, 4)

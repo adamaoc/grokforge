@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, Compass, Loader2 } from 'lucide-react'
 import type { AgentSubagentEventPayload } from '@/types'
 import { cn } from '@/lib/utils'
-import { sanitizeAgentActivityDetail } from '../../../shared/agent-activity-display'
+import { sanitizeAgentActivityDetail } from '../../../shared/agent/activity-display'
 import { mapActivityTitleForDisplay } from '@/lib/harness-activity-display-map'
 
 type Props = {

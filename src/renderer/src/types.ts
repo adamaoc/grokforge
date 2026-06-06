@@ -6,7 +6,7 @@ import type {
   ProjectSessionSnapshot,
   DirectoryEntry,
   ReadDirectoryResult,
-} from '../../main/manifest'
+} from '../../main/project/manifest'
 import type {
   AgentContextPreview,
   GetAgentContextPreviewResult,
@@ -19,19 +19,19 @@ import type {
   GrokStreamEventPayload,
   GrokStreamStartPayload,
   GrokStreamStartResult,
-} from '../../main/grok-types'
+} from '../../main/xai/types'
 import type {
   AppendChatMessageResult,
   ChatTurnContextV1,
   ClearChatThreadResult,
   LoadChatThreadResult,
   PersistedChatLineV1,
-} from '../../main/chat-store'
-import { CHAT_STORE_SCHEMA_VERSION } from '../../shared/chat-thread-schema'
+} from '../../main/chat/store'
+import { CHAT_STORE_SCHEMA_VERSION } from '../../shared/chat/thread-schema'
 import type { GetModelForIntentOptions, ModelIntent } from '../../harness-support/routing/model-router'
 import { getModelForIntent, DUAL_MODEL_FALLBACKS, MODEL_INTENT_MANIFEST_KEYS } from '../../harness-support/routing/model-router'
-import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../../main/voice-realtime'
-import type { GitDiffSessionResult, GitStatusSummary } from '../../main/git'
+import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../../main/voice/realtime'
+import type { GitDiffSessionResult, GitStatusSummary } from '../../main/git/service'
 import {
   type SearchWorkspaceProgressPayload,
   type SearchWorkspaceRequest,
@@ -41,13 +41,13 @@ import {
   SEARCH_MAX_FILES_SCANNED,
   SEARCH_MAX_QUERY_LEN,
   SEARCH_MAX_RESULTS,
-} from '../../shared/workspace-search-contract'
+} from '../../shared/workspace/search-contract'
 import type {
   TerminalSessionData,
   TerminalSessionError,
   TerminalSessionExit,
   TerminalSessionStartResult,
-} from '../../shared/terminal-session-contract'
+} from '../../shared/terminal/session-contract'
 import {
   TERMINAL_SESSION_DEFAULT_COLS,
   TERMINAL_SESSION_DEFAULT_ROWS,
@@ -55,7 +55,7 @@ import {
   TERMINAL_SESSION_MAX_ROWS,
   TERMINAL_SESSION_MIN_COLS,
   TERMINAL_SESSION_MIN_ROWS,
-} from '../../shared/terminal-session-contract'
+} from '../../shared/terminal/session-contract'
 import {
   type RecentProjectEntry,
   type RecentProjectsChangedPayload,
@@ -67,39 +67,39 @@ import {
   RECENT_PROJECT_DISPLAY_NAME_MAX_LEN,
   RECENT_PROJECT_PRIMARY_ROOT_PATH_MAX_LEN,
   RECENT_ROOT_LABEL_MAX_CHARS,
-} from '../../shared/recent-projects-contract'
+} from '../../shared/projects/recent-projects-contract'
 import type {
   TtsReadAloudRequest,
   TtsReadAloudResult,
-} from '../../shared/tts-read-aloud-contract'
-import { TTS_READ_ALOUD_MAX_TEXT_CHARS } from '../../shared/tts-read-aloud-contract'
-import { normalizeTtsVoiceId, ttsLanguageForVoiceId, TTS_VOICE_PRESETS } from '../../shared/tts-read-aloud-contract'
+} from '../../shared/voice/tts-read-aloud-contract'
+import { TTS_READ_ALOUD_MAX_TEXT_CHARS } from '../../shared/voice/tts-read-aloud-contract'
+import { normalizeTtsVoiceId, ttsLanguageForVoiceId, TTS_VOICE_PRESETS } from '../../shared/voice/tts-read-aloud-contract'
 import type {
   ClearXaiApiKeyResult,
   SetXaiApiKeyResult,
   XaiKeySource,
   XaiKeyStatusPayload,
-} from '../../shared/xai-key-settings-contract'
+} from '../../shared/settings/xai-key-settings-contract'
 import type { AgentToolBatchResult, AgentUndoLastBatchResult } from '../../harness-support/tools/contracts/tool-contract'
 import type {
   AgentWriteHistoryListEntry,
   GetAgentWriteHistoryResult,
   RevertAgentWriteBatchResult,
-} from '../../shared/agent-write-history-contract'
+} from '../../shared/agent/write-history-contract'
 import {
   DIFF_FILE_STATUS_LABELS,
   type DiffFileEntry,
   type DiffFileStatus,
   type DiffSession,
   type DiffSessionSource,
-} from '../../shared/diff-session-contract'
+} from '../../shared/diff/session-contract'
 import type {
   WorkspaceFsMutateRequest,
   WorkspaceFsMutateResult,
   WorkspaceFsMutationEvent,
-} from '../../shared/workspace-fs-mutation-contract'
-import { XAI_API_KEY_MAX_LEN } from '../../shared/xai-key-settings-contract'
-import type { AppInfoPayload } from '../../shared/app-info-contract'
+} from '../../shared/workspace/fs-mutation-contract'
+import { XAI_API_KEY_MAX_LEN } from '../../shared/settings/xai-key-settings-contract'
+import type { AppInfoPayload } from '../../shared/app/info-contract'
 import type {
   AgentContextPin,
   GetProjectContextPinsResult,
@@ -121,12 +121,12 @@ import type {
   AgentChatStartPayload,
   AgentChatStartResult,
   AgentChatThreadMessage,
-} from '../../shared/agent-chat-contract'
+} from '../../shared/agent/chat-contract'
 import type {
   AgentProposalReview,
   AgentProposalReviewRequest,
   AgentProposalReviewResult,
-} from '../../shared/agent-proposal-reviewer'
+} from '../../shared/agent/proposal-reviewer'
 export type { AgentSubagentEventPayload } from '../../harness-support/subagent/contracts/subagent-contract'
 import type { HarnessProfileKey } from '../../harness-support/profiles/contracts/harness-profile-key'
 import { resolveHarnessProfileKey } from '../../harness-support/profiles/contracts/harness-profile-key'
@@ -135,14 +135,14 @@ import {
   AGENT_CHAT_SELECTION_MAX_CHARS,
   AGENT_CHAT_MAX_ATTACHMENTS,
   AGENT_CHAT_MAX_USER_TEXT_CHARS,
-} from '../../shared/agent-chat-contract'
+} from '../../shared/agent/chat-contract'
 import type {
   AgentTurnTraceV1,
   ExportSanitizedAgentTurnTraceResult,
   GetLastAgentTurnTraceResult,
   ReplayAgentRetrievalPreviewResult,
-} from '../../shared/agent-turn-trace-contract'
-import { AGENT_TURN_TRACE_MAX_FILES, AGENT_TURN_TRACE_SCHEMA_VERSION } from '../../shared/agent-turn-trace-contract'
+} from '../../shared/agent/turn-trace-contract'
+import { AGENT_TURN_TRACE_MAX_FILES, AGENT_TURN_TRACE_SCHEMA_VERSION } from '../../shared/agent/turn-trace-contract'
 import type { GfPlanV1 } from '../../harness-support/plan/contracts/gf-plan-contract'
 import { GF_PLAN_FENCE, GfPlanV1Schema } from '../../harness-support/plan/contracts/gf-plan-contract'
 import type { AgentSubagentEventPayload } from '../../harness-support/subagent/contracts/subagent-contract'
@@ -276,7 +276,7 @@ export {
   GfPlanV1Schema,
 }
 export type { GetModelForIntentOptions, ModelIntent }
-export type { ChatTurnContextV1 } from '../../main/chat-store'
+export type { ChatTurnContextV1 } from '../../main/chat/store'
 
 export interface ChatMessage {
   id: string

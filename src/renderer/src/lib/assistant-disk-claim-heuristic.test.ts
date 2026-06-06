@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AgentChatActivityPayload } from '../../../shared/agent-chat-contract'
+import type { AgentChatActivityPayload } from '../../../shared/agent/chat-contract'
 import {
   assistantReplyClaimsDiskWrites,
   assistantReplyClaimsEditOutcomeWithoutTool,

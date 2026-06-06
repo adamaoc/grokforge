@@ -19,18 +19,18 @@ import {
   type OpenProjectResult,
   type ProjectSessionSnapshot,
   type ReadDirectoryResult,
-} from "./manifest";
+} from "./project/manifest";
 import {
   isVoiceRealtimeSocketOpen,
   sendVoiceAudioAppendBase64,
   startVoiceRealtime,
   stopVoiceRealtime,
-} from "./voice-realtime";
-import { shouldIgnoreFsEntry } from "./ignore-globs";
-import { invalidateRepoIgnoreCheckerCache } from "./repo-ignore";
+} from "./voice/realtime";
+import { shouldIgnoreFsEntry } from "./workspace/ignore-globs";
+import { invalidateRepoIgnoreCheckerCache } from "./workspace/repo-ignore";
 import { mergeDiscoveredAgentInstructions } from "../harness-support/context/instructions-discover";
-import { applyWorkspaceFsMutate } from "./workspace-fs-mutate";
-import { isPathWithinWorkspaceRoots as pathIsWithinWorkspaceRoots } from "./workspace-path-guard";
+import { applyWorkspaceFsMutate } from "./workspace/fs-mutate";
+import { isPathWithinWorkspaceRoots as pathIsWithinWorkspaceRoots } from "./workspace/path-guard";
 import {
   applyAgentToolWriteBatch,
   clearLastUndoBatch,
@@ -43,7 +43,7 @@ import {
   removeLatestAgentWriteHistoryEntry,
   revertAgentWriteBatch,
 } from "../harness-support/session/write-history-store";
-import { computeAgentContentHash } from "./agent-content-hash";
+import { computeAgentContentHash } from "./agent/content-hash";
 import {
   buildAgentContextPreview,
   buildChatSystemPrompt,
@@ -53,25 +53,25 @@ import {
 import {
   registerGrokStreamIpc,
   setGrokStreamTargetWindow,
-} from "./grok-stream";
+} from "./xai/stream";
 import {
   flushActiveAgentTurnReceiptsAsInterruptedForApp,
   registerAgentChatIpc,
   setAgentChatTargetWindow,
-} from "./agent-runner";
+} from "./agent/runner";
 import { refreshWorkspaceIndex } from "../harness-support/context/index-store";
 import {
   scheduleWorkspaceFilesystemRefresh,
   setWorkspaceFsNotifyTargetWindow,
-} from "./workspace-fs-notify";
+} from "./workspace/fs-notify";
 import { isGreenfieldWorkspace } from "../harness-support/context/workspace-greenfield";
-import type { RefreshProjectIntelligenceResult } from "../shared/agent-chat-contract";
+import type { RefreshProjectIntelligenceResult } from "../shared/agent/chat-contract";
 import {
   appendChatMessage,
   clearChatThread,
   loadChatThread,
   parseIncomingPersistPayload,
-} from "./chat-store";
+} from "./chat/store";
 import {
   findPlanByThreadMessageId,
   markPlansSupersededForMessageIds,
@@ -90,22 +90,22 @@ import {
   AgentContextPinSchema,
   AGENT_CONTEXT_MAX_PINS_PER_PROJECT,
 } from "../harness-support/context/context-pins-contract";
-import { StageChatAttachmentPayloadSchema } from "../shared/chat-attachment-contract";
-import { parseAllowedExternalOpenUrl } from "../shared/external-open-url";
-import { VoiceSessionStartPayloadSchema } from "../shared/voice-session-contract";
-import { stageChatAttachment } from "./chat-attachment-staging";
+import { StageChatAttachmentPayloadSchema } from "../shared/chat/attachment-contract";
+import { parseAllowedExternalOpenUrl } from "../shared/security/external-open-url";
+import { VoiceSessionStartPayloadSchema } from "../shared/voice/session-contract";
+import { stageChatAttachment } from "./chat/attachment-staging";
 import {
   getGitDiffSessionForRoot,
   getGitStatusForRoot,
   type GitDiffSessionResult,
   type GitStatusSummary,
-} from "./git";
-import type { SearchWorkspaceResult } from "../shared/workspace-search-contract";
+} from "./git/service";
+import type { SearchWorkspaceResult } from "../shared/workspace/search-contract";
 import {
   cancelWorkspaceSearch,
   parseSearchWorkspacePayload,
   runWorkspaceSearch,
-} from "./workspace-search";
+} from "./workspace/search";
 import {
   killAllTerminalSessions,
   killTerminalSession,
@@ -117,12 +117,12 @@ import {
   setTerminalSessionTargetWindow,
   startTerminalSession,
   writeTerminalSessionInput,
-} from "./terminal-session";
+} from "./terminal/session";
 import type {
   TerminalSessionMutationResult,
   TerminalSessionStartResult,
-} from "../shared/terminal-session-contract";
-import { invokeTtsReadAloud, verifyTtsVoice } from "./tts-read-aloud";
+} from "../shared/terminal/session-contract";
+import { invokeTtsReadAloud, verifyTtsVoice } from "./voice/tts-read-aloud";
 import {
   createStoredProject,
   deleteStoredProject,
@@ -132,13 +132,13 @@ import {
   touchProjectLastOpened,
   updateStoredProjectDisplayName,
   type StoredWorkspaceProject,
-} from "./app-project-store";
+} from "./project/store";
 import {
   getRecentProjectsSanitized,
   recordRecentProject,
   removeRecentProject,
   updateRecentProjectDisplayName,
-} from "./recent-projects-store";
+} from "./project/recent-store";
 import {
   RECENT_PROJECT_DISPLAY_NAME_MAX_LEN,
   type DeleteProjectResult,
@@ -146,19 +146,19 @@ import {
   type RecentProjectEntry,
   type RemoveRecentProjectResult,
   type UpdateRecentPickerNameResult,
-} from "../shared/recent-projects-contract";
+} from "../shared/projects/recent-projects-contract";
 import {
   clearStoredXaiKey,
   getXaiKeyStatusPayload,
   saveStoredXaiKey,
-} from "./xai-key-store";
+} from "./xai/key-store";
 import type {
   ClearXaiApiKeyResult,
   SetXaiApiKeyResult,
   XaiKeyStatusPayload,
-} from "../shared/xai-key-settings-contract";
-import type { WorkspaceFsMutateResult } from "../shared/workspace-fs-mutation-contract";
-import type { AppInfoPayload } from "../shared/app-info-contract";
+} from "../shared/settings/xai-key-settings-contract";
+import type { WorkspaceFsMutateResult } from "../shared/workspace/fs-mutation-contract";
+import type { AppInfoPayload } from "../shared/app/info-contract";
 
 /** Shown in the macOS menu bar and other OS shells instead of the default "Electron". */
 app.setName("GrokForge");

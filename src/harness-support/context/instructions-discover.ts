@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
-import { shouldIgnoreFsEntry } from '../../main/ignore-globs'
+import { shouldIgnoreFsEntry } from '../../main/workspace/ignore-globs'
 
 /** Basenames (case-insensitive) looked for at each workspace root and under immediate child folders only. */
 const AGENT_INSTRUCTION_BASENAMES_LOWER = new Set([

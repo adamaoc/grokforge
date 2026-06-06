@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import type { GrokProjectManifest } from '../../main/manifest'
+import type { GrokProjectManifest } from '../../main/project/manifest'
 import { evaluateRunCommandPolicy } from '../policy/command/run-command-policy'
 import {
   RUN_COMMAND_MAX_COMMAND_LEN,

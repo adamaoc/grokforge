@@ -1,7 +1,7 @@
 import { basename, isAbsolute, resolve } from 'node:path'
-import type { GrokProjectManifest } from '../../main/manifest'
+import type { GrokProjectManifest } from '../../main/project/manifest'
 import type { StoredWorkspaceIndex, ProjectIntelligenceFile } from './index-store'
-import type { AgentChatActiveContext } from '../../shared/agent-chat-contract'
+import type { AgentChatActiveContext } from '../../shared/agent/chat-contract'
 
 export type RetrievalScoreBucket =
   | 'attachment'

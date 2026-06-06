@@ -3,7 +3,7 @@ import {
   GF_PLAN_FENCE,
   parseGfPlanFromAssistantContent,
 } from '../../../harness-support/plan/contracts/gf-plan-contract'
-import type { ConversationMode } from '../../../shared/conversation-mode-contract'
+import type { ConversationMode } from '../../../shared/conversation/mode-contract'
 import { writeConversationMode } from '@/lib/conversation-mode-storage'
 import {
   hasActionableProposal,

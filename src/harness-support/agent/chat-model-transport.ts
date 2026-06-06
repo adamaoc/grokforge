@@ -1,9 +1,9 @@
 import { AGENT_TOOL_DEFINITIONS } from '../tools/workspace-tools'
-import { getChatCompletionsUrl, getXaiApiKey } from '../../main/grok-stream'
+import { getChatCompletionsUrl, getXaiApiKey } from '../../main/xai/stream'
 import type { AgentProviderRequest } from '../compaction/turn-snapshot'
-import type { AgentModelToolCall } from '../../shared/agent-model-message'
+import type { AgentModelToolCall } from '../../shared/agent/model-message'
 
-export type { AgentModelChatMessage, AgentModelToolCall } from '../../shared/agent-model-message'
+export type { AgentModelChatMessage, AgentModelToolCall } from '../../shared/agent/model-message'
 
 type ChatCompletionResponse = {
   choices?: Array<{

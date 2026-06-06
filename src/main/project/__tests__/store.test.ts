@@ -1,0 +1,16 @@
+import { describe, expect, it } from 'vitest'
+import { defaultManifestForFirstRoot } from '../store'
+import { DUAL_MODEL_FALLBACKS } from '../../../harness-support/routing/model-router'
+
+describe('defaultManifestForFirstRoot', () => {
+  it('uses dual-model harness defaults from model-router', () => {
+    const manifest = defaultManifestForFirstRoot('/tmp/grokforge-test-root', 'Test')
+    expect(manifest.models.default).toBe(DUAL_MODEL_FALLBACKS.chat_default)
+    expect(manifest.models.planning).toBe(DUAL_MODEL_FALLBACKS.planning)
+    expect(manifest.models.execution).toBe(DUAL_MODEL_FALLBACKS.execution)
+    expect(manifest.models.reasoning).toBe(DUAL_MODEL_FALLBACKS.reasoning)
+    expect(manifest.models.voice).toBe(DUAL_MODEL_FALLBACKS.voice)
+    expect(manifest.models.default).toBe('grok-build-0.1')
+    expect(manifest.models.planning).toBe('grok-4.3')
+  })
+})

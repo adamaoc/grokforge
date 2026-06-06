@@ -1,4 +1,4 @@
-import type { AgentModelChatMessage } from '../../shared/agent-model-message'
+import type { AgentModelChatMessage } from '../../shared/agent/model-message'
 import type { AgentTurn } from './turn-state'
 import type { HarnessDecision } from './harness-decisions'
 

@@ -28,13 +28,13 @@ import {
   isAgentActivityErrorRow,
   sanitizeAgentActivityDetail,
   summarizeAgentActivityErrors,
-} from '../../../shared/agent-activity-display'
+} from '../../../shared/agent/activity-display'
 import { mapActivityTitleForDisplay } from '@/lib/harness-activity-display-map'
 import {
   EditFailureIssueCard,
   shouldRenderEditFailureIssueCard,
 } from '@/components/EditFailureIssueCard'
-import { isCompactedEditFailureActivity } from '../../../shared/agent-activity-display'
+import { isCompactedEditFailureActivity } from '../../../shared/agent/activity-display'
 
 const TURN_END_COLLAPSE_MS = 300
 

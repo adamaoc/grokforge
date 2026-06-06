@@ -2,7 +2,7 @@
  * Named agent tool bundles (story 104). Profiles compose toolsets into allowedTools.
  */
 
-import type { AgentChatToolName } from '../../../shared/agent-chat-contract'
+import type { AgentChatToolName } from '../../../shared/agent/chat-contract'
 
 export type AgentToolsetId = 'read_only' | 'edit' | 'command' | 'full'
 

@@ -10,7 +10,7 @@ import { POST_SCAFFOLD_VERIFICATION_HONESTY_MARKER, POST_SCAFFOLD_VERIFICATION_M
 import { buildGfPlanFinalAnswerContract } from '../../plan/contracts/gf-plan-contract'
 import { isPartialBatchIntegrityRejection, totalIncompleteHtmlFailures } from '../../diff/edit-corrupt-content'
 import { totalSearchReplaceFailures } from '../edit/cascade-guard'
-import { basenameForProposalRejectionPath } from '../../../shared/agent-proposal-rejection-loop'
+import { basenameForProposalRejectionPath } from '../../../shared/legacy/agent-proposal-rejection-loop'
 import { getCodeQualityContractBlock } from '../quality/code-quality-contract'
 
 export const EDIT_INTENT_RE =

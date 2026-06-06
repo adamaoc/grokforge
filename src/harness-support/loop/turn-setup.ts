@@ -1,9 +1,9 @@
-import type { GrokProjectManifest } from '../../main/manifest'
+import type { GrokProjectManifest } from '../../main/project/manifest'
 import type {
   AgentChatStartPayload,
   AgentChatTurnRouting,
-} from '../../shared/agent-chat-contract'
-import type { AgentModelChatMessage } from '../../shared/agent-model-message'
+} from '../../shared/agent/chat-contract'
+import type { AgentModelChatMessage } from '../../shared/agent/model-message'
 import type { AgentProfile } from '../profiles/agent-profile'
 import type { AgentHarnessProfile, HarnessPromptTurnContext } from '../profiles/harness-profile'
 

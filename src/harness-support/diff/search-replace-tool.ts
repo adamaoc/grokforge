@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { z } from 'zod'
-import { shouldIgnoreFsEntry } from '../../main/ignore-globs'
-import { isPathWithinWorkspaceRoots } from '../../main/workspace-path-guard'
+import { shouldIgnoreFsEntry } from '../../main/workspace/ignore-globs'
+import { isPathWithinWorkspaceRoots } from '../../main/workspace/path-guard'
 import {
   isLikelySensitivePath,
   resolveAgentWorkspacePath,

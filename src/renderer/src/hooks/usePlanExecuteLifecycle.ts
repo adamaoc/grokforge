@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type MutableRefObject } from 'react'
 import { toast } from 'sonner'
 import type { ChatMessage } from '@/types'
-import type { ConversationMode } from '../../../shared/conversation-mode-contract'
+import type { ConversationMode } from '../../../shared/conversation/mode-contract'
 import { parseGfPlanFromAssistantContent } from '../../../harness-support/plan/contracts/gf-plan-contract'
 import { approvedPlanAutoRunUserText } from '@/lib/approved-plan-auto-run'
 import {

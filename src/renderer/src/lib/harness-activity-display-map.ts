@@ -1,6 +1,6 @@
 /** Map harness / internal activity titles to user-facing chat copy (story 142). */
 
-import { isCompactedEditFailureActivity } from '../../../shared/agent-activity-display'
+import { isCompactedEditFailureActivity } from '../../../shared/agent/activity-display'
 
 const HARNESS_PREFIX_RE = /^Harness:\s*/i
 

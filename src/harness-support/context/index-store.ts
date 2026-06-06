@@ -1,9 +1,9 @@
 import { closeSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, statSync, writeFileSync } from 'node:fs'
 import { basename, extname, join, relative, resolve } from 'node:path'
-import type { GrokProjectManifest } from '../../main/manifest'
-import { projectDir } from '../../main/app-project-store'
+import type { GrokProjectManifest } from '../../main/project/manifest'
+import { projectDir } from '../../main/project/store'
 import { buildWorkspaceIndexSummary, type WorkspaceIndexSummary } from './context'
-import { shouldIgnoreFsEntry } from '../../main/ignore-globs'
+import { shouldIgnoreFsEntry } from '../../main/workspace/ignore-globs'
 
 const INDEX_DIR_NAME = 'index'
 const WORKSPACE_INDEX_FILE = 'workspace-index.json'

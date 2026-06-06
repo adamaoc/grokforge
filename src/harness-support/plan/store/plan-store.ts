@@ -9,7 +9,7 @@ import {
   type PlanArtifactStatus,
   type StoredPlanArtifact,
 } from '../contracts/plan-artifact'
-import { projectDir } from '../../../main/app-project-store'
+import { projectDir } from '../../../main/project/store'
 
 const PLANS_SEGMENT = 'plans'
 const MAX_PLANS_SCAN = 64

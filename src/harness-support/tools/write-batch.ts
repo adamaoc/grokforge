@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import type { GrokProjectManifest } from '../../main/manifest'
-import { shouldIgnoreFsEntry } from '../../main/ignore-globs'
-import { isPathWithinWorkspaceRoots } from '../../main/workspace-path-guard'
+import type { GrokProjectManifest } from '../../main/project/manifest'
+import { shouldIgnoreFsEntry } from '../../main/workspace/ignore-globs'
+import { isPathWithinWorkspaceRoots } from '../../main/workspace/path-guard'
 import type {
   AgentToolBatchAppliedFile,
   AgentToolBatchConflictFile,
@@ -11,7 +11,7 @@ import type {
   AgentToolBatchSkippedFile,
   AgentUndoLastBatchResult,
 } from './contracts/tool-contract'
-import { AGENT_EDIT_STALE_HASH_REASON, isAgentContentHash } from '../../shared/agent-content-hash'
+import { AGENT_EDIT_STALE_HASH_REASON, isAgentContentHash } from '../../shared/agent/content-hash'
 import { normalizeAgentWriteFileContent } from '../context/file-content-normalize'
 import { AgentToolBatchPayloadSchema } from './contracts/tool-schema'
 import { computeAgentContentHash } from '../agent/content-hash'

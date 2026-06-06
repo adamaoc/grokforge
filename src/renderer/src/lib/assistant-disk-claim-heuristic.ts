@@ -1,5 +1,5 @@
-import type { AgentChatActivityPayload } from '../../../shared/agent-chat-contract'
-import { turnHadFailedEditActivities } from '../../../shared/agent-activity-display'
+import type { AgentChatActivityPayload } from '../../../shared/agent/chat-contract'
+import { turnHadFailedEditActivities } from '../../../shared/agent/activity-display'
 import { fenceExceedsFailedEditReferenceCap } from './assistant-final-answer-sanitize'
 
 /** Matches the fenced machine-readable block info string (suppress false toasts when present). */

@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import type { GrokProjectManifest } from '../../main/manifest'
-import { isPathWithinWorkspaceRoots } from '../../main/workspace-path-guard'
-import { projectDir } from '../../main/app-project-store'
+import type { GrokProjectManifest } from '../../main/project/manifest'
+import { isPathWithinWorkspaceRoots } from '../../main/workspace/path-guard'
+import { projectDir } from '../../main/project/store'
 import type { AgentToolBatchAppliedFile } from '../tools/contracts/tool-contract'
 import {
   AGENT_WRITE_HISTORY_MAX_BATCHES,
@@ -17,7 +17,7 @@ import {
   type AgentWriteHistoryListEntry,
   type GetAgentWriteHistoryResult,
   type RevertAgentWriteBatchResult,
-} from '../../shared/agent-write-history-contract'
+} from '../../shared/agent/write-history-contract'
 
 export type UndoSnapshot = { path: string; content: string | null }
 

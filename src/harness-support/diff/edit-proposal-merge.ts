@@ -1,4 +1,4 @@
-import type { AgentEditProposalPayload } from '../../shared/agent-chat-contract'
+import type { AgentEditProposalPayload } from '../../shared/agent/chat-contract'
 import {
   AGENT_TOOL_MAX_OPS,
   AGENT_TOOL_PROTOCOL_VERSION,

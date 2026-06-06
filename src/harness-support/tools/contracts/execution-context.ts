@@ -2,10 +2,10 @@ import type {
   AgentChatActiveContext,
   AgentChatToolName,
   AgentCommandApprovalRequest,
-} from '../../../shared/agent-chat-contract'
+} from '../../../shared/agent/chat-contract'
 import type { AgentProfileId } from '../../profiles/agent-profile'
 import type { HarnessProfileKey } from '../../profiles/contracts/harness-profile-key'
-import type { GrokProjectManifest } from '../../../main/manifest'
+import type { GrokProjectManifest } from '../../../main/project/manifest'
 
 export type AgentToolProgressUpdate = {
   title?: string

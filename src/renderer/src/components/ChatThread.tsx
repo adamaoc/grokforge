@@ -70,7 +70,7 @@ import { toast } from "sonner";
 import { subscribeChatThreadLines } from "@/lib/chat-thread-bus";
 import { subscribeVoiceUserDraft } from "@/lib/voice-user-draft-bus";
 import { buildVoiceHandoffUserText } from "@/lib/voice-agent-handoff";
-import { VOICE_THREAD_SUMMARY_EFFECTIVE_MAX } from "../../../shared/voice-session-contract";
+import { VOICE_THREAD_SUMMARY_EFFECTIVE_MAX } from "../../../shared/voice/session-contract";
 import {
   useReadAloud,
   readAloudVoiceIdFromManifest,
@@ -104,7 +104,7 @@ import {
   shouldDefaultGreenfieldToPlan,
   shouldVelocityExitPlanAfterGfPlan,
 } from "@/lib/conversation-lifecycle";
-import { conversationModeToAgentChatMode } from "../../../shared/conversation-mode-contract";
+import { conversationModeToAgentChatMode } from "../../../shared/conversation/mode-contract";
 import {
   formatRootsForPrompt,
   isPathUnderWorkspaceRoots,
@@ -139,7 +139,7 @@ import { buildRegenerateProposalMessage } from "../../../harness-support/diff/re
 import {
   AGENT_CHAT_MAX_THREAD_MESSAGES,
   type AgentChatThreadMessage,
-} from "../../../shared/agent-chat-contract";
+} from "../../../shared/agent/chat-contract";
 import {
   AGENT_EDIT_FAILURE_MAX_SNAPSHOT,
   type AgentEditFailureEvent,
@@ -185,7 +185,7 @@ import {
   CHAT_ATTACHMENT_MAX_BYTES_BASE64_STAGING,
   CHAT_ATTACHMENT_MAX_FILE_BYTES,
   CHAT_ATTACHMENT_MAX_TOTAL_BYTES_PER_TURN,
-} from "../../../shared/chat-attachment-contract";
+} from "../../../shared/chat/attachment-contract";
 
 type ApplyBatchOutcome = "none" | "partial" | "complete";
 

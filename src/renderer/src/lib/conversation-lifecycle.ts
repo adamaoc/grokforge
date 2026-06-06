@@ -2,7 +2,7 @@ import type { HarnessTemperament } from './harness-temperament'
 export {
   chatModeDisplayLabel,
   conversationModeLabel,
-} from '../../../shared/conversation-mode-contract'
+} from '../../../shared/conversation/mode-contract'
 
 export function shouldDefaultGreenfieldToPlan(input: {
   hasConversationHistory: boolean

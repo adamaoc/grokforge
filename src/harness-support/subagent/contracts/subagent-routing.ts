@@ -2,7 +2,7 @@
  * Model + profile routing for child subagent sessions (story 112).
  */
 
-import type { AgentChatTurnRouting } from '../../../shared/agent-chat-contract'
+import type { AgentChatTurnRouting } from '../../../shared/agent/chat-contract'
 import { resolveHarnessProfileKey } from '../../profiles/contracts/harness-profile-key'
 import { getModelForIntent, type ModelRoutingManifest } from '../../routing/model-router'
 

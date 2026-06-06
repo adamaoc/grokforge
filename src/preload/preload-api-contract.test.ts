@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ElectronAPI } from '../shared/preload-api-contract'
+import type { ElectronAPI } from '../shared/bridge/preload-api-contract'
 import type { electronAPI } from './preload'
 
 type Extends<A, B> = A extends B ? true : false

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import type { AgentTurnTraceV1 } from '../../../shared/agent-turn-trace-contract'
+import type { AgentTurnTraceV1 } from '../../../shared/agent/turn-trace-contract'
 import { cn } from '@/lib/utils'
 
 const MAX_STEPS = 6

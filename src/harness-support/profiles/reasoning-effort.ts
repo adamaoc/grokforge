@@ -3,7 +3,7 @@
  * Only Grok 4.3 family models accept this parameter; build rejects it.
  */
 
-import type { AgentChatTextModelIntent } from '../../shared/agent-chat-contract'
+import type { AgentChatTextModelIntent } from '../../shared/agent/chat-contract'
 import type { AgentProfileId } from './agent-profile'
 import type { HarnessProfileKey } from './contracts/harness-profile-key'
 

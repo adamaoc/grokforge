@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import {
   isCompactedEditFailureActivity,
   resolveActivityEditFailurePath,
-} from '../../../shared/agent-activity-display'
+} from '../../../shared/agent/activity-display'
 
 function basenameFromPath(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean)
