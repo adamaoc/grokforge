@@ -40,7 +40,7 @@ The model does not “know” your repo, terminal, or diff UI by itself. The har
 | What should we use for coding now? | **`grok-build-0.1`** for fast execution slots; **`grok-4.3`** for planning and deep tool calling (1M context, configurable **`reasoning_effort`**). |
 | Does the harness pick the model? | **Yes** — via `manifest.models` and `getModelForIntent()` (`chat_default`, `planning`, `execution`, `reasoning`, `voice`). The harness chooses *which* Grok id to call; xAI runs inference. |
 
-**GrokForge today:** new projects intentionally use a **dual-model** manifest: **`grok-build-0.1`** on **`chat_default`** / **`execution`**, **`grok-4.3`** on **`planning`** (`DUAL_MODEL_FALLBACKS` in `src/shared/model-router.ts`, `app-project-store.ts`) so we can run **separate harness profiles per model** (see **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**). Program index: **[`harness-roadmap.md`](harness-roadmap.md)**. Catalog sync: **[121](../project_tasks/post-mvp/121-xai-model-catalog-and-api-sync.md)**.
+**GrokForge today:** new projects intentionally use a **dual-model** manifest: **`grok-build-0.1`** on **`chat_default`** / **`execution`**, **`grok-4.3`** on **`planning`** (`DUAL_MODEL_FALLBACKS` in `src/harness-support/routing/model-router.ts`, defaults written by `src/main/project/store.ts`) so we can run **separate harness profiles per model** (see **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**). Program index: **[`harness-roadmap.md`](harness-roadmap.md)**. Catalog sync: **[121](../project_tasks/post-mvp/121-xai-model-catalog-and-api-sync.md)**.
 
 ### xAI redirect for `grok-code-fast-1` (stories 102 / 121)
 
@@ -48,9 +48,9 @@ After the [May 15, 2026 retirement](https://docs.x.ai/developers/migration/may-1
 
 At turn start, main emits **`turn_started.routing`** `{ modelIntent, modelId, harnessProfileKey, reasoningEffort? }` and stores the same on agent turn traces (dev logs in development).
 
-**Shipped profiles (103):** `getHarnessProfile` in `src/shared/agent-harness-profile.ts` supplies per-key system sections, tool-loop bias, tool description overrides, and final-answer variants for `grok_code_fast`, `grok_4_3`, and `generic`. Reasoning traces: **preserve** (no strip until xAI message shape is handled in transport).
+**Shipped profiles (103):** `getHarnessProfile` in `src/harness-support/profiles/harness-profile.ts` supplies per-key system sections, tool-loop bias, tool description overrides, and final-answer variants for `grok_code_fast`, `grok_4_3`, and `generic`. Reasoning traces: **preserve** (no strip until xAI message shape is handled in transport).
 
-**Shipped agent profiles (104):** `getAgentProfile` / `resolveAgentProfileId` in `src/shared/agent-profile.ts` control **which tools exist** in the API (`planner` = read-only toolset; `executor` / `default` = full). Harness profile = *how* the model is prompted; agent profile = *what* it may call.
+**Shipped agent profiles (104):** `getAgentProfile` / `resolveAgentProfileId` in `src/harness-support/profiles/agent-profile.ts` control **which tools exist** in the API (`planner` = read-only toolset; `executor` / `default` = full). Harness profile = *how* the model is prompted; agent profile = *what* it may call.
 
 ---
 
@@ -81,7 +81,7 @@ GrokForge is several interconnected systems. When you work in this repo, you are
 - Executing them safely in main (root-scoped, ignore-aware, capped).
 - Returning structured results back to the model for the next turn.
 
-*Code:* `agent-workspace-tools.ts`, `agent-tools.ts`, `src/shared/agent-tool-schema.ts`, `run-command.ts` + policy.
+*Code:* current minimal tools live under `src/harness/tools/`; legacy proposal/command/tool contracts live under `src/harness-support/tools/` and related policy folders.
 
 ### Context engineering system
 
@@ -109,7 +109,7 @@ GrokForge is several interconnected systems. When you work in this repo, you are
 - Per-project manifest and roots (stored under app `userData`, not written into user repos as `.grokproject.json`).
 - Multi-root support, ignore patterns, workspace index, git/status integration.
 
-*Code:* `manifest.ts`, `app-project-store.ts`, `agent-index-store.ts`, `ignore-globs.ts`.
+*Code:* `src/main/project/manifest.ts`, `src/main/project/store.ts`, `src/harness-support/context/index-store.ts`, `src/main/workspace/ignore-globs.ts`.
 
 ### User interface & experience
 
@@ -502,7 +502,7 @@ Patterns distilled from **LangChain**, **Hermes**, **Cursor**, **Martin Richards
 | **Tool schema experimentation** | Descriptions tuned for Grok 4.3 | Per-profile tool defs in harness | **Gap** | Cursor |
 | **Preamble / instruction tuning** | System prompt per model family | `grok-4.3` variant; retire fast-code tone | **Gap** | Cursor |
 
-Dual-model + profile keys: **[102](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md)** → **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**. Canonical phase routing: **[097](../project_tasks/post-mvp/097-model-routing-planner-vs-executor.md)** (`resolveAgentTurnRouting` in `src/shared/agent-turn-routing.ts`). Roadmap: **[`harness-roadmap.md`](harness-roadmap.md)**.
+Dual-model + profile keys: **[102](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md)** -> **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**. Compatibility routing currently lives under `src/harness-support/routing/`. Roadmap: **[`harness-roadmap.md`](harness-roadmap.md)**.
 
 ### 7. Reliability & verification
 

@@ -1,6 +1,6 @@
 # Shared Contracts
 
-`src/shared` is for code that must be imported across process boundaries or app surfaces: main, preload, renderer, and the minimal harness. Keep this folder small and contract-shaped.
+`src/shared` is for code that must be imported across process boundaries or app surfaces: main, preload, renderer, and the minimal harness. Keep this folder small, contract-shaped, and free of Electron/Node implementation imports.
 
 ## Keep In Root
 
@@ -21,7 +21,7 @@ Examples:
 
 ## Legacy
 
-`legacy/` holds contracts, helpers, and tests for older agent/harness features that are still referenced by compatibility UI or old support modules. Moving something into `legacy/` does not mean it is useless; it means it is not part of the current minimal harness base.
+`legacy/` holds contracts, helpers, and tests for older agent/harness features that are still referenced by compatibility UI or old support modules. Moving something into `legacy/` does not mean it is useless; it means it is not part of the current minimal harness base. Active renderer compatibility imports should go through `src/renderer/src/lib/legacy-agent/`.
 
 When a legacy feature is rebuilt for the minimal harness, prefer creating a narrow new contract in root shared rather than moving the old file back unchanged.
 

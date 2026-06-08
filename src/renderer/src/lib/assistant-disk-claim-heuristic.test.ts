@@ -6,7 +6,7 @@ import {
   assistantReplyClaimsEditSuccessDespiteNoProposal,
   turnHadFailedEditActivities,
 } from './assistant-disk-claim-heuristic'
-import { AGENT_TOOL_FENCE_INFO } from '../../../harness-support/tools/contracts/tool-contract'
+import { AGENT_TOOL_FENCE_INFO } from './legacy-agent/tools'
 
 describe('assistantReplyClaimsDiskWrites', () => {
   it('is true when past-tense claims meet disk-ish context', () => {

@@ -11,7 +11,7 @@ import type {
   AgentContextPreview,
   GetAgentContextPreviewResult,
   GetChatSystemPromptResult,
-} from '../../harness-support/context/context'
+} from './lib/legacy-agent/context'
 import type {
   GrokApiMessage,
   GrokApiRole,
@@ -28,8 +28,8 @@ import type {
   PersistedChatLineV1,
 } from '../../main/chat/store'
 import { CHAT_STORE_SCHEMA_VERSION } from '../../shared/chat/thread-schema'
-import type { GetModelForIntentOptions, ModelIntent } from '../../harness-support/routing/model-router'
-import { getModelForIntent, DUAL_MODEL_FALLBACKS, MODEL_INTENT_MANIFEST_KEYS } from '../../harness-support/routing/model-router'
+import type { GetModelForIntentOptions, ModelIntent } from './lib/legacy-agent/routing'
+import { getModelForIntent, DUAL_MODEL_FALLBACKS, MODEL_INTENT_MANIFEST_KEYS } from './lib/legacy-agent/routing'
 import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../../main/voice/realtime'
 import type { GitDiffSessionResult, GitStatusSummary } from '../../main/git/service'
 import {
@@ -80,7 +80,7 @@ import type {
   XaiKeySource,
   XaiKeyStatusPayload,
 } from '../../shared/settings/xai-key-settings-contract'
-import type { AgentToolBatchResult, AgentUndoLastBatchResult } from '../../harness-support/tools/contracts/tool-contract'
+import type { AgentToolBatchResult, AgentUndoLastBatchResult } from './lib/legacy-agent/tools'
 import type {
   AgentWriteHistoryListEntry,
   GetAgentWriteHistoryResult,
@@ -104,8 +104,8 @@ import type {
   AgentContextPin,
   GetProjectContextPinsResult,
   SetProjectContextPinsResult,
-} from '../../harness-support/context/context-pins-contract'
-import { AGENT_CONTEXT_MAX_PINS_PER_PROJECT } from '../../harness-support/context/context-pins-contract'
+} from './lib/legacy-agent/context'
+import { AGENT_CONTEXT_MAX_PINS_PER_PROJECT } from './lib/legacy-agent/context'
 import type {
   AgentChatActiveContext,
   AgentChatAttachment,
@@ -127,10 +127,9 @@ import type {
   AgentProposalReviewRequest,
   AgentProposalReviewResult,
 } from '../../shared/agent/proposal-reviewer'
-export type { AgentSubagentEventPayload } from '../../harness-support/subagent/contracts/subagent-contract'
-import type { HarnessProfileKey } from '../../harness-support/profiles/contracts/harness-profile-key'
-import { resolveHarnessProfileKey } from '../../harness-support/profiles/contracts/harness-profile-key'
-import { getHarnessProfile } from '../../harness-support/profiles/harness-profile'
+export type { AgentSubagentEventPayload } from './lib/legacy-agent/subagent'
+import type { HarnessProfileKey } from './lib/legacy-agent/routing'
+import { resolveHarnessProfileKey, getHarnessProfile } from './lib/legacy-agent/routing'
 import {
   AGENT_CHAT_SELECTION_MAX_CHARS,
   AGENT_CHAT_MAX_ATTACHMENTS,
@@ -143,9 +142,9 @@ import type {
   ReplayAgentRetrievalPreviewResult,
 } from '../../shared/agent/turn-trace-contract'
 import { AGENT_TURN_TRACE_MAX_FILES, AGENT_TURN_TRACE_SCHEMA_VERSION } from '../../shared/agent/turn-trace-contract'
-import type { GfPlanV1 } from '../../harness-support/plan/contracts/gf-plan-contract'
-import { GF_PLAN_FENCE, GfPlanV1Schema } from '../../harness-support/plan/contracts/gf-plan-contract'
-import type { AgentSubagentEventPayload } from '../../harness-support/subagent/contracts/subagent-contract'
+import type { GfPlanV1 } from './lib/legacy-agent/plan'
+import { GF_PLAN_FENCE, GfPlanV1Schema } from './lib/legacy-agent/plan'
+import type { AgentSubagentEventPayload } from './lib/legacy-agent/subagent'
 
 export type {
   AddWorkspaceRootResult,

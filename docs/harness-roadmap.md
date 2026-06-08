@@ -26,7 +26,7 @@ New projects **intentionally** use two xAI model ids so we can tune prompts and 
 | `reasoning` | `grok-4.20-0309-reasoning` | Reserved / future | `generic` if unmapped | context-dependent |
 | `voice` | `grok-voice-latest` | Voice realtime (separate WebSocket path) | N/A for text loop | N/A |
 
-**Code:** defaults in [`DUAL_MODEL_FALLBACKS`](../src/shared/model-router.ts); turn routing in [`resolveAgentTurnRouting`](../src/shared/agent-turn-routing.ts); profile key in [`resolveHarnessProfileKey`](../src/shared/agent-harness-profile-contract.ts); toolsets in [`resolveAgentProfileId`](../src/shared/agent-profile.ts).
+**Code:** defaults and intent routing currently live in [`model-router.ts`](../src/harness-support/routing/model-router.ts); profile behavior and legacy routing helpers live under [`src/harness-support/profiles/`](../src/harness-support/profiles/) and [`src/harness-support/routing/`](../src/harness-support/routing/). Active renderer access goes through `src/renderer/src/lib/legacy-agent/`.
 
 **Notes:**
 
@@ -146,11 +146,11 @@ Logical program order for **102–114**. Status as of **2026-05-19**.
 
 | Layer | What | Where |
 | --- | --- | --- |
-| **Automated** | Mocked agent-loop regressions (profiles, toolsets, contracts, greenfield execute / partial-batch recovery **124**, command plan-verify **126**, scaffold manifest **127**, scaffold strategy **128**, scaffold conflict hygiene **131**, plan verification commands **132**, static Todo Plan → Execute **133**, conflict recovery honesty **134**) | `npm run test:agent-eval` → [`agent-runner-evaluation.test.ts`](../src/main/agent-runner-evaluation.test.ts), tags in [`agent-eval-tags.ts`](../src/shared/agent-eval-tags.ts) |
+| **Automated** | Mocked agent-loop regressions and compatibility coverage for legacy harness behavior | `npm run test` -> `src/main/legacy/__tests__/` and `src/shared/legacy/__tests__/`; tags in [`agent-eval-tags.ts`](../src/shared/legacy/agent-eval-tags.ts) |
 | **Foundation** | First deterministic eval harness | [**063**](../project_tasks/063-agent-evaluation-suite-and-smartness-regressions.md) |
 | **Manual** | Dual-model smoke flows (plan, execute, cancel, offload, etc.) | [`harness-eval-checklist.md`](harness-eval-checklist.md) |
 
-**Policy:** Changing [`agent-harness-profile.ts`](../src/shared/agent-harness-profile.ts), [`agent-profile.ts`](../src/shared/agent-profile.ts), [`agent-turn-routing.ts`](../src/shared/agent-turn-routing.ts), or [`agent-final-answer-contract.ts`](../src/shared/agent-final-answer-contract.ts) requires updating eval tests (and the checklist when behavior-visible).
+**Policy:** Changing legacy harness profile, routing, or final-answer behavior under `src/harness-support/` requires updating the relevant legacy tests and the manual checklist when behavior-visible.
 
 **Research (implementation comparison):** [`research/agentic-coding-harnesses.md`](research/agentic-coding-harnesses.md) — OpenCode, Hermes, Pi, T3.
 

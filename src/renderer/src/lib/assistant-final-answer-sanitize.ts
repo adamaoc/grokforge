@@ -6,7 +6,7 @@ import {
 import {
   FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_CHARS,
   FAILED_EDIT_FINAL_ANSWER_MAX_REFERENCE_LINES,
-} from '../../../harness-support/policy/final-answer/final-answer-contract'
+} from './legacy-agent/edit'
 
 /** Display-time context for failed-edit final-answer fence guard (story 164). */
 export type FailedEditFinalAnswerDisplayContext = {

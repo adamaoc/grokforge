@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ListChecks, XCircle } from 'lucide-react'
-import type { GfPlanV1 } from '../../../harness-support/plan/contracts/gf-plan-contract'
+import type { GfPlanV1 } from '../lib/legacy-agent/plan'
 import {
   derivePlanUiPhase,
   getPlanInteraction,

@@ -1,8 +1,9 @@
 # Main Process Layout
 
 `main.ts` stays at the root because it is the Electron entrypoint configured by
-`electron.vite.config.ts`. Keep it focused on window lifecycle, IPC registration,
-and app-level coordination.
+`electron.vite.config.ts`. Keep it focused on window lifecycle, capability IPC
+registration calls, and app-level coordination. Individual `ipcMain` handlers
+belong in `register-ipc.ts` modules inside the capability folders below.
 
 Everything else in this folder should live under the capability it serves:
 

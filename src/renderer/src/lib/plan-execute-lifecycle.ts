@@ -2,7 +2,7 @@ import { toast } from 'sonner'
 import {
   GF_PLAN_FENCE,
   parseGfPlanFromAssistantContent,
-} from '../../../harness-support/plan/contracts/gf-plan-contract'
+} from './legacy-agent/plan'
 import type { ConversationMode } from '../../../shared/conversation/mode-contract'
 import { writeConversationMode } from '@/lib/conversation-mode-storage'
 import {

@@ -1,6 +1,6 @@
 # Harness eval checklist (dual-model)
 
-Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, routing) — complement automated tests in `src/main/agent-runner-evaluation.test.ts`. Run after changing `agent-harness-profile.ts`, `agent-profile.ts`, `agent-turn-routing.ts`, or the agent tool loop.
+Manual smoke flows for GrokForge’s **harness** (prompts, profiles, tools, routing) — complement legacy compatibility tests in `src/main/legacy/__tests__/` and `src/shared/legacy/__tests__/`. Run after changing harness profiles, routing, tool policy, or the agent tool loop.
 
 **Automated gate:** `npm run test:agent-eval` (or full `npm run test`).
 

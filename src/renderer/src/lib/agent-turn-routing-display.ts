@@ -1,5 +1,5 @@
 import type { AgentChatTurnRouting } from '@/types'
-import type { AgentProfileId } from '../../../harness-support/profiles/agent-profile'
+import type { AgentProfileId } from './legacy-agent/routing'
 
 const PROFILE_LABELS: Record<AgentProfileId, string> = {
   planner: 'Planner',

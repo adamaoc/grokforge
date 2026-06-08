@@ -1,5 +1,5 @@
-import { normalizeAgentWriteFileContent } from '../../../harness-support/context/file-content-normalize'
-import type { ParsedAgentToolBatch } from '../../../harness-support/tools/contracts/tool-schema'
+import { normalizeAgentWriteFileContent } from './legacy-agent/proposal'
+import type { ParsedAgentToolBatch } from './legacy-agent/tools'
 
 /** Normalize write_file bodies before diff review or disk apply (crushed one-line HTML/JS). */
 export function normalizeProposalBatch(batch: ParsedAgentToolBatch): ParsedAgentToolBatch {

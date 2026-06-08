@@ -1,6 +1,6 @@
 # GrokForge Harness
 
-This is the minimal agent runtime used by text agent chat. It intentionally keeps the base small: one active workspace root, direct file tools, a compact model/tool loop, and JSONL session/log output. Larger product features such as plan mode, reviewable diff application, richer context retrieval, and multi-root orchestration should be added back through explicit runtime boundaries rather than by expanding one large harness module.
+This is the minimal agent runtime used by text agent chat. It intentionally keeps the base small: one active workspace root, direct file tools, a compact model/tool loop, and JSONL session/log output. Larger product features such as plan mode, reviewable diff application, richer context retrieval, and multi-root orchestration should be added through explicit runtime boundaries rather than by expanding one large harness module.
 
 ## Folders
 
@@ -18,7 +18,7 @@ This is the minimal agent runtime used by text agent chat. It intentionally keep
 
 ## Public Surface
 
-Import runtime entrypoints from `src/harness/index.ts`. Avoid deep imports from app code unless a module is explicitly a low-level helper such as `diff/line-stats`.
+Import runtime entrypoints from `src/harness/index.ts`. Avoid deep imports from app code unless a module is explicitly a low-level helper such as `diff/line-stats`. Renderer compatibility with old agent contracts belongs in `src/renderer/src/lib/legacy-agent/`, not inside this runtime.
 
 Current public exports include:
 

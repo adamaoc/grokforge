@@ -182,7 +182,7 @@ ampnet **implementer** maps closest to GrokForge **executor**, except writes are
 - Edit proposals, fuzzy `search_replace`, merge-in-turn: `src/harness/diff/`
 - Command approval and risk tiers: `src/harness/policy/command/`
 - Profile resolution and toolsets: `src/harness/profiles/`
-- Live orchestration (still central): `src/main/agent-runner.ts` calling `executeAgentToolCall`
+- Live orchestration: `src/main/agent/runner.ts` bridges the current main process to the minimal harness; legacy tool execution references remain compatibility context.
 
 ---
 
