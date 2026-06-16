@@ -175,6 +175,18 @@ describe('buildHarnessTurnPromptSections', () => {
     expect(sections.join('\n')).toContain(WORK_ITERATIVE_EDIT_MARKER)
   })
 
+  it('lets greenfield Work bootstrap win over stale post-plan incremental state (168)', () => {
+    const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_code_fast'), {
+      greenfieldWorkBootstrap: true,
+      postPlanIncremental: true,
+      scaffoldStrategy: 'file_bootstrap',
+    })
+    const joined = sections.join('\n')
+    expect(joined).toContain(GREENFIELD_WORK_BOOTSTRAP_MARKER)
+    expect(joined).toContain(SCAFFOLD_STRATEGY_ROUTING_MARKER)
+    expect(joined).not.toContain(POST_PLAN_INCREMENTAL_MARKER)
+  })
+
   it('does not inject Work bootstrap for greenfield planner profile alone (161)', () => {
     const sections = buildHarnessTurnPromptSections(getHarnessProfile('grok_4_3'), {
       greenfieldWorkspace: true,

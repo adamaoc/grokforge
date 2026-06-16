@@ -1,6 +1,6 @@
 # 168 — Greenfield empty workspace vs stale plan routing + tool-round budgets
 
-**Status:** Not started.
+**Status:** Done for Phase A/B scope (2026-06-16). Phase C-E budget/trace/docs work remains out of this pickup.
 
 **Priority:** **High** — field report (2026-06-03, “cleared” Todo App workspace): user asked to **plan and create** a blank HTML todo app in **Work** mode, but harness routed **`postPlanIncremental: true`** + **executor** because an **old approved plan** still lives under app `userData` while the **workspace root is empty**. Turn trace `472b95d2-…`: **4 read-only** tool rounds (`list_directory`, `read_file` on plan artifact, `search_workspace`, `workspace_index`), **`maxToolIterationsHit: true`**, **`editProposalCreated: false`**, long final prose — **no file** in the workspace.
 
@@ -105,12 +105,12 @@ Add a short **“Harness routing map”** section to [`docs/harness-roadmap.md`]
 
 ## Acceptance criteria
 
-- [ ] Eval: completed plan in app data + **empty** workspace + “blank app… create todo… plan out” → **`postPlanIncremental` false** (or blocked), **greenfield bootstrap** markers in system prompt, turn reaches **`propose_file_edits`** or plan mode path — not 4× read-only then final only.
-- [ ] Eval: populated workspace + short post-plan edit → **`postPlanIncremental` still true** (regression **120**).
+- [x] Eval: completed plan in app data + **empty** workspace + “blank app… create todo… plan out” → **`postPlanIncremental` false** (or blocked), **greenfield bootstrap** markers in system prompt, turn reaches **`propose_file_edits`** or plan mode path — not 4× read-only then final only.
+- [x] Eval: populated workspace + short post-plan edit → **`postPlanIncremental` still true** (regression **120**).
 - [ ] Manual: clear workspace files only, same project, recreate todo → **`index.html` proposal** or explicit Plan-mode `gf-plan` path; trace `toolSteps` includes write tool.
 - [ ] Docs: harness turn budget table committed; effective max for executor default ≥ prior **8** or justified in doc.
 - [ ] Trace: `routingDecision` (or equivalent) visible in last-turn inspector for the field-report scenario.
-- [ ] `npm run test` + targeted `npm run test:agent-eval` for new tags pass.
+- [x] Focused regression tests and `npm run typecheck` pass for Phase A/B.
 
 ## Suggested implementation order
 

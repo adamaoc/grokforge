@@ -16,8 +16,10 @@ import {
   EDIT_CREATION_INCREMENTAL_RECOVERY_MARKER,
   EDIT_CRUSHED_JS_NUDGE_MARKER,
   buildPlanVerifyCommandNudge,
+  buildDiscoverySaturationNudge,
   buildSearchReplaceEscalationNudge,
   COMMAND_TOOLS_FAILED_HONESTY_MARKER,
+  DISCOVERY_SATURATION_NUDGE_MARKER,
   SCAFFOLD_STRATEGY_HONESTY_MARKER,
   EDIT_INCOMPLETE_HTML_NUDGE_MARKER,
   EDIT_INTENT_TOOL_NUDGE_MARKER,
@@ -94,6 +96,18 @@ describe('buildFinalAnswerContract', () => {
   it('builds edit-intent tool nudge with stable marker', () => {
     expect(buildEditIntentToolNudge()).toContain(EDIT_INTENT_TOOL_NUDGE_MARKER)
     expect(buildEditIntentToolNudge()).toMatch(/search_replace/)
+  })
+
+  it('builds greenfield discovery saturation nudge for new-file bootstrap (168)', () => {
+    const nudge = buildDiscoverySaturationNudge({
+      greenfieldWorkspace: true,
+      readOnlyRounds: 2,
+    })
+    expect(nudge).toContain(DISCOVERY_SATURATION_NUDGE_MARKER)
+    expect(nudge).toMatch(/empty workspace/i)
+    expect(nudge).toMatch(/propose_file_edits/)
+    expect(nudge).toMatch(/new files/)
+    expect(nudge).toMatch(/edit.*only for paths that already exist/i)
   })
 
   it('builds search_replace escalation nudge with stable marker and path labels', () => {

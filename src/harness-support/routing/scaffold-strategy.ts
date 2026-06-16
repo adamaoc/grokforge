@@ -30,11 +30,18 @@ const STATIC_USER_RE =
 const CLI_SCAFFOLD_CMD_RE =
   /\b(npm\s+(create|init)|pnpm\s+(create|dlx)|yarn\s+create|bun\s+create|npx\s+create)\b/i
 
-const EDIT_TOOL_NAMES = new Set(['propose_file_edits', 'search_replace'])
+const GREENFIELD_CREATE_USER_RE =
+  /\b(blank\s+(app|project|workspace)|empty\s+(folder|workspace|repo|project)|from\s+scratch|start\s+over|create\s+(a\s+)?(new\s+)?(app|site|project)|build\s+(a\s+)?(new\s+)?(app|site|project)|no\s+files\s+yet)\b/i
+
+const EDIT_TOOL_NAMES = new Set(['propose_file_edits', 'edit', 'search_replace'])
 
 /** Shared static/file-bootstrap user intent (128, 162). */
 export function userMatchesStaticFileBootstrapIntent(userText: string): boolean {
   return STATIC_USER_RE.test(userText.trim())
+}
+
+function userMatchesGreenfieldCreateIntent(userText: string): boolean {
+  return GREENFIELD_CREATE_USER_RE.test(userText.trim())
 }
 
 export type ResolveScaffoldStrategyInput = {
@@ -53,10 +60,10 @@ export function resolveScaffoldStrategy(
   input: ResolveScaffoldStrategyInput,
 ): ScaffoldStrategy | null {
   if (!input.greenfieldWorkspace) return null
-  if (input.postPlanIncremental) return null
 
   const plan = input.plan ?? null
   const userText = (input.userText ?? '').trim()
+  if (input.postPlanIncremental && !userMatchesGreenfieldCreateIntent(userText)) return null
 
   const cliFromPlan = plan ? planImpliesCliScaffold(plan) : false
   const fileFromPlan = plan ? planImpliesFileBootstrap(plan) : false

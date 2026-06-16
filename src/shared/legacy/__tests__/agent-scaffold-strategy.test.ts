@@ -18,7 +18,7 @@ describe('resolveScaffoldStrategy', () => {
     ).toBeNull()
   })
 
-  it('returns null for post-plan incremental Work follow-up', () => {
+  it('returns null for populated post-plan incremental Work follow-up', () => {
     expect(
       resolveScaffoldStrategy({
         greenfieldWorkspace: true,
@@ -26,6 +26,16 @@ describe('resolveScaffoldStrategy', () => {
         plan: { filesLikelyTouched: ['package.json'] },
       }),
     ).toBeNull()
+  })
+
+  it('still resolves greenfield create strategy when a stale post-plan flag is present', () => {
+    expect(
+      resolveScaffoldStrategy({
+        greenfieldWorkspace: true,
+        postPlanIncremental: true,
+        userText: 'empty folder, create a static todo app as one html file',
+      }),
+    ).toBe('file_bootstrap')
   })
 
   it('selects cli_scaffold for Vite/npm create plans', () => {
@@ -176,6 +186,14 @@ describe('detectScaffoldConflict', () => {
         scaffoldCliSucceededThisTurn: false,
       }),
     ).toBeNull()
+  })
+
+  it('treats the primary edit tool as an edit tool', () => {
+    expect(
+      toolSampleHasEditTools([
+        { function: { name: 'edit', arguments: '{}' } },
+      ]),
+    ).toBe(true)
   })
 
   it('returns null for file_bootstrap with verify/serve command + edits (131)', () => {

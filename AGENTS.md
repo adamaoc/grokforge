@@ -218,6 +218,21 @@ task is explicitly a redesign.
 - UI/design consistency: `.cursor/skills/styleguide-design/SKILL.md` when
   working in Cursor.
 
+## Task Manager
+
+Use TheTaskManager API at `http://localhost:8080/api` for new stories, tasks,
+bugs, features, and backlog items. The GrokForge project is `grokforge` with
+human-friendly story prefix `GFAPP`.
+
+- Read `GET /api/docs` or `GET /api/openapi.yaml` if the API shape is unclear.
+- Create stories with `POST /api/stories`; every story must belong to the
+  `grokforge` project.
+- Use Markdown descriptions and include source links or local file paths when
+  migrating from repo documents.
+- Bot-writable statuses are only `backlog`, `in_progress`, and `done`.
+- Do not set `closed`; closing is manual human review in the task manager UI.
+- When the user says work is complete, move the story to `done`, not `closed`.
+
 ## Git And Cursor
 
 - Prefer focused commits.

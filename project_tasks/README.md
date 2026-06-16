@@ -205,7 +205,7 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 165 | Suppress verify command nudge for static single-file HTML **(done)** | [`post-mvp/165-suppress-verify-command-nudge-static-single-file.md`](post-mvp/165-suppress-verify-command-nudge-static-single-file.md) |
 | 166 | Deprecate `search_replace` tool alias (consolidate on `edit`) | [`post-mvp/166-deprecate-search-replace-tool-alias.md`](post-mvp/166-deprecate-search-replace-tool-alias.md) |
 | 167 | Post-plan incremental: nudge on empty first tool sample | [`post-mvp/167-post-plan-zero-tool-calls-nudge.md`](post-mvp/167-post-plan-zero-tool-calls-nudge.md) |
-| 168 | Greenfield empty workspace vs stale plan routing + tool budgets | [`post-mvp/168-greenfield-empty-vs-post-plan-routing.md`](post-mvp/168-greenfield-empty-vs-post-plan-routing.md) |
+| 168 | Greenfield empty workspace vs stale plan routing + tool budgets **(done: Phase A/B)** | [`post-mvp/168-greenfield-empty-vs-post-plan-routing.md`](post-mvp/168-greenfield-empty-vs-post-plan-routing.md) |
 | 169 | **Harness v2:** promote minimal loop, delete legacy harness | [`post-mvp/169-harness-v2-legacy-removal.md`](post-mvp/169-harness-v2-legacy-removal.md) |
 
 **Suggested backlog order (harness program — dual-model `grok-code-fast-1` + `grok-4.3`):**

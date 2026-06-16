@@ -16,22 +16,31 @@ export const SINGLE_FILE_EDIT_BIAS_MARKER = '## Single-file workspace edit bias 
 export const INCREMENTAL_FOLLOW_UP_MAX_CHARS = 320
 
 export const REPLAN_REQUEST_RE =
-  /\b(new\s+plan|re-?plan|plan\s+again|from\s+scratch|start\s+over|rewrite\s+the\s+plan|fresh\s+plan)\b/i
+  /\b(new\s+plan|re-?plan|plan\s+again|plan\s+out|from\s+scratch|start\s+over|rewrite\s+the\s+plan|fresh\s+plan|blank\s+(app|project|workspace)|empty\s+(folder|workspace|repo|project)|no\s+files\s+yet)\b/i
+
+export const GREENFIELD_CREATE_REQUEST_RE =
+  /\b(blank\s+(app|project|workspace)|empty\s+(folder|workspace|repo|project)|from\s+scratch|start\s+over|create\s+(a\s+)?(new\s+)?(app|site|project)|build\s+(a\s+)?(new\s+)?(app|site|project)|no\s+files\s+yet)\b/i
 
 export function isReplanRequestUserText(userText: string): boolean {
   return REPLAN_REQUEST_RE.test(userText.trim())
+}
+
+export function isGreenfieldCreateRequestUserText(userText: string): boolean {
+  return GREENFIELD_CREATE_REQUEST_RE.test(userText.trim())
 }
 
 export function shouldRoutePostPlanIncremental(input: {
   chatMode: 'fast' | 'plan'
   isApprovedPlanAutoRun?: boolean
   hasCompletedPlan: boolean
+  isGreenfieldWorkspace?: boolean
   userText: string
 }): boolean {
   return (
     input.chatMode === 'fast' &&
     input.isApprovedPlanAutoRun !== true &&
     input.hasCompletedPlan &&
+    input.isGreenfieldWorkspace !== true &&
     isIncrementalFollowUpUserText(input.userText)
   )
 }

@@ -362,7 +362,6 @@ export function buildHarnessTurnPromptSections(
   if (
     ctx.greenfieldWorkBootstrap &&
     !ctx.executeFromApprovedPlan &&
-    !ctx.postPlanIncremental &&
     !ctx.iterativeWorkEdit &&
     (profile.key === 'grok_code_fast' || profile.key === 'grok_4_3')
   ) {
@@ -373,6 +372,7 @@ export function buildHarnessTurnPromptSections(
   }
   if (
     ctx.postPlanIncremental &&
+    !ctx.greenfieldWorkBootstrap &&
     !ctx.executeFromApprovedPlan &&
     (profile.key === 'grok_code_fast' || profile.key === 'grok_4_3')
   ) {

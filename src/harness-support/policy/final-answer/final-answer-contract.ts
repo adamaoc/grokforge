@@ -440,7 +440,22 @@ export function buildDiscoverySaturationNudge(options?: {
   readOnlyRounds?: number
   activeFilePath?: string | null
   iterativeWorkEdit?: boolean
+  greenfieldWorkspace?: boolean
 }): string {
+  if (options?.greenfieldWorkspace) {
+    const rounds =
+      options.readOnlyRounds !== undefined && options.readOnlyRounds > 0
+        ? `You have used **${options.readOnlyRounds}** read-only tool round(s) in an empty workspace without creating files.`
+        : 'You have spent several read-only tool rounds in an empty workspace without creating files.'
+    return [
+      `## ${DISCOVERY_SATURATION_NUDGE_MARKER}`,
+      rounds,
+      'This is a greenfield create/bootstrap turn. Stop broad discovery and create the needed new path(s) now.',
+      'Use **`propose_file_edits`** with `write_file` for new files such as `index.html`, `styles.css`, or `script.js`; use **`edit`** only for paths that already exist on disk.',
+      'Each new file body must be complete, runnable, and multi-line with real line breaks.',
+      'Do not tell the user the app is created until an edit proposal succeeds in this turn.',
+    ].join('\n')
+  }
   if (options?.iterativeWorkEdit) {
     const rounds =
       options.readOnlyRounds !== undefined && options.readOnlyRounds > 0
