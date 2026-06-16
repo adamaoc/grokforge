@@ -6,17 +6,17 @@ import {
 } from '../../../harness-support/routing/iterative-edit-scope'
 
 describe('resolveIterativeEditScope', () => {
-  it('localStorage persistence → single_file with search_replace default on script.js', () => {
+  it('localStorage persistence → single_file with edit default on script.js', () => {
     const scope = resolveIterativeEditScope({
       userText: 'add localStorage persistence for todos',
     })
     expect(scope.kind).toBe('single_file')
     expect(scope.preferFullFileProposal).toBe(false)
     expect(scope.likelyPaths).toContain('script.js')
-    expect(scope.rationale).toMatch(/persistence|search_replace/i)
+    expect(scope.rationale).toMatch(/persistence|edit/i)
   })
 
-  it('remove button / behavior change → single_file with search_replace default', () => {
+  it('remove button / behavior change → single_file with edit default', () => {
     const scope = resolveIterativeEditScope({
       userText: 'add a remove button for each todo',
       activeFilePath: '/proj/script.js',
@@ -25,7 +25,7 @@ describe('resolveIterativeEditScope', () => {
     expect(scope.kind).toBe('single_file')
     expect(scope.preferFullFileProposal).toBe(false)
     expect(scope.likelyPaths).toContain('script.js')
-    expect(scope.rationale).toMatch(/behavior|logic|search_replace/i)
+    expect(scope.rationale).toMatch(/behavior|logic|edit/i)
   })
 
   it('fix typo → single_file without full-file preference', () => {
@@ -52,7 +52,7 @@ describe('resolveIterativeEditScope', () => {
     expect(scope.kind).toBe('broad')
   })
 
-  it('short message + active file → single_file with search_replace default', () => {
+  it('short message + active file → single_file with edit default', () => {
     const scope = resolveIterativeEditScope({
       userText: 'add dark mode',
       activeFilePath: '/proj/script.js',
@@ -63,7 +63,7 @@ describe('resolveIterativeEditScope', () => {
     expect(scope.likelyPaths).toContain('script.js')
   })
 
-  it('short message + large active file → search_replace default', () => {
+  it('short message + large active file → edit default', () => {
     const scope = resolveIterativeEditScope({
       userText: 'add dark mode',
       activeFilePath: '/proj/script.js',

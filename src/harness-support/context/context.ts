@@ -244,7 +244,7 @@ export function buildChatSystemPrompt(
   lines.push('')
   lines.push('## Agent file writes (GrokForge)')
   lines.push(
-    'Filesystem writes are applied only through the **`propose_file_edits`** tool (or **`search_replace`** for small localized edits). The user reviews a diff and applies when ready — nothing is written to disk from prose or normal markdown code fences.',
+    'Filesystem writes are applied only through the **`edit`** tool for existing files or **`propose_file_edits`** for new files and full-file proposals. The user reviews a diff and applies when ready — nothing is written to disk from prose or normal markdown code fences.',
   )
   lines.push('')
   lines.push('Rules:')
@@ -271,11 +271,11 @@ export function buildChatSystemPrompt(
     '- Before proposing `write_file` for an **existing** file, you MUST call `read_file` on that path in the same turn. Do not guess or reconstruct file content from memory. New files do not require a prior read.',
   )
   lines.push(
-    '- `read_file` returns `contentHash` (SHA-256 of the **full file** on disk). For every edit to an **existing** file, pass that value as `expectedContentHash` on `write_file`, `search_replace`, and `propose_file_edits`. For **new** files omit `expectedContentHash` (or use the `new` sentinel). If validation fails with a stale-hash error, call `read_file` again and retry.',
+    '- `read_file` returns `contentHash` (SHA-256 of the **full file** on disk). For every edit to an **existing** file, pass that value as `expectedContentHash` on `edit` and `propose_file_edits`. For **new** files omit `expectedContentHash` (or use the `new` sentinel). If validation fails with a stale-hash error, call `read_file` again and retry.',
   )
   lines.push('### Minimal changes')
   lines.push(
-    '- For localized edits on **existing** files, prefer the `search_replace` tool (exact `old_string` must match once) instead of rewriting the whole file with `write_file`.',
+    '- For localized edits on **existing** files, prefer the `edit` tool with precise `edits[]` entries instead of rewriting the whole file with `write_file`.',
   )
   lines.push(
     '- Prefer the **smallest change** that satisfies the request. Do not rewrite unrelated sections, imports, types, comments, or formatting.',
@@ -295,7 +295,7 @@ export function buildChatSystemPrompt(
     '- If the user asks you to create, edit, move, rename, or delete files, call `propose_file_edits` (after `read_file` as needed). Do not only show code in a normal markdown fence.',
   )
   lines.push(
-    '- **Truthfulness:** Do not tell the user that files were already written, saved, applied, replaced, merged, or patched on disk unless you successfully invoked `propose_file_edits` (or `search_replace`) in this turn.',
+    '- **Truthfulness:** Do not tell the user that files were already written, saved, applied, replaced, merged, or patched on disk unless you successfully invoked `edit` or `propose_file_edits` in this turn.',
   )
   lines.push(
     '- If you are not ready to propose edits yet, use present or future tense (what you will do next, what you still need to read) instead of implying the filesystem work is finished.',

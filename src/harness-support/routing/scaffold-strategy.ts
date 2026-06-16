@@ -33,7 +33,7 @@ const CLI_SCAFFOLD_CMD_RE =
 const GREENFIELD_CREATE_USER_RE =
   /\b(blank\s+(app|project|workspace)|empty\s+(folder|workspace|repo|project)|from\s+scratch|start\s+over|create\s+(a\s+)?(new\s+)?(app|site|project)|build\s+(a\s+)?(new\s+)?(app|site|project)|no\s+files\s+yet)\b/i
 
-const EDIT_TOOL_NAMES = new Set(['propose_file_edits', 'edit', 'search_replace'])
+const EDIT_TOOL_NAMES = new Set(['propose_file_edits', 'edit'])
 
 /** Shared static/file-bootstrap user intent (128, 162). */
 export function userMatchesStaticFileBootstrapIntent(userText: string): boolean {

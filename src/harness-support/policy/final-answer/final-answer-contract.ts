@@ -19,12 +19,12 @@ export const EDIT_INTENT_RE =
 /** Marker in harness nudge when a fast-mode edit turn sampled zero tools (eval/tests). */
 export const EDIT_INTENT_TOOL_NUDGE_MARKER = 'Harness: edit tools required'
 
-/** Marker when search_replace failed repeatedly and the harness steers recovery (eval/tests). */
-export const EDIT_SEARCH_REPLACE_ESCALATION_MARKER = 'Harness: search_replace escalation'
+/** Marker when edit matching failed repeatedly and the harness steers recovery (eval/tests). */
+export const EDIT_SEARCH_REPLACE_ESCALATION_MARKER = 'Harness: edit escalation'
 
 /** Sub-marker for iterative Work stricter S&R escalation (story 138). */
 export const EDIT_ITERATIVE_SEARCH_REPLACE_ESCALATION_MARKER =
-  'Harness: iterative search_replace escalation 138'
+  'Harness: iterative edit escalation 138'
 
 /** Marker when propose_file_edits HTML was rejected as incomplete (eval/tests). */
 export const EDIT_INCOMPLETE_HTML_NUDGE_MARKER = 'Harness: incomplete HTML proposal'
@@ -164,7 +164,7 @@ function basenameForEscalationPath(pathKey: string): string {
   return parts[parts.length - 1] ?? pathKey
 }
 
-/** User message injected once after repeated search_replace failures on a path. */
+/** User message injected once after repeated edit-match failures on a path. */
 export function buildSearchReplaceEscalationNudge(
   paths: readonly string[],
   options?: { brief?: boolean; iterativeWorkEdit?: boolean },
@@ -180,8 +180,8 @@ export function buildSearchReplaceEscalationNudge(
 
   if (iterative) {
     const jsLine = hasJs
-      ? 'After repeated failures on this path with the `edit` tool (or legacy search_replace): re-read the exact section(s) via `read_file`, then retry with precise `edit` { edits: [{ oldText, newText }, ...] } using sufficient unique context from `rawContent`. Only if the scope is truly a large refactor, escalate to one clean `propose_file_edits` write_file with the full relevant content.'
-      : 'After repeated `edit` / search_replace failures: re-read `rawContent`, retry with the primary `edit` tool using better excerpts, or (last resort) one focused `propose_file_edits`.'
+      ? 'After repeated failures on this path with the `edit` tool: re-read the exact section(s) via `read_file`, then retry with precise `edit` { edits: [{ oldText, newText }, ...] } using sufficient unique context from `rawContent`. Only if the scope is truly a large refactor, escalate to one clean `propose_file_edits` write_file with the full relevant content.'
+      : 'After repeated `edit` failures: re-read `rawContent`, retry with better excerpts, or (last resort) one focused `propose_file_edits`.'
     const preserveLine =
       hasJs || hasHtml
         ? 'Preserve unchanged functions and markup; GrokForge blocks destructive shrink (**115**) — send clean, complete, readable code (one statement per line).'
@@ -194,7 +194,7 @@ export function buildSearchReplaceEscalationNudge(
       jsLine,
       preserveLine,
       getCodeQualityContractBlock(),
-      'Prefer the dedicated `edit` tool over legacy search_replace for recovery attempts.',
+      'Prefer the structured `edit` edits[] form for recovery attempts.',
       'Do not tell the user the file was updated until an edit tool returns `ok: true` in this turn.',
     ]
       .filter(Boolean)
@@ -464,7 +464,7 @@ export function buildDiscoverySaturationNudge(options?: {
     return [
       `## ${DISCOVERY_SATURATION_NUDGE_MARKER}`,
       rounds,
-      'Follow **Work iterative edit (harness 130)** — proceed to **`search_replace`** or **`propose_file_edits`** now with evidence from files already read.',
+      'Follow **Work iterative edit (harness 130)** — proceed to **`edit`** or **`propose_file_edits`** now with evidence from files already read.',
     ].join('\n')
   }
   const activeLine = options?.activeFilePath?.trim()
@@ -477,7 +477,7 @@ export function buildDiscoverySaturationNudge(options?: {
   return [
     `## ${DISCOVERY_SATURATION_NUDGE_MARKER}`,
     rounds,
-    'Stop broad discovery — proceed to **`propose_file_edits`** or **`search_replace`** with evidence from files already read.',
+    'Stop broad discovery — proceed to **`edit`** or **`propose_file_edits`** with evidence from files already read.',
     activeLine,
     'Prefer **one focused change per file** (localized patch or one full-file proposal) instead of more directory walks.',
     'Do not tell the user the feature is done until an edit tool succeeds in this turn.',
@@ -487,8 +487,8 @@ export function buildDiscoverySaturationNudge(options?: {
 /** User message injected once when the model skips tools on an edit-intent fast turn. */
 export function buildEditIntentToolNudge(options?: { singleFilePrimary?: boolean }): string {
   const editToolLine = options?.singleFilePrimary
-    ? 'After `read_file` on the primary file, prefer **one** `propose_file_edits` with full `rawContent` — avoid multiple `search_replace` on the same path.'
-    : 'For each existing file you will change: call `read_file` first, then `search_replace` (localized) or `propose_file_edits` (new files / multi-file).'
+    ? 'After `read_file` on the primary file, prefer **one** `edit` call with precise edits[] — avoid repeated failed matches on the same path.'
+    : 'For each existing file you will change: call `read_file` first, then `edit` (localized) or `propose_file_edits` (new files / multi-file).'
   return [
     `## ${EDIT_INTENT_TOOL_NUDGE_MARKER}`,
     'The user message asks for workspace file changes, but this turn has not created an edit proposal yet.',
@@ -550,7 +550,7 @@ export function buildScaffoldStrategyNudge(
   if (conflict === 'hybrid_same_round') {
     conflictLines.push(
       'You sampled **`run_command` and edit tools in the same tool round**. GrokForge cannot apply both safely — pick **one** strategy for this round.',
-      'If CLI scaffold: submit **`run_command` only** (no `propose_file_edits` / `search_replace` on template paths).',
+      'If CLI scaffold: submit **`run_command` only** (no `edit` / `propose_file_edits` on template paths).',
       'If static bootstrap: submit **`propose_file_edits` only** (no `npm create` / `npm init`).',
     )
   } else if (conflict === 'edits_before_cli') {
@@ -700,7 +700,7 @@ function editIntentPreFinalToolGuidance(input: {
   const maybeEdit = isLikelyEditIntent(input.userText)
   if (maybeEdit) {
     return [
-      'The user appears to be asking for workspace file changes. Call `propose_file_edits` (or `search_replace` for a small localized edit) before your final answer. Do not stop at prose or a normal markdown code fence — GrokForge does not apply those to disk.',
+      'The user appears to be asking for workspace file changes. Call `edit` for small localized changes or `propose_file_edits` for new files/full-file proposals before your final answer. Do not stop at prose or a normal markdown code fence — GrokForge does not apply those to disk.',
       'Do not ask the user to provide a file path unless you already tried `search_workspace` or `list_directory` in this turn and the target is still ambiguous.',
       'Base each `write_file` on the latest `read_file` content for that path. Make the smallest change that satisfies the request; do not rewrite unrelated sections unless a full-file rewrite is clearly required.',
     ]
@@ -735,7 +735,7 @@ function slimEditIntentPreFinalGuidance(input: AgentFinalAnswerContractInput): s
     return 'Edit tools were attempted but **did not succeed** — give a short honest failure summary below; do **not** call more edit tools or output a `gf-plan` fence.'
   }
   if (isLikelyEditIntent(input.userText)) {
-    return 'Implement the requested change with edit tools before finishing — do **not** output a `gf-plan` fence or replan. Prefer **`search_replace`** on existing files for small localized changes.'
+    return 'Implement the requested change with edit tools before finishing — do **not** output a `gf-plan` fence or replan. Prefer **`edit`** on existing files for small localized changes.'
   }
   return 'If this is only an explanation, omit edit tools.'
 }
@@ -803,8 +803,8 @@ function searchReplaceEscalationHonestyAppendix(input: {
   return [
     '',
     '### Harness: edit path honesty',
-    'GrokForge steered away from repeated `search_replace` failures toward a reviewable `propose_file_edits` proposal.',
-    'Do **not** tell the user that `search_replace` is the only path — the diff review is ready.',
+    'GrokForge steered away from repeated `edit` match failures toward a reviewable `propose_file_edits` proposal.',
+    'Do **not** tell the user that `edit` is the only path — the diff review is ready.',
   ].join('\n')
 }
 
@@ -852,7 +852,7 @@ function incrementalWorkEditAppendix(input?: {
     '',
     '### Incremental Work edit (final answer)',
     'Do **not** output a `gf-plan` fence or structured replan — implement the small change with edit tools.',
-    'Prefer **`search_replace`** on existing files for localized follow-ups; use **`propose_file_edits`** only for new paths or after failed S&R.',
+    'Prefer **`edit`** on existing files for localized follow-ups; use **`propose_file_edits`** only for new paths or after failed edit matching.',
     'Do **not** claim the change is ready if the proposal would shrink a working file or omit code from the latest **`read_file` `rawContent`**.',
     'Briefly confirm what you changed after the edit proposal is ready.',
   ].join('\n')

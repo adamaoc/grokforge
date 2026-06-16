@@ -203,7 +203,7 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 | 163 | Direct Work TaskBoard greenfield eval **(done)** | [`post-mvp/163-direct-work-taskboard-greenfield-eval.md`](post-mvp/163-direct-work-taskboard-greenfield-eval.md) |
 | 164 | Renderer final-answer fence guard (enforce 152) **(done)** | [`post-mvp/164-renderer-final-answer-fence-guard.md`](post-mvp/164-renderer-final-answer-fence-guard.md) |
 | 165 | Suppress verify command nudge for static single-file HTML **(done)** | [`post-mvp/165-suppress-verify-command-nudge-static-single-file.md`](post-mvp/165-suppress-verify-command-nudge-static-single-file.md) |
-| 166 | Deprecate `search_replace` tool alias (consolidate on `edit`) | [`post-mvp/166-deprecate-search-replace-tool-alias.md`](post-mvp/166-deprecate-search-replace-tool-alias.md) |
+| 166 | Deprecate `search_replace` tool alias (consolidate on `edit`) **(done)** | [`post-mvp/166-deprecate-search-replace-tool-alias.md`](post-mvp/166-deprecate-search-replace-tool-alias.md) |
 | 167 | Post-plan incremental: nudge on empty first tool sample | [`post-mvp/167-post-plan-zero-tool-calls-nudge.md`](post-mvp/167-post-plan-zero-tool-calls-nudge.md) |
 | 168 | Greenfield empty workspace vs stale plan routing + tool budgets **(done: Phase A/B)** | [`post-mvp/168-greenfield-empty-vs-post-plan-routing.md`](post-mvp/168-greenfield-empty-vs-post-plan-routing.md) |
 | 169 | **Harness v2:** promote minimal loop, delete legacy harness | [`post-mvp/169-harness-v2-legacy-removal.md`](post-mvp/169-harness-v2-legacy-removal.md) |
@@ -238,7 +238,7 @@ End the file with **`## Completion bookkeeping`** reminding editors to update th
 
 **TaskBoard / single-file HTML harness stabilization:** ~~**160**~~ normalize-before-prevalidate **(done)** → ~~**161**~~ greenfield Work bootstrap prompts **(done)** → ~~**162**~~ single-file HTML recovery exception **(done)** → ~~**163**~~ direct Work TaskBoard eval **(done)** → ~~**164**~~ renderer fence guard **(done)** → ~~**165**~~ suppress verify nudge for static single-file **(done)**.
 
-**Tool surface cleanup (next):** **166** deprecate `search_replace` alias → single model-facing **`edit`** tool (see [`post-mvp/166-deprecate-search-replace-tool-alias.md`](post-mvp/166-deprecate-search-replace-tool-alias.md); precedent **114**).
+**Tool surface cleanup:** ~~**166**~~ deprecate `search_replace` alias → single model-facing **`edit`** tool (see [`post-mvp/166-deprecate-search-replace-tool-alias.md`](post-mvp/166-deprecate-search-replace-tool-alias.md); precedent **114**).
 
 **Post-plan follow-up reliability (next):** **167** empty first `tool_sample` → **168** stale plan + empty workspace mis-routing (4 read-only rounds, no file) → tool budget doc + trace routing summary. Depends on **120**; complements **166** / **167**. **Superseded if 169 ships first.**
 

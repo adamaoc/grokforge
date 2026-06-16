@@ -20,7 +20,7 @@ export const WORK_SURGICAL_EDIT_MARKER = '## Work surgical edit (harness 135)'
 /** Shared conservative edit rules for post-plan and iterative Work follow-ups. */
 export const INCREMENTAL_EDIT_CONSERVATIVE_LINES: readonly string[] = [
   '**Conservative edits:** This is a **small follow-up** on working code — **add or adjust only what the request needs**; keep every unrelated line identical to `read_file` **`rawContent`**.',
-  'On every **existing** file you change: call `read_file` on that path **first in this turn** **before** using `edit`, legacy search_replace, or propose_file_edits write_file — never guess.',
+  'On every **existing** file you change: call `read_file` on that path **first in this turn** **before** using `edit` or propose_file_edits write_file — never guess.',
   '**Strongly discouraged:** Full-file rewrites or shrinking working files when the user asked to add/fix/tweak — GrokForge blocks large destructive shrinks unless explicitly requested.',
   'On follow-up modifications to **existing** files, default to the primary **`edit`** tool (precise oldText/newText from rawContent, multiple entries allowed in one call for related changes). Change only what the request needs. Do **not** jump to full `propose_file_edits` for small incremental changes.',
   'Reserve `propose_file_edits` write_file **only** for new files or when the user explicitly requests a deliberate full rewrite / major refactor of an existing file.',

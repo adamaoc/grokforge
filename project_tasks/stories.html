@@ -311,8 +311,8 @@
       <div class="meta">
         <span class="pill">90 stories</span>
         <span class="pill">Closed: 4</span>
-        <span class="pill">Done: 79</span>
-        <span class="pill">Post-MVP: 7</span>
+        <span class="pill">Done: 80</span>
+        <span class="pill">Post-MVP: 6</span>
         <span class="pill">Generated 2026-06-16</span>
       </div>
       <div class="story-filters">
@@ -6411,10 +6411,10 @@ console.log('post norm:', assessProposalWriteContent(norm, { resolvedPath: path,
 <p>When shipped or closed: update <strong>Status</strong>, <a href="../README.md"><code>README.md</code></a> post-MVP table, run <strong><code>npm run stories:html</code></strong>.</p>
         </div>
       </details>
-      <details id="story-166" data-status="post-mvp">
+      <details id="story-166" data-status="done">
         <summary>
           <span class="story-title"><span class="story-id">166</span><span class="story-name">Deprecate `search_replace` tool alias (consolidate on `edit`)</span></span>
-          <span class="status status-post-mvp">Post-MVP</span>
+          <span class="status status-done">Done</span>
         </summary>
         <div class="story-body">
           <div class="source-row">
@@ -6422,7 +6422,7 @@ console.log('post norm:', assessProposalWriteContent(norm, { resolvedPath: path,
             <a class="story-link" href="post-mvp/166-deprecate-search-replace-tool-alias.md">post-mvp/166-deprecate-search-replace-tool-alias.md</a>
           </div>
           <h2>166 — Deprecate <code>search_replace</code> tool alias (consolidate on <code>edit</code>)</h2>
-<p><strong>Status:</strong> Not started.</p>
+<p><strong>Status:</strong> Done.</p>
 <p><strong>Priority:</strong> Harness hygiene — reduces duplicate tool schemas, token overhead, and model confusion after the Pi-style <strong><code>edit</code></strong> tool shipped. Safe to schedule after iterative Work stabilization (<strong>130–140</strong>, <strong>144</strong>) and TaskBoard wave (<strong>160–165</strong>).</p>
 <p><strong>Design skill:</strong> N/A (harness / agent tool surface only).</p>
 <p><strong>Depends on:</strong> <strong><a href="085-agent-search-replace-tool.md">085</a></strong> (original S&amp;R tool), <strong><a href="104-agent-profiles-and-toolsets.md">104</a></strong> (toolsets), <strong><a href="108-harness-eval-suite-per-model-regressions.md">108</a></strong> (eval updates). Related policy: <strong><a href="115-agent-edit-cascade-guard-after-search-replace-failures.md">115</a></strong>, <strong><a href="116-agent-edit-search-replace-escalation-nudge.md">116</a></strong>, <strong><a href="138-iterative-work-search-replace-escalation.md">138</a></strong> — metrics and nudges today use the <code>search_replace</code> name.</p>
@@ -6466,11 +6466,11 @@ console.log('post norm:', assessProposalWriteContent(norm, { resolvedPath: path,
 </ul>
 <h3>Acceptance criteria</h3>
 <ul>
-<li><input type="checkbox" disabled> Executor/default/approved-plan turns expose <strong>one</strong> structured edit tool: <strong><code>edit</code></strong> (plus <code>propose_file_edits</code>, read tools, <code>run_command</code> as today).</li>
-<li><input type="checkbox" disabled> Models can still succeed with legacy <code>old_string</code>/<code>new_string</code> payloads <strong>via <code>edit</code></strong> after Phase 2.</li>
-<li><input type="checkbox" disabled> Harness nudges, escalation, and iterative Work guards behave as before <strong>138</strong> / <strong>116</strong> (eval tags updated, not removed).</li>
-<li><input type="checkbox" disabled> <code>npm run test</code> passes; harness eval cases that mocked <code>search_replace</code> use <code>edit</code>.</li>
-<li><input type="checkbox" disabled> <a href="../../src/harness/tools/TOOLS.md"><code>TOOLS.md</code></a> lists a single edit primitive; no “legacy alias” row for <code>search_replace</code>.</li>
+<li><input type="checkbox" disabled checked> Executor/default/approved-plan turns expose <strong>one</strong> structured edit tool: <strong><code>edit</code></strong> (plus <code>propose_file_edits</code>, read tools, <code>run_command</code> as today).</li>
+<li><input type="checkbox" disabled checked> Models can still succeed with legacy <code>old_string</code>/<code>new_string</code> payloads <strong>via <code>edit</code></strong> after Phase 2.</li>
+<li><input type="checkbox" disabled checked> Harness nudges, escalation, and iterative Work guards behave as before <strong>138</strong> / <strong>116</strong> (eval tags updated, not removed).</li>
+<li><input type="checkbox" disabled checked> <code>npm run test</code> passes; harness eval cases that mocked <code>search_replace</code> use <code>edit</code>.</li>
+<li><input type="checkbox" disabled checked> Tool definitions list a single edit primitive; no “legacy alias” row for <code>search_replace</code>.</li>
 </ul>
 <h3>Suggested implementation order</h3>
 <ol>

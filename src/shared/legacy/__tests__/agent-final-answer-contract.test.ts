@@ -95,7 +95,7 @@ describe('buildFinalAnswerContract', () => {
 
   it('builds edit-intent tool nudge with stable marker', () => {
     expect(buildEditIntentToolNudge()).toContain(EDIT_INTENT_TOOL_NUDGE_MARKER)
-    expect(buildEditIntentToolNudge()).toMatch(/search_replace/)
+    expect(buildEditIntentToolNudge()).toMatch(/edit/)
   })
 
   it('builds greenfield discovery saturation nudge for new-file bootstrap (168)', () => {
@@ -110,7 +110,7 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toMatch(/edit.*only for paths that already exist/i)
   })
 
-  it('builds search_replace escalation nudge with stable marker and path labels', () => {
+  it('builds edit escalation nudge with stable marker and path labels', () => {
     const nudge = buildSearchReplaceEscalationNudge(['/proj/docs/overview.md'])
     expect(nudge).toContain(EDIT_SEARCH_REPLACE_ESCALATION_MARKER)
     expect(nudge).toContain('overview.md')
@@ -118,12 +118,12 @@ describe('buildFinalAnswerContract', () => {
     expect(nudge).toMatch(/rawContent/)
   })
 
-  it('builds iterative Work search_replace escalation nudge with 138 marker (138)', () => {
+  it('builds iterative Work edit escalation nudge with 138 marker (138)', () => {
     const nudge = buildSearchReplaceEscalationNudge(['/proj/todo/script.js'], {
       iterativeWorkEdit: true,
     })
     expect(nudge).toContain(EDIT_SEARCH_REPLACE_ESCALATION_MARKER)
-    expect(nudge).toContain('Harness: iterative search_replace escalation 138')
+    expect(nudge).toContain('Harness: iterative edit escalation 138')
     expect(nudge).toContain('script.js')
     expect(nudge).toMatch(/retry with precise `edit`/i)
     expect(nudge).toMatch(/propose_file_edits/)
@@ -232,7 +232,7 @@ describe('buildFinalAnswerContract', () => {
       editAttemptOutcome: 'not_attempted',
       chatMode: 'fast',
     })
-    expect(content).toMatch(/Call `propose_file_edits`/i)
+    expect(content).toMatch(/Call `edit`.*`propose_file_edits`/i)
     expect(content).not.toContain(FAILED_EDIT_FINAL_ANSWER_HONESTY_MARKER)
   })
 
@@ -377,7 +377,7 @@ describe('buildFinalAnswerContract', () => {
     expect(content).toMatch(/Do \*\*not\*\* claim the project scaffold is ready/i)
   })
 
-  it('adds edit-path honesty after search_replace escalation recovery', () => {
+  it('adds edit-path honesty after edit escalation recovery', () => {
     const content = buildFinalAnswerContract({
       userText: 'update overview.md',
       editProposalCreated: true,
@@ -386,7 +386,7 @@ describe('buildFinalAnswerContract', () => {
     })
     expect(content).toMatch(/edit path honesty/i)
     expect(content).toMatch(/diff review is ready/i)
-    expect(content).toMatch(/Do \*\*not\*\* tell the user that `search_replace` is the only path/i)
+    expect(content).toMatch(/Do \*\*not\*\* tell the user that `edit` is the only path/i)
   })
 
   it('adds command-tools-failed honesty appendix', () => {

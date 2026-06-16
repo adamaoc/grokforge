@@ -85,6 +85,8 @@ describe('agent workspace read/search tools', () => {
     const names = AGENT_TOOL_DEFINITIONS.map((tool) => tool.function.name)
 
     expect(names).toContain('run_command')
+    expect(names).toContain('edit')
+    expect(names).not.toContain('search_replace')
     expect(names).not.toContain('terminal_session_input')
     expect(names).not.toContain('terminal-session-input')
     expect(names).not.toContain('terminal_session_start')

@@ -115,7 +115,7 @@ export const AGENT_TOOL_DEFINITIONS = [
     function: {
       name: 'read_file',
       description:
-        'Read a capped line range from a text file under the workspace roots. The JSON result includes contentHash (SHA-256 of the full file on disk) — copy it into expectedContentHash on `edit` (preferred), search_replace (legacy), or propose_file_edits write_file for existing files. Use rawContent (exact file text) as the source for constructing oldText values in the `edit` tool. For large files before editing, use startLine and maxLines to read the relevant section instead of guessing unseen content.',
+        'Read a capped line range from a text file under the workspace roots. The JSON result includes contentHash (SHA-256 of the full file on disk) — copy it into expectedContentHash on `edit` or propose_file_edits write_file for existing files. Use rawContent (exact file text) as the source for constructing oldText values in the `edit` tool. For large files before editing, use startLine and maxLines to read the relevant section instead of guessing unseen content.',
       parameters: {
         type: 'object',
         properties: {
@@ -131,56 +131,21 @@ export const AGENT_TOOL_DEFINITIONS = [
   {
     type: 'function',
     function: {
-      name: 'search_replace',
+      name: 'edit',
       description:
-        `**Legacy internal name.** The \`edit\` tool is the primary and preferred interface for all modifications (Pi-style structured multi-edit). This legacy form is still supported for compatibility but routes to the same implementation. ${CODE_QUALITY_CONTRACT_SHORT} Always send expectedContentHash. Prefer \`edit\` with edits[] for new work.`,
+        'PRIMARY tool for modifying EXISTING files (Pi-style). Prefer { path, edits: [{ oldText, newText }, ...], expectedContentHash }. Every oldText is matched exactly (or fuzzy) against the ORIGINAL file content at the snapshot identified by expectedContentHash — edits are NOT applied incrementally. Merge nearby changes into single entries; keep oldText minimal but unique. Never pad with large unchanged regions. Always produces a reviewable proposal. Compatibility only: old_string/new_string is accepted for simple single-hunk edits, but use edits[] for new work. Reserve propose_file_edits write_file for new files or explicit large refactors.',
       parameters: {
         type: 'object',
         properties: {
           path: { type: 'string', description: 'Absolute path or path relative to the active workspace root.' },
           old_string: {
             type: 'string',
-            description: 'Legacy single-edit form: exact (or fuzzy-tolerant) text to find. Must match exactly once. Prefer edits[] for new work.',
+            description: 'Compatibility-only single-edit form: exact text to find. Prefer edits[] for new work.',
           },
           new_string: {
             type: 'string',
-            description: 'Legacy single-edit form: replacement text.',
+            description: 'Compatibility-only single-edit form: replacement text.',
           },
-          edits: {
-            type: 'array',
-            description: 'Preferred multi-edit form. Each edit is matched against the original file content (not incrementally). oldText must be unique. Fuzzy matching tolerates minor formatting differences.',
-            items: {
-              type: 'object',
-              properties: {
-                oldText: { type: 'string', description: 'Text to find (exact first, then fuzzy). Must be unique in the file.' },
-                newText: { type: 'string', description: 'Replacement text.' },
-              },
-              required: ['oldText', 'newText'],
-              additionalProperties: false,
-            },
-          },
-          expectedContentHash: {
-            type: 'string',
-            description: 'SHA-256 hex of the full file from read_file contentHash before editing.',
-          },
-        },
-        required: ['path', 'expectedContentHash'],
-        // old_string + new_string (legacy single) OR edits[] (preferred multi) must be present.
-        // Validation for presence/shape happens in the executor + schema parser.
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'edit',
-      description:
-        'PRIMARY tool for modifying EXISTING files (Pi-style). Provide { path, edits: [{ oldText, newText }, ...], expectedContentHash }. Every oldText is matched exactly (or fuzzy) against the ORIGINAL file content at the snapshot identified by expectedContentHash — edits are NOT applied incrementally. Merge nearby changes into single entries; keep oldText minimal but unique. Never pad with large unchanged regions. Always produces a reviewable proposal. Use this for virtually all modifications. Reserve propose_file_edits write_file for new files or explicit large refactors.',
-      parameters: {
-        type: 'object',
-        properties: {
-          path: { type: 'string', description: 'Absolute path or path relative to the active workspace root.' },
           edits: {
             type: 'array',
             description: 'One or more targeted replacements. All matched against the original snapshot (reverse-order apply for stability). No overlaps allowed between edits in one call.',
@@ -199,7 +164,9 @@ export const AGENT_TOOL_DEFINITIONS = [
             description: 'SHA-256 hex of the full original file from the read_file that produced this snapshot. Required for existing files.',
           },
         },
-        required: ['path', 'edits', 'expectedContentHash'],
+        required: ['path', 'expectedContentHash'],
+        // old_string + new_string (compat single) OR edits[] (preferred multi) must be present.
+        // Validation for presence/shape happens in the executor + schema parser.
         additionalProperties: false,
       },
     },
@@ -610,12 +577,12 @@ function readFileContentForAgent(
     const readFormatWarnings: string[] = []
     if (layoutNeedsRepair) {
       readFormatWarnings.push(
-        'File layout looks crushed (one line and/or very long lines). Base edits on rawContent; use normal line breaks. GrokForge will try to repair layout on apply, but prefer search_replace or a well-formatted full rewrite.',
+        'File layout looks crushed (one line and/or very long lines). Base edits on rawContent; use normal line breaks. GrokForge will try to repair layout on apply, but prefer edit or a well-formatted full rewrite.',
       )
     }
     if (/\.(md|mdx)$/i.test(checked.path) && text.split(/\r?\n/).some((line) => /  +\s*$/.test(line))) {
       readFormatWarnings.push(
-        'Markdown lines may end with two trailing spaces (hard line breaks). Copy rawContent exactly, including trailing spaces, for search_replace.',
+        'Markdown lines may end with two trailing spaces (hard line breaks). Copy rawContent exactly, including trailing spaces, for edit.',
       )
     }
     options?.onReadSuccess?.(checked.path, contentHash)

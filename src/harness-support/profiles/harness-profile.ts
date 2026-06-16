@@ -211,9 +211,9 @@ export const AGENT_TOOL_LOOP_EXPLORE_RULES_ITERATIVE: readonly string[] = [
 export const AGENT_TOOL_LOOP_CORE: readonly string[] = [
   'You may use the provided read/search tools to inspect this workspace before answering. Use tools when exact file contents or paths matter. You may request one-shot commands with run_command for tests, typecheck, git inspection, or diagnostics, but GrokForge will always ask the user before running model-requested commands. Do not claim a command ran unless the tool result says it ran. During tool planning, prefer tool calls over drafting the full answer; GrokForge will ask for the final response after tool use finishes.',
   'PRIMARY edit primitive for **existing files**: the **`edit`** tool (structured { path, edits: [{ oldText, newText }, ...], expectedContentHash }). Every oldText is matched against the original snapshot from read_file (Pi-style, not incremental). Use one call with multiple entries in edits[] for several closely-related changes in the same file. This is the reliable, high-quality path for virtually all modifications.',
-  'For any **existing** file you modify with `edit`, `search_replace` (legacy), or propose write_file, you MUST have called `read_file` on that path earlier in the same turn and pass its `contentHash` as expectedContentHash. New files (write_file via propose_file_edits) do not require a prior read — omit expectedContentHash or use the `new` sentinel; never fabricate a hash.',
-  'Copy `contentHash` from `read_file` into `expectedContentHash` when using `edit` (preferred), legacy search_replace, or propose_file_edits write ops on **existing** files only.',
-  'Legacy `search_replace` (single old_string/new_string or edits[]): supported for compatibility and very simple single-hunk cases, but prefer the dedicated `edit` tool for all new modification work.',
+  'For any **existing** file you modify with `edit` or propose write_file, you MUST have called `read_file` on that path earlier in the same turn and pass its `contentHash` as expectedContentHash. New files (write_file via propose_file_edits) do not require a prior read — omit expectedContentHash or use the `new` sentinel; never fabricate a hash.',
+  'Copy `contentHash` from `read_file` into `expectedContentHash` when using `edit` or propose_file_edits write ops on **existing** files only.',
+  '`edit` also accepts old_string/new_string for compatibility, but prefer the structured edits[] form for all new modification work.',
   'Each `write_file` (only via propose_file_edits, and only appropriate for new files or explicit large refactors) must contain complete file text with **real line breaks**. Base on `read_file` `rawContent`. Preserve indentation/comments for unchanged sections. Use startLine/maxLines for large files.',
   '**Code Quality (non-negotiable, strictly enforced on medium+ files):** All output must be clean, readable, professional source with **one statement per line** and real line breaks. On files > ~80 lines: zero tolerance for glued statements, minified output, or runs of lines without proper breaks — GrokForge will hard-reject and force re-read + clean rewrite. See the strengthened Code Quality Contract (injected below) for full rules.',
   'When creating **multiple new files**, prefer **one** `propose_file_edits` with several `write_file` ops (each body complete and multi-line).',
@@ -259,7 +259,7 @@ const GROK_CODE_FAST: AgentHarnessProfile = {
     'Bias toward **implementation**: if you have enough context from tools, proceed to `propose_file_edits` rather than extended planning prose.',
     'When the user or approved plan asks to **install**, **scaffold via CLI**, **init git**, or **verify** (typecheck/test/build), call **`run_command`** — not hand-written `package.json` alone.',
     'For **large** edits, ship **smaller, reviewable** proposals (one logical change per file) instead of one whole-file rewrite — GrokForge rejects crushed or glued statements before apply.',
-    'Prefer the **smallest edit** that satisfies the request; escalate to full-file `propose_file_edits` only after `search_replace` failures or explicit rewrite intent from the user.',
+    'Prefer the **smallest edit** that satisfies the request; escalate to full-file `propose_file_edits` only after `edit` match failures or explicit rewrite intent from the user.',
   ],
 }
 
@@ -273,7 +273,7 @@ const GROK_4_3: AgentHarnessProfile = {
   ],
   toolDescriptionOverrides: {
     read_file:
-      'Read a capped line range from a text file under the workspace roots. **Read before large edits** — use startLine/maxLines on big files. The JSON result includes contentHash (SHA-256 of the full file on disk) — copy it into expectedContentHash on write_file, search_replace, or propose_file_edits for existing files. Use rawContent (exact file text) as the source for edits.',
+      'Read a capped line range from a text file under the workspace roots. **Read before large edits** — use startLine/maxLines on big files. The JSON result includes contentHash (SHA-256 of the full file on disk) — copy it into expectedContentHash on edit or propose_file_edits for existing files. Use rawContent (exact file text) as the source for edits.',
     search_workspace:
       'Search text files under all workspace roots with strict result caps. Use proactively when the user names a feature, page, or symbol without a path — combine with `list_directory` and `read_file` before answering or planning.',
   },

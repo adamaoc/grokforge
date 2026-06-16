@@ -1,6 +1,6 @@
 # 166 — Deprecate `search_replace` tool alias (consolidate on `edit`)
 
-**Status:** Not started.
+**Status:** Done.
 
 **Priority:** Harness hygiene — reduces duplicate tool schemas, token overhead, and model confusion after the Pi-style **`edit`** tool shipped. Safe to schedule after iterative Work stabilization (**130–140**, **144**) and TaskBoard wave (**160–165**).
 
@@ -67,11 +67,11 @@ Internal module filenames (`search-replace-tool.ts`, etc.) may stay; rename only
 
 ## Acceptance criteria
 
-- [ ] Executor/default/approved-plan turns expose **one** structured edit tool: **`edit`** (plus `propose_file_edits`, read tools, `run_command` as today).
-- [ ] Models can still succeed with legacy `old_string`/`new_string` payloads **via `edit`** after Phase 2.
-- [ ] Harness nudges, escalation, and iterative Work guards behave as before **138** / **116** (eval tags updated, not removed).
-- [ ] `npm run test` passes; harness eval cases that mocked `search_replace` use `edit`.
-- [ ] [`TOOLS.md`](../../src/harness/tools/TOOLS.md) lists a single edit primitive; no “legacy alias” row for `search_replace`.
+- [x] Executor/default/approved-plan turns expose **one** structured edit tool: **`edit`** (plus `propose_file_edits`, read tools, `run_command` as today).
+- [x] Models can still succeed with legacy `old_string`/`new_string` payloads **via `edit`** after Phase 2.
+- [x] Harness nudges, escalation, and iterative Work guards behave as before **138** / **116** (eval tags updated, not removed).
+- [x] `npm run test` passes; harness eval cases that mocked `search_replace` use `edit`.
+- [x] Tool definitions list a single edit primitive; no “legacy alias” row for `search_replace`.
 
 ## Suggested implementation order
 
