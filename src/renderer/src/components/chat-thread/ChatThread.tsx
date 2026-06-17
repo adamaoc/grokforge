@@ -692,7 +692,7 @@ export function ChatThread({
                       {
                         id: "2",
                         title:
-                          "Implement changes with propose_file_edits / tools",
+                          "Implement changes with write_file / edit / tools",
                       },
                       { id: "3", title: "Verify with tests or typecheck" },
                     ],
@@ -785,6 +785,7 @@ export function ChatThread({
         streamId,
         model: streamChatModelRef.current,
         modelIntent: routedModelIntent,
+        harnessTemperament: readStoredHarnessTemperament(),
         ...(isApprovedPlanAutoRun ? { isApprovedPlanAutoRun: true } : {}),
         ...(options.approvedPlanId ? { approvedPlanId: options.approvedPlanId } : {}),
         ...(options.approvedPlanMessageId

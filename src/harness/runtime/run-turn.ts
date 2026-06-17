@@ -151,6 +151,9 @@ export async function runAgentHarnessTurn(
     rootCount: manifest.roots.length,
     messageCount: session.getHistory().length,
     approxContextChars,
+    ...(payload.harnessTemperament
+      ? { harnessTemperament: payload.harnessTemperament }
+      : {}),
     ...(turnMode === 'plan' && snapshot
       ? {
           greenfieldWorkspace: snapshot.greenfieldWorkspace,

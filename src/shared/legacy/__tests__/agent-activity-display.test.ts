@@ -314,6 +314,19 @@ describe('turnHadAcceptedEditProposal (164)', () => {
       ]),
     ).toBe(false)
   })
+
+  it('is true for harness v2 edit / write_file tool activities (GFAPP-012)', () => {
+    expect(
+      turnHadAcceptedEditProposal([
+        { id: '1', title: 'edit', status: 'done', tool: 'edit' },
+      ]),
+    ).toBe(true)
+    expect(
+      turnHadAcceptedEditProposal([
+        { id: '2', title: 'write_file', status: 'done', tool: 'write_file' },
+      ]),
+    ).toBe(true)
+  })
 })
 
 describe('turnHadFailedEditActivities and summarizeAgentActivityErrors (155)', () => {

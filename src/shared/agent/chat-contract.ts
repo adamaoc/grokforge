@@ -59,6 +59,9 @@ export type AgentChatThreadMessage = {
 /** Text agent-chat intents (subset of {@link ModelIntent}). */
 export type AgentChatTextModelIntent = Extract<ModelIntent, 'chat_default' | 'planning' | 'execution'>
 
+/** Trust = manual apply; velocity = auto-apply valid proposals at turn end (GFAPP-017). */
+export type HarnessTemperament = 'trust' | 'velocity'
+
 export type AgentChatTurnRouting = {
   modelIntent: AgentChatTextModelIntent
   modelId: string
@@ -83,6 +86,8 @@ export type AgentChatStartPayload = {
   userText: string
   threadSnapshot: AgentChatThreadMessage[]
   activeContext: AgentChatActiveContext
+  /** Renderer setting; logged on turn_start (velocity auto-apply stays renderer-side). */
+  harnessTemperament?: HarnessTemperament
 }
 
 export type AgentChatStartResult =

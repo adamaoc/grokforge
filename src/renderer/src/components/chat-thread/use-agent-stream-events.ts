@@ -380,8 +380,8 @@ export function useAgentStreamEvents({
               : "No file edit proposal was attached",
             {
               description: hadEditFailures
-                ? "Edit tools failed validation and nothing was applied, but this reply reads like a completed file or diff. Retry with a clean propose_file_edits or edit manually."
-                : "This reply reads like a diff is ready or files were changed, but GrokForge did not receive search_replace or propose_file_edits. Ask the model to call an edit tool.",
+                ? "Edit tools failed validation and nothing was applied, but this reply reads like a completed file or diff. Retry with write_file or edit."
+                : "This reply reads like a diff is ready or files were changed, but GrokForge did not receive write_file or edit tool results. Ask the model to call an edit tool.",
               duration: 14_000,
             },
           );
