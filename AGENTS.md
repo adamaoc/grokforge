@@ -209,29 +209,31 @@ renderer.
 Prefer incremental PR-sized changes and preserve existing UX layout unless the
 task is explicitly a redesign.
 
-## Project Tasks And Design Guidance
+## Design Guidance And Task Tracking
 
 - Harness concepts and patterns: `docs/i-am-a-harness.md`.
 - Harness roadmap and historical program context: `docs/harness-roadmap.md`.
 - Dependency/runtime watchlist: `docs/dependency-runtime-watchlist.md`.
-- Backlog and stories: `project_tasks/`.
 - UI/design consistency: `.cursor/skills/styleguide-design/SKILL.md` when
   working in Cursor.
 
 ## Task Manager
 
-Use TheTaskManager API at `http://localhost:8080/api` for new stories, tasks,
-bugs, features, and backlog items. The GrokForge project is `grokforge` with
-human-friendly story prefix `GFAPP`.
+**All backlog, stories, bugs, and features** are tracked in TheTaskManager —
+not in-repo markdown task files. Use the API at `http://localhost:8080/api`. The
+GrokForge project is `grokforge` with human-friendly story prefix `GFAPP`.
 
 - Read `GET /api/docs` or `GET /api/openapi.yaml` if the API shape is unclear.
+- List stories: `GET /api/stories?projectId=grokforge`.
 - Create stories with `POST /api/stories`; every story must belong to the
   `grokforge` project.
-- Use Markdown descriptions and include source links or local file paths when
-  migrating from repo documents.
+- Use Markdown descriptions; include repo file paths and doc links in the
+  description body.
 - Bot-writable statuses are only `backlog`, `in_progress`, and `done`.
 - Do not set `closed`; closing is manual human review in the task manager UI.
 - When the user says work is complete, move the story to `done`, not `closed`.
+- When updating story status, use `.cursor/skills/update-task-manager/SKILL.md`
+  (`@update-task-manager`).
 
 ## Git And Cursor
 

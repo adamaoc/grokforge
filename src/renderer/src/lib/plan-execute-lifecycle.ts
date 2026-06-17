@@ -57,10 +57,10 @@ export async function completePlanExecuteTurn(
   )
 
   if (runPhase === 'failed') {
-    toast.error('Plan execution did not write files', {
+    toast.error('Plan execution did not complete', {
       description: editToolsFailed
-        ? 'Edit proposals were rejected (often incomplete HTML for new index.html). Review the activity log and run again — approve-and-run uses the execution model.'
-        : 'No applyable file changes were produced. Review the activity log and run again.',
+        ? 'File or command tools failed during execute. Review the activity log and run again — approve-and-run uses the execution model.'
+        : 'No file changes or successful commands were produced. Review the activity log and run again.',
       duration: 16_000,
     })
   } else if (input.projectId && shouldExitPlanAfterExecuteComplete(runPhase)) {

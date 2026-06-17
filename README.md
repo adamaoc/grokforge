@@ -39,7 +39,7 @@ On the **welcome** screen, start a **new project** by choosing a folder (first w
 | `npm run test:e2e` | Build + Vitest smoke (`vitest.e2e.config.ts`) |
 | `npm run test:e2e:ui` | Build + Playwright/Electron UI E2E |
 | `npm run test:e2e:ui:headed` | Same UI E2E in headed mode |
-| `npm run stories:html` | Regenerate `project_tasks/stories.html` |
+
 | `npm run dist` | macOS distributable (electron-builder) |
 | `npm run dist:dir` | macOS unpacked dir build |
 
@@ -49,7 +49,7 @@ On the **welcome** screen, start a **new project** by choosing a folder (first w
 |-----|----------|
 | [`AGENTS.md`](AGENTS.md) | Architecture, IPC, workspace manifest, keys, terminal vs agent commands, testing commands |
 | [`src/main/README.md`](src/main/README.md) | Main-process folder map and naming conventions |
-| [`project_tasks/README.md`](project_tasks/README.md) | Numbered MVP stories and status |
+
 | [`docs/dependency-runtime-watchlist.md`](docs/dependency-runtime-watchlist.md) | Dependency and runtime upgrade notes |
 | [`docs/harness-102-xai-investigation.md`](docs/harness-102-xai-investigation.md) | xAI model catalog, redirects, and GrokForge defaults (last reviewed 2026-05-26) |
 
@@ -77,7 +77,7 @@ The Zod schema lives in **`src/main/project/manifest.ts`**. **`example.grokproje
 
 ## Current status
 
-Early-stage but usable: multi-root UI, agent tool loop with approvals, Monaco diffs for proposed edits, voice pipeline, read-aloud, workspace index, and more. Gaps and future work are tracked in **`project_tasks/`**.
+Early-stage but usable: multi-root UI, agent tool loop with approvals, Monaco diffs for proposed edits, voice pipeline, read-aloud, workspace index, and more. Gaps and future work are tracked in **TheTaskManager** (project `grokforge`; see [`AGENTS.md`](AGENTS.md)).
 
 ## Contributing
 

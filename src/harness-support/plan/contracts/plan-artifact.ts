@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { formatGfPlanArtifactReadPath } from './plan-artifact-read-path'
 import { GfPlanV1Schema } from './gf-plan-contract'
 
 export const PLAN_ARTIFACT_SCHEMA_VERSION = 1 as const
@@ -77,23 +78,43 @@ export function buildApprovedPlanExecuteUserText(planId: string, summaryPreview:
     'Execute the **approved plan** now.',
     `Plan id: \`${planId}\`.`,
     `Summary: ${preview}`,
-    'Full structured plan is in app storage (`plan.json`); use `read_file` on the absolute plan path from the system context if you need every step.',
+    `Full step detail is in the system prompt; for structured JSON use \`read_file\` on \`${formatGfPlanArtifactReadPath(planId)}\` (app-storage alias — not an absolute disk path). Implement with \`write_file\`, \`edit\`, and \`run_command\` (commands require approval).`,
   ].join(' ')
+}
+
+export function buildApprovedPlanStepsSection(artifact: StoredPlanArtifact): string {
+  const lines = [
+    '**Plan steps (authoritative):**',
+    ...artifact.plan.steps.map((s, i) => `${i + 1}. **${s.id}** — ${s.title}`),
+    '',
+    '**Files likely touched:**',
+    ...(artifact.plan.filesLikelyTouched.length > 0
+      ? artifact.plan.filesLikelyTouched.map((f) => `- ${f}`)
+      : ['- _(none listed)_']),
+    '',
+    `**Verification:** ${artifact.plan.verification}`,
+    'For doc/file checks: **one** `read_file` on the target path after `write_file`, then reply with a summary — do not loop re-reads.',
+  ]
+  return lines.join('\n')
 }
 
 export function buildApprovedPlanSystemInjection(
   artifact: StoredPlanArtifact,
   planJsonAbsPath: string,
 ): string {
-  const summary = buildApprovedPlanExecuteSummary(artifact)
+  const summary = buildApprovedPlanExecuteSummary(artifact, 1200)
+  const planReadPath = formatGfPlanArtifactReadPath(artifact.planId)
   return [
     '',
     '## Approved plan artifact',
-    `Approved plan artifact: \`plans/${artifact.planId}/plan.json\` at \`${planJsonAbsPath}\`.`,
     `Plan id: \`${artifact.planId}\`. Thread message id: \`${artifact.threadMessageId}\`.`,
     `Step count: ${artifact.plan.steps.length}.`,
     `Summary: ${summary}`,
-    'Use `read_file` on the plan path above if you need full step detail from the structured JSON.',
+    '',
+    buildApprovedPlanStepsSection(artifact),
+    '',
+    `Structured JSON (optional): \`read_file\` on \`${planReadPath}\` — GrokForge app-storage alias (works from any workspace root).`,
+    `Do **not** \`read_file\` absolute paths such as \`${planJsonAbsPath}\` — they are outside workspace roots and will fail.`,
   ].join('\n')
 }
 

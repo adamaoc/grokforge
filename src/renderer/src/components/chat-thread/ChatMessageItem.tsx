@@ -144,11 +144,12 @@ export function ChatMessageItem({
     !plan &&
     msg.content.includes(AGENT_TOOL_FENCE_INFO);
   const showGfPlanStreaming =
-    msg.role === "assistant" &&
+    isLiveAssistantTurn &&
     msg.content.trim().length > 0 &&
     !assistantVisible.trim() &&
     !plan &&
-    new RegExp("```\\s*" + GF_PLAN_FENCE, "i").test(msg.content);
+    (new RegExp("```\\s*" + GF_PLAN_FENCE, "i").test(msg.content) ||
+      /```\s*json\s*\n[\s\S]*"schemaVersion"\s*:\s*1/i.test(msg.content));
   const subagentForMessage = isLiveAssistantTurn
     ? liveSubagent
     : msg.subagentActivity ?? null;
@@ -234,7 +235,7 @@ export function ChatMessageItem({
             ) : null}
             {msg.content.trim() ? (
               <>
-                {showAssistantMd ? (
+                {showAssistantMd && !plan ? (
                   <>
                     <ChatThreadMarkdown
                       content={assistantVisible}
@@ -246,6 +247,10 @@ export function ChatMessageItem({
                       />
                     ) : null}
                   </>
+                ) : showAssistantMd && plan ? (
+                  <p className="mb-2 text-sm leading-relaxed text-zinc-400">
+                    {assistantVisible}
+                  </p>
                 ) : showEmptyToolFence ? (
                   <p className="text-sm leading-relaxed text-zinc-500">
                     This reply included structured file edits (hidden in chat).

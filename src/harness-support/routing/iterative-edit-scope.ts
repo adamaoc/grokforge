@@ -88,7 +88,7 @@ export function resolveIterativeEditScope(input: ResolveIterativeEditScopeInput)
       kind: 'single_file',
       likelyPaths: [target],
       preferFullFileProposal: false,
-      rationale: `Persistence feature — localized search_replace on save/load block in ${target} after one read_file.`,
+      rationale: `Persistence feature — localized edit on save/load block in ${target} after one read_file.`,
     }
   }
 
@@ -104,7 +104,7 @@ export function resolveIterativeEditScope(input: ResolveIterativeEditScopeInput)
       kind: 'single_file',
       likelyPaths: [target],
       preferFullFileProposal: preferFull,
-      rationale: `Behavior/logic change on ${target} — read once, then search_replace on the function/DOM block from rawContent; include related HTML/CSS in the same turn when needed.`,
+      rationale: `Behavior/logic change on ${target} — read once, then edit the function/DOM block from rawContent; include related HTML/CSS in the same turn when needed.`,
     }
   }
 
@@ -119,7 +119,7 @@ export function resolveIterativeEditScope(input: ResolveIterativeEditScopeInput)
       kind: 'single_file',
       likelyPaths: [activeBase],
       preferFullFileProposal: preferFull,
-      rationale: `Short ask with active file ${activeBase} — read once, then search_replace on the target section.`,
+      rationale: `Short ask with active file ${activeBase} — read once, then edit the target section.`,
     }
   }
 
@@ -129,7 +129,7 @@ export function resolveIterativeEditScope(input: ResolveIterativeEditScopeInput)
       kind: 'single_file',
       likelyPaths: target === 'the target file' ? [] : [target],
       preferFullFileProposal: false,
-      rationale: 'Localized styling or typo fix — search_replace on the target section is OK.',
+      rationale: 'Localized styling or typo fix — edit the target section.',
     }
   }
 
@@ -154,10 +154,10 @@ export function buildIterativeEditScopeSections(scope: IterativeEditScope): read
         : 'few-files'
 
   const editShape = scope.preferFullFileProposal
-    ? `**one** \`propose_file_edits\` with full \`rawContent\` after **one** \`read_file\` on ${pathHint} (fallback when search_replace cannot match)`
+    ? `**one** \`propose_file_edits\` with full \`rawContent\` after **one** \`read_file\` on ${pathHint} (fallback when edit matching cannot work)`
     : scope.kind === 'single_file'
-      ? `**search_replace** on ${pathHint} after **one** \`read_file\` — escalate to \`propose_file_edits\` only for new paths or after failed S&R`
-      : `**search_replace** or focused edits on at most **2–3** paths (${pathHint})`
+      ? `**edit** on ${pathHint} after **one** \`read_file\` — escalate to \`propose_file_edits\` only for new paths or after failed edit matching`
+      : `**edit** or focused proposals on at most **2–3** paths (${pathHint})`
 
   return [
     ITERATIVE_EDIT_SCOPE_MARKER,

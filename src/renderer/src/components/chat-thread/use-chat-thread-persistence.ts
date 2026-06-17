@@ -19,6 +19,7 @@ import { CHAT_STORE_SCHEMA_VERSION } from "@/types";
 import type { GrokProjectManifest } from "@/types";
 import { shouldDefaultGreenfieldToPlan } from "@/lib/conversation-lifecycle";
 import { writeConversationMode } from "@/lib/conversation-mode-storage";
+import { parseGfPlanFromAssistantContent } from "../../lib/legacy-agent/plan";
 import { useTranscriptInitialScroll } from "./use-transcript-auto-scroll";
 import { lineToMessage, makeWelcomeMessage } from "./chat-thread-helpers";
 import type { PendingEditProposal } from "./chat-thread-types";
@@ -250,9 +251,46 @@ export function useChatThreadPersistence({
       setVoiceUserDraft((d) =>
         d && line.role === "user" && line.id === d.id ? null : d,
       );
-      setMessages((prev) => (prev ? [...prev, lineToMessage(line)] : prev));
+      setMessages((prev) => {
+        if (!prev) return prev;
+        const idx = prev.findIndex((m) => m.id === line.id);
+        const nextMessage = lineToMessage(line);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...next[idx]!, ...nextMessage };
+          return next;
+        }
+        return [...prev, nextMessage];
+      });
+      if (
+        line.role === "assistant" &&
+        line.id === assistantIdRef.current &&
+        streamIdRef.current
+      ) {
+        assistantBufferRef.current = line.content;
+        streamIdRef.current = null;
+        assistantIdRef.current = null;
+        setIsThinking(false);
+        setStreamingStreamId(null);
+        setIsSending(false);
+        setLiveTurnContext(null);
+      }
+      if (line.role === "assistant" && parseGfPlanFromAssistantContent(line.content)) {
+        setPlanUiEpoch((n) => n + 1);
+      }
     },
-    [setMessages, setVoiceUserDraft],
+    [
+      assistantBufferRef,
+      assistantIdRef,
+      setIsSending,
+      setIsThinking,
+      setLiveTurnContext,
+      setMessages,
+      setPlanUiEpoch,
+      setStreamingStreamId,
+      setVoiceUserDraft,
+      streamIdRef,
+    ],
   );
 
   const messagesHydrated = messages !== null;

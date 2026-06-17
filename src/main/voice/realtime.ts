@@ -39,11 +39,7 @@ function buildSessionUpdatePayload(manifest: GrokProjectManifest, opts?: { threa
     console.debug('[GrokForge voice] harness routing', { voiceModelId, harnessProfileKey })
   }
 
-  const activeRoot = manifest.roots[0]
-  let instructions = buildHarnessSystemPrompt(
-    manifest,
-    activeRoot?.label || activeRoot?.path || 'workspace root',
-  )
+  let instructions = buildHarnessSystemPrompt(manifest)
   try {
     const summary = opts?.threadSummary?.trim()
     const summaryBlock =

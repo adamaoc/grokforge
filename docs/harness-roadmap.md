@@ -22,7 +22,7 @@ New projects **intentionally** use two xAI model ids so we can tune prompts and 
 | --- | --- | --- | --- | --- |
 | `default` | `grok-build-0.1` | Fast chat (`chat_default`) | `grok_code_fast` | `default` |
 | `planning` | `grok-4.3` | Plan mode (default intent) | `grok_4_3` | `planner` |
-| `execution` | `grok-build-0.1` | Approve-and-run ([**069**](../project_tasks/069-plan-approve-auto-agent-turn.md)) | `grok_code_fast` | `executor` |
+| `execution` | `grok-build-0.1` | Approve-and-run (**069**) | `grok_code_fast` | `executor` |
 | `reasoning` | `grok-4.20-0309-reasoning` | Reserved / future | `generic` if unmapped | context-dependent |
 | `voice` | `grok-voice-latest` | Voice realtime (separate WebSocket path) | N/A for text loop | N/A |
 
@@ -30,9 +30,9 @@ New projects **intentionally** use two xAI model ids so we can tune prompts and 
 
 **Notes:**
 
-- Legacy slug **`grok-code-fast-1`** redirects to **`grok-build-0.1`** at the API (not `grok-4.3`). We **keep dual ids in manifest** on purpose for harness A/B. See [`harness-102-xai-investigation.md`](harness-102-xai-investigation.md) and story **[121](../project_tasks/post-mvp/121-xai-model-catalog-and-api-sync.md)**.
-- [**102**](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md) — dual-model manifest, `turn_started.routing`, trace metadata.
-- [**103**](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md) — per-key system sections, tool-loop bias, final-answer variants (`grok_code_fast`, `grok_4_3`, `generic`).
+- Legacy slug **`grok-code-fast-1`** redirects to **`grok-build-0.1`** at the API (not `grok-4.3`). We **keep dual ids in manifest** on purpose for harness A/B. See [`harness-102-xai-investigation.md`](harness-102-xai-investigation.md) and story **121**.
+- **102** — dual-model manifest, `turn_started.routing`, trace metadata.
+- **103** — per-key system sections, tool-loop bias, final-answer variants (`grok_code_fast`, `grok_4_3`, `generic`).
 
 ---
 
@@ -53,13 +53,13 @@ Protect these while extending the harness.
 | **Proactivity** | Explore-before-ask system bias | **091** |
 | **Voice harness** | Profile-aligned voice instructions + handoff metadata (`buildVoiceHarnessAppendix`, shared handoff) | **113** |
 
-**Wave 3 complete (102–114):** fenced `grokforge-agent-tools` write path removed in [**114**](../project_tasks/post-mvp/114-deprecate-fenced-agent-tools-protocol.md); `propose_file_edits` is the only apply path for new turns.
+**Wave 3 complete (102–114):** fenced `grokforge-agent-tools` write path removed in **114**; `propose_file_edits` is the only apply path for new turns.
 
-**Known limitation:** Grok Voice realtime does **not** run the text agent tool loop. [**113**](../project_tasks/post-mvp/113-voice-realtime-harness-profile-alignment.md) aligns voice instructions and handoff copy with harness profiles; implementation work still flows through typed agent chat.
+**Known limitation:** Grok Voice realtime does **not** run the text agent tool loop. **113** aligns voice instructions and handoff copy with harness profiles; implementation work still flows through typed agent chat.
 
-**App stability (deferred):** One report of a **black renderer** after macOS app switch during Plan mode (**Cmd+R** ineffective). Tracked as [**117**](../project_tasks/post-mvp/117-renderer-black-screen-on-macos-resume.md) — address if reproducible; not harness-core.
+**App stability (deferred):** One report of a **black renderer** after macOS app switch during Plan mode (**Cmd+R** ineffective). Tracked as **117** — address if reproducible; not harness-core.
 
-**UX polish (post-ToDoApp / Codex comparison, 2026-05-25+):** [**118**](../project_tasks/post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md) **Trust vs velocity** temperament **(done)** — velocity auto-applies without opening diff; undo + review on demand; Work vs Plan lifecycle; [**119**](../project_tasks/post-mvp/119-agent-turn-ui-honesty-and-activity-compaction.md) activity/toast honesty; [**120**](../project_tasks/post-mvp/120-post-plan-executor-routing-and-single-file-edits.md) incremental follow-ups without re-planning **(done)**. **Field reports:** [Codex / Cursor / GrokForge ToDoApp comparison](field-reports/README.md) + [visual comparison HTML](field-reports/agent-harness-comparison.html).
+**UX polish (post-ToDoApp / Codex comparison, 2026-05-25+):** **118** **Trust vs velocity** temperament **(done)** — velocity auto-applies without opening diff; undo + review on demand; Work vs Plan lifecycle; **119** activity/toast honesty; **120** incremental follow-ups without re-planning **(done)**. **Field reports:** [Codex / Cursor / GrokForge ToDoApp comparison](field-reports/README.md) + [visual comparison HTML](field-reports/agent-harness-comparison.html).
 
 ---
 
@@ -69,28 +69,28 @@ Condensed “symptom → harness cause → fix” from product research and ship
 
 | Symptom | Harness cause | Fix (story) |
 | --- | --- | --- |
-| “Give me the exact file path” | No explore-first bias; voice handoff without tools | [**091**](../project_tasks/post-mvp/091-agent-proactive-workspace-exploration.md) |
-| Plan turn proposes edits / no `gf-plan` | Fast-mode final contract applied on plan turns | [**099**](../project_tasks/post-mvp/099-plan-mode-final-contract-and-toast.md) |
-| Same prompts for fast vs 4.3 | Single generic harness | [**102**](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md), [**103**](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md) |
-| Planner could still get write tools | Prompt-only restriction, not tool registry | [**104**](../project_tasks/post-mvp/104-agent-profiles-and-toolsets.md) |
-| UI model hint ≠ API model | Renderer passed model; main did not canonicalize | [**097**](../project_tasks/post-mvp/097-model-routing-planner-vs-executor.md) |
-| Weak greenfield plans | No empty-workspace harness appendix | [**101**](../project_tasks/post-mvp/101-greenfield-plan-quality.md) |
-| Confusing plan → execute handoff | Long synthetic user line; plan only in chat | [**098**](../project_tasks/post-mvp/098-planning-mode-execute-ux-polish.md), [**109**](../project_tasks/post-mvp/109-rpi-plan-artifacts-on-disk.md) |
-| Huge tool JSON fills context | No offload / pointer to app storage | [**107**](../project_tasks/post-mvp/107-agent-context-offload-large-tool-results.md) |
-| Harness regressions undetected | Thin eval fixtures | [**063**](../project_tasks/063-agent-evaluation-suite-and-smartness-regressions.md), [**108**](../project_tasks/post-mvp/108-harness-eval-suite-per-model-regressions.md) |
-| Crash mid-tool, no recovery signal | No durable turn boundary | [**110**](../project_tasks/post-mvp/110-agent-interrupted-tool-boundaries.md) |
-| Fence + `propose_file_edits` duplicate paths | Legacy compatibility write path | [**114**](../project_tasks/post-mvp/114-deprecate-fenced-agent-tools-protocol.md) (done — fence apply removed; display strip only) |
-| Repeated `search_replace` fail → destructive full-file proposal | No turn policy; prompt-only minimal change (**083**) | [**115**](../project_tasks/post-mvp/115-agent-edit-cascade-guard-after-search-replace-failures.md) — reject shrink proposals after ≥2 S&R failures on same path |
-| S&R retry loop burns tool budget; false “updated on disk” narrative | **115** blocks bad proposals but no mid-turn recovery nudge | [**116**](../project_tasks/post-mvp/116-agent-edit-search-replace-escalation-nudge.md) — escalation nudge, honest final contract, renderer toast |
-| Work turns show “Planning tool step stopped” / timeout on discovery | Misleading round labels; rounds stay `running` until abort; **default** profile on populated repos; 5m flat timeout | [**129**](../project_tasks/post-mvp/129-iterative-work-stability-populated-workspaces.md) — Work tool rounds, executor routing, discovery cap, adaptive timeout |
-| Iterative feature edits unstable on small existing repos; heavy duplicate harness text | Routing only when `package.json` or file count > 12; explore rules conflict with discovery cap | [**130**](../project_tasks/post-mvp/130-work-iterative-edit-harness.md) — `iterativeWorkEdit` routing, harness 130 appendix, slim nudges/final contract |
-| Work-mode incremental edits thrash (many tool rounds, repeated S&R, read→edit→read) | **130** prompt-only; executor still at 6 rounds; model keeps sampling after `edit_proposal` | [**135**](../project_tasks/post-mvp/135-iterative-work-surgical-edit-enforcement.md) — 4-round cap, `iterative-work-edit-guards` thrash nudges, stop after proposal, harness 135 copy |
-| Model re-reads and patches incrementally despite clear single-file ask (e.g. localStorage on `script.js`) | **130**/**135** prose only; no computed scope from user text or early tool pattern | [**136**](../project_tasks/post-mvp/136-iterative-edit-scope-and-combine-heuristics.md) — `resolveIterativeEditScope`, turn-start scope block, mid-turn shape nudge (scope → thrash → discovery priority) |
-| Hard to tell if **135**/**136** reduced iterative thrash | Turn traces lack routing/nudge/round metrics | [**137**](../project_tasks/post-mvp/137-iterative-work-edit-harness-observability.md) — `harnessMetrics` on turn trace + dev log line **(done)** |
-| Iterative Work S&R retry loop burns budget before strategy switch | **116** global thresholds; no hard block after escalation on `iterativeWorkEdit` | [**138**](../project_tasks/post-mvp/138-iterative-work-search-replace-escalation.md) — 1-failure escalate, post-nudge S&R block, force-final at 3 **(done)** |
-| First-attempt `search_replace` misses on localized UI edits (guessed `old_string`) | **138** recovers after failure; generic tool desc and terse not-found errors | [**139**](../project_tasks/post-mvp/139-iterative-work-search-replace-quality-guidance.md) — iterative S&R quality appendix, tool override, pre-sample nudge, richer not-found hints **(done)** |
-| S&R failure loop / `maxToolIterationsHit` opaque in dogfood | Trace has boolean only; escalation state scattered in activity | [**140**](../project_tasks/post-mvp/140-search-replace-failure-loop-observability.md) — `harnessMetrics.searchReplace` + `maxIterationsReason` + budget activity row **(done)** |
-| Iterative Work policy sprawl (130–140); post-plan lacked caps/stop | Parallel nudges, prompts, scope mid-turn, pre-sample, tool overrides | [**144**](../project_tasks/post-mvp/144-consolidate-incremental-work-edit-policy.md) — `incremental-work-edit-policy.ts`, one mid-turn gate, shared `incrementalEditEnforcement` **(done)** |
+| “Give me the exact file path” | No explore-first bias; voice handoff without tools | **091** |
+| Plan turn proposes edits / no `gf-plan` | Fast-mode final contract applied on plan turns | **099** |
+| Same prompts for fast vs 4.3 | Single generic harness | **102**, **103** |
+| Planner could still get write tools | Prompt-only restriction, not tool registry | **104** |
+| UI model hint ≠ API model | Renderer passed model; main did not canonicalize | **097** |
+| Weak greenfield plans | No empty-workspace harness appendix | **101** |
+| Confusing plan → execute handoff | Long synthetic user line; plan only in chat | **098**, **109** |
+| Huge tool JSON fills context | No offload / pointer to app storage | **107** |
+| Harness regressions undetected | Thin eval fixtures | **063**, **108** |
+| Crash mid-tool, no recovery signal | No durable turn boundary | **110** |
+| Fence + `propose_file_edits` duplicate paths | Legacy compatibility write path | **114** (done — fence apply removed; display strip only) |
+| Repeated `search_replace` fail → destructive full-file proposal | No turn policy; prompt-only minimal change (**083**) | **115** — reject shrink proposals after ≥2 S&R failures on same path |
+| S&R retry loop burns tool budget; false “updated on disk” narrative | **115** blocks bad proposals but no mid-turn recovery nudge | **116** — escalation nudge, honest final contract, renderer toast |
+| Work turns show “Planning tool step stopped” / timeout on discovery | Misleading round labels; rounds stay `running` until abort; **default** profile on populated repos; 5m flat timeout | **129** — Work tool rounds, executor routing, discovery cap, adaptive timeout |
+| Iterative feature edits unstable on small existing repos; heavy duplicate harness text | Routing only when `package.json` or file count > 12; explore rules conflict with discovery cap | **130** — `iterativeWorkEdit` routing, harness 130 appendix, slim nudges/final contract |
+| Work-mode incremental edits thrash (many tool rounds, repeated S&R, read→edit→read) | **130** prompt-only; executor still at 6 rounds; model keeps sampling after `edit_proposal` | **135** — 4-round cap, `iterative-work-edit-guards` thrash nudges, stop after proposal, harness 135 copy |
+| Model re-reads and patches incrementally despite clear single-file ask (e.g. localStorage on `script.js`) | **130**/**135** prose only; no computed scope from user text or early tool pattern | **136** — `resolveIterativeEditScope`, turn-start scope block, mid-turn shape nudge (scope → thrash → discovery priority) |
+| Hard to tell if **135**/**136** reduced iterative thrash | Turn traces lack routing/nudge/round metrics | **137** — `harnessMetrics` on turn trace + dev log line **(done)** |
+| Iterative Work S&R retry loop burns budget before strategy switch | **116** global thresholds; no hard block after escalation on `iterativeWorkEdit` | **138** — 1-failure escalate, post-nudge S&R block, force-final at 3 **(done)** |
+| First-attempt `search_replace` misses on localized UI edits (guessed `old_string`) | **138** recovers after failure; generic tool desc and terse not-found errors | **139** — iterative S&R quality appendix, tool override, pre-sample nudge, richer not-found hints **(done)** |
+| S&R failure loop / `maxToolIterationsHit` opaque in dogfood | Trace has boolean only; escalation state scattered in activity | **140** — `harnessMetrics.searchReplace` + `maxIterationsReason` + budget activity row **(done)** |
+| Iterative Work policy sprawl (130–140); post-plan lacked caps/stop | Parallel nudges, prompts, scope mid-turn, pre-sample, tool overrides | **144** — `incremental-work-edit-policy.ts`, one mid-turn gate, shared `incrementalEditEnforcement` **(done)** |
 
 ---
 
@@ -129,7 +129,7 @@ Logical program order for **102–114**. Status as of **2026-05-19**.
 | **113** | Voice realtime harness / profile alignment | done |
 | **114** | Deprecate fenced `grokforge-agent-tools` protocol | done |
 
-**Related pre-harness edit wave (closed):** [**090**](../project_tasks/post-mvp/090-agent-edit-architecture-v2.md) epic delivered via **082–088**, **091–096**.
+**Related pre-harness edit wave (closed):** **090** epic delivered via **082–088**, **091–096**.
 
 ---
 
@@ -147,7 +147,7 @@ Logical program order for **102–114**. Status as of **2026-05-19**.
 | Layer | What | Where |
 | --- | --- | --- |
 | **Automated** | Mocked agent-loop regressions and compatibility coverage for legacy harness behavior | `npm run test` -> `src/main/legacy/__tests__/` and `src/shared/legacy/__tests__/`; tags in [`agent-eval-tags.ts`](../src/shared/legacy/agent-eval-tags.ts) |
-| **Foundation** | First deterministic eval harness | [**063**](../project_tasks/063-agent-evaluation-suite-and-smartness-regressions.md) |
+| **Foundation** | First deterministic eval harness | **063** |
 | **Manual** | Dual-model smoke flows (plan, execute, cancel, offload, etc.) | [`harness-eval-checklist.md`](harness-eval-checklist.md) |
 
 **Policy:** Changing legacy harness profile, routing, or final-answer behavior under `src/harness-support/` requires updating the relevant legacy tests and the manual checklist when behavior-visible.
@@ -160,4 +160,4 @@ Logical program order for **102–114**. Status as of **2026-05-19**.
 
 - [`i-am-a-harness.md`](i-am-a-harness.md) — textbook (agent vs model, patterns, backlog synthesis).
 - [`AGENTS.md`](../AGENTS.md) — contributor guide and agent-chat implementation reference.
-- [`project_tasks/README.md`](../project_tasks/README.md) — full post-MVP table and backlog order.
+- TheTaskManager API (`http://localhost:8080/api`, project `grokforge`) — active backlog and story specs.

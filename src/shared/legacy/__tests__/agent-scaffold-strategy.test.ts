@@ -261,10 +261,12 @@ describe('isCliScaffoldCommand', () => {
 })
 
 describe('toolSampleHasEditTools', () => {
-  it('detects propose_file_edits and search_replace', () => {
+  it('detects advertised edit tools', () => {
     expect(
       toolSampleHasEditTools([{ function: { name: 'propose_file_edits' } }]),
     ).toBe(true)
+    expect(toolSampleHasEditTools([{ function: { name: 'edit' } }])).toBe(true)
+    expect(toolSampleHasEditTools([{ function: { name: 'search_replace' } }])).toBe(false)
     expect(toolSampleHasEditTools([{ function: { name: 'read_file' } }])).toBe(false)
   })
 })

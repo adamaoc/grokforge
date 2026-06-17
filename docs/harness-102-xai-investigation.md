@@ -1,7 +1,7 @@
 # Story 102 / 121 — xAI dual-model investigation notes
 
 **Last reviewed:** 2026-05-26  
-**Stories:** [102](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md), [121](../project_tasks/post-mvp/121-xai-model-catalog-and-api-sync.md)
+**Stories:** 102, 121
 
 Primary xAI references:
 

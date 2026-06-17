@@ -1,6 +1,6 @@
 # GrokForge Harness Architecture
 
-GrokForge uses one agent harness: a compact model → tools loop with direct disk tools and no proposal executor, plan router, command runner, or subagent path.
+GrokForge uses one agent harness: a compact model → tools loop with direct disk tools and guarded `run_command` (user approval via main-process IPC). No proposal executor, plan router, or subagent path in v2 yet.
 
 ## Runtime Flow
 
@@ -27,6 +27,9 @@ The model can call only:
 - `read_file` — read exact file contents and return `contentHash`.
 - `write_file` — create or rewrite a file immediately.
 - `edit` — apply targeted edits immediately, guarded by `expectedContentHash`.
+- `run_command` — one-shot shell in a workspace root; **always** requires user approval (`command_approval_required` → `agent-command-approval-respond`).
+
+`run_command` reuses policy/spawn/scaffold checks from `src/harness-support/tools/run-command-tool.ts`. Harness v2 only adds `tools/run-command.ts` (adapter) and `tools/tool-context.ts` (per-turn services boundary).
 
 ## Storage
 

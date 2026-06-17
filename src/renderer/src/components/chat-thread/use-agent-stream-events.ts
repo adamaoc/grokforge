@@ -33,6 +33,7 @@ import type {
   ApplyBatchOutcome,
   PendingEditProposal,
 } from "./chat-thread-types";
+import { applyFinalAssistantContentToMessages } from "@/lib/assistant-stream-finalize";
 import { terminalizeRunningAgentActivities } from "./chat-thread-helpers";
 
 type TerminalActivityReason = "done" | "error" | "cancelled" | "interrupted";
@@ -75,6 +76,7 @@ type UseAgentStreamEventsOptions = {
   setIsSending: Dispatch<SetStateAction<boolean>>;
   setLiveTurnContext: Dispatch<SetStateAction<ChatTurnContextV1 | null>>;
   setConversationMode: Dispatch<SetStateAction<"normal" | "plan">>;
+  setPlanUiEpoch: Dispatch<SetStateAction<number>>;
   mergeIntoPendingProposal: (
     incoming: {
       batch: ParsedAgentToolBatch;
@@ -122,6 +124,7 @@ export function useAgentStreamEvents({
   setIsSending,
   setLiveTurnContext,
   setConversationMode,
+  setPlanUiEpoch,
   mergeIntoPendingProposal,
   markPlanExecutingOnTurnStarted,
   markPlanExecuteStreamEnded,
@@ -310,6 +313,14 @@ export function useAgentStreamEvents({
           setMessages((prev) =>
             prev ? prev.filter((m) => m.id !== endedAssistantId) : prev,
           );
+        } else if (endedAssistantId && finalContent) {
+          setMessages((prev) =>
+            applyFinalAssistantContentToMessages(
+              prev,
+              endedAssistantId,
+              finalContent,
+            ),
+          );
         }
         attachToolActivitiesToAssistant(endedAssistantId, "done");
         setIsThinking(false);
@@ -378,6 +389,9 @@ export function useAgentStreamEvents({
         const validPlan = trimmedFinal
           ? parseGfPlanFromAssistantContent(finalContent)
           : null;
+        if (validPlan) {
+          setPlanUiEpoch((n) => n + 1);
+        }
         if (
           projectId &&
           shouldVelocityExitPlanAfterGfPlan({
@@ -399,6 +413,7 @@ export function useAgentStreamEvents({
         streamIdRef.current = null;
         const endedAssistantId = assistantIdRef.current;
         assistantIdRef.current = null;
+        const cancelledContent = assistantBufferRef.current;
         attachToolActivitiesToAssistant(endedAssistantId, "cancelled");
         setIsThinking(false);
         setStreamingStreamId(null);
@@ -412,13 +427,19 @@ export function useAgentStreamEvents({
         } else {
           clearLiveTurnRouting();
         }
-        setMessages((prev) =>
-          prev
-            ? prev.filter(
-                (m) => m.id !== endedAssistantId || m.content.trim().length > 0,
-              )
-            : prev,
-        );
+        setMessages((prev) => {
+          if (!prev) return prev;
+          if (endedAssistantId && cancelledContent.trim()) {
+            return applyFinalAssistantContentToMessages(
+              prev,
+              endedAssistantId,
+              cancelledContent,
+            );
+          }
+          return prev.filter(
+            (m) => m.id !== endedAssistantId || m.content.trim().length > 0,
+          );
+        });
         return;
       }
       if (p.phase === "error") {
@@ -440,20 +461,27 @@ export function useAgentStreamEvents({
           clearLiveTurnRouting();
         }
         attachToolActivitiesToAssistant(erroredAssistantId, "error");
-        setMessages((prev) =>
-          prev
-            ? prev.map((m) =>
-                m.id === erroredAssistantId
-                  ? {
-                      ...m,
-                      content: m.content.trim()
-                        ? m.content
-                        : `_(Error: ${p.error})_`,
-                    }
-                  : m,
-              )
-            : prev,
-        );
+        const erroredContent = assistantBufferRef.current;
+        setMessages((prev) => {
+          if (!prev) return prev;
+          if (erroredAssistantId && erroredContent.trim()) {
+            return applyFinalAssistantContentToMessages(
+              prev,
+              erroredAssistantId,
+              erroredContent,
+            );
+          }
+          return prev.map((m) =>
+            m.id === erroredAssistantId
+              ? {
+                  ...m,
+                  content: m.content.trim()
+                    ? m.content
+                    : `_(Error: ${p.error})_`,
+                }
+              : m,
+          );
+        });
       }
     },
     [
@@ -490,6 +518,7 @@ export function useAgentStreamEvents({
       setLiveTurnRouting,
       setMessages,
       setPendingProposal,
+      setPlanUiEpoch,
       setStreamingStreamId,
       streamChatModelRef,
       streamHandlerRef,

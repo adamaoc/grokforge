@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateAgentCommandRisk, evaluateRunCommandPolicy, resolveRunCommandPolicyTier } from '../../../harness-support/policy/command/run-command-policy'
+import {
+  evaluateAgentCommandRisk,
+  evaluateRunCommandPolicy,
+  isDiagnosticAutoApproveCommand,
+  resolveRunCommandPolicyTier,
+} from '../../../harness-support/policy/command/run-command-policy'
 
 describe('run command policy', () => {
   it('hard-blocks catastrophic commands', () => {
@@ -36,6 +41,14 @@ describe('run command policy', () => {
     expect(resolveRunCommandPolicyTier('git status')).toBe('diagnostic')
     expect(resolveRunCommandPolicyTier('npm run typecheck')).toBe('diagnostic')
     expect(resolveRunCommandPolicyTier('node --version')).toBe('diagnostic')
+  })
+
+  it('auto-approves read-only inspection commands', () => {
+    expect(isDiagnosticAutoApproveCommand('cat architecture.md')).toBe(true)
+    expect(isDiagnosticAutoApproveCommand('ls -la')).toBe(true)
+    expect(isDiagnosticAutoApproveCommand('head -20 README.md')).toBe(true)
+    expect(isDiagnosticAutoApproveCommand('npm install left-pad')).toBe(false)
+    expect(isDiagnosticAutoApproveCommand('npx prisma init')).toBe(false)
   })
 
   it('preserves hard and soft risk classifications for agent commands', () => {

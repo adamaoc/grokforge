@@ -63,7 +63,7 @@ function planModeProfileQualityLines(
     'Make `filesLikelyTouched` concrete paths or clear relative paths under workspace roots.',
     'In `risksUnknowns`, list assumptions, missing context, and blockers — not generic filler.',
     'Each `steps` entry should be an actionable engineering step with a clear outcome; include at least one verification-oriented step.',
-    '`verification` should name **concrete commands** or manual checks the executor runs via **`run_command`** after approval.',
+    '`verification` should name **one** concrete check the executor runs after implementation — for docs/files: a single `read_file` on the workspace path then summarize; for CLI: **`run_command`** after approval.',
     '**Static (simple single-file vanilla):** browser-only verification ("open index.html locally") is acceptable and preferred to avoid unnecessary server steps. For larger static sites: optional lightweight serve + browser check.',
     '**npm/Vite:** `npm install`, `npm run dev`, `npm run typecheck`, or `npm run build`.',
     'Avoid forcing dev server runs for trivial static HTML/JS apps — only suggest serve when the plan involves multiple files or the user wants a live reload preview.',
@@ -133,14 +133,14 @@ export type GfPlanV1 = z.infer<typeof GfPlanV1Schema>
 
 const FENCE_BODY_RE = /```\s*gf-plan\s*\n([\s\S]*?)```/im
 const FENCE_STRIP_RE = /```\s*gf-plan\s*\n[\s\S]*?```/gim
+const JSON_FENCE_BODY_RE = /```\s*json\s*\n([\s\S]*?)```/gim
 /** Streaming: closing ``` may be missing — hide partial fence + JSON tail. */
 const FENCE_INCOMPLETE_TAIL_RE = /(?:^|\n)```\s*gf-plan\s*\n[\s\S]*$/i
+const JSON_FENCE_INCOMPLETE_TAIL_RE = /(?:^|\n)```\s*json\s*\n[\s\S]*$/i
 
-export function parseGfPlanFromAssistantContent(content: string): GfPlanV1 | null {
-  const m = content.match(FENCE_BODY_RE)
-  if (!m?.[1]) return null
+function parseGfPlanJsonBody(raw: string): GfPlanV1 | null {
   try {
-    const json = JSON.parse(m[1].trim()) as unknown
+    const json = JSON.parse(raw.trim()) as unknown
     const parsed = GfPlanV1Schema.safeParse(json)
     return parsed.success ? parsed.data : null
   } catch {
@@ -148,12 +148,43 @@ export function parseGfPlanFromAssistantContent(content: string): GfPlanV1 | nul
   }
 }
 
+export function parseGfPlanFromAssistantContent(content: string): GfPlanV1 | null {
+  const gfMatch = content.match(FENCE_BODY_RE)
+  if (gfMatch?.[1]) {
+    const plan = parseGfPlanJsonBody(gfMatch[1])
+    if (plan) return plan
+  }
+
+  const jsonMatch = content.match(/```\s*json\s*\n([\s\S]*?)```/im)
+  if (jsonMatch?.[1]) {
+    return parseGfPlanJsonBody(jsonMatch[1])
+  }
+
+  return null
+}
+
+/**
+ * Rewrites ```json fences that contain a valid gf-plan payload to ```gf-plan (canonical tag).
+ * Use before persisting or streaming plan-mode final answers.
+ */
+export function normalizeGfPlanFencesInAssistantContent(content: string): string {
+  return content.replace(JSON_FENCE_BODY_RE, (full, body: string) => {
+    if (!parseGfPlanJsonBody(body)) return full
+    return full.replace(/```\s*json/i, '```gf-plan')
+  })
+}
+
 /**
  * Removes `gf-plan` fences from assistant markdown for display, copy, and read-aloud.
+ * Also hides ```json fences when they contain a valid gf-plan schema (models often use the wrong tag).
  * Does not mutate persisted thread lines.
  */
 export function stripGfPlanFenceFromAssistantDisplay(text: string): string {
   let out = text.replace(FENCE_STRIP_RE, '')
+  out = out.replace(JSON_FENCE_BODY_RE, (full, body: string) =>
+    parseGfPlanJsonBody(body) ? '' : full,
+  )
   out = out.replace(FENCE_INCOMPLETE_TAIL_RE, '')
+  out = out.replace(JSON_FENCE_INCOMPLETE_TAIL_RE, '')
   return out.replace(/\n{3,}/g, '\n\n').trimEnd()
 }

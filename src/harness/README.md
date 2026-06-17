@@ -7,9 +7,10 @@ This is the minimal agent runtime used by text agent chat. It intentionally keep
 | Folder | Role |
 | --- | --- |
 | `runtime/` | Turn entrypoint, model/tool loop, lightweight compaction, iteration caps |
-| `tools/` | Minimal tool definitions and execution: `list_files`, `read_file`, `write_file`, `edit` |
+| `tools/` | Tool definitions and execution: `list_files`, `read_file`, `write_file`, `edit`, `run_command` |
 | `workspace/` | Active-root selection and path guards |
-| `profile/` | Work profile, system prompt, routing metadata |
+| `profile/` | Work + Plan profiles, turn routing, system prompts |
+| `context/` | Plan-mode project snapshot (doc paths, stack hints) |
 | `model/` | Non-streaming xAI Chat Completions client |
 | `session/` | Per-stream in-memory history with JSONL persistence |
 | `logging/` | Per-stream JSONL harness logs |
@@ -42,6 +43,7 @@ npm run test:harness
 
 - Keep the minimal tool loop direct and understandable.
 - Put UI compatibility at the event/contract boundary, not inside the core loop.
+- `run_command` uses a thin adapter (`tools/run-command.ts`) over `harness-support` policy/spawn; main-process approval IPC lives in `src/main/agent/command-approval.ts`.
 - When adding plan mode, diff review, or multi-root support, introduce small modules with narrow interfaces and tests before wiring renderer behavior.
 - Comments should explain current invariants and safety decisions. Historical story/task references belong in docs, not source comments.
 
