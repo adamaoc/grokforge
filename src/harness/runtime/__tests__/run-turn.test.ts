@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GrokProjectManifest } from '../../../main/project/manifest'
+import { formatHarnessTurnErrorMessage } from '../turn-error-hint'
+import { createHarnessTurnMutatingProgress } from '../turn-mutating-progress'
 import { runHarnessTurnLoop, type HarnessLoopResult } from '../loop'
 import { HARNESS_MAX_TOOL_ITERATIONS_PLAN } from '../config'
 import { HarnessLogger } from '../../logging/logger'
@@ -235,5 +237,51 @@ describe('harness turn loop', () => {
     const timeoutEvent = logLines.find((line) => line.kind === 'model_step' && line.outcome === 'timeout')
     expect(timeoutEvent).toBeDefined()
     expect(timeoutEvent?.timeoutMs).toBeGreaterThanOrEqual(180_000)
+  })
+
+  it('records proposal progress for contextual turn-error hints', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'gf-harness-progress-'))
+    const manifest = testManifest(dir)
+    const session = new HarnessSession('progress-stream', join(dir, 'sessions'))
+    const logger = new HarnessLogger(join(dir, 'logs'), 'progress-stream')
+    const mutatingProgress = createHarnessTurnMutatingProgress()
+    let modelCalls = 0
+
+    await expect(
+      runHarnessTurnLoop({
+        session,
+        toolEnv: { manifest },
+        modelId: 'grok-build-0.1',
+        userInput: 'scaffold styles',
+        logger,
+        signal: new AbortController().signal,
+        toolContext: workToolContext(manifest),
+        mutatingProgress,
+        modelChat: async () => {
+          modelCalls += 1
+          if (modelCalls === 1) {
+            return {
+              content: '',
+              toolCalls: [
+                {
+                  id: 'call-write',
+                  type: 'function',
+                  function: {
+                    name: 'write_file',
+                    arguments: JSON.stringify({ path: 'index.css', content: 'body { margin: 0; }\n' }),
+                  },
+                },
+              ],
+            }
+          }
+          throw new Error('The operation was aborted due to timeout')
+        },
+      }),
+    ).rejects.toThrow('aborted due to timeout')
+
+    expect(mutatingProgress.proposalToolSuccessCount).toBe(1)
+    expect(
+      formatHarnessTurnErrorMessage(new Error('timed out'), mutatingProgress),
+    ).toContain('edit proposals may already be in the chat')
   })
 })

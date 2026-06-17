@@ -16,6 +16,10 @@ import { HarnessLogger, preview } from '../logging/logger'
 import { isHarnessModelTimeoutError, modelChat as defaultModelChat } from '../model/client'
 import type { ModelStepResult } from '../model/client'
 import { resolveModelStepTimeoutMs } from './model-step-timeout'
+import {
+  recordHarnessMutatingToolSuccess,
+  type HarnessTurnMutatingProgress,
+} from './turn-mutating-progress'
 import type { HarnessProfile } from '../profile/turn-routing'
 import { WORK_PROFILE } from '../profile/work-profile'
 import {
@@ -57,6 +61,8 @@ export async function runHarnessTurnLoop(params: {
   toolContext?: HarnessToolRunContext
   /** Set on Approve & Run execute turns — used by work loop guard nudges. */
   approvedPlanId?: string
+  /** When set, successful write_file/edit/run_command calls are recorded for turn-error hints. */
+  mutatingProgress?: HarnessTurnMutatingProgress
   callbacks?: HarnessLoopCallbacks
   modelChat?: (
     modelId: string,
@@ -170,6 +176,7 @@ export async function runHarnessTurnLoop(params: {
           },
         )
         params.callbacks?.onToolDone?.(fn.name, toolCall.id, activityId, ok, preview(text))
+        recordHarnessMutatingToolSuccess(params.mutatingProgress, fn.name, ok)
 
         await params.logger.event('tool', {
           step,
