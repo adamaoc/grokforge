@@ -1,6 +1,7 @@
+import type { HarnessTemperament } from '../../../shared/agent/chat-contract'
 import type { AgentWritesMode } from './agent-writes-mode'
 
-export type HarnessTemperament = 'trust' | 'velocity'
+export type { HarnessTemperament }
 
 const STORAGE_KEY = 'grokforge.harnessTemperament.v1'
 const LEGACY_WRITES_KEY = 'grokforge.agentWritesMode'

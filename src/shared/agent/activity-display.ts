@@ -237,6 +237,9 @@ const EDIT_FAILURE_TITLES = new Set(['Edit proposal failed', 'Search replace fai
 const EDIT_PROPOSAL_SUCCESS_TITLES = new Set([
   'Prepared edit proposal',
   'Prepared search_replace proposal',
+  // Harness v2 — successful write_file / edit tool rounds emit proposals (GFAPP-012).
+  'write_file',
+  'edit',
 ])
 
 const COMPACTED_EDIT_FAILURE_TITLE_RE = /^Edit (proposal )?failed ×\d+ on /

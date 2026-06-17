@@ -88,6 +88,7 @@ const StartPayloadSchema: z.ZodType<AgentChatStartPayload> = z.object({
   userText: z.string().min(1).max(AGENT_CHAT_MAX_USER_TEXT_CHARS),
   threadSnapshot: z.array(ThreadMessageSchema).max(AGENT_CHAT_MAX_THREAD_MESSAGES),
   activeContext: ActiveContextSchema,
+  harnessTemperament: z.enum(['trust', 'velocity']).optional(),
 });
 
 function getE2eMockReply(): string | null {
