@@ -205,4 +205,35 @@ describe('harness turn loop', () => {
     expect(userNudges.some((m) => m.content.includes('identical arguments'))).toBe(true)
     expect(result.finalText).toContain('gf-plan')
   })
+
+  it('logs model_step timeout metadata when a model step aborts', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'gf-harness-timeout-'))
+    const manifest = testManifest(dir)
+    const session = new HarnessSession('timeout-stream', join(dir, 'sessions'))
+    const logger = new HarnessLogger(join(dir, 'logs'), 'timeout-stream')
+
+    await expect(
+      runHarnessTurnLoop({
+        session,
+        toolEnv: { manifest },
+        modelId: 'grok-build-0.1',
+        userInput: 'scaffold the app',
+        logger,
+        signal: new AbortController().signal,
+        toolContext: workToolContext(manifest),
+        modelChat: async () => {
+          throw new Error('The operation was aborted due to timeout')
+        },
+      }),
+    ).rejects.toThrow('aborted due to timeout')
+
+    const logLines = (await readFile(join(dir, 'logs', 'timeout-stream.jsonl'), 'utf-8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { kind: string; outcome?: string; timeoutMs?: number })
+
+    const timeoutEvent = logLines.find((line) => line.kind === 'model_step' && line.outcome === 'timeout')
+    expect(timeoutEvent).toBeDefined()
+    expect(timeoutEvent?.timeoutMs).toBeGreaterThanOrEqual(180_000)
+  })
 })
