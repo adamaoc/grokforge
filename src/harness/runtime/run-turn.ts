@@ -18,8 +18,9 @@ import { buildPlanProjectSnapshot } from '../context/project-snapshot'
 import { buildHarnessTurnSystemPrompt } from './build-turn-system-prompt'
 import { estimateVisibleContextChars } from './compaction'
 import { HarnessLogger, summarizeMessagesForLog } from '../logging/logger'
-import { toHarnessModelError } from '../model/client'
 import { isHarnessIterationExhaustedError } from './loop-errors'
+import { createHarnessTurnMutatingProgress } from './turn-mutating-progress'
+import { formatHarnessTurnErrorMessage } from './turn-error-hint'
 import { runHarnessTurnLoop } from './loop'
 import { resolveHarnessMaxToolIterations } from './config'
 import { resolveHarnessWorkspace } from '../workspace/paths'
@@ -204,6 +205,8 @@ export async function runAgentHarnessTurn(
     },
   }
 
+  const mutatingProgress = createHarnessTurnMutatingProgress()
+
   let result: { finalText: string; steps: number }
   try {
     result = await runHarnessTurnLoop({
@@ -217,6 +220,7 @@ export async function runAgentHarnessTurn(
       signal: ac.signal,
       toolContext: turnMode === 'work' ? toolContext : undefined,
       approvedPlanId: payload.isApprovedPlanAutoRun ? payload.approvedPlanId : undefined,
+      mutatingProgress: turnMode === 'work' ? mutatingProgress : undefined,
       callbacks: {
         onToolStart(name, toolCallId) {
           const id = deps.newActivityId()
@@ -256,9 +260,13 @@ export async function runAgentHarnessTurn(
       deps.emit({ streamId, phase: 'done', turnOutcome: 'iteration_exhausted' })
       return
     }
-    const message = toHarnessModelError(e).message
+    const message = formatHarnessTurnErrorMessage(e, mutatingProgress)
     deps.emit({ streamId, phase: 'error', error: message })
-    await logger.event('turn_error', { error: message })
+    await logger.event('turn_error', {
+      error: message,
+      proposalToolSuccessCount: mutatingProgress.proposalToolSuccessCount,
+      runCommandSuccessCount: mutatingProgress.runCommandSuccessCount,
+    })
     throw e
   }
 

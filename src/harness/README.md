@@ -51,6 +51,24 @@ changes may already exist, and the harness log records a `model_step` event with
 
 Compaction summarization uses the base timeout only (no adaptive bonuses).
 
+## Turn errors and partial progress (GFAPP-010)
+
+**Investigation (post GFAPP-007 / GFAPP-009):** The original Scaffold-Test repro was a model-step
+timeout after mutating tools had already run. GFAPP-009 added adaptive timeouts and a generic
+timeout message. In harness v2 Work mode, `write_file` / `edit` produce **reviewable proposals**
+(not disk writes) unless the user applies them or velocity auto-apply runs at turn end — a turn
+that ends in `phase: error` skips end-of-turn auto-apply.
+
+`run-turn.ts` therefore tracks successful `write_file`, `edit`, and `run_command` calls and
+appends contextual hints via `formatHarnessTurnErrorMessage()`:
+
+- **Proposals only** — points users at edit proposals already in the chat.
+- **`run_command` success** — reminds users to refresh the file tree for possible disk changes.
+- **Timeouts** — replace the generic disk-only copy with hints that match what actually happened
+  in the turn.
+
+Non-goals remain: listing every touched path, turn receipts, renderer-only toasts.
+
 ## Tests
 
 Harness tests live next to the code they cover under `__tests__/` folders. Run them with:
