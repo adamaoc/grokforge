@@ -1,7 +1,8 @@
+import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { GrokProjectManifest } from '../../../main/project/manifest'
 import { runHarnessTurnLoop, type HarnessLoopResult } from '../loop'
 import { HARNESS_MAX_TOOL_ITERATIONS_PLAN } from '../config'
@@ -9,6 +10,8 @@ import { HarnessLogger } from '../../logging/logger'
 import { PLAN_PROFILE } from '../../profile/plan-profile'
 import { HarnessSession } from '../../session/session'
 import type { ModelStepResult } from '../../model/client'
+import { HarnessProposalAccumulator } from '../../proposal/accumulator'
+import type { HarnessToolRunContext } from '../../tools/tool-context'
 
 function testManifest(rootPath: string): GrokProjectManifest {
   return {
@@ -37,19 +40,37 @@ describe('harness turn loop', () => {
     dir = ''
   })
 
+  function workToolContext(manifest: GrokProjectManifest): HarnessToolRunContext {
+    const proposalAccumulator = new HarnessProposalAccumulator(vi.fn())
+    return {
+      projectId: 'proj-1',
+      streamId: 'test-stream',
+      manifest,
+      activeContext: { openTabs: [], chatMode: 'fast' },
+      activeRootId: 'root',
+      signal: new AbortController().signal,
+      commandApproval: { requestApproval: vi.fn(async () => false) },
+      proposalAccumulator,
+      emit: vi.fn(),
+      updateToolActivity: vi.fn(),
+    }
+  }
+
   async function runWithSteps(steps: ModelStepResult[]): Promise<HarnessLoopResult> {
     dir = await mkdtemp(join(tmpdir(), 'gf-harness-turn-'))
+    const manifest = testManifest(dir)
     const session = new HarnessSession('test-stream', join(dir, 'sessions'))
     const logger = new HarnessLogger(join(dir, 'logs'), 'test-stream')
     let i = 0
 
     return runHarnessTurnLoop({
       session,
-      toolEnv: { manifest: testManifest(dir) },
+      toolEnv: { manifest },
       modelId: 'grok-build-0.1',
       userInput: 'do the work',
       logger,
       signal: new AbortController().signal,
+      toolContext: workToolContext(manifest),
       modelChat: async () => {
         const step = steps[i]
         i += 1
@@ -59,7 +80,7 @@ describe('harness turn loop', () => {
     })
   }
 
-  it('creates a greenfield file with write_file', async () => {
+  it('prepares a greenfield write_file proposal without touching disk', async () => {
     const result = await runWithSteps([
       {
         content: '',
@@ -77,26 +98,19 @@ describe('harness turn loop', () => {
       { content: 'Created index.html.', toolCalls: [] },
     ])
 
-    await expect(readFile(join(dir, 'index.html'), 'utf-8')).resolves.toBe('<h1>Hello</h1>\n')
+    expect(existsSync(join(dir, 'index.html'))).toBe(false)
     expect(result.finalText).toBe('Created index.html.')
     expect(result.steps).toBe(2)
   })
 
-  it('chains read_file then edit on the same file', async () => {
-    const result = await runWithSteps([
-      {
-        content: '',
-        toolCalls: [
-          {
-            id: 'call-write',
-            type: 'function',
-            function: {
-              name: 'write_file',
-              arguments: JSON.stringify({ path: 'app.txt', content: 'alpha beta gamma' }),
-            },
-          },
-        ],
-      },
+  it('chains read_file then edit proposals on the same file', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'gf-harness-turn-'))
+    await writeFile(join(dir, 'app.txt'), 'alpha beta gamma', 'utf-8')
+    const manifest = testManifest(dir)
+    const session = new HarnessSession('test-stream', join(dir, 'sessions'))
+    const logger = new HarnessLogger(join(dir, 'logs'), 'test-stream')
+    let i = 0
+    const steps: ModelStepResult[] = [
       {
         content: '',
         toolCalls: [
@@ -127,9 +141,25 @@ describe('harness turn loop', () => {
         ],
       },
       { content: 'Edited app.txt.', toolCalls: [] },
-    ])
+    ]
 
-    await expect(readFile(join(dir, 'app.txt'), 'utf-8')).resolves.toBe('alpha BETA gamma')
+    const result = await runHarnessTurnLoop({
+      session,
+      toolEnv: { manifest },
+      modelId: 'grok-build-0.1',
+      userInput: 'do the work',
+      logger,
+      signal: new AbortController().signal,
+      toolContext: workToolContext(manifest),
+      modelChat: async () => {
+        const step = steps[i]
+        i += 1
+        if (!step) throw new Error('unexpected extra model step')
+        return step
+      },
+    })
+
+    expect(await readFile(join(dir, 'app.txt'), 'utf-8')).toBe('alpha beta gamma')
     expect(result.finalText).toBe('Edited app.txt.')
   })
 
