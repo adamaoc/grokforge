@@ -18,7 +18,8 @@ import {
 } from '../agent/content-hash'
 import { applyEdits, type EditOp } from '../diff/edit-fuzzy'
 import { applySearchReplace } from '../diff/search-replace'
-import { resolveWithinWorkspace } from '../workspace/paths'
+import { notifyHarnessDiskMutation } from '../workspace/fs-refresh'
+import { HarnessPathError, resolveHarnessReadPath, type HarnessToolEnv } from '../workspace/paths'
 
 export type EditResult = { ok: true; text: string } | { ok: false; text: string }
 
@@ -101,7 +102,7 @@ function tryApplyPatch(
 }
 
 function formatSuccess(
-  relPath: string,
+  agentPath: string,
   beforeLen: number,
   afterContent: string,
   options?: { hashWasStale?: boolean },
@@ -112,15 +113,12 @@ function formatSuccess(
     ? ' (file changed since read_file; patch matched current disk)'
     : ''
   return (
-    `Edited ${relPath} (${beforeLen} → ${afterLen} characters)${staleNote}. ` +
+    `Edited ${agentPath} (${beforeLen} → ${afterLen} characters)${staleNote}. ` +
     `contentHash=${newHash}. Re-read before another edit if oldText no longer matches.`
   )
 }
 
-export async function executeEdit(
-  workspaceRoot: string,
-  argsJson: string,
-): Promise<EditResult> {
+export async function executeEdit(env: HarnessToolEnv, argsJson: string): Promise<EditResult> {
   let raw: unknown
   try {
     raw = JSON.parse(argsJson)
@@ -135,10 +133,15 @@ export async function executeEdit(
 
   const args = parsed.data
   let filePath: string
+  let agentPath: string
+  let resolvedPath: ReturnType<typeof resolveHarnessReadPath> | null = null
   try {
-    filePath = resolveWithinWorkspace(workspaceRoot, args.path)
+    const resolved = resolveHarnessReadPath(env, args.path)
+    filePath = resolved.absPath
+    agentPath = resolved.agentPath
+    resolvedPath = resolved
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
+    const msg = e instanceof HarnessPathError ? e.message : e instanceof Error ? e.message : String(e)
     return { ok: false, text: msg }
   }
 
@@ -176,16 +179,16 @@ export async function executeEdit(
   }
 
   if (!hashMatches) {
-    // File changed since read (often a prior edit this turn). Patch already ran on current disk.
     try {
       await writeFile(filePath, patch.content, 'utf-8')
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to write file'
       return { ok: false, text: msg }
     }
+    if (resolvedPath) notifyHarnessDiskMutation(env, resolvedPath)
     return {
       ok: true,
-      text: formatSuccess(args.path, diskContent.length, patch.content, { hashWasStale: true }),
+      text: formatSuccess(agentPath, diskContent.length, patch.content, { hashWasStale: true }),
     }
   }
 
@@ -196,8 +199,9 @@ export async function executeEdit(
     return { ok: false, text: msg }
   }
 
+  if (resolvedPath) notifyHarnessDiskMutation(env, resolvedPath)
   return {
     ok: true,
-    text: formatSuccess(args.path, diskContent.length, patch.content),
+    text: formatSuccess(agentPath, diskContent.length, patch.content),
   }
 }

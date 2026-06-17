@@ -484,6 +484,7 @@ export function ChatThread({
     setIsSending,
     setLiveTurnContext,
     setConversationMode,
+    setPlanUiEpoch,
     mergeIntoPendingProposal,
     markPlanExecutingOnTurnStarted,
     markPlanExecuteStreamEnded,

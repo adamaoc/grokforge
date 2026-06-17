@@ -9,7 +9,7 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'node_modules/**',
-      'project_tasks/stories.html',
+
       'coverage/**',
       '*.config.js',
     ],

@@ -11,6 +11,58 @@ const COMMAND_TOOL_FAILURE_TITLES = new Set([
   'Command request failed',
 ])
 
+/** Harness v2 direct-write tool names (activity title or tool field). */
+const HARNESS_DIRECT_WRITE_IDENTIFIERS = new Set(['write_file', 'edit'])
+
+export type PlanExecuteActivityRow = {
+  status: string
+  title: string
+  tool?: string
+}
+
+function isHarnessDirectWriteActivity(activity: PlanExecuteActivityRow): boolean {
+  return (
+    HARNESS_DIRECT_WRITE_IDENTIFIERS.has(activity.title) ||
+    activity.tool === 'write_file' ||
+    activity.tool === 'edit'
+  )
+}
+
+function isHarnessCommandActivity(activity: PlanExecuteActivityRow): boolean {
+  return activity.title === 'run_command' || activity.tool === 'run_command'
+}
+
+/** Harness v2 — at least one successful write_file or edit activity. */
+export function hasHarnessDirectWriteSuccess(
+  activities: readonly PlanExecuteActivityRow[],
+): boolean {
+  return activities.some(
+    (a) => a.status === 'done' && isHarnessDirectWriteActivity(a),
+  )
+}
+
+/** Harness v2 — at least one successful run_command activity. */
+export function hasHarnessCommandSuccess(
+  activities: readonly PlanExecuteActivityRow[],
+): boolean {
+  return activities.some((a) => a.status === 'done' && isHarnessCommandActivity(a))
+}
+
+/** Harness v2 — direct disk writes or approved commands completed this turn. */
+export function hasHarnessExecuteSuccess(
+  activities: readonly PlanExecuteActivityRow[],
+): boolean {
+  return hasHarnessDirectWriteSuccess(activities) || hasHarnessCommandSuccess(activities)
+}
+
+function hasHarnessDirectWriteFailure(activities: readonly PlanExecuteActivityRow[]): boolean {
+  return activities.some(
+    (a) =>
+      (a.status === 'error' || a.status === 'rejected' || a.status === 'timeout') &&
+      isHarnessDirectWriteActivity(a),
+  )
+}
+
 export type PlanExecuteApplyOutcome = 'none' | 'partial' | 'complete'
 
 /** Persisted on plan interaction state after approve-and-run completes. */
@@ -31,14 +83,17 @@ export function hasActionableProposal(batchOperationCount: number): boolean {
 }
 
 export function shouldMarkPlanExecuteFailed(
-  activities: readonly { status: string; title: string }[],
+  activities: readonly PlanExecuteActivityRow[],
   hadActionableProposal: boolean,
 ): boolean {
   if (hadActionableProposal) return false
-  return activities.some(
-    (a) =>
-      (a.status === 'error' || a.status === 'rejected' || a.status === 'timeout') &&
-      (EDIT_TOOL_FAILURE_TITLES.has(a.title) || COMMAND_TOOL_FAILURE_TITLES.has(a.title)),
+  if (hasHarnessExecuteSuccess(activities)) return false
+  return (
+    activities.some(
+      (a) =>
+        (a.status === 'error' || a.status === 'rejected' || a.status === 'timeout') &&
+        (EDIT_TOOL_FAILURE_TITLES.has(a.title) || COMMAND_TOOL_FAILURE_TITLES.has(a.title)),
+    ) || hasHarnessDirectWriteFailure(activities)
   )
 }
 
@@ -123,9 +178,14 @@ export function resolvePlanExecuteRunPhase(
     input
 
   const commandFailed = hasCommandToolFailure(activities)
+  const harnessExecuteSuccess = hasHarnessExecuteSuccess(activities)
 
   if (!actionableProposal) {
-    void activities
+    if (harnessExecuteSuccess) {
+      if (commandFailed) return 'needs_review'
+      return 'done'
+    }
+    if (shouldMarkPlanExecuteFailed(activities, false)) return 'failed'
     return 'failed'
   }
 

@@ -40,7 +40,7 @@ The model does not “know” your repo, terminal, or diff UI by itself. The har
 | What should we use for coding now? | **`grok-build-0.1`** for fast execution slots; **`grok-4.3`** for planning and deep tool calling (1M context, configurable **`reasoning_effort`**). |
 | Does the harness pick the model? | **Yes** — via `manifest.models` and `getModelForIntent()` (`chat_default`, `planning`, `execution`, `reasoning`, `voice`). The harness chooses *which* Grok id to call; xAI runs inference. |
 
-**GrokForge today:** new projects intentionally use a **dual-model** manifest: **`grok-build-0.1`** on **`chat_default`** / **`execution`**, **`grok-4.3`** on **`planning`** (`DUAL_MODEL_FALLBACKS` in `src/harness-support/routing/model-router.ts`, defaults written by `src/main/project/store.ts`) so we can run **separate harness profiles per model** (see **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**). Program index: **[`harness-roadmap.md`](harness-roadmap.md)**. Catalog sync: **[121](../project_tasks/post-mvp/121-xai-model-catalog-and-api-sync.md)**.
+**GrokForge today:** new projects intentionally use a **dual-model** manifest: **`grok-build-0.1`** on **`chat_default`** / **`execution`**, **`grok-4.3`** on **`planning`** (`DUAL_MODEL_FALLBACKS` in `src/harness-support/routing/model-router.ts`, defaults written by `src/main/project/store.ts`) so we can run **separate harness profiles per model** (see **103**). Program index: **[`harness-roadmap.md`](harness-roadmap.md)**. Catalog sync: **121**.
 
 ### xAI redirect for `grok-code-fast-1` (stories 102 / 121)
 
@@ -125,7 +125,7 @@ When you add a feature, ask which bucket it belongs in — and whether it change
 
 Notes from external writing — patterns to borrow, not prescriptions. **Sources covered:** LangChain (harness + context), Cursor (iteration + per-model tuning), Martin Richards (**RPI** + skill taxonomies), r/ClaudeCode (routing + sub-agents), Dev.to (sandbox + observable loops), **[OpenCode / Hermes / Pi / T3 code review](research/agentic-coding-harnesses.md)** (implementation detail). **When changing the harness, start with:** [Implementation reference](#implementation-reference-opencode-hermes-pi-t3). Full pattern tables: [design patterns synthesis](#grokforge-harness-design-patterns-synthesis).
 
-**Cross-cutting principle:** a harness should be **tailored per model** (prompts, tool names/descriptions, reasoning-trace handling, when to fetch vs preload context) while keeping **model-agnostic abstractions** in code (routing, IPC, review UI). Swapping `grok-4.3` for another id is not enough; expect **Grok-specific** harness passes after model changes — see **[102](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md)** / **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)** and Cursor’s Codex article below for how far per-model tuning goes.
+**Cross-cutting principle:** a harness should be **tailored per model** (prompts, tool names/descriptions, reasoning-trace handling, when to fetch vs preload context) while keeping **model-agnostic abstractions** in code (routing, IPC, review UI). Swapping `grok-4.3` for another id is not enough; expect **Grok-specific** harness passes after model changes — see **102** / **103** and Cursor’s Codex article below for how far per-model tuning goes.
 
 ---
 
@@ -166,7 +166,7 @@ A raw model is not an agent. The harness gives it state, tools, memory, feedback
 
 The author reports improving a coding agent’s Terminal Bench 2.0 ranking from **top 30 → top 5** by changing **only the harness** (same model, e.g. Claude Opus). The same SKU can look very different under different hosts.
 
-**Takeaway:** With **Grok 4.3**, invest in filesystem grounding, tools, context management, and verification loops — not only “pick a smarter model.” See **[102](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md)** (dual-model defaults) and **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**; harness work is the longer lever.
+**Takeaway:** With **Grok 4.3**, invest in filesystem grounding, tools, context management, and verification loops — not only “pick a smarter model.” See **102** (dual-model defaults) and **103**; harness work is the longer lever.
 
 **2. Core primitives of a strong coding harness**
 
@@ -502,7 +502,7 @@ Patterns distilled from **LangChain**, **Hermes**, **Cursor**, **Martin Richards
 | **Tool schema experimentation** | Descriptions tuned for Grok 4.3 | Per-profile tool defs in harness | **Gap** | Cursor |
 | **Preamble / instruction tuning** | System prompt per model family | `grok-4.3` variant; retire fast-code tone | **Gap** | Cursor |
 
-Dual-model + profile keys: **[102](../project_tasks/post-mvp/102-dual-model-manifest-and-harness-foundation.md)** -> **[103](../project_tasks/post-mvp/103-agent-harness-per-model-profiles.md)**. Compatibility routing currently lives under `src/harness-support/routing/`. Roadmap: **[`harness-roadmap.md`](harness-roadmap.md)**.
+Dual-model + profile keys: **102** -> **103**. Compatibility routing currently lives under `src/harness-support/routing/`. Roadmap: **[`harness-roadmap.md`](harness-roadmap.md)**.
 
 ### 7. Reliability & verification
 

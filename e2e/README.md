@@ -6,7 +6,7 @@ Fast build smoke and policy tests:
 npm run test:e2e
 ```
 
-This runs **`npm run build`** then **Vitest** with `vitest.e2e.config.ts` (headless): checks **`dist/`** layout and **`run-command-policy`** (imported directly — agent spawn path, not renderer IPC). See also `project_tasks/019-qa-e2e-and-accessibility-pass.md`.
+This runs **`npm run build`** then **Vitest** with `vitest.e2e.config.ts` (headless): checks **`dist/`** layout and **`run-command-policy`** (imported directly — agent spawn path, not renderer IPC).
 
 Electron UI E2E:
 

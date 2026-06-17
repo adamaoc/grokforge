@@ -29,13 +29,36 @@ type ChatCompletionResponse = {
   }>
 }
 
+const HARNESS_MODEL_TIMEOUT_MESSAGE =
+  'Model request timed out. Partial file changes from this turn may already be on disk — refresh the file tree and retry if needed.'
+
+const HARNESS_MODEL_FETCH_FAILED_MESSAGE =
+  'Could not reach the xAI API (network error). Check your connection, API key in Settings, and try again.'
+
+function isModelTimeoutError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  const msg = error.message.toLowerCase()
+  return msg.includes('timed out') || msg.includes('aborted due to timeout')
+}
+
+function isModelFetchError(error: unknown): boolean {
+  return error instanceof TypeError && error.message.toLowerCase().includes('fetch failed')
+}
+
+/** Map low-level fetch/abort errors to user-facing harness messages. */
+export function toHarnessModelError(error: unknown): Error {
+  if (isModelTimeoutError(error)) return new Error(HARNESS_MODEL_TIMEOUT_MESSAGE)
+  if (isModelFetchError(error)) return new Error(HARNESS_MODEL_FETCH_FAILED_MESSAGE)
+  return error instanceof Error ? error : new Error('Model request failed')
+}
+
 function mergeAbortSignals(primary: AbortSignal, timeoutMs: number): AbortSignal {
   if (primary.aborted) return primary
   if (typeof AbortSignal.timeout === 'function' && typeof AbortSignal.any === 'function') {
     return AbortSignal.any([primary, AbortSignal.timeout(timeoutMs)])
   }
   const ac = new AbortController()
-  const timer = setTimeout(() => ac.abort(new Error('Chat completion request timed out')), timeoutMs)
+  const timer = setTimeout(() => ac.abort(new Error(HARNESS_MODEL_TIMEOUT_MESSAGE)), timeoutMs)
   primary.addEventListener('abort', () => {
     clearTimeout(timer)
     ac.abort(primary.reason)
@@ -67,21 +90,26 @@ export async function modelChat(
           parallel_tool_calls: false,
         }
 
-  const res = await fetch(getChatCompletionsUrl(), {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: modelId,
-      messages,
-      stream: false,
-      max_tokens: options?.maxTokens ?? 8192,
-      ...toolBody,
-    }),
-    signal: mergeAbortSignals(signal, HARNESS_CHAT_SAMPLE_TIMEOUT_MS),
-  })
+  let res: Response
+  try {
+    res = await fetch(getChatCompletionsUrl(), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: modelId,
+        messages,
+        stream: false,
+        max_tokens: options?.maxTokens ?? 8192,
+        ...toolBody,
+      }),
+      signal: mergeAbortSignals(signal, HARNESS_CHAT_SAMPLE_TIMEOUT_MS),
+    })
+  } catch (error) {
+    throw toHarnessModelError(error)
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')

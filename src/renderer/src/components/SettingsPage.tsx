@@ -479,15 +479,17 @@ export function SettingsPage({
             </p>
             <ul className="mt-4 space-y-2 text-sm leading-relaxed text-zinc-400">
               <li>
-                <strong className="font-medium text-zinc-300">Default:</strong> ask every time — including
-                read-only diagnostics such as <span className="font-mono text-xs">git status</span> or{' '}
-                <span className="font-mono text-xs">npm run typecheck</span>.
+                <strong className="font-medium text-zinc-300">Diagnostics:</strong> read-only commands such as{' '}
+                <span className="font-mono text-xs">cat</span>, <span className="font-mono text-xs">ls</span>,{' '}
+                <span className="font-mono text-xs">git status</span>, or{' '}
+                <span className="font-mono text-xs">npm run typecheck</span> run automatically.
               </li>
               <li>
-                <strong className="font-medium text-zinc-300">Network / install:</strong> commands like{' '}
+                <strong className="font-medium text-zinc-300">Install / scaffold:</strong> commands like{' '}
                 <span className="font-mono text-xs">npm install</span> or{' '}
-                <span className="font-mono text-xs">npm create</span> show an explicit banner before approval.
+                <span className="font-mono text-xs">npm create</span> still require approval.
               </li>
+
               <li>
                 <strong className="font-medium text-zinc-300">Velocity temperament</strong> auto-applies valid file
                 proposals only — it never auto-runs shell commands.

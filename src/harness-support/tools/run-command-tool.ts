@@ -12,7 +12,10 @@ import { scheduleWorkspaceFilesystemRefresh } from '../../main/workspace/fs-noti
 import { listScaffoldTargetEntryNames, resolveScaffoldTargetAbsolutePath } from '../../main/workspace/scaffold-target-fs'
 import type { AgentToolExecutionContext } from './contracts/execution-context'
 import type { GrokProjectManifest } from '../../main/project/manifest'
-import { evaluateAgentCommandRisk } from '../policy/command/run-command-policy'
+import {
+  evaluateAgentCommandRisk,
+  isDiagnosticAutoApproveCommand,
+} from '../policy/command/run-command-policy'
 import { runCommandInRootForAgent } from './run-command'
 import type { AgentWorkspaceToolResult } from './workspace-tools'
 import { z } from 'zod'
@@ -77,7 +80,7 @@ export async function executeRunCommandTool(
     }
   }
 
-  ctx.emitProgress({ title: 'Command awaiting approval', detail: args.command })
+  const autoApprove = isDiagnosticAutoApproveCommand(args.command)
 
   let approvalWarning: string | undefined
   if (isViteScaffoldCommand(args.command) && !scaffoldCommandHasOverwrite(args.command)) {
@@ -90,37 +93,44 @@ export async function executeRunCommandTool(
       }) ?? undefined
   }
 
-  const approved = await ctx.askCommandApproval({
-    requestId: options.requestId,
-    request: {
-      rootId: root.id,
-      rootLabel: root.label,
-      rootPath: root.path,
-      command: args.command,
-      timeoutMs,
-      purpose: args.purpose,
-      risk: risk.kind,
-      policyReason: risk.reason,
-      warning: approvalWarning,
-    },
-  })
+  if (!autoApprove) {
+    ctx.emitProgress({ title: 'Command awaiting approval', detail: args.command })
 
-  if (!approved) {
-    ctx.emitProgress({ title: 'Command rejected', detail: args.command })
-    return {
-      ok: false,
-      displayTitle: 'Command rejected',
-      displayDetail: args.command,
-      content: JSON.stringify({
-        ok: false,
-        rejected: true,
-        error: 'User rejected the command. Continue without claiming it ran.',
+    const approved = await ctx.askCommandApproval({
+      requestId: options.requestId,
+      request: {
+        rootId: root.id,
+        rootLabel: root.label,
+        rootPath: root.path,
         command: args.command,
-      }),
+        timeoutMs,
+        purpose: args.purpose,
+        risk: risk.kind,
+        policyReason: risk.reason,
+        warning: approvalWarning,
+      },
+    })
+
+    if (!approved) {
+      ctx.emitProgress({ title: 'Command rejected', detail: args.command })
+      return {
+        ok: false,
+        displayTitle: 'Command rejected',
+        displayDetail: args.command,
+        content: JSON.stringify({
+          ok: false,
+          rejected: true,
+          error: 'User rejected the command. Continue without claiming it ran.',
+          command: args.command,
+        }),
+      }
     }
   }
 
-  ctx.emitProgress({ title: 'Running approved command', detail: args.command })
+  ctx.emitProgress({
+    title: autoApprove ? 'Running diagnostic command' : 'Running approved command',
+    detail: args.command,
+  })
 
   const result = await runCommandInRootForAgent(options.manifest, {
     rootId: args.rootId,

@@ -10,6 +10,7 @@ import {
 } from 'react'
 import type { AgentChatEventPayload, ChatTurnContextV1, PersistedChatLineV1 } from '@/types'
 import { CHAT_STORE_SCHEMA_VERSION } from '@/types'
+import { publishChatThreadLine } from '@/lib/chat-thread-bus'
 import { parseGfPlanFromAssistantContent } from '../lib/legacy-agent/plan'
 import { patchPlanInteraction } from '@/lib/plan-interaction-storage'
 import {
@@ -166,6 +167,17 @@ export function AgentChatActivityProvider({
       await persistAssistant(session, assistantContent, 'assistant')
 
       const hadAssistant = assistantContent.trim().length > 0
+      if (hadAssistant) {
+        publishChatThreadLine({
+          schemaVersion: CHAT_STORE_SCHEMA_VERSION,
+          id: session.assistantId,
+          role: 'assistant',
+          content: assistantContent,
+          timestamp: session.assistantCreatedAt.toISOString(),
+          model: session.model,
+          ...(session.turnContext ? { turnContext: session.turnContext } : {}),
+        })
+      }
       const onWorkspaceForProject =
         surface === 'workspace' && activeWorkspaceProjectId === session.projectId
 

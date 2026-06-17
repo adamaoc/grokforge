@@ -4,23 +4,37 @@
  * Orchestration:
  * - {@link runHarnessTurnLoop} (main entry from {@link run-turn.ts})
  * - {@link HarnessSession} holds messages; {@link toApiMessages} feeds xAI
- * - {@link executeTool} runs disk tools under workspace root from {@link paths.ts}
+ * - {@link executeTool} runs disk tools across all manifest roots via {@link paths.ts}
  * - {@link HarnessLogger} records each step (tokens in `model_step`)
  */
 
-import { HARNESS_MAX_TOOL_ITERATIONS } from './config'
+import { HARNESS_MAX_TOOL_ITERATIONS_WORK } from './config'
 import { maybeCompactHarnessSession } from './compaction'
 import { HarnessLogger, preview } from '../logging/logger'
 import { modelChat as defaultModelChat } from '../model/client'
 import type { ModelStepResult } from '../model/client'
-import type { HarnessWorkProfile } from '../profile/work-profile'
+import type { HarnessProfile } from '../profile/turn-routing'
 import { WORK_PROFILE } from '../profile/work-profile'
+import {
+  createPlanLoopGuardState,
+  evaluatePlanLoopNudge,
+  markPlanLoopNudgeSent,
+  recordPlanToolInvocation,
+} from './plan-loop-guard'
+import {
+  createWorkLoopGuardState,
+  evaluateWorkLoopNudge,
+  markWorkLoopNudgeSent,
+  recordWorkToolInvocation,
+} from './work-loop-guard'
 import { HarnessSession, toApiMessages } from '../session/session'
 import { executeTool, getToolSchemas } from '../tools/tools'
+import type { HarnessToolRunContext } from '../tools/tool-context'
+import type { HarnessToolEnv } from '../workspace/paths'
 
 export type HarnessLoopCallbacks = {
-  onToolStart?: (name: string) => void
-  onToolDone?: (name: string, ok: boolean, preview: string) => void
+  onToolStart?: (name: string, toolCallId: string) => string | void
+  onToolDone?: (name: string, toolCallId: string, activityId: string, ok: boolean, preview: string) => void
 }
 
 export type HarnessLoopResult = {
@@ -30,12 +44,16 @@ export type HarnessLoopResult = {
 
 export async function runHarnessTurnLoop(params: {
   session: HarnessSession
-  workspaceRoot: string
+  toolEnv: HarnessToolEnv
   modelId: string
   userInput: string
-  profile?: HarnessWorkProfile
+  profile?: HarnessProfile
+  maxToolIterations?: number
   logger: HarnessLogger
   signal: AbortSignal
+  toolContext?: HarnessToolRunContext
+  /** Set on Approve & Run execute turns — used by work loop guard nudges. */
+  approvedPlanId?: string
   callbacks?: HarnessLoopCallbacks
   modelChat?: (
     modelId: string,
@@ -45,8 +63,11 @@ export async function runHarnessTurnLoop(params: {
   ) => Promise<ModelStepResult>
 }): Promise<HarnessLoopResult> {
   const profile = params.profile ?? WORK_PROFILE
+  const maxToolIterations = params.maxToolIterations ?? HARNESS_MAX_TOOL_ITERATIONS_WORK
   const toolSchemas = getToolSchemas(profile)
   const modelChat = params.modelChat ?? defaultModelChat
+  const planLoopGuard = profile.id === 'plan' ? createPlanLoopGuardState() : null
+  const workLoopGuard = profile.id === 'work' ? createWorkLoopGuardState() : null
 
   await params.session.addMessage('user', params.userInput)
   await maybeCompactHarnessSession(
@@ -56,8 +77,26 @@ export async function runHarnessTurnLoop(params: {
     params.signal,
   )
 
-  for (let step = 0; step < HARNESS_MAX_TOOL_ITERATIONS; step += 1) {
+  for (let step = 0; step < maxToolIterations; step += 1) {
     if (params.signal.aborted) throw params.signal.reason ?? new Error('Aborted')
+
+    if (planLoopGuard) {
+      const nudge = evaluatePlanLoopNudge(planLoopGuard, step)
+      if (nudge) {
+        await params.session.addMessage('user', nudge.message)
+        markPlanLoopNudgeSent(planLoopGuard, nudge.kind)
+        await params.logger.event('plan_loop_nudge', { step, kind: nudge.kind })
+      }
+    }
+
+    if (workLoopGuard) {
+      const nudge = evaluateWorkLoopNudge(workLoopGuard, params.approvedPlanId)
+      if (nudge) {
+        await params.session.addMessage('user', nudge.message)
+        markWorkLoopNudgeSent(workLoopGuard, nudge.kind)
+        await params.logger.event('work_loop_nudge', { step, kind: nudge.kind })
+      }
+    }
 
     const modelStarted = Date.now()
     const apiMessages = toApiMessages(params.session.getHistory())
@@ -88,16 +127,22 @@ export async function runHarnessTurnLoop(params: {
       for (const toolCall of response.toolCalls) {
         if (toolCall.type !== 'function') continue
         const fn = toolCall.function
-        params.callbacks?.onToolStart?.(fn.name)
+        const activityId =
+          params.callbacks?.onToolStart?.(fn.name, toolCall.id) ?? toolCall.id
 
         const toolStarted = Date.now()
         const { ok, text } = await executeTool(
-          params.workspaceRoot,
+          params.toolEnv,
           fn.name,
           fn.arguments,
           profile,
+          {
+            toolContext: params.toolContext,
+            toolCallId: toolCall.id,
+            activityId,
+          },
         )
-        params.callbacks?.onToolDone?.(fn.name, ok, preview(text))
+        params.callbacks?.onToolDone?.(fn.name, toolCall.id, activityId, ok, preview(text))
 
         await params.logger.event('tool', {
           step,
@@ -111,6 +156,13 @@ export async function runHarnessTurnLoop(params: {
           tool_call_id: toolCall.id,
           name: fn.name,
         })
+
+        if (planLoopGuard) {
+          recordPlanToolInvocation(planLoopGuard, fn.name, fn.arguments, ok)
+        }
+        if (workLoopGuard) {
+          recordWorkToolInvocation(workLoopGuard, fn.name, fn.arguments, ok, text)
+        }
       }
       continue
     }
@@ -120,5 +172,7 @@ export async function runHarnessTurnLoop(params: {
     return { finalText: text, steps: step + 1 }
   }
 
-  throw new Error(`Agent loop exceeded ${HARNESS_MAX_TOOL_ITERATIONS} iterations`)
+  throw new Error(
+    `Agent loop exceeded ${maxToolIterations} tool rounds. Continue in a follow-up message if more work remains.`,
+  )
 }

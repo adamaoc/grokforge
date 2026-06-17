@@ -21,20 +21,40 @@ export type RunCommandPolicyTier =
   | 'diagnostic'
   | 'safe'
 
-export function resolveRunCommandPolicyTier(command: string): RunCommandPolicyTier {
+/** Read-only / low-risk commands that may run without a user approval card. */
+export function isDiagnosticAutoApproveCommand(command: string): boolean {
   const policy = evaluateRunCommandPolicy(command, false)
-  if (policy.kind === 'blocked') return 'hard_deny'
-  if (policy.kind === 'needs_ack') return 'soft_risk'
-  const risk = evaluateAgentCommandRisk(command)
-  if (risk.kind === 'network_or_install') return 'network_install'
+  if (policy.kind !== 'ok') return false
+  if (evaluateAgentCommandRisk(command).kind === 'network_or_install') return false
+
   const c = command.trim().toLowerCase()
   if (
     /\bgit\s+(status|log|diff|branch|rev-parse)\b/i.test(c) ||
     /\b(node|npm|pnpm|yarn|bun)\s+(-v|--version)\b/i.test(c) ||
     /\b(npm|pnpm|yarn|bun)\s+run\s+(typecheck|lint|check|test|build)\b/i.test(c)
   ) {
-    return 'diagnostic'
+    return true
   }
+
+  // Simple inspection — cat/head/tail/ls/pwd/wc (no curl/wget/npm/npx in the same command)
+  if (/\b(curl|wget|npm|npx|pnpm|yarn|bun|pip|sudo)\b/i.test(c)) return false
+  if (
+    /^\s*(cat|head|tail|wc|ls|pwd|file|stat|du|echo|test|true|false)\b/i.test(c) ||
+    /^\s*find\s+\S+\s+-maxdepth\s+\d+/i.test(c)
+  ) {
+    return true
+  }
+
+  return false
+}
+
+export function resolveRunCommandPolicyTier(command: string): RunCommandPolicyTier {
+  const policy = evaluateRunCommandPolicy(command, false)
+  if (policy.kind === 'blocked') return 'hard_deny'
+  if (policy.kind === 'needs_ack') return 'soft_risk'
+  const risk = evaluateAgentCommandRisk(command)
+  if (risk.kind === 'network_or_install') return 'network_install'
+  if (isDiagnosticAutoApproveCommand(command)) return 'diagnostic'
   return 'safe'
 }
 

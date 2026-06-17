@@ -18,6 +18,7 @@ import {
   registerGrokStreamIpc,
   setGrokStreamTargetWindow,
 } from "./xai/stream";
+import { registerAgentCommandApprovalIpc } from "./agent/command-approval";
 import {
   flushActiveAgentTurnReceiptsAsInterruptedForApp,
   registerAgentChatIpc,
@@ -191,6 +192,7 @@ registerAgentChatIpc({
     projectId: currentProjectId,
     manifest: currentProject,
   }),
+  registerCommandApprovalIpc: registerAgentCommandApprovalIpc,
 });
 registerAppIpc({ getMainWindow: () => mainWindow });
 registerXaiSettingsIpc();

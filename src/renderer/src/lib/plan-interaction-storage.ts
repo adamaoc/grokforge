@@ -10,11 +10,12 @@ export type PlanWorkflowMessage = {
   content: string
 }
 
-/** True when assistant content has an open `gf-plan` fence but JSON is not valid yet. */
+/** True when assistant content has an open plan fence but JSON is not valid yet. */
 export function isStreamingGfPlanFenceContent(content: string): boolean {
   if (!content.trim()) return false
   if (parseGfPlanFromAssistantContent(content)) return false
-  return new RegExp('```\\s*' + GF_PLAN_FENCE + '\\s*\\n', 'i').test(content)
+  if (new RegExp('```\\s*' + GF_PLAN_FENCE + '\\s*\\n', 'i').test(content)) return true
+  return /```\s*json\s*\n[\s\S]*"schemaVersion"\s*:\s*1/i.test(content)
 }
 
 export function findLatestPlanInThread(

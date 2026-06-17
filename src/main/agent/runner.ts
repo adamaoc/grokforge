@@ -20,6 +20,7 @@ import {
 import type { GrokProjectManifest } from '../project/manifest';
 import { getXaiApiKey } from '../xai/stream';
 import { hasConfiguredXaiApiKey } from '../xai/key-store';
+import { waitForCommandApproval } from './command-approval';
 
 const ABORT_USER = "gf:agent-user-cancel";
 const ABORT_QUIT = "gf:agent-quit";
@@ -142,6 +143,10 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
         emitActivity,
         newActivityId: activityId,
         getE2eMockReply,
+        commandApproval: {
+          requestApproval: ({ requestId }) =>
+            waitForCommandApproval(requestId, payload.streamId, ac.signal),
+        },
       },
       payload,
       manifest,
@@ -165,8 +170,10 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
 
 export function registerAgentChatIpc(options: {
   getCurrentProject: () => CurrentProjectSnapshot;
+  registerCommandApprovalIpc?: () => void;
 }): void {
   getCurrentProject = options.getCurrentProject;
+  options.registerCommandApprovalIpc?.();
 
   ipcMain.handle(
     "agent-chat-capabilities",

@@ -68,7 +68,7 @@ The model did not need a structured `gf-plan` fence; the **product contract** wa
 
 ## Lessons imported into GrokForge
 
-Captured in story **[118](../project_tasks/post-mvp/118-work-vs-plan-mode-and-conversation-lifecycle.md)**:
+Captured in story **118**:
 
 - **Velocity temperament** ≈ Codex Full access (auto-apply valid proposals; diff + undo still available).
 - **“Build it”** label on approve-and-run in velocity.

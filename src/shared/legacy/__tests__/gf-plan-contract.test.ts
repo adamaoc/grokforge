@@ -5,6 +5,7 @@ import {
   buildGfPlanToolLoopBlock,
   GF_PLAN_FENCE,
   GF_PLAN_OUTPUT_CONTRACT,
+  normalizeGfPlanFencesInAssistantContent,
   parseGfPlanFromAssistantContent,
   stripGfPlanFenceFromAssistantDisplay,
 } from '../../../harness-support/plan/contracts/gf-plan-contract'
@@ -30,6 +31,30 @@ describe('gf-plan-contract', () => {
   it('returns null for invalid JSON inside fence', () => {
     const content = `\`\`\`${GF_PLAN_FENCE}\n{ not json \n\`\`\``
     expect(parseGfPlanFromAssistantContent(content)).toBeNull()
+  })
+
+  it('parses a valid plan from a ```json fence (model mistake)', () => {
+    const content = `Plan ready.\n\n\`\`\`json\n${validJson}\n\`\`\`\n`
+    const plan = parseGfPlanFromAssistantContent(content)
+    expect(plan?.summary).toBe('Do the thing')
+    expect(plan?.steps).toHaveLength(1)
+  })
+
+  it('normalizes ```json plan fences to gf-plan', () => {
+    const content = `Intro\n\`\`\`json\n${validJson}\n\`\`\`\n`
+    const normalized = normalizeGfPlanFencesInAssistantContent(content)
+    expect(normalized).toContain('```gf-plan')
+    expect(normalized).not.toMatch(/```\s*json/i)
+    expect(parseGfPlanFromAssistantContent(normalized)?.summary).toBe('Do the thing')
+  })
+
+  it('stripGfPlanFence removes mistaken ```json plan blocks from display', () => {
+    const stripped = stripGfPlanFenceFromAssistantDisplay(
+      `**Plan ready.**\n\n\`\`\`json\n${validJson}\n\`\`\`\n`,
+    )
+    expect(stripped).toContain('Plan ready')
+    expect(stripped).not.toContain('schemaVersion')
+    expect(stripped).not.toContain('```')
   })
 
   it('GF_PLAN_OUTPUT_CONTRACT is shared by tool loop and final answer builders', () => {

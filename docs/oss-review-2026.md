@@ -4,7 +4,7 @@ Lightweight checklist for story **079** (pre-public OSS). **Reviewer:** Adam Moo
 
 ## README & contributor path
 
-- [x] README documents clone → install → dev, prerequisites (Node 22, xAI API key), and links to `AGENTS.md` and `project_tasks/README.md`.
+- [x] README documents clone → install → dev, prerequisites (Node 22, xAI API key), and links to `AGENTS.md`.
 - [x] `npm run` scripts documented align with `package.json`.
 
 ## Security & threat model (vs `AGENTS.md`)
@@ -32,9 +32,7 @@ Lightweight checklist for story **079** (pre-public OSS). **Reviewer:** Adam Moo
 - GitHub Actions CI (not required for initial public push).
 - Enable **Private vulnerability reporting** in the GitHub repo settings when the repository is created.
 
-## Story **080** — `project_tasks` hygiene (same review pass)
+## Story **080** — task tracking hygiene (historical; superseded 2026-06-16)
 
-- [x] [`project_tasks/README.md`](../project_tasks/README.md): progress table, **Next up** / last-progress lines, story-file convention block, note on skipped **076**.
-- [x] Every `NNN-*.md` and `post-mvp/*.md` story includes **`## Completion bookkeeping`** pointing at `README.md` + `stories.html` regeneration.
-- [x] Root [`CONTRIBUTING.md`](../CONTRIBUTING.md): “How we use `project_tasks`” section.
-- [x] [`project_tasks/stories.html`](../project_tasks/stories.html) regenerated via `npm run stories:html`.
+- [x] In-repo `project_tasks/` and `stories.html` existed for MVP tracking (shipped 2026-05-18).
+- [x] **Superseded:** backlog now lives in **TheTaskManager** (`http://localhost:8080/api`, project `grokforge`). See `AGENTS.md` § Task Manager.

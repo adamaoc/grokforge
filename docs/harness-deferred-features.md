@@ -13,7 +13,7 @@ See [`harness-architecture.md`](./harness-architecture.md) for the runtime map.
 | **Diff review & apply** | archived proposal IPC, diff UI, `write-batch.ts` | Wire `write_file` → optional proposal mirror first |
 | **Plan mode & `gf-plan`** | `plan/`, Plan composer, story 109 | Separate `TurnMode.plan` |
 | **Approve and run** | `isApprovedPlanAutoRun`, executor-from-plan | After plan mode returns |
-| **`run_command` + approval** | `tools/run-command-tool.ts`, command policy | After basic writes work |
+| ~~**`run_command` + approval**~~ | `harness/tools/run-command.ts` + `main/agent/command-approval.ts` | **Shipped** — thin adapter over harness-support |
 | **Subagents (`spawn_subagent`)** | `subagent/` | ampnet had `delegate` |
 | **Voice handoff** | `voice-realtime.ts`, voice profiles | Independent |
 | **Proposal reviewer** | `agent-proposal-reviewer.ts` | Post-diff |
@@ -33,7 +33,7 @@ See [`harness-architecture.md`](./harness-architecture.md) for the runtime map.
 | `search_replace` (legacy alias) | Use `edit` instead |
 | **Direct `edit` with proposals** | Harness v2 has **`edit`** (immediate disk); diff review is deferred |
 | `propose_file_edits` | Proposal pipeline; harness v2 writes directly |
-| `run_command` | Shell policy + approval |
+| ~~`run_command`~~ | Shipped in harness v2 (GFAPP-007) |
 | `spawn_subagent` | Child sessions |
 
 ---

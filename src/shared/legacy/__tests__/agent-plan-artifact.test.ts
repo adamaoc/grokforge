@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildApprovedPlanExecuteSummary,
+  buildApprovedPlanExecuteUserText,
   renderPlanMarkdown,
   StoredPlanArtifactSchema,
 } from '../../../harness-support/plan/contracts/plan-artifact'
@@ -37,6 +38,17 @@ describe('renderPlanMarkdown', () => {
     expect(md).toContain('Scaffold admin route')
     expect(md).toContain('Add layout component')
     expect(md).toContain('npm run typecheck')
+  })
+})
+
+describe('buildApprovedPlanExecuteUserText', () => {
+  it('points at gf-plan virtual read path instead of absolute disk path', () => {
+    const text = buildApprovedPlanExecuteUserText(
+      sampleArtifact.planId,
+      buildApprovedPlanExecuteSummary(StoredPlanArtifactSchema.parse(sampleArtifact)),
+    )
+    expect(text).toContain(`gf-plan:${sampleArtifact.planId}`)
+    expect(text).not.toContain('absolute plan path')
   })
 })
 

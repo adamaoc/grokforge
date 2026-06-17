@@ -3,6 +3,9 @@ import {
   formatPlanExecutePendingSummary,
   hasActionableProposal,
   hasCommandToolFailure,
+  hasHarnessCommandSuccess,
+  hasHarnessDirectWriteSuccess,
+  hasHarnessExecuteSuccess,
   hasRecoveredScaffoldStrategyActivity,
   resolvePlanExecuteRunPhase,
   shouldMarkPlanExecuteFailed,
@@ -245,5 +248,81 @@ describe('hasCommandToolFailure', () => {
     expect(
       hasCommandToolFailure([{ status: 'rejected', title: 'Command rejected' }]),
     ).toBe(true)
+  })
+})
+
+describe('harness v2 direct-write execute signals', () => {
+  it('detects successful write_file and edit activities', () => {
+    expect(
+      hasHarnessDirectWriteSuccess([
+        { status: 'done', title: 'read_file' },
+        { status: 'done', title: 'write_file' },
+      ]),
+    ).toBe(true)
+    expect(
+      hasHarnessDirectWriteSuccess([{ status: 'done', title: 'edit', tool: 'edit' }]),
+    ).toBe(true)
+    expect(hasHarnessDirectWriteSuccess([{ status: 'error', title: 'write_file' }])).toBe(false)
+  })
+
+  it('detects successful run_command activity', () => {
+    expect(
+      hasHarnessCommandSuccess([{ status: 'done', title: 'run_command', tool: 'run_command' }]),
+    ).toBe(true)
+    expect(hasHarnessExecuteSuccess([{ status: 'done', title: 'run_command' }])).toBe(true)
+  })
+
+  it('resolvePlanExecuteRunPhase marks done without proposals when harness wrote files', () => {
+    expect(
+      resolvePlanExecuteRunPhase({
+        temperament: 'velocity',
+        actionableProposal: false,
+        applyOutcome: null,
+        proposalStillPending: false,
+        activities: [
+          { status: 'done', title: 'run_command' },
+          { status: 'done', title: 'write_file' },
+        ],
+      }),
+    ).toBe('done')
+  })
+
+  it('resolvePlanExecuteRunPhase marks done for scaffold-only run_command success', () => {
+    expect(
+      resolvePlanExecuteRunPhase({
+        temperament: 'trust',
+        actionableProposal: false,
+        applyOutcome: null,
+        proposalStillPending: false,
+        activities: [{ status: 'done', title: 'run_command' }],
+      }),
+    ).toBe('done')
+  })
+
+  it('resolvePlanExecuteRunPhase marks needs_review when commands failed but writes succeeded', () => {
+    expect(
+      resolvePlanExecuteRunPhase({
+        temperament: 'velocity',
+        actionableProposal: false,
+        applyOutcome: null,
+        proposalStillPending: false,
+        activities: [
+          { status: 'done', title: 'write_file' },
+          { status: 'rejected', title: 'Command rejected' },
+        ],
+      }),
+    ).toBe('needs_review')
+  })
+
+  it('shouldMarkPlanExecuteFailed is false when harness direct writes succeeded', () => {
+    expect(
+      shouldMarkPlanExecuteFailed(
+        [
+          { status: 'error', title: 'edit' },
+          { status: 'done', title: 'write_file' },
+        ],
+        false,
+      ),
+    ).toBe(false)
   })
 })

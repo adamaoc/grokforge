@@ -122,8 +122,7 @@ function walk(dir) {
   }
 }
 walk(srcRoot)
-const storiesHtml = path.join(root, 'project_tasks', 'stories.html')
-if (fs.existsSync(storiesHtml)) files.push(storiesHtml)
+
 
 let totalReplacements = 0
 const touched = new Set()

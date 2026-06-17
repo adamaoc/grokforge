@@ -11,7 +11,7 @@ description: >-
 
 ## When to use
 
-Read this skill **before** implementing any renderer work touched by `project_tasks/` stories, or whenever you edit `src/renderer/**`.
+Read this skill **before** implementing renderer work tied to a Task Manager story, or whenever you edit `src/renderer/**`.
 
 ## Visual language (established in code)
 
