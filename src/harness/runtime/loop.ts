@@ -13,8 +13,9 @@ import { HarnessIterationExhaustedError } from './loop-errors'
 import { formatWorkTurnRecoverySummary } from './work-turn-recovery'
 import { maybeCompactHarnessSession } from './compaction'
 import { HarnessLogger, preview } from '../logging/logger'
-import { modelChat as defaultModelChat } from '../model/client'
+import { isHarnessModelTimeoutError, modelChat as defaultModelChat } from '../model/client'
 import type { ModelStepResult } from '../model/client'
+import { resolveModelStepTimeoutMs } from './model-step-timeout'
 import type { HarnessProfile } from '../profile/turn-routing'
 import { WORK_PROFILE } from '../profile/work-profile'
 import {
@@ -62,6 +63,7 @@ export async function runHarnessTurnLoop(params: {
     messages: ReturnType<typeof toApiMessages>,
     tools: ReturnType<typeof getToolSchemas>,
     signal: AbortSignal,
+    options?: { timeoutMs?: number },
   ) => Promise<ModelStepResult>
 }): Promise<HarnessLoopResult> {
   const profile = params.profile ?? WORK_PROFILE
@@ -102,17 +104,40 @@ export async function runHarnessTurnLoop(params: {
 
     const modelStarted = Date.now()
     const apiMessages = toApiMessages(params.session.getHistory())
-    const response = await modelChat(
-      params.modelId,
-      apiMessages,
-      toolSchemas,
-      params.signal,
-    )
+    const timeoutMs = resolveModelStepTimeoutMs({
+      step,
+      visibleMessageCount: apiMessages.length,
+    })
+
+    let response: ModelStepResult
+    try {
+      response = await modelChat(
+        params.modelId,
+        apiMessages,
+        toolSchemas,
+        params.signal,
+        { timeoutMs },
+      )
+    } catch (error) {
+      if (isHarnessModelTimeoutError(error)) {
+        await params.logger.event('model_step', {
+          step,
+          profileId: profile.id,
+          outcome: 'timeout',
+          durationMs: Date.now() - modelStarted,
+          timeoutMs,
+          visibleMessageCount: apiMessages.length,
+        })
+      }
+      throw error
+    }
 
     await params.logger.event('model_step', {
       step,
       profileId: profile.id,
+      outcome: 'ok',
       durationMs: Date.now() - modelStarted,
+      timeoutMs,
       promptTokens: response.usage?.prompt_tokens,
       completionTokens: response.usage?.completion_tokens,
       totalTokens: response.usage?.total_tokens,

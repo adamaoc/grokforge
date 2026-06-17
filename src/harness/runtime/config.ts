@@ -17,5 +17,5 @@ export function resolveHarnessMaxToolIterations(turnMode: 'plan' | 'work'): numb
     : HARNESS_MAX_TOOL_ITERATIONS_WORK
 }
 
-/** Non-streaming xAI request timeout for a single model step. */
-export const HARNESS_CHAT_SAMPLE_TIMEOUT_MS = 180_000
+/** Base non-streaming xAI request timeout (see {@link resolveModelStepTimeoutMs}). */
+export { HARNESS_MODEL_STEP_TIMEOUT_BASE_MS as HARNESS_CHAT_SAMPLE_TIMEOUT_MS } from './model-step-timeout'

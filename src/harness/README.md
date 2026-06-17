@@ -31,6 +31,26 @@ Current public exports include:
 - `harnessTurnRouting`
 - `resolveHarnessProfileKey`
 
+## Model step timeouts
+
+Harness v2 applies a **per-model-step** abort timeout on each non-streaming xAI request in the
+tool loop (`src/harness/runtime/model-step-timeout.ts`). This is separate from the tool-round
+iteration cap and from legacy multi-minute turn budgets.
+
+| Phase | Default timeout |
+| --- | --- |
+| Early steps (0–7) | 3 minutes |
+| Late steps (8+) | +1 minute |
+| Deep steps (12+) | +1 additional minute |
+| Large context (24+ visible messages) | +45 seconds |
+| Hard cap (any step) | 5 minutes |
+
+When a step times out, `run-turn.ts` surfaces a harness error that mentions partial disk
+changes may already exist, and the harness log records a `model_step` event with
+`outcome: "timeout"`, `durationMs`, and `timeoutMs`.
+
+Compaction summarization uses the base timeout only (no adaptive bonuses).
+
 ## Tests
 
 Harness tests live next to the code they cover under `__tests__/` folders. Run them with:
