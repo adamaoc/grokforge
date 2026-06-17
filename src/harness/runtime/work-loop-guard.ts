@@ -52,7 +52,7 @@ export function recordWorkToolInvocation(
   resultText?: string,
 ): void {
   recordPlanToolInvocation(state, name, argsJson, ok)
-  if (name === 'write_file' && ok) {
+  if ((name === 'write_file' || name === 'edit') && ok) {
     const path = normalizeWorkspacePath(parseToolPath(argsJson))
     if (path) state.writtenPaths.add(path)
   }

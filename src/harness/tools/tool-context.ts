@@ -9,6 +9,7 @@ import type {
   AgentChatEventPayload,
   AgentCommandApprovalRequest,
 } from '../../shared/agent/chat-contract'
+import type { HarnessProposalAccumulator } from '../proposal/accumulator'
 
 export type HarnessCommandApprovalGate = {
   requestApproval(input: {
@@ -34,4 +35,6 @@ export type HarnessToolRunContext = {
   commandApproval: HarnessCommandApprovalGate
   emit: (payload: AgentChatEventPayload) => void
   updateToolActivity: (update: HarnessToolActivityUpdate) => void
+  /** When set, write_file / edit emit edit_proposal instead of writing disk (GFAPP-012). */
+  proposalAccumulator?: HarnessProposalAccumulator
 }

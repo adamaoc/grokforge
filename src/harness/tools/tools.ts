@@ -7,6 +7,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { computeAgentContentHash } from '../agent/content-hash'
 import { executeEdit } from './edit-tool'
+import { submitHarnessWriteProposal } from '../proposal/submit-write-proposal'
 import { executeRunCommandHarnessTool } from './run-command'
 import type { HarnessToolRunContext } from './tool-context'
 import { notifyHarnessDiskMutation } from '../workspace/fs-refresh'
@@ -56,7 +57,7 @@ const TOOL_SCHEMAS: HarnessToolDefinition[] = [
     function: {
       name: 'write_file',
       description:
-        'Write full file contents (creates parents). Use for new files or large rewrites; prefer edit for small changes to existing files.',
+        'Write full file contents (creates parents). Produces a reviewable edit proposal — nothing hits disk until the user applies. Prefer edit for small changes to existing files.',
       parameters: {
         type: 'object',
         properties: {
@@ -95,7 +96,7 @@ const TOOL_SCHEMAS: HarnessToolDefinition[] = [
     function: {
       name: 'edit',
       description:
-        'Apply targeted edits to an existing file (immediate write). Provide path, edits: [{ oldText, newText }, ...], and expectedContentHash from read_file. All oldText values match the original snapshot, not each other incrementally.',
+        'Apply targeted edits to an existing file (reviewable proposal). Provide path, edits: [{ oldText, newText }, ...], and expectedContentHash from read_file. All oldText values match the original snapshot, not each other incrementally.',
       parameters: {
         type: 'object',
         properties: {
@@ -191,12 +192,27 @@ async function readFileTool(env: HarnessToolEnv, pathArg: string): Promise<strin
   })
 }
 
-async function writeFileTool(env: HarnessToolEnv, pathArg: string, content: string): Promise<string> {
+async function writeFileTool(
+  env: HarnessToolEnv,
+  pathArg: string,
+  content: string,
+  proposalAccumulator?: HarnessToolRunContext['proposalAccumulator'],
+): Promise<{ ok: boolean; text: string }> {
   const resolved = resolveHarnessWritePath(env, pathArg)
+
+  if (proposalAccumulator) {
+    const result = await submitHarnessWriteProposal({
+      accumulator: proposalAccumulator,
+      resolved,
+      content,
+    })
+    return result
+  }
+
   await mkdir(dirname(resolved.absPath), { recursive: true })
   await writeFile(resolved.absPath, content, 'utf-8')
   notifyHarnessDiskMutation(env, resolved)
-  return `Wrote ${resolved.agentPath} (${content.length} characters)`
+  return { ok: true, text: `Wrote ${resolved.agentPath} (${content.length} characters)` }
 }
 
 async function listFilesTool(env: HarnessToolEnv, pathArg: string): Promise<string> {
@@ -282,15 +298,21 @@ export async function executeTool(
     switch (name) {
       case 'read_file':
         return { ok: true, text: await readFileTool(env, String(args.path ?? '')) }
-      case 'write_file':
-        return {
-          ok: true,
-          text: await writeFileTool(env, String(args.path ?? ''), String(args.content ?? '')),
-        }
+      case 'write_file': {
+        const writeResult = await writeFileTool(
+          env,
+          String(args.path ?? ''),
+          String(args.content ?? ''),
+          options?.toolContext?.proposalAccumulator,
+        )
+        return writeResult
+      }
       case 'list_files':
         return { ok: true, text: await listFilesTool(env, String(args.path ?? '.')) }
       case 'edit': {
-        const result = await executeEdit(env, argsJson)
+        const result = await executeEdit(env, argsJson, {
+          proposalAccumulator: options?.toolContext?.proposalAccumulator,
+        })
         return { ok: result.ok, text: result.text }
       }
       case 'run_command': {

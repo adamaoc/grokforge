@@ -28,6 +28,7 @@ import {
   resolveHarnessTurnRouting,
 } from '../profile/turn-routing'
 import { HarnessSession } from '../session/session'
+import { HarnessProposalAccumulator } from '../proposal/accumulator'
 import type { HarnessCommandApprovalGate, HarnessToolRunContext } from '../tools/tool-context'
 
 export type HarnessTurnDeps = {
@@ -174,6 +175,10 @@ export async function runAgentHarnessTurn(
 
   const toolActivityIds = new Map<string, string>()
 
+  const proposalAccumulator = new HarnessProposalAccumulator((proposal) => {
+    deps.emit({ streamId, phase: 'edit_proposal', proposal })
+  })
+
   const toolContext: HarnessToolRunContext = {
     projectId,
     streamId,
@@ -182,6 +187,7 @@ export async function runAgentHarnessTurn(
     activeRootId: workspace.root.id,
     signal: ac.signal,
     commandApproval: deps.commandApproval,
+    proposalAccumulator,
     emit: deps.emit,
     updateToolActivity(update) {
       deps.emitActivity(streamId, {
