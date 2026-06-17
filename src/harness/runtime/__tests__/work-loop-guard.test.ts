@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  WORK_DISCOVERY_INVOCATION_BUDGET,
+  WORK_SAME_PATH_WRITE_THRESHOLD,
   createWorkLoopGuardState,
   evaluateWorkLoopNudge,
   markWorkLoopNudgeSent,
@@ -37,6 +39,47 @@ describe('work-loop-guard', () => {
     const nudge = evaluateWorkLoopNudge(state)
     expect(nudge?.kind).toBe('post_write_verify_thrash')
     expect(nudge?.message).toContain('react-best-practices.md')
+  })
+
+  it('nudges when discovery budget is reached without writes', () => {
+    const state = createWorkLoopGuardState()
+
+    for (let i = 0; i < WORK_DISCOVERY_INVOCATION_BUDGET - 1; i += 1) {
+      recordWorkToolInvocation(
+        state,
+        'read_file',
+        JSON.stringify({ path: `root:src/file-${i}.ts` }),
+        true,
+        'ok',
+      )
+      expect(evaluateWorkLoopNudge(state)).toBeNull()
+    }
+
+    recordWorkToolInvocation(
+      state,
+      'read_file',
+      JSON.stringify({ path: `root:src/file-${WORK_DISCOVERY_INVOCATION_BUDGET}.ts` }),
+      true,
+      'ok',
+    )
+    const nudge = evaluateWorkLoopNudge(state)
+    expect(nudge?.kind).toBe('discovery_budget')
+    expect(nudge?.message).toContain('discovery budget')
+  })
+
+  it('nudges after repeated writes to the same path', () => {
+    const state = createWorkLoopGuardState()
+    const writeArgs = JSON.stringify({ path: 'root:routes/api/posts.js', content: 'x' })
+
+    for (let i = 0; i < WORK_SAME_PATH_WRITE_THRESHOLD - 1; i += 1) {
+      recordWorkToolInvocation(state, 'write_file', writeArgs, true, 'ok')
+      expect(evaluateWorkLoopNudge(state)).toBeNull()
+    }
+
+    recordWorkToolInvocation(state, 'write_file', writeArgs, true, 'ok')
+    const nudge = evaluateWorkLoopNudge(state)
+    expect(nudge?.kind).toBe('repeated_path_write')
+    expect(nudge?.message).toContain('posts.js')
   })
 
   it('fires each nudge kind at most once', () => {

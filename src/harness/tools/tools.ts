@@ -23,8 +23,12 @@ import { shouldIgnoreFsEntry } from '../../main/workspace/ignore-globs'
 import { readGfPlanArtifactContent } from '../../harness-support/plan/contracts/plan-artifact-read'
 import { parseGfPlanArtifactReadPath } from '../../harness-support/plan/contracts/plan-artifact-read-path'
 import type { HarnessToolDefinition } from './tool-schema'
+import {
+  runHarnessSearchWorkspaceTool,
+  runHarnessWorkspaceIndexTool,
+} from './workspace-explore'
 import type { HarnessProfile } from '../profile/turn-routing'
-import { WORK_PROFILE, type HarnessWorkToolName } from '../profile/work-profile'
+import { WORK_PROFILE } from '../profile/work-profile'
 
 function pathErrorText(err: unknown): string {
   if (err instanceof HarnessPathError) return err.message
@@ -33,6 +37,40 @@ function pathErrorText(err: unknown): string {
 }
 
 const TOOL_SCHEMAS: HarnessToolDefinition[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'workspace_index',
+      description:
+        'Return a compact, ignore-aware index of all workspace roots (tree sketch, package hints, important files). Use refresh: true after scaffold or large structural changes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          refresh: {
+            type: 'boolean',
+            description: 'Rebuild the persisted workspace index before returning it.',
+          },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_workspace',
+      description:
+        'Search text files under all workspace roots with strict result caps. Use when the user names a feature or file without a path.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search text (1–200 characters)' },
+          caseSensitive: { type: 'boolean' },
+          regex: { type: 'boolean' },
+        },
+        required: ['query'],
+      },
+    },
+  },
   {
     type: 'function',
     function: {
@@ -156,12 +194,12 @@ const TOOL_SCHEMAS: HarnessToolDefinition[] = [
 ]
 
 export function getToolSchemas(profile: HarnessProfile = WORK_PROFILE): HarnessToolDefinition[] {
-  const allowed = new Set(profile.allowedTools)
-  return TOOL_SCHEMAS.filter((t) => allowed.has(t.function.name as HarnessWorkToolName))
+  const allowed = new Set<string>(profile.allowedTools)
+  return TOOL_SCHEMAS.filter((t) => allowed.has(t.function.name))
 }
 
-function isAllowed(name: string, allowed: readonly HarnessWorkToolName[]): boolean {
-  return (allowed as readonly string[]).includes(name)
+function isAllowed(name: string, allowed: readonly string[]): boolean {
+  return allowed.includes(name)
 }
 
 async function readFileTool(env: HarnessToolEnv, pathArg: string): Promise<string> {
@@ -296,6 +334,16 @@ export async function executeTool(
 
   try {
     switch (name) {
+      case 'workspace_index':
+        return runHarnessWorkspaceIndexTool(env, args, {
+          toolContext: options?.toolContext,
+          signal: options?.toolContext?.signal,
+        })
+      case 'search_workspace':
+        return runHarnessSearchWorkspaceTool(env, args, {
+          toolContext: options?.toolContext,
+          signal: options?.toolContext?.signal,
+        })
       case 'read_file':
         return { ok: true, text: await readFileTool(env, String(args.path ?? '')) }
       case 'write_file': {

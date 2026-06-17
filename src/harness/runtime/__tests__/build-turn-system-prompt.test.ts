@@ -109,6 +109,7 @@ describe('buildHarnessTurnSystemPrompt', () => {
         existingDocPaths: [],
         docsDirectoryEntries: [],
         otherRoots: [],
+        workspaceIndexPromptSection: '## Workspace index (bounded, ignore-aware)',
       },
       profileKey: 'grok_4_3',
       payload: {

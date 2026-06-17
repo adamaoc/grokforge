@@ -361,6 +361,13 @@ export function useAgentStreamEvents({
           clearLiveTurnRouting();
           void flushPendingAutoApply();
         }
+        if (p.turnOutcome === "iteration_exhausted") {
+          toast.message("Hit tool round limit", {
+            description:
+              "Partial work may still apply. Ask what happened? for a summary.",
+            duration: 10_000,
+          });
+        }
         if (
           trimmedFinal &&
           !actionableProposal &&

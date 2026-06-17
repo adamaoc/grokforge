@@ -11,10 +11,11 @@ import {
 import { GREENFIELD_PLAN_SECTIONS } from '../../harness-support/context/greenfield-sections'
 import type { PlanProjectSnapshot } from '../context/project-snapshot'
 import { formatPlanProjectContextSection } from '../context/project-snapshot'
+import { HARNESS_EXPLORE_TOOLS } from './work-profile'
 import { formatWorkspaceRootsForPrompt } from '../workspace/paths'
 import type { HarnessProfileKey } from './profile-key'
 
-export const HARNESS_PLAN_TOOLS = ['list_files', 'read_file'] as const
+export const HARNESS_PLAN_TOOLS = [...HARNESS_EXPLORE_TOOLS, 'list_files', 'read_file'] as const
 
 export type HarnessPlanToolName = (typeof HARNESS_PLAN_TOOLS)[number]
 
@@ -58,7 +59,7 @@ export function buildHarnessPlanSystemPrompt(input: BuildHarnessPlanSystemPrompt
     'The user selected **Plan** in the composer. You are **not** implementing yet.',
     '',
     '**Workflow:**',
-    '1. **Discover lightly** — one `list_files` on `"."` plus **1–2** `read_file` calls on existing docs/manifests (see Project context below).',
+    '1. **Discover lightly** — use the workspace index in the system prompt; add **0–1** `read_file` calls on key existing docs when needed (see Project context below).',
     '2. **Plan** — produce one structured `gf-plan` JSON fence (Senior Staff quality; see bar below).',
     '3. **Stop** — no file writes and no shell commands on this turn.',
     '4. **After this turn** — the user reviews the plan and clicks **Approve & Run** (or continues in Work mode). GrokForge then runs a separate **Work/execute** turn with write tools and `run_command`.',
@@ -84,6 +85,8 @@ export function buildHarnessPlanSystemPrompt(input: BuildHarnessPlanSystemPrompt
 
   const tools = [
     '## Tools (read-only this turn)',
+    '- `workspace_index` — compact ignore-aware map of all roots (optional `refresh: true` after structural changes)',
+    '- `search_workspace` — find files/lines by query across roots',
     '- `list_files` — list one directory level (`"."` lists every root in multi-root projects)',
     '- `read_file` — read exact file contents for **existing** paths only (README, AGENTS.md, CLAUDE.md, package manifests, key sources)',
     '',
@@ -120,6 +123,7 @@ export function buildHarnessPlanSystemPrompt(input: BuildHarnessPlanSystemPrompt
   return [
     `You are GrokForge's **planning agent** for "${manifest.name}".`,
     formatWorkspaceRootsForPrompt(manifest),
+    snapshot.workspaceIndexPromptSection,
     workflow,
     discoveryLimits,
     seniorStaffBar,

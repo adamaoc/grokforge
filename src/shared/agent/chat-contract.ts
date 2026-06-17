@@ -181,6 +181,11 @@ export type AgentChatEventPayload =
     }
   | { streamId: string; phase: 'subagent'; subagent: AgentSubagentEventPayload }
   | { streamId: string; phase: 'final_chunk'; delta: string }
-  | { streamId: string; phase: 'done' }
+  | {
+      streamId: string
+      phase: 'done'
+      /** Set when the harness stopped early but the turn should still finalize (e.g. tool cap). */
+      turnOutcome?: 'complete' | 'iteration_exhausted'
+    }
   | { streamId: string; phase: 'error'; error: string }
   | { streamId: string; phase: 'cancelled' }

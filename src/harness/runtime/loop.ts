@@ -9,6 +9,8 @@
  */
 
 import { HARNESS_MAX_TOOL_ITERATIONS_WORK } from './config'
+import { HarnessIterationExhaustedError } from './loop-errors'
+import { formatWorkTurnRecoverySummary } from './work-turn-recovery'
 import { maybeCompactHarnessSession } from './compaction'
 import { HarnessLogger, preview } from '../logging/logger'
 import { modelChat as defaultModelChat } from '../model/client'
@@ -172,7 +174,14 @@ export async function runHarnessTurnLoop(params: {
     return { finalText: text, steps: step + 1 }
   }
 
-  throw new Error(
+  const recoverySummary = workLoopGuard
+    ? formatWorkTurnRecoverySummary(workLoopGuard, maxToolIterations)
+    : `This turn hit the **${maxToolIterations}** tool-round limit. Ask **what happened?** for a summary.`
+
+  throw new HarnessIterationExhaustedError(
+    maxToolIterations,
+    maxToolIterations,
     `Agent loop exceeded ${maxToolIterations} tool rounds. Continue in a follow-up message if more work remains.`,
+    recoverySummary,
   )
 }

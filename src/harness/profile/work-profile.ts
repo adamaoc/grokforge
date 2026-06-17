@@ -4,11 +4,17 @@
  */
 
 import type { GrokProjectManifest } from '../../main/project/manifest'
+import { getOrRefreshWorkspaceIndex } from '../../harness-support/context/index-store'
+import { formatWorkspaceIndexForPrompt } from '../context/workspace-index-prompt'
 import { formatWorkspaceRootsForPrompt } from '../workspace/paths'
 import { resolveHarnessProfileKey } from './profile-key'
 
+/** Read-only workspace map tools shared with plan profile. */
+export const HARNESS_EXPLORE_TOOLS = ['workspace_index', 'search_workspace'] as const
+
 /** Tool names exposed to the model (ampnet naming + GrokForge `edit` + guarded `run_command`). */
 export const HARNESS_WORK_TOOLS = [
+  ...HARNESS_EXPLORE_TOOLS,
   'list_files',
   'read_file',
   'write_file',
@@ -33,12 +39,24 @@ export const WORK_PROFILE: HarnessWorkProfile = {
  *
  * Logged in full via {@link HarnessLogger} `context_snapshot`.
  */
-export function buildHarnessSystemPrompt(manifest: GrokProjectManifest): string {
+export function buildHarnessSystemPrompt(
+  manifest: GrokProjectManifest,
+  projectId?: string,
+): string {
+  const trimmedProjectId = projectId?.trim()
+  const index = trimmedProjectId
+    ? getOrRefreshWorkspaceIndex(trimmedProjectId, manifest)
+    : null
+
   return [
     `You are a coding agent for the project "${manifest.name}".`,
     formatWorkspaceRootsForPrompt(manifest),
     '',
+    formatWorkspaceIndexForPrompt(manifest, index, { mode: 'work' }),
+    '',
     'Tools (use only these):',
+    '- workspace_index — compact ignore-aware map of all roots (optional refresh: true after structural changes)',
+    '- search_workspace — find files/lines by query across all roots (use before asking for paths)',
     '- list_files — list one directory level ("." lists every root in multi-root projects)',
     '- read_file — returns JSON with rawContent and contentHash',
     '- edit — small changes to existing files (edits[] + expectedContentHash from read_file); creates a reviewable proposal',
