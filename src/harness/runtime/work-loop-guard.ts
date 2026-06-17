@@ -5,27 +5,48 @@
 import { formatGfPlanArtifactReadPath } from '../../harness-support/plan/contracts/plan-artifact-read-path'
 import { recordPlanToolInvocation, type PlanLoopGuardState } from './plan-loop-guard'
 
+const DISCOVERY_TOOLS = new Set([
+  'workspace_index',
+  'search_workspace',
+  'list_files',
+  'read_file',
+])
+
+const WRITE_TOOLS = new Set(['write_file', 'edit'])
+
 export type WorkLoopGuardNudgeKind =
   | 'outside_workspace_read'
   | 'repeated_identical_tool'
   | 'post_write_verify_thrash'
+  | 'discovery_budget'
+  | 'repeated_path_write'
 
 export type WorkLoopGuardState = {
   invocations: PlanLoopGuardState['invocations']
   sent: Set<WorkLoopGuardNudgeKind>
   writtenPaths: Set<string>
+  pathWriteCounts: Map<string, number>
+  discoveryInvocations: number
+  writeInvocations: number
   outsideWorkspaceReadFailures: number
 }
 
 export const WORK_OUTSIDE_WORKSPACE_READ_THRESHOLD = 2
 export const WORK_REPEATED_IDENTICAL_TOOL_THRESHOLD = 3
 export const WORK_POST_WRITE_READ_THRESHOLD = 2
+/** Soft cap — nudge to stop exploring and propose edits. */
+export const WORK_DISCOVERY_INVOCATION_BUDGET = 12
+/** Same-path write_file/edit proposals before a thrash nudge. */
+export const WORK_SAME_PATH_WRITE_THRESHOLD = 3
 
 export function createWorkLoopGuardState(): WorkLoopGuardState {
   return {
     invocations: [],
     sent: new Set(),
     writtenPaths: new Set(),
+    pathWriteCounts: new Map(),
+    discoveryInvocations: 0,
+    writeInvocations: 0,
     outsideWorkspaceReadFailures: 0,
   }
 }
@@ -52,9 +73,16 @@ export function recordWorkToolInvocation(
   resultText?: string,
 ): void {
   recordPlanToolInvocation(state, name, argsJson, ok)
-  if ((name === 'write_file' || name === 'edit') && ok) {
+  if (DISCOVERY_TOOLS.has(name) && ok) {
+    state.discoveryInvocations += 1
+  }
+  if (WRITE_TOOLS.has(name) && ok) {
+    state.writeInvocations += 1
     const path = normalizeWorkspacePath(parseToolPath(argsJson))
-    if (path) state.writtenPaths.add(path)
+    if (path) {
+      state.writtenPaths.add(path)
+      state.pathWriteCounts.set(path, (state.pathWriteCounts.get(path) ?? 0) + 1)
+    }
   }
   if (name === 'read_file' && !ok && resultText?.includes('outside workspace roots')) {
     state.outsideWorkspaceReadFailures += 1
@@ -118,10 +146,41 @@ function postWriteVerifyThrashNudge(state: WorkLoopGuardState): string | null {
   return null
 }
 
+function discoveryBudgetNudge(state: WorkLoopGuardState): string | null {
+  if (state.discoveryInvocations < WORK_DISCOVERY_INVOCATION_BUDGET) return null
+  if (state.writeInvocations > 0) return null
+  return (
+    `Harness: discovery budget reached (**${state.discoveryInvocations}** read/search/list calls, no writes yet). ` +
+    'The workspace index is already in the system prompt. **Stop exploring** and use `write_file` or `edit` for the smallest change that answers the user.'
+  )
+}
+
+function repeatedPathWriteNudge(state: WorkLoopGuardState): string | null {
+  for (const [path, count] of state.pathWriteCounts) {
+    if (count >= WORK_SAME_PATH_WRITE_THRESHOLD) {
+      return (
+        `Harness: you proposed writes to \`${path}\` **${count} times** this turn. ` +
+        'Proposals are not on disk until applied. **Stop rewriting** that path, reply with what you prepared, and let the user apply or auto-apply.'
+      )
+    }
+  }
+  return null
+}
+
 export function evaluateWorkLoopNudge(
   state: WorkLoopGuardState,
   approvedPlanId?: string,
 ): { kind: WorkLoopGuardNudgeKind; message: string } | null {
+  if (!state.sent.has('repeated_path_write')) {
+    const message = repeatedPathWriteNudge(state)
+    if (message) return { kind: 'repeated_path_write', message }
+  }
+
+  if (!state.sent.has('discovery_budget')) {
+    const message = discoveryBudgetNudge(state)
+    if (message) return { kind: 'discovery_budget', message }
+  }
+
   if (!state.sent.has('outside_workspace_read')) {
     const message = outsideWorkspaceReadNudge(state, approvedPlanId)
     if (message) return { kind: 'outside_workspace_read', message }

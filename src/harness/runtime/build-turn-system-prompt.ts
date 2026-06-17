@@ -38,7 +38,7 @@ export function buildHarnessTurnSystemPrompt(input: {
           snapshot,
           profileKey,
         })
-      : buildHarnessSystemPrompt(manifest)
+      : buildHarnessSystemPrompt(manifest, projectId)
 
   let approvedPlanArtifact: StoredPlanArtifact | null = null
   if (payload.isApprovedPlanAutoRun && payload.approvedPlanId) {

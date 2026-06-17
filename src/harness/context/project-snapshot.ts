@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import type { GrokProjectManifest } from '../../main/project/manifest'
 import { loadWorkspaceIndex, type StoredWorkspaceIndex } from '../../harness-support/context/index-store'
 import { isGreenfieldWorkspace } from '../../harness-support/context/workspace-greenfield'
+import { formatWorkspaceIndexForPrompt } from './workspace-index-prompt'
 
 /** Relative paths (from workspace root) the planner should read when present. */
 export const PLAN_DISCOVERY_DOC_CANDIDATES = [
@@ -35,6 +36,8 @@ export type PlanProjectSnapshot = {
   existingDocPaths: string[]
   docsDirectoryEntries: string[]
   otherRoots: Array<{ id: string; label: string }>
+  /** Shared bounded index section (same formatter as work mode). */
+  workspaceIndexPromptSection: string
 }
 
 function fileExistsUnderRoot(workspaceRoot: string, relativePath: string): boolean {
@@ -131,6 +134,10 @@ export function buildPlanProjectSnapshot(
     existingDocPaths: discoverDocPaths(workspaceRoot),
     docsDirectoryEntries: listDocsTopLevel(workspaceRoot),
     otherRoots,
+    workspaceIndexPromptSection: formatWorkspaceIndexForPrompt(manifest, index, {
+      mode: 'plan',
+      includeExplorationGuidance: false,
+    }),
   }
 }
 
@@ -194,10 +201,6 @@ export function formatPlanProjectContextSection(
       'Additional roots (mention in plan when cross-root work is needed):',
       ...snapshot.otherRoots.map((r) => `- ${r.label} (\`${r.id}\`)`),
     )
-  }
-
-  if (snapshot.indexUpdatedAt) {
-    lines.push('', `Workspace index last updated: ${snapshot.indexUpdatedAt}.`)
   }
 
   return lines.join('\n')

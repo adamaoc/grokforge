@@ -25,6 +25,7 @@ function snapshot(overrides?: Partial<PlanProjectSnapshot>): PlanProjectSnapshot
     existingDocPaths: ['README.md', 'AGENTS.md'],
     docsDirectoryEntries: ['docs/architecture.md'],
     otherRoots: [],
+    workspaceIndexPromptSection: '## Workspace index (bounded, ignore-aware)\nTree sketch placeholder.',
     ...overrides,
   }
 }
@@ -41,6 +42,9 @@ describe('buildHarnessPlanSystemPrompt', () => {
     expect(prompt).toContain('gf-plan')
     expect(prompt).toContain('read-only')
     expect(prompt).toContain('Senior Staff')
+    expect(prompt).toContain('workspace_index')
+    expect(prompt).toContain('search_workspace')
+    expect(prompt).toContain('Workspace index')
   })
 
   it('lists discovery doc paths for the planner', () => {

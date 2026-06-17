@@ -19,6 +19,7 @@ import { buildHarnessTurnSystemPrompt } from './build-turn-system-prompt'
 import { estimateVisibleContextChars } from './compaction'
 import { HarnessLogger, summarizeMessagesForLog } from '../logging/logger'
 import { toHarnessModelError } from '../model/client'
+import { isHarnessIterationExhaustedError } from './loop-errors'
 import { runHarnessTurnLoop } from './loop'
 import { resolveHarnessMaxToolIterations } from './config'
 import { resolveHarnessWorkspace } from '../workspace/paths'
@@ -245,6 +246,16 @@ export async function runAgentHarnessTurn(
     })
   } catch (e) {
     if (ac.signal.aborted) throw e
+    if (isHarnessIterationExhaustedError(e)) {
+      await logger.event('turn_exhausted', {
+        steps: e.steps,
+        maxIterations: e.maxIterations,
+      })
+      await streamFinalText(deps, streamId, e.recoverySummary, ac.signal)
+      deps.emit({ streamId, phase: 'activity_clear_running', reason: 'done' })
+      deps.emit({ streamId, phase: 'done', turnOutcome: 'iteration_exhausted' })
+      return
+    }
     const message = toHarnessModelError(e).message
     deps.emit({ streamId, phase: 'error', error: message })
     await logger.event('turn_error', { error: message })

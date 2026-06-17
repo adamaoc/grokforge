@@ -1,7 +1,24 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+const userDataRoot = mkdtempSync(join(tmpdir(), 'gf-harness-tools-userdata-'))
+
+vi.mock('electron', () => ({
+  app: { getPath: () => userDataRoot },
+}))
+
+vi.mock('../../../main/project/store', async () => {
+  const actual = await vi.importActual<typeof import('../../../main/project/store')>(
+    '../../../main/project/store',
+  )
+  return {
+    ...actual,
+    projectDir: (projectId: string) => join(userDataRoot, 'workspace-projects', projectId),
+  }
+})
 import { readFile } from 'node:fs/promises'
 import { computeAgentContentHash } from '../../agent/content-hash'
 import type { GrokProjectManifest } from '../../../main/project/manifest'
@@ -33,6 +50,7 @@ describe('harness tools', () => {
 
   afterEach(async () => {
     if (dir) await rm(dir, { recursive: true, force: true })
+    rmSync(join(userDataRoot, 'workspace-projects'), { recursive: true, force: true })
   })
 
   it('write_file creates a file under workspace root', async () => {
@@ -66,6 +84,28 @@ describe('harness tools', () => {
     const parsed = JSON.parse(res.text) as { rawContent: string; contentHash: string }
     expect(parsed.rawContent).toBe('hello')
     expect(parsed.contentHash).toBe(computeAgentContentHash('hello'))
+  })
+
+  it('workspace_index returns stored index JSON when projectId is set', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'gf-harness-'))
+    await writeFile(join(dir, 'needle.txt'), 'find me\n', 'utf-8')
+    const projectId = 'proj-index-tool'
+    const env: HarnessToolEnv = { manifest: testEnv(dir).manifest, projectId }
+    const res = await executeTool(env, 'workspace_index', JSON.stringify({ refresh: true }))
+    expect(res.ok).toBe(true)
+    const parsed = JSON.parse(res.text) as { summary: { roots: unknown[] }; updatedAt: string }
+    expect(parsed.summary.roots.length).toBeGreaterThan(0)
+    expect(parsed.updatedAt).toBeTruthy()
+  })
+
+  it('search_workspace finds a query match', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'gf-harness-'))
+    await writeFile(join(dir, 'needle.txt'), 'unique-needle-token\n', 'utf-8')
+    const env: HarnessToolEnv = { manifest: testEnv(dir).manifest, projectId: 'proj-search-tool' }
+    const res = await executeTool(env, 'search_workspace', JSON.stringify({ query: 'unique-needle-token' }))
+    expect(res.ok).toBe(true)
+    const parsed = JSON.parse(res.text) as { results: Array<{ path: string }> }
+    expect(parsed.results.some((r) => r.path.endsWith('needle.txt'))).toBe(true)
   })
 
   it('edit applies on current disk when hash is stale but oldText matches', async () => {

@@ -483,6 +483,20 @@ function jsonResult(value: unknown, maxChars: number = AGENT_READ_FILE_MAX_CHARS
   return trimText(JSON.stringify(value, null, 2), maxChars).text
 }
 
+export function executeWorkspaceIndexTool(
+  env: AgentToolExecutionContext,
+  rawArgs: unknown,
+): AgentWorkspaceToolResult {
+  return runWorkspaceIndex(env, rawArgs)
+}
+
+export function executeSearchWorkspaceTool(
+  env: AgentToolExecutionContext,
+  rawArgs: unknown,
+): AgentWorkspaceToolResult {
+  return runSearchWorkspace(env, rawArgs)
+}
+
 function runWorkspaceIndex(env: AgentToolExecutionContext, rawArgs: unknown): AgentWorkspaceToolResult {
   const parsed = WorkspaceIndexInputSchema.safeParse(rawArgs)
   if (!parsed.success) {
