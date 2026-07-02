@@ -45,7 +45,6 @@ function proposalToolContext(
       openTabs: [],
       chatMode: 'fast',
     },
-    activeRootId: 'root',
     signal: new AbortController().signal,
     commandApproval: { requestApproval: vi.fn(async () => false) },
     proposalAccumulator: accumulator,

@@ -113,7 +113,6 @@ import { useChatThreadPersistence } from "./use-chat-thread-persistence";
 export function ChatThread({
   projectId = null,
   project,
-  activeRoot,
   activeFilePath,
   openTabs = [],
   attachments = [],
@@ -204,10 +203,8 @@ export function ChatThread({
   const onCloseDiffSessionRef = useRef(onCloseDiffSession);
   const agentActivity = useAgentChatActivityOptional();
   const projectRef = useRef(project);
-  const activeRootRef = useRef(activeRoot);
   const agentActivityRef = useRef(agentActivity);
   projectRef.current = project;
-  activeRootRef.current = activeRoot;
   agentActivityRef.current = agentActivity;
 
   const displayMessages = useMemo(() => {
@@ -222,12 +219,11 @@ export function ChatThread({
       model: getModelForIntent(project, "voice"),
       turnContext: buildVoiceTurnContext({
         project,
-        activeRoot,
         activeFilePath: activeFilePath ?? null,
       }),
     };
     return [...messages, draftMessage];
-  }, [messages, voiceUserDraft, project, activeRoot, activeFilePath]);
+  }, [messages, voiceUserDraft, project, activeFilePath]);
 
   const threadList = useMemo(() => {
     const base = displayMessages ?? messages ?? [];
@@ -507,9 +503,7 @@ export function ChatThread({
   } = useChatThreadPersistence({
     projectId,
     project,
-    activeRoot,
     projectRef,
-    activeRootRef,
     messages,
     setMessages,
     setVoiceUserDraft,
@@ -637,7 +631,6 @@ export function ChatThread({
 
     const turnCtx = buildTextAgentTurnContext({
       project,
-      activeRoot,
       activeFilePath: activeFilePath ?? null,
       modelIntent: routedModelIntent,
       chatMode: effectiveActiveChatMode,
@@ -794,7 +787,6 @@ export function ChatThread({
         userText: trimmed,
         threadSnapshot,
         activeContext: {
-          activeRootId: activeRoot?.id ?? null,
           activeFilePath: activeFilePath ?? null,
           openTabs,
           attachments,

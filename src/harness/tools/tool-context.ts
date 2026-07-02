@@ -30,7 +30,6 @@ export type HarnessToolRunContext = {
   streamId: string
   manifest: GrokProjectManifest
   activeContext: AgentChatActiveContext
-  activeRootId: string
   signal: AbortSignal
   commandApproval: HarnessCommandApprovalGate
   emit: (payload: AgentChatEventPayload) => void

@@ -40,6 +40,7 @@ export type AgentChatEditorSelection = {
 }
 
 export type AgentChatActiveContext = {
+  /** Legacy renderer hint only. Harness tools do not scope reads/writes/edits to this root. */
   activeRootId?: string | null
   activeFilePath?: string | null
   selectedTreePath?: string | null

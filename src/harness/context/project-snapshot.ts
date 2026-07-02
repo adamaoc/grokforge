@@ -35,7 +35,7 @@ export type PlanProjectSnapshot = {
   packageNames: string[]
   existingDocPaths: string[]
   docsDirectoryEntries: string[]
-  otherRoots: Array<{ id: string; label: string }>
+  workspaceRoots: Array<{ id: string; label: string }>
   /** Shared bounded index section (same formatter as work mode). */
   workspaceIndexPromptSection: string
 }
@@ -46,6 +46,10 @@ function fileExistsUnderRoot(workspaceRoot: string, relativePath: string): boole
   } catch {
     return false
   }
+}
+
+function maybePrefixRootPath(manifest: GrokProjectManifest, rootId: string, relativePath: string): string {
+  return manifest.roots.length > 1 ? `${rootId}:${relativePath}` : relativePath
 }
 
 function discoverDocPaths(workspaceRoot: string): string[] {
@@ -74,12 +78,11 @@ function listDocsTopLevel(workspaceRoot: string): string[] {
 
 function frameworkHintsFromIndex(
   index: StoredWorkspaceIndex | null,
-  activeRootId: string,
 ): { frameworkHints: string[]; packageNames: string[]; fileCountScanned: number | null } {
   if (!index) {
     return { frameworkHints: [], packageNames: [], fileCountScanned: null }
   }
-  const pkgs = index.intelligence.packages.filter((p) => p.rootId === activeRootId)
+  const pkgs = index.intelligence.packages
   const frameworkHints = [
     ...new Set(pkgs.flatMap((p) => p.frameworkHints).filter(Boolean)),
   ].slice(0, 12)
@@ -94,14 +97,9 @@ function frameworkHintsFromIndex(
 export function buildPlanProjectSnapshot(
   manifest: GrokProjectManifest,
   projectId: string,
-  workspaceRoot: string,
-  activeRootId: string,
 ): PlanProjectSnapshot {
   const index = loadWorkspaceIndex(projectId)
-  const { frameworkHints, packageNames, fileCountScanned } = frameworkHintsFromIndex(
-    index,
-    activeRootId,
-  )
+  const { frameworkHints, packageNames, fileCountScanned } = frameworkHintsFromIndex(index)
   const greenfieldWorkspace = isGreenfieldWorkspace({
     index: index
       ? {
@@ -121,9 +119,15 @@ export function buildPlanProjectSnapshot(
     retrievalMatchCount: 0,
   })
 
-  const otherRoots = manifest.roots
-    .filter((r) => r.id !== activeRootId)
-    .map((r) => ({ id: r.id, label: r.label?.trim() || r.id }))
+  const existingDocPaths = manifest.roots.flatMap((root) =>
+    discoverDocPaths(root.path).map((path) => maybePrefixRootPath(manifest, root.id, path)),
+  ).sort()
+
+  const docsDirectoryEntries = manifest.roots.flatMap((root) =>
+    listDocsTopLevel(root.path).map((path) => maybePrefixRootPath(manifest, root.id, path)),
+  ).sort()
+
+  const workspaceRoots = manifest.roots.map((r) => ({ id: r.id, label: r.label?.trim() || r.id }))
 
   return {
     greenfieldWorkspace,
@@ -131,9 +135,9 @@ export function buildPlanProjectSnapshot(
     fileCountScanned,
     frameworkHints,
     packageNames,
-    existingDocPaths: discoverDocPaths(workspaceRoot),
-    docsDirectoryEntries: listDocsTopLevel(workspaceRoot),
-    otherRoots,
+    existingDocPaths,
+    docsDirectoryEntries,
+    workspaceRoots,
     workspaceIndexPromptSection: formatWorkspaceIndexForPrompt(manifest, index, {
       mode: 'plan',
       includeExplorationGuidance: false,
@@ -147,6 +151,8 @@ export function formatPlanProjectContextSection(
   manifest: GrokProjectManifest,
 ): string {
   const lines: string[] = ['## Project context (discovery)']
+  const workspaceRoots =
+    snapshot.workspaceRoots ?? manifest.roots.map((r) => ({ id: r.id, label: r.label?.trim() || r.id }))
   if (manifest.roots.length === 1) {
     const only = manifest.roots[0]!
     lines.push(`Workspace root: **${only.label?.trim() || only.id}**.`)
@@ -195,11 +201,11 @@ export function formatPlanProjectContextSection(
     '- Key entry files (`src/main.tsx`, `app/page.tsx`, etc.) if the task touches application code.',
   )
 
-  if (snapshot.otherRoots.length > 0) {
+  if (workspaceRoots.length > 1) {
     lines.push(
       '',
-      'Additional roots (mention in plan when cross-root work is needed):',
-      ...snapshot.otherRoots.map((r) => `- ${r.label} (\`${r.id}\`)`),
+      'Workspace roots (mention in plan when cross-root work is needed):',
+      ...workspaceRoots.map((r) => `- ${r.label} (\`${r.id}\`)`),
     )
   }
 

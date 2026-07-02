@@ -64,11 +64,9 @@ function gitStatusTooltip(status: GitStatusSummary | undefined, refreshedAt: num
 
 interface SidebarProps {
   project: GrokProjectManifest
-  activeRoot: Root | null
   activeFile: string | null
   openFiles: string[]
   dirtyFiles: Record<string, boolean>
-  onRootChange: (root: Root) => void
   onFileOpen: (filePath: string) => void
   /** Sidebar bottom button — story 025: returns to the Project Dashboard (welcome screen) instead of opening the OS picker. */
   onReturnToDashboard: () => void
@@ -91,11 +89,9 @@ interface SidebarProps {
 
 export function Sidebar({
   project,
-  activeRoot,
   activeFile,
   openFiles,
   dirtyFiles,
-  onRootChange,
   onFileOpen,
   onReturnToDashboard,
   onAddRoot,
@@ -283,15 +279,8 @@ export function Sidebar({
             return (
               <div key={root.id} className="mb-1">
                 <button
-                  onClick={() => {
-                    onRootChange(root)
-                    toggleRoot(root.id)
-                  }}
-                  className={`group flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all ${
-                    activeRoot?.id === root.id
-                      ? 'bg-zinc-800 text-white'
-                      : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200'
-                  }`}
+                  onClick={() => toggleRoot(root.id)}
+                  className="group flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-400 transition-all hover:bg-zinc-900 hover:text-zinc-200"
                 >
                   <RootTypeDot type={root.type} size="md" />
                   <span className="flex-1 text-left truncate">{root.label}</span>

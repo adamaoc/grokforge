@@ -49,7 +49,6 @@ describe('harness turn loop', () => {
       streamId: 'test-stream',
       manifest,
       activeContext: { openTabs: [], chatMode: 'fast' },
-      activeRootId: 'root',
       signal: new AbortController().signal,
       commandApproval: { requestApproval: vi.fn(async () => false) },
       proposalAccumulator,

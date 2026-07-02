@@ -12,7 +12,6 @@ import { toast } from 'sonner'
 
 interface TerminalPanelProps {
   project: GrokProjectManifest
-  activeRoot: Root | null
   open: boolean
   onClose: () => void
   onOpenFileLink?: (path: string, line: number) => void
@@ -37,8 +36,8 @@ type TerminalTab = {
 const MAX_TERMINAL_BUFFER_CHARS = 500_000
 const TERMINAL_TRUST_NOTICE_KEY = 'grokforge.terminalTrustNoticeDismissed'
 
-function fallbackRoot(project: GrokProjectManifest, activeRoot: Root | null): Root | null {
-  return activeRoot ?? project.roots[0] ?? null
+function fallbackRoot(project: GrokProjectManifest): Root | null {
+  return project.roots[0] ?? null
 }
 
 function shellBasename(shell: string): string {
@@ -47,13 +46,12 @@ function shellBasename(shell: string): string {
 
 export function TerminalPanel({
   project,
-  activeRoot,
   open,
   onClose,
   onOpenFileLink,
   onRunningSessionsChange,
 }: TerminalPanelProps) {
-  const firstRoot = fallbackRoot(project, activeRoot)
+  const firstRoot = fallbackRoot(project)
   const [tabs, setTabs] = useState<TerminalTab[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const [newRootId, setNewRootId] = useState(firstRoot?.id ?? '')
@@ -82,10 +80,6 @@ export function TerminalPanel({
   useEffect(() => {
     activeTabIdRef.current = activeTabId
   }, [activeTabId])
-
-  useEffect(() => {
-    if (activeRoot?.id && tabs.length === 0) setNewRootId(activeRoot.id)
-  }, [activeRoot?.id, tabs.length])
 
   const rootById = useMemo(() => {
     return new Map(project.roots.map((root) => [root.id, root]))
@@ -147,7 +141,7 @@ export function TerminalPanel({
 
   const createTab = useCallback(
     (rootId: string) => {
-      const root = rootById.get(rootId) ?? fallbackRoot(project, activeRoot)
+      const root = rootById.get(rootId) ?? fallbackRoot(project)
       if (!root) {
         toast.error('No workspace root available for terminal.')
         return
@@ -167,7 +161,7 @@ export function TerminalPanel({
       setActiveTabId(tab.id)
       void startTabSession(tab.id, root.id)
     },
-    [activeRoot, project, rootById, startTabSession],
+    [project, rootById, startTabSession],
   )
 
   useEffect(() => {
@@ -459,7 +453,7 @@ export function TerminalPanel({
         <div className="flex shrink-0 items-center gap-2 border-b border-zinc-800 bg-zinc-900/60 px-3 py-1.5 text-xs text-zinc-400">
           <AlertTriangle size={14} className="shrink-0 text-amber-300" aria-hidden />
           <span className="min-w-0 flex-1">
-            Terminal starts in the selected root. It is trusted developer tooling, not a sandbox or an agent command surface.
+            Terminal sessions start in the root selected in this panel. It is trusted developer tooling, not a sandbox or an agent command surface.
           </span>
           <button
             type="button"

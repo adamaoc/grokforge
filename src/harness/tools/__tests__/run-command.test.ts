@@ -28,7 +28,6 @@ function harnessContext(
     streamId: 'stream-1',
     manifest: testManifest(dir),
     activeContext: { openTabs: [], chatMode: 'fast' },
-    activeRootId: 'root',
     signal: new AbortController().signal,
     commandApproval: {
       requestApproval: vi.fn(async () => true),
@@ -49,7 +48,7 @@ describe('executeRunCommandHarnessTool', () => {
     dir = ''
   })
 
-  it('defaults rootId to the active root', async () => {
+  it('defaults rootId to the first manifest root for single-root projects', async () => {
     dir = await mkdtemp(join(tmpdir(), 'gf-harness-rc-'))
     const ctx = harnessContext(dir)
     const result = await executeRunCommandHarnessTool(

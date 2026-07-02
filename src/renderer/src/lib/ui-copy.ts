@@ -18,12 +18,6 @@ export function liveAssistantStatusPlaceholder(input: LiveAssistantStatusInput):
 }
 
 /** Compact welcome intro (≤6 lines before suggestion chips). */
-export function buildChatWelcomeContent(
-  projectName: string,
-  activeRootLabel?: string | null,
-): string {
-  const scope = activeRootLabel?.trim()
-    ? ` — active root **${activeRootLabel}**`
-    : ''
-  return `Hey — I'm ready to help with **${projectName}**${scope}. What should we work on?`
+export function buildChatWelcomeContent(projectName: string): string {
+  return `Hey — I'm ready to help with **${projectName}**. What should we work on?`
 }
