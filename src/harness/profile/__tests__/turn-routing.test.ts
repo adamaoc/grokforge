@@ -73,6 +73,46 @@ describe('resolveHarnessTurnRouting', () => {
     expect(routing.agentProfileId).toBe('default')
   })
 
+  it('honors the planning model chip in work mode without switching to planner tools', () => {
+    const routing = resolveHarnessTurnRouting(testManifest(), {
+      ...basePayload('fast'),
+      modelIntent: 'planning',
+    })
+    expect(routing.modelIntent).toBe('planning')
+    expect(routing.modelId).toBe('grok-4.3')
+    expect(routing.agentProfileId).toBe('default')
+    expect(routing.harnessProfileKey).toBe('grok_4_3')
+    expect(resolveHarnessProfile({ ...basePayload('fast'), modelIntent: 'planning' })).toEqual(
+      WORK_PROFILE,
+    )
+  })
+
+  it('honors the execution model chip in work mode with executor routing', () => {
+    const routing = resolveHarnessTurnRouting(testManifest(), {
+      ...basePayload('fast'),
+      modelIntent: 'execution',
+    })
+    expect(routing.modelIntent).toBe('execution')
+    expect(routing.modelId).toBe('grok-build-0.1')
+    expect(routing.agentProfileId).toBe('executor')
+    expect(resolveHarnessProfile({ ...basePayload('fast'), modelIntent: 'execution' })).toEqual(
+      WORK_PROFILE,
+    )
+  })
+
+  it('maps the default chip to planning when the composer is in plan mode', () => {
+    const routing = resolveHarnessTurnRouting(testManifest(), {
+      ...basePayload('plan'),
+      modelIntent: 'chat_default',
+    })
+    expect(routing.modelIntent).toBe('planning')
+    expect(routing.modelId).toBe('grok-4.3')
+    expect(routing.agentProfileId).toBe('planner')
+    expect(resolveHarnessProfile({ ...basePayload('plan'), modelIntent: 'chat_default' })).toEqual(
+      PLAN_PROFILE,
+    )
+  })
+
   it('routes approve-and-run to execution model and executor profile', () => {
     const routing = resolveHarnessTurnRouting(testManifest(), {
       ...basePayload('fast'),
