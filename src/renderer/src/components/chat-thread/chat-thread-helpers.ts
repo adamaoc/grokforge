@@ -102,12 +102,11 @@ export function markProposalApplied(
 
 export function makeWelcomeMessage(
   project: GrokProjectManifest,
-  activeRoot: Root | null,
 ): ChatMessage {
   return {
     id: "welcome",
     role: "assistant",
-    content: buildChatWelcomeContent(project.name, activeRoot?.label ?? null),
+    content: buildChatWelcomeContent(project.name),
     timestamp: new Date(),
   };
 }

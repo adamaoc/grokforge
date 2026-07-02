@@ -7,7 +7,6 @@ import type {
   AgentProposalReview,
   DiffSession,
   GrokProjectManifest,
-  Root,
 } from "@/types";
 import type {
   AgentContextCompanionActions,
@@ -41,7 +40,6 @@ export interface ChatThreadProps {
   /** App storage project id (for plan interaction persistence). */
   projectId?: string | null;
   project: GrokProjectManifest;
-  activeRoot: Root | null;
   activeFilePath?: string | null;
   openTabs?: Array<{ path: string; dirty: boolean }>;
   attachments?: AgentChatAttachment[];

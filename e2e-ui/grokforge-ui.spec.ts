@@ -185,6 +185,6 @@ test.describe('GrokForge Electron UI E2E', () => {
     await page.getByRole('button', { name: 'Back' }).click()
 
     await page.getByRole('button', { name: /^Terminal$/ }).click()
-    await expect(page.getByText(/Terminal starts in the selected root/i)).toBeVisible()
+    await expect(page.getByText(/Terminal sessions start in the root selected in this panel/i)).toBeVisible()
   })
 })

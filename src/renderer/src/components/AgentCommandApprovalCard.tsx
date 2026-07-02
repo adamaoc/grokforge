@@ -102,7 +102,7 @@ export function AgentCommandApprovalCard({
             checked={softRiskAck}
             onChange={(e) => setSoftRiskAck(e.target.checked)}
           />
-          <span>I understand this command may delete files or run elevated shell actions under the selected root.</span>
+          <span>I understand this command may delete files or run elevated shell actions under the requested workspace root.</span>
         </label>
       ) : null}
 

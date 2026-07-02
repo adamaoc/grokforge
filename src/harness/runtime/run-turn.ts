@@ -90,15 +90,13 @@ export async function runAgentHarnessTurn(
   const turnMode = resolveHarnessTurnMode(payload)
   const profile = resolveHarnessProfile(payload)
   const routing = resolveHarnessTurnRouting(manifest, payload)
-  const workspace = resolveHarnessWorkspace(manifest, payload.activeContext.activeRootId)
+  const workspace = resolveHarnessWorkspace(manifest)
 
   const snapshot =
     turnMode === 'plan'
       ? buildPlanProjectSnapshot(
           manifest,
           projectId,
-          workspace.workspaceRoot,
-          workspace.root.id,
         )
       : null
 
@@ -189,7 +187,6 @@ export async function runAgentHarnessTurn(
     streamId,
     manifest,
     activeContext: payload.activeContext,
-    activeRootId: workspace.root.id,
     signal: ac.signal,
     commandApproval: deps.commandApproval,
     proposalAccumulator,

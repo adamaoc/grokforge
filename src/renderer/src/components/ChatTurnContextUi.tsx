@@ -45,10 +45,15 @@ function TurnContextDetailsBody({ tc }: { tc: ChatTurnContextV1 }) {
         </div>
       ) : null}
       <div>
-        <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Active root</div>
+        <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Project scope</div>
         <div className="break-all font-mono text-[10px] text-zinc-400">
-          {tc.activeRootLabel ?? '—'}
-          {tc.activeRootId ? <span className="block text-zinc-500">id: {tc.activeRootId}</span> : null}
+          {tc.roots.length === 1 ? '1 workspace root' : `${tc.roots.length} workspace roots`}
+          {tc.activeRootLabel ? (
+            <span className="block text-zinc-500">
+              Legacy focus: {tc.activeRootLabel}
+              {tc.activeRootId ? ` (${tc.activeRootId})` : ''}
+            </span>
+          ) : null}
         </div>
       </div>
       <div>
@@ -125,21 +130,15 @@ export function UserMessageContextRow({ turnContext, model }: { turnContext: Cha
         </DropdownMenu>
       </div>
       <div className="flex min-w-0 flex-wrap gap-1">
-        {turnContext.roots.map((r) => {
-          const active = turnContext.activeRootId !== null && r.id === turnContext.activeRootId
-          return (
-            <span
-              key={r.id}
-              className={cn(
-                'max-w-full truncate rounded-full border px-2 py-0.5 text-[10px] font-medium',
-                active ? 'border-gf-accent/50 bg-gf-accent/10 text-gf-accent' : 'border-zinc-700/90 bg-zinc-950/60 text-zinc-400',
-              )}
-              title={r.path}
-            >
-              {r.label}
-            </span>
-          )
-        })}
+        {turnContext.roots.map((r) => (
+          <span
+            key={r.id}
+            className="max-w-full truncate rounded-full border border-zinc-700/90 bg-zinc-950/60 px-2 py-0.5 text-[10px] font-medium text-zinc-400"
+            title={r.path}
+          >
+            {r.label}
+          </span>
+        ))}
       </div>
       {turnContext.activeFilePath ? (
         <div className="truncate font-mono text-[10px] text-zinc-500" title={turnContext.activeFilePath}>
@@ -238,12 +237,6 @@ export function AgentActivityTurnContextBanner({ turnContext }: { turnContext: C
     <div className="mb-2 rounded-lg border border-zinc-800/90 bg-zinc-950/50 px-2 py-1.5 text-[11px] text-zinc-400">
       <span className="font-medium text-zinc-500">Turn scope · </span>
       <span className="text-zinc-300">{turnContext.roots.map((r) => r.label).join(', ')}</span>
-      {turnContext.activeRootLabel ? (
-        <span className="text-zinc-500">
-          {' '}
-          · Active: <span className="text-gf-accent">{turnContext.activeRootLabel}</span>
-        </span>
-      ) : null}
       {turnContext.activeFilePath ? (
         <span className="block truncate font-mono text-[10px] text-zinc-500" title={turnContext.activeFilePath}>
           {compactFileLabel(turnContext.activeFilePath)}

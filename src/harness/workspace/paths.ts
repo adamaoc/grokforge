@@ -118,7 +118,7 @@ export function formatWorkspaceRootsForPrompt(manifest: GrokProjectManifest): st
   } else {
     const only = manifest.roots[0]!
     const label = only.label?.trim() || only.id
-    lines.push(`Active root label: **${label}** (id \`${only.id}\`). Use paths relative to this folder (e.g. \`README.md\`, \`src/app.ts\`).`)
+    lines.push(`Workspace root label: **${label}** (id \`${only.id}\`). Use paths relative to this folder (e.g. \`README.md\`, \`src/app.ts\`).`)
   }
   lines.push('', '**Roots:**')
   for (const root of manifest.roots) {
@@ -148,7 +148,6 @@ export function formatWorkspaceRootsForPrompt(manifest: GrokProjectManifest): st
  */
 export function resolveHarnessWorkspace(
   manifest: GrokProjectManifest,
-  _activeRootId?: string | null,
 ): HarnessWorkspaceContext {
   const roots = manifest.roots
   const root = roots[0]!

@@ -2,9 +2,8 @@ import { useState, useEffect } from 'react'
 import { MoreHorizontal, Search, Terminal, Clock, Pencil, SearchCode, Mic } from 'lucide-react'
 import { VoiceHeaderTrigger } from '@/components/VoiceControls'
 import type { VoiceHeaderIndicator } from '@/lib/voice-ui-state'
-import type { AppInfoPayload, GrokProjectManifest, Root } from '@/types'
+import type { AppInfoPayload, GrokProjectManifest } from '@/types'
 import { formatDistanceToNow } from 'date-fns'
-import { RootTypeDot } from '@/components/grokforge/RootTypeDot'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -21,7 +20,6 @@ import { AgentTurnTraceInspector } from '@/components/AgentTurnTraceInspector'
 
 interface ProjectHeaderProps {
   project: GrokProjectManifest
-  activeRoot: Root | null
   /** Opens the same modal used for multi-root project naming. */
   onEditProjectName: () => void
   /** Opens workspace search (story 016). */
@@ -38,7 +36,6 @@ interface ProjectHeaderProps {
 
 export function ProjectHeader({
   project,
-  activeRoot,
   onEditProjectName,
   onOpenSearch,
   onOpenTerminal,
@@ -100,7 +97,7 @@ export function ProjectHeader({
 
   return (
     <>
-      {/* Story 022: native-style window drag — flex-1 left is empty/active-root only; controls are gf-no-drag */}
+      {/* Story 022: native-style window drag — project chrome on the left; controls are gf-no-drag */}
       <div className="gf-drag-region flex h-14 min-w-0 items-center border-b border-zinc-800 bg-zinc-950">
         <div className="flex min-h-0 min-w-0 flex-1 items-center gap-2 pl-6 sm:gap-3">
           <button
@@ -120,17 +117,9 @@ export function ProjectHeader({
               aria-hidden
             />
           </button>
-          {activeRoot ? (
-            <>
-              <span className="shrink-0 text-zinc-600" aria-hidden>
-                ·
-              </span>
-              <div className="flex min-w-0 items-center gap-1.5 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-200">
-                <RootTypeDot type={activeRoot.type} size="sm" />
-                <span className="truncate">{activeRoot.label}</span>
-              </div>
-            </>
-          ) : null}
+          <span className="hidden shrink-0 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-400 sm:inline-flex">
+            {project.roots.length === 1 ? '1 workspace root' : `${project.roots.length} workspace roots`}
+          </span>
         </div>
 
         <div className={cn('gf-no-drag flex shrink-0 items-center gap-3 pr-6 text-sm md:gap-4')}>

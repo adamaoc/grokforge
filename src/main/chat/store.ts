@@ -30,6 +30,7 @@ export type ChatTurnContextV1 = {
   source: 'text' | 'voice'
   modelIntent: 'chat_default' | 'planning' | 'execution' | 'voice'
   chatMode?: 'fast' | 'plan'
+  /** Legacy focus fields for older chat lines; current turns use project-wide scope. */
   activeRootId: string | null
   activeRootLabel: string | null
   activeFilePath: string | null

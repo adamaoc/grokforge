@@ -13,7 +13,6 @@ import type {
   ChatMessage,
   ChatTurnContextV1,
   PersistedChatLineV1,
-  Root,
 } from "@/types";
 import { CHAT_STORE_SCHEMA_VERSION } from "@/types";
 import type { GrokProjectManifest } from "@/types";
@@ -36,9 +35,7 @@ type InflightAssistantSnapshot = {
 type UseChatThreadPersistenceOptions = {
   projectId: string | null | undefined;
   project: GrokProjectManifest;
-  activeRoot: Root | null;
   projectRef: MutableRefObject<GrokProjectManifest>;
-  activeRootRef: MutableRefObject<Root | null>;
   messages: ChatMessage[] | null;
   setMessages: Dispatch<SetStateAction<ChatMessage[] | null>>;
   setVoiceUserDraft: Dispatch<
@@ -80,9 +77,7 @@ function clearPlanInteractionStorage(projectId: string | null | undefined) {
 export function useChatThreadPersistence({
   projectId,
   project,
-  activeRoot,
   projectRef,
-  activeRootRef,
   messages,
   setMessages,
   setVoiceUserDraft,
@@ -106,8 +101,8 @@ export function useChatThreadPersistence({
 }: UseChatThreadPersistenceOptions) {
   const welcomeKey = useMemo(
     () =>
-      `${project.name}\0${project.roots.map((r) => r.id).join(",")}\0${activeRoot?.id ?? ""}`,
-    [project.name, project.roots, activeRoot?.id],
+      `${project.name}\0${project.roots.map((r) => r.id).join(",")}`,
+    [project.name, project.roots],
   );
 
   const appendPersistedLine = useCallback(async (m: ChatMessage) => {
@@ -135,10 +130,7 @@ export function useChatThreadPersistence({
     let cancelled = false;
     (async () => {
       const el = window.electron;
-      const emptyWelcome = makeWelcomeMessage(
-        projectRef.current,
-        activeRootRef.current,
-      );
+      const emptyWelcome = makeWelcomeMessage(projectRef.current);
       if (!el?.loadChatThread) {
         if (!cancelled) setMessages([emptyWelcome]);
         return;
@@ -216,7 +208,6 @@ export function useChatThreadPersistence({
       cancelled = true;
     };
   }, [
-    activeRootRef,
     assistantBufferRef,
     assistantCreatedAtRef,
     assistantIdRef,
@@ -240,11 +231,11 @@ export function useChatThreadPersistence({
       if (!prev || !prev.some((m) => m.id === "welcome")) return prev;
       return prev.map((m) =>
         m.id === "welcome"
-          ? makeWelcomeMessage(projectRef.current, activeRootRef.current)
+          ? makeWelcomeMessage(projectRef.current)
           : m,
       );
     });
-  }, [activeRootRef, projectRef, setMessages, welcomeKey]);
+  }, [projectRef, setMessages, welcomeKey]);
 
   const handlePersistedLine = useCallback(
     (line: PersistedChatLineV1) => {
@@ -310,14 +301,13 @@ export function useChatThreadPersistence({
       toast.error(res.error);
       return;
     }
-    setMessages([makeWelcomeMessage(project, activeRoot)]);
+    setMessages([makeWelcomeMessage(project)]);
     setPendingProposal(null);
     pendingProposalRef.current = null;
     clearPlanInteractionStorage(projectId);
     setPlanUiEpoch((n) => n + 1);
     toast.message("Chat history cleared");
   }, [
-    activeRoot,
     pendingProposalRef,
     project,
     projectId,

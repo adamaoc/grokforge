@@ -3,7 +3,6 @@ import { toast } from 'sonner'
 import type {
   GrokProjectManifest,
   PersistedChatLineV1,
-  Root,
   VoiceRealtimeServerEvent,
   VoiceSessionStartResult,
 } from '@/types'
@@ -134,7 +133,6 @@ function mergeUserVoiceTranscript(buffer: string, next: string): string {
 type UseVoiceSessionArgs = {
   project: GrokProjectManifest | null
   projectId: string | null
-  activeRoot?: Root | null
   activeFilePath?: string | null
   /** Last text-chat summary injected into voice session instructions on connect. */
   getThreadSummaryForVoice?: () => string
@@ -143,7 +141,6 @@ type UseVoiceSessionArgs = {
 export function useVoiceSession({
   project,
   projectId,
-  activeRoot = null,
   activeFilePath = null,
   getThreadSummaryForVoice,
 }: UseVoiceSessionArgs) {
@@ -161,7 +158,6 @@ export function useVoiceSession({
   const speakResponsesLoggedRef = useRef(false)
   const voiceModelRef = useRef('')
   const assistantTranscriptBufRef = useRef<Map<string, string>>(new Map())
-  const activeRootRef = useRef<Root | null>(null)
   const activeFilePathRef = useRef<string | null>(null)
 
   const userVoiceDraftIdRef = useRef<string | null>(null)
@@ -169,10 +165,6 @@ export function useVoiceSession({
   const userVoiceFlushTimerRef = useRef<number | null>(null)
   const getThreadSummaryForVoiceRef = useRef(getThreadSummaryForVoice)
   getThreadSummaryForVoiceRef.current = getThreadSummaryForVoice
-
-  useEffect(() => {
-    activeRootRef.current = activeRoot ?? null
-  }, [activeRoot])
 
   useEffect(() => {
     activeFilePathRef.current = activeFilePath?.trim() ? activeFilePath : null
@@ -213,7 +205,6 @@ export function useVoiceSession({
           ? {
               turnContext: buildVoiceTurnContext({
                 project: proj,
-                activeRoot: activeRootRef.current,
                 activeFilePath: activeFilePathRef.current,
               }),
             }

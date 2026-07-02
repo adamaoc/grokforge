@@ -52,7 +52,6 @@ import {
   type GrokProjectManifest,
   type OpenProjectByIdFailure,
   type OpenProjectResult,
-  type Root,
   type WorkspaceFsMutationEvent,
 } from '@/types'
 import { toast } from 'sonner'
@@ -176,8 +175,6 @@ function sanitizeInnerLayout(layout: Layout | undefined): Layout | undefined {
 interface ProjectWorkspaceShellProps {
   project: GrokProjectManifest
   workspaceProjectId: string | null
-  activeRoot: Root | null
-  setActiveRoot: Dispatch<SetStateAction<Root | null>>
   openFiles: string[]
   activeFile: string | null
   dirtyFiles: Record<string, boolean>
@@ -230,8 +227,6 @@ interface ProjectWorkspaceShellProps {
 function ProjectWorkspaceShell({
   project,
   workspaceProjectId,
-  activeRoot,
-  setActiveRoot,
   openFiles,
   activeFile,
   dirtyFiles,
@@ -669,11 +664,9 @@ function ProjectWorkspaceShell({
         >
           <Sidebar
             project={project}
-            activeRoot={activeRoot}
             activeFile={activeFile}
             openFiles={openFiles}
             dirtyFiles={dirtyFiles}
-            onRootChange={setActiveRoot}
             onFileOpen={openFileWithEditorPane}
             onReturnToDashboard={onReturnToDashboard}
             onAddRoot={onAddRoot}
@@ -695,7 +688,6 @@ function ProjectWorkspaceShell({
         <ResizablePanel id="main" defaultSize="83%" minSize="55%" className="flex min-h-0 min-w-0 flex-col">
           <ProjectHeader
             project={project}
-            activeRoot={activeRoot}
             onEditProjectName={onEditProjectName}
             onOpenSearch={openSearchWorkspace}
             onOpenTerminal={() => setTerminalOpen((o) => !o)}
@@ -740,7 +732,6 @@ function ProjectWorkspaceShell({
                           key={workspaceProjectId ?? project.name}
                           projectId={workspaceProjectId}
                           project={project}
-                          activeRoot={activeRoot}
                           activeFilePath={activeFile}
                           openTabs={openFiles.map((path) => ({ path, dirty: Boolean(dirtyFiles[path]) }))}
                           attachments={chatAttachments}
@@ -856,7 +847,6 @@ function ProjectWorkspaceShell({
               >
                 <TerminalPanel
                   project={project}
-                  activeRoot={activeRoot}
                   open={terminalOpen}
                   onClose={() => setTerminalOpen(false)}
                   onOpenFileLink={openSearchResultWithEditorPane}
@@ -897,7 +887,6 @@ function ProjectWorkspaceShell({
 export default function App() {
   const [project, setProject] = useState<GrokProjectManifest | null>(null)
   const [workspaceProjectId, setWorkspaceProjectId] = useState<string | null>(null)
-  const [activeRoot, setActiveRoot] = useState<Root | null>(null)
   const [openFiles, setOpenFiles] = useState<string[]>([])
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [dirtyFiles, setDirtyFiles] = useState<Record<string, boolean>>({})
@@ -954,7 +943,6 @@ export default function App() {
   const voiceSession = useVoiceSession({
     project,
     projectId: workspaceProjectId,
-    activeRoot,
     activeFilePath: activeFile,
     getThreadSummaryForVoice: () => voiceThreadSummaryRef.current,
   })
@@ -1044,9 +1032,6 @@ export default function App() {
     setWorkspaceFsEpoch(0)
     setProject(manifest)
     setWorkspaceProjectId(projectId)
-    if (manifest.roots.length > 0) {
-      setActiveRoot(manifest.roots[0])
-    }
     toast.success(`Project loaded: ${manifest.name}`)
   }, [closeDiffSession])
 
@@ -1142,7 +1127,6 @@ export default function App() {
     setEditorDiskRefreshRequest(null)
     setWorkspaceFsMutationRequest(null)
     setWorkspaceFsEpoch(0)
-    setActiveRoot(null)
     setWorkspaceProjectId(null)
     setProject(null)
   }, [waitForProjectSwitchDecision, closeDiffSession])
@@ -1162,7 +1146,6 @@ export default function App() {
       setProject(res.manifest)
       const added = res.manifest.roots[res.manifest.roots.length - 1]
       if (added) {
-        setActiveRoot(added)
         toast.success(`Added root: ${added.label}`)
       }
       if (res.manifest.roots.length === 2) {
@@ -1301,8 +1284,6 @@ export default function App() {
           <ProjectWorkspaceShell
             project={project}
             workspaceProjectId={workspaceProjectId}
-            activeRoot={activeRoot}
-            setActiveRoot={setActiveRoot}
             openFiles={openFiles}
             activeFile={activeFile}
             dirtyFiles={dirtyFiles}

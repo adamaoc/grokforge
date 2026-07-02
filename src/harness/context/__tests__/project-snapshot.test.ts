@@ -25,6 +25,16 @@ function manifest(rootPath: string): GrokProjectManifest {
   }
 }
 
+function multiRootManifest(rootA: string, rootB: string): GrokProjectManifest {
+  return {
+    ...manifest(rootA),
+    roots: [
+      { id: 'app', path: rootA, label: 'App' },
+      { id: 'docs', path: rootB, label: 'Docs' },
+    ],
+  }
+}
+
 describe('buildPlanProjectSnapshot', () => {
   let dir = ''
 
@@ -40,7 +50,7 @@ describe('buildPlanProjectSnapshot', () => {
     await mkdir(join(dir, 'docs'))
     await writeFile(join(dir, 'docs', 'guide.md'), '# Guide\n', 'utf-8')
 
-    const snap = buildPlanProjectSnapshot(manifest(dir), 'proj-no-index', dir, 'root')
+    const snap = buildPlanProjectSnapshot(manifest(dir), 'proj-no-index')
     expect(snap.existingDocPaths).toContain('README.md')
     expect(snap.existingDocPaths).toContain('AGENTS.md')
     expect(snap.docsDirectoryEntries).toContain('docs/guide.md')
@@ -50,5 +60,24 @@ describe('buildPlanProjectSnapshot', () => {
     expect(section).toContain('AGENTS.md')
     expect(section).toContain('read_file')
     expect(section).toContain('new** doc or file')
+  })
+
+  it('discovers docs across all workspace roots with root-prefixed paths', async () => {
+    dir = await mkdtemp(join(tmpdir(), 'gf-plan-snap-'))
+    const appRoot = join(dir, 'app')
+    const docsRoot = join(dir, 'docs-root')
+    await mkdir(appRoot)
+    await mkdir(docsRoot)
+    await writeFile(join(appRoot, 'README.md'), '# App\n', 'utf-8')
+    await writeFile(join(docsRoot, 'AGENTS.md'), '# Agents\n', 'utf-8')
+
+    const snap = buildPlanProjectSnapshot(multiRootManifest(appRoot, docsRoot), 'proj-no-index')
+
+    expect(snap.existingDocPaths).toContain('app:README.md')
+    expect(snap.existingDocPaths).toContain('docs:AGENTS.md')
+    expect(snap.workspaceRoots).toEqual([
+      { id: 'app', label: 'App' },
+      { id: 'docs', label: 'Docs' },
+    ])
   })
 })
