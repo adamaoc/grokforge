@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { analyzeAgentEditSafety, mergeAgentEditSafetyResults } from '../../../harness-support/policy/edit/safety-warnings'
+import { analyzeAgentEditSafety, hasSeverePreApplySafety, mergeAgentEditSafetyResults, shouldBlockVelocityAutoApply } from '../../../harness-support/policy/edit/safety-warnings'
 
 const DALLAS_ADMIN_ORIGINAL = `import Link from 'next/link';
 
@@ -207,5 +207,32 @@ describe('mergeAgentEditSafetyResults', () => {
       }),
     ])
     expect(merged.severity).toBe('severe')
+  })
+})
+
+describe('pre-apply safety gates', () => {
+  it('blocks velocity auto-apply on severe merged results', () => {
+    const merged = mergeAgentEditSafetyResults([
+      analyzeAgentEditSafety({
+        original: DALLAS_ADMIN_ORIGINAL,
+        modified: DALLAS_BAD_PROPOSED,
+        status: 'modified',
+      }),
+    ])
+    expect(hasSeverePreApplySafety(merged)).toBe(true)
+    expect(shouldBlockVelocityAutoApply(merged)).toBe(true)
+  })
+
+  it('allows velocity auto-apply on ok merged results', () => {
+    const merged = mergeAgentEditSafetyResults([
+      analyzeAgentEditSafety({
+        original: null,
+        modified: '<!DOCTYPE html>\n<html><body>ok</body></html>\n',
+        status: 'created',
+        resolvedPath: '/proj/index.html',
+      }),
+    ])
+    expect(hasSeverePreApplySafety(merged)).toBe(false)
+    expect(shouldBlockVelocityAutoApply(merged)).toBe(false)
   })
 })

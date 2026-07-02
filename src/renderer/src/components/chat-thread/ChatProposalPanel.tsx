@@ -32,7 +32,7 @@ type ChatProposalPanelProps = {
   pendingOpByNormalizedPath: Map<string, ParsedAgentToolBatch["operations"][number]>;
   pendingEditSafety: AgentEditSafetyResult[];
   hasAnyApplyablePath: boolean;
-  hasSevereLayoutSafety: boolean;
+  hasSeverePreApplySafety: boolean;
   isReviewingProposal: boolean;
   lastEditFailure: AgentEditFailureEvent | null;
   relativePendingPathLabel: (path: string) => string;
@@ -59,7 +59,7 @@ export function ChatProposalPanel({
   pendingOpByNormalizedPath,
   pendingEditSafety,
   hasAnyApplyablePath,
-  hasSevereLayoutSafety,
+  hasSeverePreApplySafety,
   isReviewingProposal,
   lastEditFailure,
   relativePendingPathLabel,
@@ -378,10 +378,10 @@ export function ChatProposalPanel({
                   Fix paths so at least one is under a workspace root, or ask
                   Grok again with the correct absolute paths.
                 </TooltipContent>
-              ) : hasSevereLayoutSafety ? (
+              ) : hasSeverePreApplySafety ? (
                 <TooltipContent side="top" className="max-w-xs text-xs">
-                  Severe formatting issues detected. Use Normalize line breaks
-                  or Ask agent to fix; Apply will ask for confirmation.
+                  Severe safety issues detected. Review the banner above; Apply
+                  will ask for confirmation.
                 </TooltipContent>
               ) : (
                 <TooltipContent side="top" className="text-xs">

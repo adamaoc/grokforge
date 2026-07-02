@@ -289,6 +289,16 @@ export function analyzeAgentEditSafety(args: {
   }
 }
 
+/** Any severe heuristic — blocks Velocity auto-apply; manual apply requires confirmation. */
+export function hasSeverePreApplySafety(result: AgentEditSafetyResult): boolean {
+  return result.severity === 'severe'
+}
+
+/** Velocity temperament skips auto-apply when pre-apply safety is severe. */
+export function shouldBlockVelocityAutoApply(result: AgentEditSafetyResult): boolean {
+  return hasSeverePreApplySafety(result)
+}
+
 export function mergeAgentEditSafetyResults(
   results: AgentEditSafetyResult[],
 ): AgentEditSafetyResult {

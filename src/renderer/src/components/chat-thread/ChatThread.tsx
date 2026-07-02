@@ -364,7 +364,7 @@ export function ChatThread({
     pendingPathPreflight,
     pendingOpByNormalizedPath,
     hasAnyApplyablePath,
-    hasSevereLayoutSafety,
+    hasSeverePreApplySafety,
     mergeIntoPendingProposal,
     flushPendingAutoApply,
     reviewPendingProposalWithReviewer,
@@ -1237,7 +1237,7 @@ export function ChatThread({
               pendingOpByNormalizedPath={pendingOpByNormalizedPath}
               pendingEditSafety={pendingEditSafety}
               hasAnyApplyablePath={hasAnyApplyablePath}
-              hasSevereLayoutSafety={hasSevereLayoutSafety}
+              hasSeverePreApplySafety={hasSeverePreApplySafety}
               isReviewingProposal={isReviewingProposal}
               lastEditFailure={lastEditFailure}
               relativePendingPathLabel={relativePendingPathLabel}
