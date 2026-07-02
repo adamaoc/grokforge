@@ -11,8 +11,8 @@ See [`harness-architecture.md`](./harness-architecture.md) for the runtime map.
 | Feature | Legacy location | Notes for re-entry |
 |---------|----------------|-------------------|
 | **Diff review & apply** | archived proposal IPC, diff UI, `write-batch.ts` | Wire `write_file` → optional proposal mirror first |
-| **Plan mode & `gf-plan`** | `plan/`, Plan composer, story 109 | Separate `TurnMode.plan` |
-| **Approve and run** | `isApprovedPlanAutoRun`, executor-from-plan | After plan mode returns |
+| ~~**Plan mode & `gf-plan`**~~ | `plan/`, Plan composer, story 109 | **Shipped** — v2 uses `TurnMode.plan`, read-only plan tools, and `gf-plan` output |
+| ~~**Approve and run**~~ | `isApprovedPlanAutoRun`, executor-from-plan | **Shipped** — approve-and-run routes to Work execution with approved plan injection |
 | ~~**`run_command` + approval**~~ | `harness/tools/run-command.ts` + `main/agent/command-approval.ts` | **Shipped** — thin adapter over harness-support |
 | **Subagents (`spawn_subagent`)** | `subagent/` | ampnet had `delegate` |
 | **Voice handoff** | `voice-realtime.ts`, voice profiles | Independent |
@@ -40,17 +40,18 @@ See [`harness-architecture.md`](./harness-architecture.md) for the runtime map.
 
 ## Routing & profiles (deferred)
 
-| Feature | Legacy location |
-|---------|----------------|
-| Multiple agent profiles (`planner`, `executor`, `default`, `explorer`) | `profiles/agent-profile.ts` |
-| Per-model harness profiles (`grok_code_fast`, `grok_4_3`) | `profiles/harness-profile.ts` |
-| Post-plan incremental auto-routing | `plan/routing/post-plan-incremental.ts` |
-| Iterative Work edit enforcement | `routing/iterative-work-edit.ts`, `policy/incremental/` |
-| Greenfield / scaffold strategy | `routing/scaffold-strategy.ts` |
-| Model intent chips (planning / execution) | `routing/turn-routing.ts` |
-| Harness mid-turn nudges (20+ kinds) | `policy/`, `agent-runner.ts` |
+| Feature | Legacy location | Notes for re-entry |
+|---------|----------------|-------------------|
+| Multiple agent profiles (`planner`, `executor`, `default`, `explorer`) | `profiles/agent-profile.ts` | Deferred beyond v2's Work/Plan profile split |
+| Per-model harness profiles (`grok_code_fast`, `grok_4_3`) | `profiles/harness-profile.ts` | Routing emits `harnessProfileKey`; per-model prompt sections remain deferred |
+| Post-plan incremental auto-routing | `plan/routing/post-plan-incremental.ts` |  |
+| Iterative Work edit enforcement | `routing/iterative-work-edit.ts`, `policy/incremental/` |  |
+| Greenfield / scaffold strategy | `routing/scaffold-strategy.ts` |  |
+| ~~Model intent chips (planning / execution)~~ | `routing/turn-routing.ts` | **Shipped** — renderer sends `modelIntent`; main/v2 resolves canonical `turn_started.routing` and runs the resolved model |
+| Harness mid-turn nudges (20+ kinds) | `policy/`, `agent-runner.ts` |  |
 
-Harness v2 uses **one profile**: `WORK_PROFILE` in `src/harness/profile.ts`.
+Harness v2 uses Work and Plan profiles under `src/harness/profile/`. Model/profile routing
+is centralized in `turn-routing.ts`; the Work profile still carries the mutating toolset.
 
 ---
 
@@ -100,6 +101,4 @@ See [`PROMPT-VISIBILITY.md`](./PROMPT-VISIBILITY.md) for what we log now vs late
 1. **Multi-root** path resolution + tool descriptions (same as legacy guard)
 2. **Ignore globs + sensitive paths** on read/write/list
 3. **Diff proposals** optional layer on `write_file`
-4. **Plan mode** (separate loop or `TurnMode` switch)
-5. **`run_command`** with approval
-6. Retrieval / pins (only if needed)
+4. Retrieval / pins (only if needed)
