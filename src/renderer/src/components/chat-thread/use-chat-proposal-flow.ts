@@ -37,9 +37,14 @@ import {
 } from "../../lib/legacy-agent/proposal";
 import {
   analyzeAgentEditSafety,
+  hasSeverePreApplySafety as checkSeverePreApplySafety,
   mergeAgentEditSafetyResults,
   type AgentEditSafetyResult,
 } from "../../lib/legacy-agent/edit";
+import {
+  assessPendingWriteBatchSafety,
+  shouldBlockPendingBatchAutoApply,
+} from "@/lib/pending-proposal-safety";
 import { buildRegenerateProposalMessage } from "../../lib/legacy-agent/proposal";
 import {
   type AgentEditFailureEvent,
@@ -339,6 +344,15 @@ export function useChatProposalFlow({
     [executingPlanMessageIdRef],
   );
 
+  const lastUserMessageHint = useMemo(() => {
+    if (!messages) return undefined;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const m = messages[i];
+      if (m?.role === "user" && m.content.trim()) return m.content;
+    }
+    return undefined;
+  }, [messages]);
+
   const flushPendingAutoApply = useCallback(async (): Promise<ApplyBatchOutcome | null> => {
     if (!pendingAutoApplyRef.current) return null;
     const pending = pendingProposalRef.current;
@@ -361,8 +375,36 @@ export function useChatProposalFlow({
       pendingProposalRef.current = next;
       setPendingProposal(next);
     }
+
+    const readFile = window.electron?.readFile;
+    if (readFile == null) {
+      return invokeApplyBatch(batch);
+    }
+    const safetyResults = await assessPendingWriteBatchSafety({
+      batch,
+      roots: project.roots,
+      readFile,
+      userMessageHint: lastUserMessageHint,
+    });
+    const mergedSafety = mergeAgentEditSafetyResults(safetyResults);
+    setPendingEditSafety(safetyResults);
+    if (shouldBlockPendingBatchAutoApply(mergedSafety)) {
+      toast.message("Auto-apply skipped — review safety warnings", {
+        description:
+          mergedSafety.issues[0]?.message ??
+          "This proposal may break files. Apply manually after review.",
+        duration: 12_000,
+      });
+      return null;
+    }
+
     return invokeApplyBatch(batch);
-  }, [invokeApplyBatch, pendingAutoApplyRef]);
+  }, [
+    invokeApplyBatch,
+    lastUserMessageHint,
+    pendingAutoApplyRef,
+    project.roots,
+  ]);
 
   const pendingWriteBatch = pendingProposal?.batch ?? null;
   const pendingRejectedPaths = pendingProposal?.rejected ?? [];
@@ -395,29 +437,20 @@ export function useChatProposalFlow({
     [pendingEditSafety],
   );
 
-  const hasSevereLayoutSafety = useMemo(
-    () =>
-      mergedPendingEditSafety.severity === "severe" &&
-      (mergedPendingEditSafety.hasCollapsedSingleLineSource ||
-        mergedPendingEditSafety.hasMessySourceLayout),
+  const hasSeverePreApplySafety = useMemo(
+    () => checkSeverePreApplySafety(mergedPendingEditSafety),
     [mergedPendingEditSafety],
   );
 
   const confirmApplyDespiteSevereSafety = useCallback((): boolean => {
-    if (!hasSevereLayoutSafety) return true;
+    if (!hasSeverePreApplySafety) return true;
+    const headline =
+      mergedPendingEditSafety.issues[0]?.message ??
+      "This proposal may break one or more files.";
     return window.confirm(
-      "This proposal still has severe formatting issues (crushed or very long lines). Apply anyway?",
+      `${headline}\n\nApply anyway?`,
     );
-  }, [hasSevereLayoutSafety]);
-
-  const lastUserMessageHint = useMemo(() => {
-    if (!messages) return undefined;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i];
-      if (m?.role === "user" && m.content.trim()) return m.content;
-    }
-    return undefined;
-  }, [messages]);
+  }, [hasSeverePreApplySafety, mergedPendingEditSafety.issues]);
 
   const reviewPendingProposalWithReviewer = useCallback(async () => {
     const proposal = pendingProposalRef.current;
@@ -1099,7 +1132,7 @@ export function useChatProposalFlow({
     pendingPathPreflight,
     pendingOpByNormalizedPath,
     hasAnyApplyablePath,
-    hasSevereLayoutSafety,
+    hasSeverePreApplySafety,
     isAppliedProposal,
     lastUserMessageHint,
     mergeIntoPendingProposal,

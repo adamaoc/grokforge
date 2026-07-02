@@ -10,7 +10,9 @@ export type { AgentEditFailureEvent } from "../../../../harness-support/diff/edi
 
 export {
   analyzeAgentEditSafety,
+  hasSeverePreApplySafety,
   mergeAgentEditSafetyResults,
+  shouldBlockVelocityAutoApply,
 } from "../../../../harness-support/policy/edit/safety-warnings";
 
 export type { AgentEditSafetyResult } from "../../../../harness-support/policy/edit/safety-warnings";
