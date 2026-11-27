@@ -160,4 +160,3 @@ Logical program order for **102–114**. Status as of **2026-05-19**.
 
 - [`i-am-a-harness.md`](i-am-a-harness.md) — textbook (agent vs model, patterns, backlog synthesis).
 - [`AGENTS.md`](../AGENTS.md) — contributor guide and agent-chat implementation reference.
-- TheTaskManager API (`http://localhost:8080/api`, project `grokforge`) — active backlog and story specs.

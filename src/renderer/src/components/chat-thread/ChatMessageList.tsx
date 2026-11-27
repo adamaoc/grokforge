@@ -2,94 +2,52 @@ import type { RefObject } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Square } from "lucide-react";
 import type {
+  AgentApprovalRequest,
   AgentChatActivityPayload,
-  AgentChatTurnRouting,
-  AgentCommandApprovalRequest,
-  AgentSubagentEventPayload,
   ChatMessage,
-  ChatTurnContextV1,
+  GrokProjectManifest,
 } from "@/types";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { AgentCommandApprovalCard } from "@/components/AgentCommandApprovalCard";
-import { liveAssistantStatusPlaceholder } from "@/lib/ui-copy";
+import { AgentApprovalCard, type ApprovalScope } from "@/components/AgentApprovalCard";
 import { ChatMessageItem } from "./ChatMessageItem";
 import type { ReadAloudControls } from "./chat-thread-types";
-import type { HarnessTemperament } from "@/lib/harness-temperament";
-
-type PlanApproveHandler = (messageId: string) => void;
 
 type ChatMessageListProps = {
   messagesScrollRef: RefObject<HTMLDivElement | null>;
-  threadList: ChatMessage[];
-  allMessages: ChatMessage[];
-  reserveContextBubbleInset: boolean;
-  streamingStreamId: string | null;
+  messages: ChatMessage[];
+  project: GrokProjectManifest;
+  projectId: string | null | undefined;
   liveAssistantMessageId: string | null;
   liveActivities: AgentChatActivityPayload[];
-  liveSubagent: AgentSubagentEventPayload | null;
-  liveTurnContext: ChatTurnContextV1 | null;
-  liveActivityHasErrors: boolean;
-  activeExecutePlanMessageId: string | null;
-  linkedPlanExecuteMessageId: string | null;
-  executingPlanStepCount?: number;
-  editActivitiesDoneCount: number;
-  isThinking: boolean;
+  approvals: AgentApprovalRequest[];
   busy: boolean;
-  planExecuteStreamActive: boolean;
-  projectId: string | null | undefined;
-  conversationMode: "normal" | "plan";
-  planUiEpoch: number;
-  liveTurnRouting: AgentChatTurnRouting | null;
-  partialExecuteOutcomeSummary: string | null;
   readAloud: ReadAloudControls;
-  harnessTemperament: HarnessTemperament;
   showWelcomeSuggestions: boolean;
-  commandApprovals: AgentCommandApprovalRequest[];
-  hasPendingProposal: boolean;
   onSelectWelcomePrompt: (text: string) => void;
-  onApprovePlan: PlanApproveHandler;
-  onCommandApprove: (
-    request: AgentCommandApprovalRequest,
-    approved: boolean,
-  ) => void;
-  onCommandCopy: (request: AgentCommandApprovalRequest) => void;
-  onCancelStream: () => void;
+  onApprove: (request: AgentApprovalRequest, scope: ApprovalScope) => void;
+  onReject: (request: AgentApprovalRequest) => void;
+  onCopyCommand: (request: AgentApprovalRequest) => void;
+  onStop: () => void;
+  onOpenTerminal?: () => void;
 };
 
 export function ChatMessageList({
   messagesScrollRef,
-  threadList,
-  allMessages,
-  reserveContextBubbleInset,
-  streamingStreamId,
+  messages,
+  project,
+  projectId,
   liveAssistantMessageId,
   liveActivities,
-  liveSubagent,
-  liveTurnContext,
-  liveActivityHasErrors,
-  activeExecutePlanMessageId,
-  linkedPlanExecuteMessageId,
-  executingPlanStepCount,
-  editActivitiesDoneCount,
-  isThinking,
+  approvals,
   busy,
-  planExecuteStreamActive,
-  projectId,
-  conversationMode,
-  planUiEpoch,
-  liveTurnRouting,
-  partialExecuteOutcomeSummary,
   readAloud,
-  harnessTemperament,
   showWelcomeSuggestions,
-  commandApprovals,
-  hasPendingProposal,
   onSelectWelcomePrompt,
-  onApprovePlan,
-  onCommandApprove,
-  onCommandCopy,
-  onCancelStream,
+  onApprove,
+  onReject,
+  onCopyCommand,
+  onStop,
+  onOpenTerminal,
 }: ChatMessageListProps) {
   return (
     <div
@@ -98,92 +56,44 @@ export function ChatMessageList({
     >
       <div className="flex min-h-full min-w-0 w-full flex-col">
         <div className="min-h-0 flex-1 basis-0" aria-hidden />
-        <div
-          className={cn(
-            "min-w-0 w-full max-w-full shrink-0 space-y-6 px-4 pb-4 pt-4",
-            reserveContextBubbleInset
-              ? "pr-[min(19rem,calc(100%-2.5rem))]"
-              : "pr-4",
-          )}
-        >
-          <AnimatePresence>
-            {threadList.map((msg, index) => (
+        <div className="mx-auto w-full min-w-0 max-w-3xl shrink-0 space-y-6 px-4 pb-4 pt-4">
+          <AnimatePresence initial={false}>
+            {messages.map((msg) => (
               <ChatMessageItem
                 key={msg.id}
                 msg={msg}
-                index={index}
-                messages={allMessages}
-                reserveContextBubbleInset={reserveContextBubbleInset}
-                streamingStreamId={streamingStreamId}
-                liveAssistantMessageId={liveAssistantMessageId}
-                liveActivities={liveActivities}
-                liveSubagent={liveSubagent}
-                liveTurnContext={liveTurnContext}
-                liveActivityHasErrors={liveActivityHasErrors}
-                activeExecutePlanMessageId={activeExecutePlanMessageId}
-                linkedPlanExecuteMessageId={linkedPlanExecuteMessageId}
-                executingPlanStepCount={executingPlanStepCount}
-                editActivitiesDoneCount={editActivitiesDoneCount}
-                isThinking={isThinking}
-                busy={busy}
-                planExecuteStreamActive={planExecuteStreamActive}
+                project={project}
                 projectId={projectId}
-                conversationMode={conversationMode}
-                planUiEpoch={planUiEpoch}
-                liveTurnRouting={liveTurnRouting}
-                partialExecuteOutcomeSummary={partialExecuteOutcomeSummary}
+                isLive={busy && msg.id === liveAssistantMessageId}
+                liveActivities={liveActivities}
                 readAloud={readAloud}
-                harnessTemperament={harnessTemperament}
                 showWelcomeSuggestions={showWelcomeSuggestions}
                 onSelectWelcomePrompt={onSelectWelcomePrompt}
-                onApprovePlan={onApprovePlan}
+                onOpenTerminal={onOpenTerminal}
               />
             ))}
           </AnimatePresence>
 
-          {commandApprovals.map((request) => (
-            <AgentCommandApprovalCard
+          {approvals.map((request) => (
+            <AgentApprovalCard
               key={request.requestId}
               request={request}
-              onApprove={(item) => onCommandApprove(item, true)}
-              onReject={(item) => onCommandApprove(item, false)}
-              onCopy={onCommandCopy}
+              onApprove={onApprove}
+              onReject={onReject}
+              onCopy={onCopyCommand}
             />
           ))}
 
-          {isThinking &&
-          streamingStreamId &&
-          liveActivities.length === 0 &&
-          !hasPendingProposal ? (
-            <div className="flex items-center gap-3 pl-1 text-sm text-zinc-400">
-              <div className="flex gap-1">
-                <div
-                  className="h-1 w-1 animate-bounce rounded-full bg-zinc-400"
-                  style={{ animationDelay: "0ms" }}
-                />
-                <div
-                  className="h-1 w-1 animate-bounce rounded-full bg-zinc-400"
-                  style={{ animationDelay: "150ms" }}
-                />
-                <div
-                  className="h-1 w-1 animate-bounce rounded-full bg-zinc-400"
-                  style={{ animationDelay: "300ms" }}
-                />
-              </div>
-              {liveAssistantStatusPlaceholder({
-                planExecuteStreamActive,
-                chatMode: liveTurnContext?.chatMode,
-                hasToolActivities: liveActivities.length > 0,
-                suppressDuplicateStatus: liveActivities.length > 0,
-              })}
+          {busy ? (
+            <div className="flex justify-start">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="ml-2 h-7 rounded-lg border-zinc-700 text-xs"
-                onClick={onCancelStream}
+                className="h-7 gap-1 rounded-lg border-zinc-700 text-xs text-zinc-300"
+                onClick={onStop}
               >
-                <Square size={12} className="mr-1" /> Stop
+                <Square size={11} aria-hidden /> Stop
               </Button>
             </div>
           ) : null}

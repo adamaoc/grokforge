@@ -1,70 +1,33 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
-import type { AgentChatEventPayload, ChatTurnContextV1, PersistedChatLineV1 } from '@/types'
+import type { AgentChatEventPayload, AgentTurnChanges, PersistedChatLineV1 } from '@/types'
 import { CHAT_STORE_SCHEMA_VERSION } from '@/types'
 import { publishChatThreadLine } from '@/lib/chat-thread-bus'
-import { parseGfPlanFromAssistantContent } from '../lib/legacy-agent/plan'
-import { patchPlanInteraction } from '@/lib/plan-interaction-storage'
 import {
   clearAgentChatUnread,
   markAgentChatUnread,
   readAgentChatUnreadProjectIds,
 } from '@/lib/agent-chat-unread-storage'
+import {
+  AgentChatActivityContext,
+  type AgentChatActivityContextValue,
+  type AgentChatAppSurface,
+  type AgentStreamRegistration,
+} from '@/context/agent-chat-activity-context'
+import { formatTurnError } from '@/components/chat-thread/chat-thread-helpers'
+import { routingLabel } from '@/components/chat-thread/use-agent-turn'
 
-export type AgentChatAppSurface = 'welcome' | 'settings' | 'workspace'
-
-export type AgentStreamRegistration = {
-  streamId: string
-  projectId: string
-  assistantId: string
-  model?: string
-  assistantCreatedAt: Date
-  /** Persisted on the assistant line when the turn completes (story 065). */
-  turnContext?: ChatTurnContextV1
-}
+export type { AgentChatAppSurface, AgentStreamRegistration }
 
 type StreamSession = AgentStreamRegistration & {
   buffer: string
-}
-
-type AgentChatActivityContextValue = {
-  registerAgentStream: (meta: AgentStreamRegistration) => void
-  unregisterAgentStream: (streamId: string) => void
-  /** After loadChatThread, merge an in-flight assistant if the coordinator still holds this project. */
-  consumeInflightAssistantSnapshot: (projectId: string) => {
-    streamId: string
-    assistantId: string
-    content: string
-    model?: string
-    createdAt: Date
-    turnContext?: ChatTurnContextV1
-  } | null
-  activityForProject: (projectId: string) => 'none' | 'running' | 'unread'
-  /** Call after localStorage unread map changes outside this provider (e.g. project delete). */
-  refreshAgentChatUnreadUi: () => void
-}
-
-const AgentChatActivityContext = createContext<AgentChatActivityContextValue | null>(null)
-
-export function useAgentChatActivity(): AgentChatActivityContextValue {
-  const v = useContext(AgentChatActivityContext)
-  if (!v) {
-    throw new Error('useAgentChatActivity must be used within AgentChatActivityProvider')
-  }
-  return v
-}
-
-/** Optional: welcome subtree without provider (tests / dev). */
-export function useAgentChatActivityOptional(): AgentChatActivityContextValue | null {
-  return useContext(AgentChatActivityContext)
+  turnChanges?: AgentTurnChanges
 }
 
 export function AgentChatActivityProvider({
@@ -113,7 +76,7 @@ export function AgentChatActivityProvider({
 
   const persistAssistant = useCallback(async (session: StreamSession, content: string, role: 'assistant'): Promise<void> => {
     const trimmed = content.trim()
-    if (!trimmed) return
+    if (!trimmed && !session.turnChanges) return
     const appendForProject = window.electron?.appendChatMessageForProject
     if (!appendForProject) {
       console.error('[AgentChatActivity] appendChatMessageForProject unavailable')
@@ -127,22 +90,12 @@ export function AgentChatActivityProvider({
       timestamp: session.assistantCreatedAt.toISOString(),
       model: session.model,
       ...(session.turnContext ? { turnContext: session.turnContext } : {}),
+      ...(session.turnChanges ? { turnChanges: session.turnChanges } : {}),
     }
     const res = await appendForProject({ projectId: session.projectId, payload: record })
     if (!res.ok) {
       console.error('[AgentChatActivity] appendChatMessageForProject failed', res.error)
       return
-    }
-    if (res.planId) {
-      const parsedPlan = parseGfPlanFromAssistantContent(trimmed)
-      if (parsedPlan) {
-        patchPlanInteraction(
-          session.projectId,
-          session.assistantId,
-          { planId: res.planId },
-          parsedPlan.steps.length,
-        )
-      }
     }
   }, [])
 
@@ -161,12 +114,12 @@ export function AgentChatActivityProvider({
       let assistantContent = session.buffer
       if (kind === 'error') {
         const err = opts.errorMessage?.trim() || 'Unknown error'
-        assistantContent = assistantContent.trim() ? assistantContent : `_(Error: ${err})_`
+        assistantContent = formatTurnError(assistantContent, err)
       }
 
       await persistAssistant(session, assistantContent, 'assistant')
 
-      const hadAssistant = assistantContent.trim().length > 0
+      const hadAssistant = assistantContent.trim().length > 0 || Boolean(session.turnChanges)
       if (hadAssistant) {
         publishChatThreadLine({
           schemaVersion: CHAT_STORE_SCHEMA_VERSION,
@@ -176,6 +129,7 @@ export function AgentChatActivityProvider({
           timestamp: session.assistantCreatedAt.toISOString(),
           model: session.model,
           ...(session.turnContext ? { turnContext: session.turnContext } : {}),
+          ...(session.turnChanges ? { turnChanges: session.turnChanges } : {}),
         })
       }
       const onWorkspaceForProject =
@@ -200,6 +154,16 @@ export function AgentChatActivityProvider({
 
       if (p.phase === 'final_chunk') {
         session.buffer += p.delta
+        return
+      }
+
+      if (p.phase === 'turn_started') {
+        session.model = routingLabel(p.routing)
+        return
+      }
+
+      if (p.phase === 'turn_changes') {
+        session.turnChanges = p.changes
         return
       }
 

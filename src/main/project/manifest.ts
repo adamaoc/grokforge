@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { AgentReviewerConfigSchema } from '../../shared/agent/proposal-reviewer'
 
 export const RootSchema = z.object({
   id: z.string(),
@@ -17,14 +16,8 @@ export const GrokProjectManifestSchema = z.object({
   description: z.string().optional(),
   roots: z.array(RootSchema).min(1),
   ignore: z.array(z.string()).optional(),
-  models: z.object({
-    default: z.string(),
-    planning: z.string(),
-    execution: z.string(),
-    reasoning: z.string(),
-    voice: z.string(),
-  }),
-  reviewer: AgentReviewerConfigSchema.optional(),
+  /** Only `voice` is used now; older projects may carry extra model slots (kept as-is). */
+  models: z.object({ voice: z.string().optional() }).passthrough().optional(),
   voice: z.object({
     enabled: z.boolean(),
     defaultVoiceMode: z.enum(['full-duplex', 'push-to-talk', 'off']),
@@ -32,11 +25,14 @@ export const GrokProjectManifestSchema = z.object({
     autoListen: z.boolean(),
     speakResponses: z.boolean(),
   }),
-  context: z.object({
-    alwaysInclude: z.array(z.string().max(4096)),
-    customInstructions: z.string().max(96_000).optional(),
-    customInstructionsFile: z.string().max(4096).optional(),
-  }),
+  /** Legacy agent-context settings; unused by external agents, kept for older projects. */
+  context: z
+    .object({
+      alwaysInclude: z.array(z.string().max(4096)).optional(),
+      customInstructions: z.string().max(96_000).optional(),
+      customInstructionsFile: z.string().max(4096).optional(),
+    })
+    .optional(),
   metadata: z.object({
     createdAt: z.string(),
     lastOpened: z.string(),

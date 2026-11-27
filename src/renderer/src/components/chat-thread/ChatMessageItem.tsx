@@ -1,390 +1,175 @@
-import { Copy, Loader2, Square, Volume2 } from "lucide-react";
+import { Copy, FileText, Folder, Loader2, Square, TerminalSquare, Volume2 } from "lucide-react";
 import { motion } from "framer-motion";
-import type {
-  AgentChatActivityPayload,
-  AgentChatTurnRouting,
-  AgentSubagentEventPayload,
-  ChatMessage,
-  ChatTurnContextV1,
-} from "@/types";
+import type { AgentChatActivityPayload, ChatMessage, GrokProjectManifest } from "@/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChatThreadMarkdown } from "@/components/ChatThreadMarkdown";
-import {
-  AssistantMessageContextFooter,
-  UserMessageContextRow,
-} from "@/components/ChatTurnContextUi";
-import { AgentTurnToolActivityList } from "@/components/AgentTurnToolActivityList";
-import { SubagentActivityBlock } from "@/components/SubagentActivityBlock";
 import { ChatWelcomeSuggestions } from "@/components/ChatWelcomeSuggestions";
-import { PlanModeCard } from "@/components/PlanModeCard";
-import type { HarnessTemperament } from "@/lib/harness-temperament";
-import { liveAssistantStatusPlaceholder } from "@/lib/ui-copy";
-import {
-  resolveFailedEditFinalAnswerDisplayContext,
-  sanitizeFailedEditFinalAnswerDisplay,
-  shouldSanitizeFailedEditFinalAnswerDisplay,
-} from "@/lib/assistant-final-answer-sanitize";
-import { stripAgentToolFenceFromAssistantDisplay } from "../../lib/legacy-agent/tools";
-import { AGENT_TOOL_FENCE_INFO } from "../../lib/legacy-agent/tools";
-import {
-  GF_PLAN_FENCE,
-  parseGfPlanFromAssistantContent,
-  stripGfPlanFenceFromAssistantDisplay,
-} from "../../lib/legacy-agent/plan";
-import { resolvePlanWorkflowPhase } from "@/lib/plan-interaction-storage";
+import { basenamePath } from "@/lib/workspace-paths";
+import { AgentActivityList } from "./AgentActivityList";
+import { TurnChangesCard } from "./TurnChangesCard";
 import type { ReadAloudControls } from "./chat-thread-types";
-
-type PlanApproveHandler = (messageId: string) => void;
 
 type ChatMessageItemProps = {
   msg: ChatMessage;
-  index: number;
-  messages: ChatMessage[];
-  reserveContextBubbleInset: boolean;
-  streamingStreamId: string | null;
-  liveAssistantMessageId: string | null;
-  liveActivities: AgentChatActivityPayload[];
-  liveSubagent: AgentSubagentEventPayload | null;
-  liveTurnContext: ChatTurnContextV1 | null;
-  liveActivityHasErrors: boolean;
-  activeExecutePlanMessageId: string | null;
-  linkedPlanExecuteMessageId: string | null;
-  executingPlanStepCount?: number;
-  editActivitiesDoneCount: number;
-  isThinking: boolean;
-  busy: boolean;
-  planExecuteStreamActive: boolean;
+  project: GrokProjectManifest;
   projectId: string | null | undefined;
-  conversationMode: "normal" | "plan";
-  planUiEpoch: number;
-  liveTurnRouting: AgentChatTurnRouting | null;
-  partialExecuteOutcomeSummary: string | null;
+  isLive: boolean;
+  liveActivities: AgentChatActivityPayload[];
   readAloud: ReadAloudControls;
-  harnessTemperament: HarnessTemperament;
   showWelcomeSuggestions: boolean;
   onSelectWelcomePrompt: (text: string) => void;
-  onApprovePlan: PlanApproveHandler;
+  onOpenTerminal?: () => void;
 };
+
+/** Failed turn whose reason is a missing sign-in (see `src/main/acp/providers.ts` hints). */
+function needsAgentSignIn(content: string): boolean {
+  return content.includes("**The agent stopped.**") && /grok login|\/login/.test(content);
+}
+
+function IconAction({
+  label,
+  onClick,
+  disabled,
+  busy,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  busy?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          disabled={disabled}
+          aria-busy={busy}
+          className="h-8 w-8 shrink-0 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
+          aria-label={label}
+          onClick={onClick}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-xs">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function ChatMessageItem({
   msg,
-  index,
-  messages,
-  reserveContextBubbleInset,
-  streamingStreamId,
-  liveAssistantMessageId,
-  liveActivities,
-  liveSubagent,
-  liveTurnContext,
-  liveActivityHasErrors,
-  activeExecutePlanMessageId,
-  linkedPlanExecuteMessageId,
-  executingPlanStepCount,
-  editActivitiesDoneCount,
-  isThinking,
-  busy,
-  planExecuteStreamActive,
+  project,
   projectId,
-  conversationMode,
-  planUiEpoch,
-  liveTurnRouting,
-  partialExecuteOutcomeSummary,
+  isLive,
+  liveActivities,
   readAloud,
-  harnessTemperament,
   showWelcomeSuggestions,
   onSelectWelcomePrompt,
-  onApprovePlan,
+  onOpenTerminal,
 }: ChatMessageItemProps) {
-  const plan =
-    msg.role === "assistant"
-      ? parseGfPlanFromAssistantContent(msg.content)
-      : null;
-  const isLiveAssistantTurn =
-    msg.role === "assistant" &&
-    Boolean(streamingStreamId) &&
-    msg.id === liveAssistantMessageId;
-  const liveToolActivities = isLiveAssistantTurn ? liveActivities : [];
-  const storedToolActivities = msg.toolActivities ?? [];
-  const toolActivitiesForMessage =
-    liveToolActivities.length > 0 ? liveToolActivities : storedToolActivities;
-  const failedEditDisplayCtx = resolveFailedEditFinalAnswerDisplayContext(
-    toolActivitiesForMessage,
-    isLiveAssistantTurn ? liveTurnContext : msg.turnContext,
-  );
-  let assistantMarkdown =
-    msg.role === "assistant"
-      ? stripGfPlanFenceFromAssistantDisplay(msg.content)
-      : msg.content;
-  if (
-    msg.role === "assistant" &&
-    shouldSanitizeFailedEditFinalAnswerDisplay(failedEditDisplayCtx) &&
-    !(isLiveAssistantTurn && isThinking)
-  ) {
-    assistantMarkdown = sanitizeFailedEditFinalAnswerDisplay(
-      assistantMarkdown,
-      failedEditDisplayCtx,
+  const isVoice = msg.turnContext?.source === "voice";
+
+  if (msg.role === "user") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex w-full min-w-0 justify-end"
+      >
+        <div
+          className={cn(
+            "min-w-0 max-w-[min(85%,36rem)] rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm text-zinc-100",
+            isVoice && "border-violet-500/40",
+          )}
+        >
+          <ChatThreadMarkdown content={msg.content || ""} role="user" />
+          {msg.attachments?.length ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {msg.attachments.map((a, i) => (
+                <span
+                  key={`${a.path ?? a.rootId ?? ""}-${i}`}
+                  className="inline-flex max-w-full items-center gap-1 rounded-md bg-zinc-800/80 px-1.5 py-0.5 text-[11px] text-zinc-400"
+                  title={a.path}
+                >
+                  {a.type === "folder" ? <Folder size={11} aria-hidden /> : <FileText size={11} aria-hidden />}
+                  <span className="truncate">{basenamePath(a.path ?? "") || a.path}</span>
+                </span>
+              ))}
+            </div>
+          ) : null}
+          {isVoice ? <p className="mt-1.5 text-[10px] uppercase tracking-wide text-violet-300/70">Voice</p> : null}
+        </div>
+      </motion.div>
     );
   }
-  const assistantVisible =
-    msg.role === "assistant"
-      ? stripAgentToolFenceFromAssistantDisplay(assistantMarkdown)
-      : msg.content;
-  const showAssistantMd =
-    msg.role === "assistant" && assistantVisible.trim().length > 0;
-  const showEmptyToolFence =
-    msg.role === "assistant" &&
-    msg.content.trim().length > 0 &&
-    !assistantVisible.trim() &&
-    !plan &&
-    msg.content.includes(AGENT_TOOL_FENCE_INFO);
-  const showGfPlanStreaming =
-    isLiveAssistantTurn &&
-    msg.content.trim().length > 0 &&
-    !assistantVisible.trim() &&
-    !plan &&
-    (new RegExp("```\\s*" + GF_PLAN_FENCE, "i").test(msg.content) ||
-      /```\s*json\s*\n[\s\S]*"schemaVersion"\s*:\s*1/i.test(msg.content));
-  const subagentForMessage = isLiveAssistantTurn
-    ? liveSubagent
-    : msg.subagentActivity ?? null;
-  const showToolActivityList = toolActivitiesForMessage.length > 0;
-  const planCardPhase = plan
-    ? resolvePlanWorkflowPhase({
-        conversationMode,
-        busy:
-          busy &&
-          planExecuteStreamActive &&
-          linkedPlanExecuteMessageId === msg.id,
-        liveChatMode: isLiveAssistantTurn
-          ? liveTurnContext?.chatMode
-          : undefined,
-        isStreamingPlanFence: isLiveAssistantTurn && showGfPlanStreaming,
-        executingPlanMessageId:
-          linkedPlanExecuteMessageId === msg.id ? msg.id : null,
-        executingPlanStepCount: plan.steps.length,
-        projectId,
-        messages,
-      })
-    : null;
+
+  const activities = isLive ? liveActivities : (msg.toolActivities ?? []);
+  const hasText = msg.content.trim().length > 0;
+  const isWelcome = msg.id === "welcome";
 
   return (
     <motion.div
-      key={msg.id}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.03 }}
-      className={cn(
-        "flex w-full min-w-0 max-w-full overflow-x-hidden",
-        msg.role === "user" ? "justify-end" : "justify-start",
-      )}
+      className={cn("w-full min-w-0 py-1", isVoice && "border-l-2 border-l-violet-500/45 pl-3")}
     >
-      <div
-        className={cn(
-          "min-w-0",
-          msg.role === "user"
-            ? cn(
-                "rounded-2xl border bg-zinc-800/95 px-4 py-3 text-zinc-100 shadow-sm",
-                msg.turnContext?.source === "voice"
-                  ? "border-violet-600/45 shadow-[0_0_0_1px_rgba(139,92,246,0.12)]"
-                  : "border-zinc-700/90",
-                reserveContextBubbleInset
-                  ? "max-w-[min(85%,min(26rem,calc(100%-1rem)))]"
-                  : "max-w-[min(85%,26rem)]",
-              )
-            : cn(
-                "w-full max-w-full px-0 py-1",
-                (msg.turnContext?.source === "voice" ||
-                  msg.model?.startsWith("grok-voice")) &&
-                  "border-l-2 border-l-violet-500/45 pl-2",
-              ),
-        )}
-      >
-        {msg.role === "assistant" ? (
-          <>
-            {subagentForMessage ? (
-              <SubagentActivityBlock
-                subagent={subagentForMessage}
-                isLive={isLiveAssistantTurn}
-              />
-            ) : null}
-            {showToolActivityList ? (
-              <AgentTurnToolActivityList
-                activities={toolActivitiesForMessage}
-                turnContext={
-                  isLiveAssistantTurn ? liveTurnContext : msg.turnContext
-                }
-                isLive={isLiveAssistantTurn}
-                forceExpanded={isLiveAssistantTurn && liveActivityHasErrors}
-                planStepCount={
-                  activeExecutePlanMessageId === msg.id
-                    ? executingPlanStepCount
-                    : undefined
-                }
-                completedEditActivities={
-                  activeExecutePlanMessageId === msg.id && isLiveAssistantTurn
-                    ? editActivitiesDoneCount
-                    : undefined
-                }
-              />
-            ) : null}
-            {msg.content.trim() ? (
-              <>
-                {showAssistantMd && !plan ? (
-                  <>
-                    <ChatThreadMarkdown
-                      content={assistantVisible}
-                      role="assistant"
-                    />
-                    {msg.id === "welcome" && showWelcomeSuggestions ? (
-                      <ChatWelcomeSuggestions
-                        onSelectPrompt={onSelectWelcomePrompt}
-                      />
-                    ) : null}
-                  </>
-                ) : showAssistantMd && plan ? (
-                  <p className="mb-2 text-sm leading-relaxed text-zinc-400">
-                    {assistantVisible}
-                  </p>
-                ) : showEmptyToolFence ? (
-                  <p className="text-sm leading-relaxed text-zinc-500">
-                    This reply included structured file edits (hidden in chat).
-                  </p>
-                ) : showGfPlanStreaming ? (
-                  <p className="text-sm leading-relaxed text-zinc-500">
-                    Structured plan (streaming)...
-                  </p>
-                ) : isLiveAssistantTurn && isThinking ? (
-                  <p className="text-sm leading-relaxed text-zinc-500">
-                    {liveAssistantStatusPlaceholder({
-                      planExecuteStreamActive,
-                      chatMode: liveTurnContext?.chatMode,
-                      hasToolActivities: showToolActivityList,
-                      suppressDuplicateStatus: showToolActivityList,
-                    })}
-                  </p>
-                ) : null}
-                {plan ? (
-                  <PlanModeCard
-                    key={`${msg.id}-plan-${planUiEpoch}`}
-                    projectId={projectId}
-                    messageId={msg.id}
-                    plan={plan}
-                    assistantContent={msg.content}
-                    refreshEpoch={planUiEpoch}
-                    busy={busy}
-                    isExecuting={
-                      planExecuteStreamActive &&
-                      activeExecutePlanMessageId === msg.id
-                    }
-                    anotherPlanExecuting={
-                      planExecuteStreamActive &&
-                      activeExecutePlanMessageId != null &&
-                      activeExecutePlanMessageId !== msg.id
-                    }
-                    liveRouting={
-                      activeExecutePlanMessageId === msg.id
-                        ? liveTurnRouting
-                        : null
-                    }
-                    uiPhase={planCardPhase ?? undefined}
-                    executeOutcomeSummary={
-                      partialExecuteOutcomeSummary &&
-                      planCardPhase === "needs_review"
-                        ? partialExecuteOutcomeSummary
-                        : undefined
-                    }
-                    onApproveAndRun={onApprovePlan}
-                    harnessTemperament={harnessTemperament}
-                  />
-                ) : null}
-              </>
-            ) : isThinking && !showToolActivityList ? (
-              <div className="text-sm leading-relaxed text-zinc-400">...</div>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <ChatThreadMarkdown content={msg.content || ""} role="user" />
-            {msg.turnContext ? (
-              <UserMessageContextRow
-                turnContext={msg.turnContext}
-                model={msg.model}
-              />
-            ) : null}
-          </>
-        )}
-        {msg.role === "assistant" && msg.id !== "welcome" ? (
-          <AssistantMessageContextFooter
-            turnContext={msg.turnContext}
-            model={msg.model}
-            leadingActions={
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-10 w-10 shrink-0 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
-                      aria-label="Copy message"
-                      onClick={() => void readAloud.copyPlainText(assistantVisible)}
-                    >
-                      <Copy size={14} aria-hidden />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    Copy
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      disabled={
-                        readAloud.loadingMessageId !== null &&
-                        readAloud.loadingMessageId !== msg.id
-                      }
-                      aria-busy={readAloud.loadingMessageId === msg.id}
-                      className="h-10 w-10 shrink-0 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200 disabled:opacity-40"
-                      aria-label={
-                        readAloud.playingMessageId === msg.id
-                          ? "Stop read aloud"
-                          : "Read aloud"
-                      }
-                      onClick={() =>
-                        void readAloud.toggleReadAloud(msg.id, assistantVisible)
-                      }
-                    >
-                      {readAloud.loadingMessageId === msg.id ? (
-                        <Loader2
-                          size={14}
-                          className="animate-spin"
-                          aria-hidden
-                        />
-                      ) : readAloud.playingMessageId === msg.id ? (
-                        <Square size={14} aria-hidden />
-                      ) : (
-                        <Volume2 size={14} aria-hidden />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    {readAloud.playingMessageId === msg.id ? "Stop" : "Read aloud"}
-                  </TooltipContent>
-                </Tooltip>
-              </>
-            }
-          />
-        ) : null}
-      </div>
+      <AgentActivityList activities={activities} isLive={isLive} />
+      {hasText ? (
+        <ChatThreadMarkdown content={msg.content} role="assistant" />
+      ) : isLive && activities.length === 0 ? (
+        <p className="text-sm text-zinc-500">Starting the agent…</p>
+      ) : null}
+      {!isLive && onOpenTerminal && needsAgentSignIn(msg.content) ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="mt-2 h-8 gap-1.5 rounded-xl border-zinc-700 text-xs"
+          onClick={onOpenTerminal}
+        >
+          <TerminalSquare size={13} aria-hidden /> Open terminal to sign in
+        </Button>
+      ) : null}
+      {isWelcome && showWelcomeSuggestions ? (
+        <ChatWelcomeSuggestions project={project} onSelectPrompt={onSelectWelcomePrompt} />
+      ) : null}
+      {msg.turnChanges && projectId ? (
+        <TurnChangesCard projectId={projectId} changes={msg.turnChanges} />
+      ) : null}
+      {!isWelcome && !isLive && hasText ? (
+        <div className="mt-1 flex items-center gap-1">
+          <IconAction label="Copy" onClick={() => void readAloud.copyPlainText(msg.content)}>
+            <Copy size={14} aria-hidden />
+          </IconAction>
+          <IconAction
+            label={readAloud.playingMessageId === msg.id ? "Stop reading" : "Read aloud"}
+            disabled={readAloud.loadingMessageId !== null && readAloud.loadingMessageId !== msg.id}
+            busy={readAloud.loadingMessageId === msg.id}
+            onClick={() => void readAloud.toggleReadAloud(msg.id, msg.content)}
+          >
+            {readAloud.loadingMessageId === msg.id ? (
+              <Loader2 size={14} className="animate-spin" aria-hidden />
+            ) : readAloud.playingMessageId === msg.id ? (
+              <Square size={14} aria-hidden />
+            ) : (
+              <Volume2 size={14} aria-hidden />
+            )}
+          </IconAction>
+          {msg.model ? (
+            <span className="ml-auto truncate pl-2 font-mono text-[10px] text-zinc-600" title={msg.model}>
+              {msg.model}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
     </motion.div>
   );
 }

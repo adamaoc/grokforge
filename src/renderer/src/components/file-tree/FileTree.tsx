@@ -40,8 +40,6 @@ export function FileTree({
   workspaceFsEpoch = 0,
   onWorkspaceFsMutation,
   onAddPathToChat,
-  isPathPinnedForAgent,
-  onTogglePinForAgent,
 }: FileTreeProps) {
   const treeContainerRef = useRef<HTMLDivElement | null>(null)
   const [menuTarget, setMenuTarget] = useState<MenuTarget>({ path: rootPath, isDirectory: true })
@@ -271,10 +269,7 @@ export function FileTree({
           target={menuTarget}
           parentDir={parentDirForCreate(menuTarget)}
           canAddToChat={Boolean(onAddPathToChat)}
-          canPinForAgent={Boolean(onTogglePinForAgent)}
-          isPinnedForAgent={Boolean(isPathPinnedForAgent?.(menuTarget.path))}
           onAddToChat={(target) => onAddPathToChat?.({ path: target.path, isDirectory: target.isDirectory, rootPath })}
-          onTogglePinForAgent={(target) => onTogglePinForAgent?.(target.path, target.isDirectory)}
           onReveal={(target) => void mutate({ op: 'reveal', path: target.path })}
           onCopyPath={(target) => void handleCopyPath(target)}
           onCopyRelativePath={(target) => void handleCopyRelativePath(target)}

@@ -1,7 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, Mic, MicOff, MessageSquareText } from 'lucide-react'
 import type { GrokProjectManifest } from '@/types'
-import { getModelForIntent, getHarnessProfile, resolveHarnessProfileKey } from '@/types'
+import { voiceModelFromManifest } from '../../../shared/voice/voice-model'
 import { ModelBadge } from '@/components/grokforge/ModelBadge'
 import { motion } from 'framer-motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -120,6 +120,8 @@ interface VoiceExpandedPanelProps {
   lastError: string | null
   onToggle: () => void
   onContinueInAgentChat?: () => void | Promise<void>
+  /** Opens Settings → Voice (shown when no xAI key is configured). */
+  onOpenVoiceSettings?: () => void
   project: GrokProjectManifest
   className?: string
 }
@@ -132,14 +134,25 @@ export function VoiceExpandedPanel({
   lastError,
   onToggle,
   onContinueInAgentChat,
+  onOpenVoiceSettings,
   project,
   className,
 }: VoiceExpandedPanelProps) {
-  const voiceModel = useMemo(() => getModelForIntent(project, 'voice'), [project])
-  const voiceHarness = useMemo(() => {
-    const key = resolveHarnessProfileKey(voiceModel)
-    return { key, displayName: getHarnessProfile(key).displayName }
-  }, [voiceModel])
+  const voiceModel = useMemo(() => voiceModelFromManifest(project), [project])
+  // Voice is the one feature that still needs an xAI key; say so before the user tries it.
+  const [hasKey, setHasKey] = useState<boolean | null>(null)
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    void window.electron
+      ?.getXaiKeyStatus?.()
+      .then((st) => alive && setHasKey(st.configured))
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [open])
+  const missingKey = hasKey === false
   const voiceDisabled = project.voice.defaultVoiceMode === 'off'
   const showMicOff = isActive && status !== 'error'
 
@@ -221,13 +234,25 @@ export function VoiceExpandedPanel({
                 <ModelBadge variant="voice" title={voiceModel}>
                   {voiceModel}
                 </ModelBadge>
-                <ModelBadge variant="capsule" title={`Harness profile: ${voiceHarness.key}`}>
-                  {voiceHarness.displayName}
-                </ModelBadge>
               </div>
-              <div className={cn('text-sm transition-colors', getStatusColor(status))}>
-                {getStatusText(status, lastError, voiceDisabled)}
-              </div>
+              {missingKey && !isActive ? (
+                <div className="text-sm text-amber-200/90">
+                  Voice needs an xAI API key.{' '}
+                  {onOpenVoiceSettings ? (
+                    <button
+                      type="button"
+                      className="font-medium text-gf-accent underline-offset-2 hover:underline"
+                      onClick={onOpenVoiceSettings}
+                    >
+                      Add one in Settings
+                    </button>
+                  ) : null}
+                </div>
+              ) : (
+                <div className={cn('text-sm transition-colors', getStatusColor(status))}>
+                  {getStatusText(status, lastError, voiceDisabled)}
+                </div>
+              )}
             </div>
           </div>
 

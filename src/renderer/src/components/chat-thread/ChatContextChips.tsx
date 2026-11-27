@@ -1,9 +1,5 @@
-import { FileText, Folder, Image as ImageIcon, Paperclip, Pin, TextCursorInput, X } from "lucide-react";
-import type {
-  AgentChatAttachment,
-  AgentChatEditorSelection,
-  AgentContextPin,
-} from "@/types";
+import { FileText, Folder, Image as ImageIcon, Paperclip, TextCursorInput, X } from "lucide-react";
+import type { AgentChatAttachment, AgentChatEditorSelection } from "@/types";
 import {
   Tooltip,
   TooltipContent,
@@ -17,67 +13,26 @@ function compactPathLabel(path: string) {
 }
 
 type ChatContextChipsProps = {
-  pinnedContext: AgentContextPin[];
   attachments: AgentChatAttachment[];
   editorSelection: AgentChatEditorSelection | null;
   selectionKey: string | null;
-  onRemovePinned?: (pin: AgentContextPin) => void;
   onRemoveAttachment?: (attachment: AgentChatAttachment) => void;
   onDismissSelection: (selectionKey: string) => void;
 };
 
 export function ChatContextChips({
-  pinnedContext,
   attachments,
   editorSelection,
   selectionKey,
-  onRemovePinned,
   onRemoveAttachment,
   onDismissSelection,
 }: ChatContextChipsProps) {
-  if (
-    pinnedContext.length === 0 &&
-    attachments.length === 0 &&
-    !editorSelection
-  ) {
+  if (attachments.length === 0 && !editorSelection) {
     return null;
   }
 
   return (
     <div className="mb-3 flex min-w-0 flex-wrap gap-2">
-      {pinnedContext.map((pin) => {
-        const chipLabel = compactPathLabel(pin.path);
-        return (
-          <Tooltip key={`pin:${pin.type}:${pin.path}`}>
-            <TooltipTrigger asChild>
-              <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gf-accent/40 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-300">
-                <Pin size={13} className="shrink-0 text-gf-accent" aria-hidden />
-                <span className="text-[10px] font-medium uppercase tracking-wide text-gf-accent/90">
-                  Pinned
-                </span>
-                <span className="max-w-48 truncate font-mono text-[11px]">
-                  {chipLabel}
-                </span>
-                <button
-                  type="button"
-                  className="ml-0.5 rounded-full p-0.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
-                  aria-label={`Unpin ${pin.type}`}
-                  onClick={() => onRemovePinned?.(pin)}
-                >
-                  <X size={12} aria-hidden />
-                </button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent
-              side="top"
-              className="max-w-sm break-all font-mono text-[11px]"
-            >
-              {pin.path}
-              {"\n"}(persists for this project)
-            </TooltipContent>
-          </Tooltip>
-        );
-      })}
       {attachments.map((attachment) => {
         const chipLabel =
           attachment.displayName?.trim() || compactPathLabel(attachment.path);

@@ -33,7 +33,6 @@ import {
   type RemoveRecentProjectResult,
   type UpdateRecentPickerNameResult,
 } from "../../shared/projects/recent-projects-contract";
-import { mergeDiscoveredAgentInstructions } from "../../harness-support/context/instructions-discover";
 import { shouldIgnoreFsEntry } from "../workspace/ignore-globs";
 
 const PROJECT_ID_MAX_LEN = 128;
@@ -356,14 +355,6 @@ export function registerProjectIpc(deps: {
       const nextManifest: GrokProjectManifest = {
         ...currentProject,
         roots: nextRoots,
-        context: {
-          ...currentProject.context,
-          alwaysInclude: mergeDiscoveredAgentInstructions(
-            currentProject.context.alwaysInclude,
-            nextRoots,
-            currentProject.ignore ?? [],
-          ),
-        },
         metadata: {
           ...currentProject.metadata,
           lastOpened: new Date().toISOString(),

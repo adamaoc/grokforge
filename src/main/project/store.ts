@@ -4,12 +4,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { randomUUID } from 'node:crypto'
 import type { GrokProjectManifest } from './manifest'
 import { validateManifest } from './manifest'
-import { discoverAgentInstructionRelativePaths } from '../../harness-support/context/instructions-discover'
-import { DUAL_MODEL_FALLBACKS } from '../../harness-support/routing/model-router'
-import {
-  AGENT_REVIEWER_DEFAULT_MIN_CHANGED_LINES,
-  AGENT_REVIEWER_DEFAULT_MODEL,
-} from '../../shared/agent/proposal-reviewer'
+import { DEFAULT_VOICE_MODEL } from '../../shared/voice/voice-model'
 
 const DIR_NAME = 'workspace-projects'
 const PROJECT_JSON = 'project.json'
@@ -87,28 +82,12 @@ export function defaultManifestForFirstRoot(rootAbs: string, displayName: string
       },
     ],
     ignore: defaultIgnore,
-    models: {
-      default: DUAL_MODEL_FALLBACKS.chat_default,
-      planning: DUAL_MODEL_FALLBACKS.planning,
-      execution: DUAL_MODEL_FALLBACKS.execution,
-      reasoning: DUAL_MODEL_FALLBACKS.reasoning,
-      voice: DUAL_MODEL_FALLBACKS.voice,
-    },
-    reviewer: {
-      autoReviewEdits: false,
-      model: AGENT_REVIEWER_DEFAULT_MODEL,
-      minChangedLines: AGENT_REVIEWER_DEFAULT_MIN_CHANGED_LINES,
-    },
+    models: { voice: DEFAULT_VOICE_MODEL },
     voice: {
       enabled: true,
       defaultVoiceMode: 'full-duplex',
       autoListen: false,
       speakResponses: true,
-    },
-    context: {
-      alwaysInclude: discoverAgentInstructionRelativePaths([{ path: resolved }], defaultIgnore),
-      customInstructions:
-        "You are GrokForge's coding agent. Act as a senior engineer in this workspace: inspect files before changing them, use list_files/read_file/write_file/edit for file work, and be concise about what changed. Say when you lack evidence.",
     },
     metadata: {
       createdAt: now,

@@ -6,7 +6,7 @@ import {
   diffStatsLabelForStatus,
   formatDiffSessionSummary,
   summarizeDiffSessionStats,
-} from '../../../harness/diff/line-stats'
+} from '../../../shared/diff/line-stats'
 import { RootTypeDot } from '@/components/grokforge/RootTypeDot'
 import { DiffEditorPane } from '@/components/DiffEditorPane'
 import { getLanguageFromPath } from '@/lib/getLanguageFromPath'
@@ -141,16 +141,6 @@ function DiffFilePanel({
           </div>
           {file.status === 'renamed' && file.oldPath ? (
             <div className="mt-0.5 truncate font-mono text-[10px] text-zinc-500">Renamed from {oldPathLabel}</div>
-          ) : null}
-          {file.editSafety && file.editSafety.severity !== 'ok' ? (
-            <div
-              className={cn(
-                'mt-1 text-[10px] leading-snug',
-                file.editSafety.severity === 'severe' ? 'text-red-300' : 'text-amber-300',
-              )}
-            >
-              {file.editSafety.issues[0]?.message ?? file.editSafety.statsLine}
-            </div>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">

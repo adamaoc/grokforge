@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { defaultManifestForFirstRoot } from '../store'
-import { DUAL_MODEL_FALLBACKS } from '../../../harness-support/routing/model-router'
+import { DEFAULT_VOICE_MODEL } from '../../../shared/voice/voice-model'
 
 describe('defaultManifestForFirstRoot', () => {
-  it('uses dual-model harness defaults from model-router', () => {
+  it('only records the voice model (coding agents choose their own models)', () => {
     const manifest = defaultManifestForFirstRoot('/tmp/grokforge-test-root', 'Test')
-    expect(manifest.models.default).toBe(DUAL_MODEL_FALLBACKS.chat_default)
-    expect(manifest.models.planning).toBe(DUAL_MODEL_FALLBACKS.planning)
-    expect(manifest.models.execution).toBe(DUAL_MODEL_FALLBACKS.execution)
-    expect(manifest.models.reasoning).toBe(DUAL_MODEL_FALLBACKS.reasoning)
-    expect(manifest.models.voice).toBe(DUAL_MODEL_FALLBACKS.voice)
-    expect(manifest.models.default).toBe('grok-build-0.1')
-    expect(manifest.models.planning).toBe('grok-4.3')
+    expect(manifest.models).toEqual({ voice: DEFAULT_VOICE_MODEL })
+  })
+
+  it('starts with one code root at the chosen folder', () => {
+    const manifest = defaultManifestForFirstRoot('/tmp/grokforge-test-root', 'Test')
+    expect(manifest.roots).toHaveLength(1)
+    expect(manifest.roots[0]).toMatchObject({ id: 'root', path: '/tmp/grokforge-test-root', type: 'code' })
+    expect(manifest).not.toHaveProperty('reviewer')
   })
 })

@@ -9,15 +9,16 @@ Everything else in this folder should live under the capability it serves:
 
 | Folder | Purpose |
 | --- | --- |
-| `agent/` | Main-process bridge for the current minimal harness turn runner and agent-adjacent helpers. |
+| `acp/` | Agent Client Protocol client: CLI detection, agent processes, sessions, and turn mapping. |
+| `agent/` | Agent chat IPC (`runner.ts`) and approval requests (`approval.ts`). |
+| `checkpoints/` | Per-turn shadow-git snapshots of each root for review and undo. |
 | `chat/` | Chat thread persistence and attachment staging under app `userData`. |
 | `git/` | Git status and diff-session reads for workspace roots. |
 | `project/` | Workspace manifest schema, stored project records, and recent-project metadata. |
 | `terminal/` | Human PTY sessions and node-pty startup helpers. |
 | `voice/` | xAI realtime voice bridge and read-aloud TTS calls. |
 | `workspace/` | Root-scoped filesystem operations, search, ignore handling, and workspace change notifications. |
-| `xai/` | xAI API transport helpers, stream parsing, DTOs, and API-key storage. |
-| `legacy/` | Regression tests or compatibility coverage for legacy harness-support behavior. |
+| `xai/` | xAI API-key storage and settings IPC (used by voice). |
 
 When adding a new main-process module, prefer putting it in one of these folders
 and name it by what it does inside that folder (`store.ts`, `session.ts`,

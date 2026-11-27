@@ -2,165 +2,91 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   type Dispatch,
-  type MutableRefObject,
   type RefObject,
   type SetStateAction,
 } from "react";
 import { toast } from "sonner";
-import type {
-  AgentChatEventPayload,
-  ChatMessage,
-  ChatTurnContextV1,
-  PersistedChatLineV1,
-} from "@/types";
+import type { ChatMessage, GrokProjectManifest, PersistedChatLineV1 } from "@/types";
 import { CHAT_STORE_SCHEMA_VERSION } from "@/types";
-import type { GrokProjectManifest } from "@/types";
-import { shouldDefaultGreenfieldToPlan } from "@/lib/conversation-lifecycle";
-import { writeConversationMode } from "@/lib/conversation-mode-storage";
-import { parseGfPlanFromAssistantContent } from "../../lib/legacy-agent/plan";
 import { useTranscriptInitialScroll } from "./use-transcript-auto-scroll";
 import { lineToMessage, makeWelcomeMessage } from "./chat-thread-helpers";
-import type { PendingEditProposal } from "./chat-thread-types";
+import type { InflightAssistantSnapshot } from "./use-agent-turn";
 
-type InflightAssistantSnapshot = {
-  streamId: string;
-  assistantId: string;
-  content: string;
-  model?: string;
-  createdAt: Date;
-  turnContext?: ChatTurnContextV1;
-};
-
-type UseChatThreadPersistenceOptions = {
+type Options = {
   projectId: string | null | undefined;
   project: GrokProjectManifest;
-  projectRef: MutableRefObject<GrokProjectManifest>;
   messages: ChatMessage[] | null;
   setMessages: Dispatch<SetStateAction<ChatMessage[] | null>>;
-  setVoiceUserDraft: Dispatch<
-    SetStateAction<{
-      id: string;
-      content: string;
-    } | null>
-  >;
-  setConversationMode: Dispatch<SetStateAction<"normal" | "plan">>;
-  setPlanUiEpoch: Dispatch<SetStateAction<number>>;
-  setPendingProposal: Dispatch<SetStateAction<PendingEditProposal | null>>;
-  pendingProposalRef: MutableRefObject<PendingEditProposal | null>;
-  streamIdRef: MutableRefObject<string | null>;
-  assistantIdRef: MutableRefObject<string | null>;
-  assistantBufferRef: MutableRefObject<string>;
-  assistantCreatedAtRef: MutableRefObject<Date>;
-  streamChatModelRef: MutableRefObject<string>;
-  streamHandlerRef: MutableRefObject<(p: AgentChatEventPayload) => void>;
-  processAgentStreamEventRef: MutableRefObject<(p: AgentChatEventPayload) => void>;
-  setLiveTurnContext: Dispatch<SetStateAction<ChatTurnContextV1 | null>>;
-  setIsThinking: Dispatch<SetStateAction<boolean>>;
-  setStreamingStreamId: Dispatch<SetStateAction<string | null>>;
-  setIsSending: Dispatch<SetStateAction<boolean>>;
   messagesScrollRef: RefObject<HTMLDivElement | null>;
-  consumeInflightAssistantSnapshot?: (
-    projectId: string,
-  ) => InflightAssistantSnapshot | null;
+  consumeInflightAssistantSnapshot?: (projectId: string) => InflightAssistantSnapshot | null;
+  /** Re-attach a turn that kept running while this thread was unmounted. */
+  onAdoptInflight: (snapshot: InflightAssistantSnapshot) => void;
 };
 
-function clearPlanInteractionStorage(projectId: string | null | undefined) {
-  if (!projectId) return;
-  try {
-    localStorage.removeItem(`grokforge.planInteraction.v1:${projectId}`);
-  } catch {
-    /* ignore */
-  }
-}
-
+/** Loads, appends, and clears the project's chat thread (`thread.jsonl` in app data). */
 export function useChatThreadPersistence({
   projectId,
   project,
-  projectRef,
   messages,
   setMessages,
-  setVoiceUserDraft,
-  setConversationMode,
-  setPlanUiEpoch,
-  setPendingProposal,
-  pendingProposalRef,
-  streamIdRef,
-  assistantIdRef,
-  assistantBufferRef,
-  assistantCreatedAtRef,
-  streamChatModelRef,
-  streamHandlerRef,
-  processAgentStreamEventRef,
-  setLiveTurnContext,
-  setIsThinking,
-  setStreamingStreamId,
-  setIsSending,
   messagesScrollRef,
   consumeInflightAssistantSnapshot,
-}: UseChatThreadPersistenceOptions) {
-  const welcomeKey = useMemo(
-    () =>
-      `${project.name}\0${project.roots.map((r) => r.id).join(",")}`,
-    [project.name, project.roots],
-  );
+  onAdoptInflight,
+}: Options) {
+  const projectRef = useRef(project);
+  projectRef.current = project;
+  const adoptRef = useRef(onAdoptInflight);
+  adoptRef.current = onAdoptInflight;
+  const consumeRef = useRef(consumeInflightAssistantSnapshot);
+  consumeRef.current = consumeInflightAssistantSnapshot;
 
   const appendPersistedLine = useCallback(async (m: ChatMessage) => {
-    const electron = window.electron;
-    if (!electron?.appendChatMessage) return;
-    if (m.id === "welcome") return;
+    const append = window.electron?.appendChatMessage;
+    if (!append || m.id === "welcome") return;
     const payload: PersistedChatLineV1 = {
       schemaVersion: CHAT_STORE_SCHEMA_VERSION,
       id: m.id,
       role: m.role,
       content: m.content,
-      timestamp: (m.timestamp instanceof Date
-        ? m.timestamp
-        : new Date(m.timestamp)
-      ).toISOString(),
+      timestamp: (m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp)).toISOString(),
       model: m.model,
       attachments: m.attachments,
       ...(m.turnContext ? { turnContext: m.turnContext } : {}),
     };
-    const res = await electron.appendChatMessage(payload);
+    const res = await append(payload);
     if (!res.ok) toast.error(res.error);
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    void (async () => {
       const el = window.electron;
-      const emptyWelcome = makeWelcomeMessage(projectRef.current);
+      const welcome = makeWelcomeMessage(projectRef.current);
       if (!el?.loadChatThread) {
-        if (!cancelled) setMessages([emptyWelcome]);
+        setMessages([welcome]);
         return;
       }
       const res = await el.loadChatThread();
       if (cancelled) return;
       if (!res.ok) {
         toast.error(res.error);
-        setMessages([emptyWelcome]);
+        setMessages([welcome]);
         return;
       }
       if (res.wasCorrupt) {
         toast.message("Chat history was unreadable and was reset", {
-          description:
-            "The on-disk log was removed. Earlier lines could not be recovered.",
+          description: "The on-disk log was removed. Earlier lines could not be recovered.",
         });
       }
-      const restored = res.messages.filter((m) => m.id !== "welcome");
-      let nextMessages: ChatMessage[] =
-        restored.length > 0 ? restored.map(lineToMessage) : [emptyWelcome];
+      const restored = res.messages.filter((m) => m.id !== "welcome").map(lineToMessage);
+      let next: ChatMessage[] = restored.length > 0 ? restored : [welcome];
 
-      const inflight = consumeInflightAssistantSnapshot?.(projectId ?? "");
-      if (
-        !cancelled &&
-        inflight &&
-        projectId &&
-        !nextMessages.some((m) => m.id === inflight.assistantId)
-      ) {
-        nextMessages = [
-          ...nextMessages,
+      const inflight = projectId ? consumeRef.current?.(projectId) : null;
+      if (inflight && !next.some((m) => m.id === inflight.assistantId)) {
+        next = [
+          ...next,
           {
             id: inflight.assistantId,
             role: "assistant",
@@ -170,174 +96,60 @@ export function useChatThreadPersistence({
             turnContext: inflight.turnContext,
           },
         ];
-        streamIdRef.current = inflight.streamId;
-        assistantIdRef.current = inflight.assistantId;
-        assistantBufferRef.current = inflight.content;
-        assistantCreatedAtRef.current = inflight.createdAt;
-        if (inflight.model) streamChatModelRef.current = inflight.model;
-        if (inflight.turnContext) setLiveTurnContext(inflight.turnContext);
-        streamHandlerRef.current = processAgentStreamEventRef.current;
-        setIsThinking(true);
-        setStreamingStreamId(inflight.streamId);
-        setIsSending(true);
+        adoptRef.current(inflight);
       }
-
-      if (!cancelled) setMessages(nextMessages);
-
-      const hasConversationHistory = restored.length > 0;
-      if (
-        !cancelled &&
-        !hasConversationHistory &&
-        el.refreshProjectIntelligence
-      ) {
-        const intel = await el.refreshProjectIntelligence();
-        if (
-          !cancelled &&
-          intel.ok &&
-          shouldDefaultGreenfieldToPlan({
-            hasConversationHistory,
-            isGreenfield: intel.isGreenfield,
-          })
-        ) {
-          setConversationMode("plan");
-          if (projectId) writeConversationMode(projectId, "plan");
-        }
-      }
+      setMessages(next);
     })();
     return () => {
       cancelled = true;
     };
-  }, [
-    assistantBufferRef,
-    assistantCreatedAtRef,
-    assistantIdRef,
-    consumeInflightAssistantSnapshot,
-    processAgentStreamEventRef,
-    projectId,
-    projectRef,
-    setConversationMode,
-    setIsSending,
-    setIsThinking,
-    setLiveTurnContext,
-    setMessages,
-    setStreamingStreamId,
-    streamChatModelRef,
-    streamHandlerRef,
-    streamIdRef,
-  ]);
+  }, [projectId, setMessages]);
 
+  // Keep the synthetic welcome line in sync with project renames / root changes.
+  const welcomeKey = useMemo(
+    () => `${project.name}\0${project.roots.map((r) => r.id).join(",")}`,
+    [project.name, project.roots],
+  );
   useEffect(() => {
-    setMessages((prev) => {
-      if (!prev || !prev.some((m) => m.id === "welcome")) return prev;
-      return prev.map((m) =>
-        m.id === "welcome"
-          ? makeWelcomeMessage(projectRef.current)
-          : m,
-      );
-    });
-  }, [projectRef, setMessages, welcomeKey]);
+    setMessages((prev) =>
+      prev?.some((m) => m.id === "welcome")
+        ? prev.map((m) => (m.id === "welcome" ? makeWelcomeMessage(projectRef.current) : m))
+        : prev,
+    );
+  }, [setMessages, welcomeKey]);
 
-  const handlePersistedLine = useCallback(
+  /** A line persisted elsewhere (voice transcript, background turn) — merge it in. */
+  const mergePersistedLine = useCallback(
     (line: PersistedChatLineV1) => {
-      setVoiceUserDraft((d) =>
-        d && line.role === "user" && line.id === d.id ? null : d,
-      );
       setMessages((prev) => {
         if (!prev) return prev;
+        const incoming = lineToMessage(line);
         const idx = prev.findIndex((m) => m.id === line.id);
-        const nextMessage = lineToMessage(line);
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = { ...next[idx]!, ...nextMessage };
-          return next;
-        }
-        return [...prev, nextMessage];
+        if (idx < 0) return [...prev, incoming];
+        const next = [...prev];
+        next[idx] = { ...next[idx]!, ...incoming };
+        return next;
       });
-      if (
-        line.role === "assistant" &&
-        line.id === assistantIdRef.current &&
-        streamIdRef.current
-      ) {
-        assistantBufferRef.current = line.content;
-        streamIdRef.current = null;
-        assistantIdRef.current = null;
-        setIsThinking(false);
-        setStreamingStreamId(null);
-        setIsSending(false);
-        setLiveTurnContext(null);
-      }
-      if (line.role === "assistant" && parseGfPlanFromAssistantContent(line.content)) {
-        setPlanUiEpoch((n) => n + 1);
-      }
     },
-    [
-      assistantBufferRef,
-      assistantIdRef,
-      setIsSending,
-      setIsThinking,
-      setLiveTurnContext,
-      setMessages,
-      setPlanUiEpoch,
-      setStreamingStreamId,
-      setVoiceUserDraft,
-      streamIdRef,
-    ],
+    [setMessages],
   );
 
-  const messagesHydrated = messages !== null;
   useTranscriptInitialScroll(messagesScrollRef, {
     projectId: projectId ?? null,
-    messagesHydrated,
+    messagesHydrated: messages !== null,
   });
 
-  const handleClearThread = useCallback(async () => {
-    const el = window.electron;
-    if (!el?.clearChatThread) {
-      toast.error("Clear history requires the GrokForge desktop app.");
-      return;
-    }
-    const res = await el.clearChatThread();
+  const clearThread = useCallback(async () => {
+    const clear = window.electron?.clearChatThread;
+    if (!clear) return;
+    const res = await clear();
     if (!res.ok) {
       toast.error(res.error);
       return;
     }
-    setMessages([makeWelcomeMessage(project)]);
-    setPendingProposal(null);
-    pendingProposalRef.current = null;
-    clearPlanInteractionStorage(projectId);
-    setPlanUiEpoch((n) => n + 1);
-    toast.message("Chat history cleared");
-  }, [
-    pendingProposalRef,
-    project,
-    projectId,
-    setMessages,
-    setPendingProposal,
-    setPlanUiEpoch,
-  ]);
+    setMessages([makeWelcomeMessage(projectRef.current)]);
+    toast.message("Chat cleared", { description: "The next message starts a fresh agent session." });
+  }, [setMessages]);
 
-  const handleRefreshProjectIntelligence = useCallback(async () => {
-    const el = window.electron;
-    if (!el?.refreshProjectIntelligence) {
-      toast.error(
-        "Project intelligence refresh requires the GrokForge desktop app.",
-      );
-      return;
-    }
-    const res = await el.refreshProjectIntelligence();
-    if (!res.ok) {
-      toast.error(res.error);
-      return;
-    }
-    toast.success("Project intelligence refreshed", {
-      description: `${res.fileCountScanned} indexed file(s); ${res.sensitiveSkipped} sensitive file(s) excluded.`,
-    });
-  }, []);
-
-  return {
-    appendPersistedLine,
-    handlePersistedLine,
-    handleClearThread,
-    handleRefreshProjectIntelligence,
-  };
+  return { appendPersistedLine, mergePersistedLine, clearThread };
 }

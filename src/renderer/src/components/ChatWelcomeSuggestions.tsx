@@ -1,21 +1,29 @@
+import type { GrokProjectManifest } from '@/types'
 import { Button } from '@/components/ui/button'
 
-const EXAMPLE_PROMPTS = [
-  'Describe a small change in plain English — e.g. fix the login button styling',
-  'Search the workspace for where API keys are loaded',
-  'Explain how this project is organized across roots',
-] as const
+function suggestionsFor(project: GrokProjectManifest): string[] {
+  const name = project.name.trim() || 'this project'
+  const [first, second] = project.roots
+  return [
+    `Give me a tour of ${name}: what it does and how the code is organized`,
+    `Look for bugs or missing tests in ${name} and suggest the most valuable fix`,
+    first && second
+      ? `How do ${first.label || first.id} and ${second.label || second.id} fit together?`
+      : `Add a short "Getting started" section to the README for ${name}`,
+  ]
+}
 
 type ChatWelcomeSuggestionsProps = {
+  project: GrokProjectManifest
   onSelectPrompt: (text: string) => void
 }
 
-export function ChatWelcomeSuggestions({ onSelectPrompt }: ChatWelcomeSuggestionsProps) {
+export function ChatWelcomeSuggestions({ project, onSelectPrompt }: ChatWelcomeSuggestionsProps) {
   return (
     <div className="mt-3 space-y-2">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Suggestions</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">Try</p>
       <div className="flex flex-col gap-2">
-        {EXAMPLE_PROMPTS.map((prompt) => (
+        {suggestionsFor(project).map((prompt) => (
           <Button
             key={prompt}
             type="button"

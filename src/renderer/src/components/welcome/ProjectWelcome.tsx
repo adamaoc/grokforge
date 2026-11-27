@@ -33,7 +33,7 @@ import { useWelcomeMetaDigitOpen } from "./useWelcomeMetaDigitOpen";
 import { useWelcomeRecents } from "./useWelcomeRecents";
 import { buildWelcomeRecentRowViewModels } from "./welcome-recent-row-view-model";
 import { clearAgentChatUnread } from "@/lib/agent-chat-unread-storage";
-import { useAgentChatActivityOptional } from "@/context/AgentChatActivityProvider";
+import { useAgentChatActivityOptional } from "@/context/agent-chat-activity-context";
 
 export interface ProjectWelcomeProps {
   isLoadingProject: boolean;
@@ -343,7 +343,7 @@ export function ProjectWelcome({
                   : "mt-1 text-center text-2xl",
               )}
             >
-              The agentic coding tool for Grok
+              A workspace for the coding agents you already use
             </p>
           </div>
 
@@ -429,9 +429,8 @@ export function ProjectWelcome({
 
       <footer className="gf-no-drag sticky bottom-0 z-10 shrink-0 border-t border-zinc-800 bg-gf-canvas px-4 py-4 sm:px-6">
         <div className="mx-auto max-w-2xl space-y-2 text-center text-xs leading-relaxed text-zinc-500">
-          <p className="text-pretty flex">
-            This is not an official Grok or xAI tool—just a project built by a
-            single dev playing with Grok.{" "}
+          <p className="text-pretty">
+            An independent project, not affiliated with xAI or Anthropic. Built by{" "}
             <button
               type="button"
               className="font-medium text-gf-accent underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-gf-canvas"
@@ -441,7 +440,7 @@ export function ProjectWelcome({
             </button>
           </p>
           <p className="text-zinc-600">
-            Powered by Grok • xAI • {new Date().getFullYear()}
+            Works with Grok Build and Claude Code • {new Date().getFullYear()}
           </p>
         </div>
 

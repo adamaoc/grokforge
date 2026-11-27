@@ -7,50 +7,31 @@ import type {
   ReadDirectoryResult,
   Root,
 } from '../main/project/manifest'
-import type { GetAgentContextPreviewResult, GetChatSystemPromptResult } from '../harness-support/context/context'
 import type {
-  GrokStreamCapabilitiesResult,
-  GrokStreamEventPayload,
-  GrokStreamStartPayload,
-  GrokStreamStartResult,
-} from '../main/xai/types'
-import type {
+  AgentApprovalRespondResult,
+  AgentApprovalResponse,
   AgentChatCapabilitiesResult,
-  AgentCommandApprovalRespondResult,
-  AgentCommandApprovalResponse,
   AgentChatEventPayload,
-  RefreshProjectIntelligenceResult,
   AgentChatStartPayload,
   AgentChatStartResult,
 } from '../shared/agent/chat-contract'
 import type {
-  AgentProposalReviewRequest,
-  AgentProposalReviewResult,
-} from '../shared/agent/proposal-reviewer'
+  AgentProviderId,
+  AgentProvidersResult,
+  SetAgentProviderResult,
+} from '../shared/agent/provider-contract'
 import type {
-  ExportSanitizedAgentTurnTraceResult,
-  GetLastAgentTurnTraceResult,
-  ReplayAgentRetrievalPreviewResult,
-} from '../shared/agent/turn-trace-contract'
+  CheckpointFileDiffRequest,
+  CheckpointFileDiffResult,
+  CheckpointRevertRequest,
+  CheckpointRevertResult,
+} from '../shared/agent/checkpoint-contract'
 import type {
   AppendChatMessageResult,
   ClearChatThreadResult,
   LoadChatThreadResult,
   PersistedChatLineV1,
 } from '../main/chat/store'
-import type {
-  GetStoredPlanForMessageArgs,
-  GetStoredPlanForMessageResult,
-  MarkStoredPlansSupersededArgs,
-  MarkStoredPlansSupersededResult,
-  SetStoredPlanStatusArgs,
-  SetStoredPlanStatusResult,
-} from '../harness-support/plan/contracts/plan-artifact'
-import type {
-  GetProjectContextPinsResult,
-  SetProjectContextPinsResult,
-  AgentContextPin,
-} from '../harness-support/context/context-pins-contract'
 import type { VoiceRealtimeServerEvent, VoiceSessionStartResult } from '../main/voice/realtime'
 import type { VoiceSessionStartPayload } from '../shared/voice/session-contract'
 import type { GitDiffSessionResult, GitStatusSummary } from '../main/git/service'
@@ -87,11 +68,6 @@ import type {
   SetXaiApiKeyResult,
   XaiKeyStatusPayload,
 } from '../shared/settings/xai-key-settings-contract'
-import type { AgentToolBatchPayload, AgentToolBatchResult, AgentUndoLastBatchResult } from '../harness-support/tools/contracts/tool-contract'
-import type {
-  GetAgentWriteHistoryResult,
-  RevertAgentWriteBatchResult,
-} from '../shared/agent/write-history-contract'
 import type { WorkspaceFsMutateRequest, WorkspaceFsMutateResult } from '../shared/workspace/fs-mutation-contract'
 import type { WorkspaceFsChangedPayload } from '../shared/workspace/fs-change-contract'
 import type { AppInfoPayload } from '../shared/app/info-contract'
@@ -135,17 +111,6 @@ export const electronAPI = {
   writeFile: (path: string, content: string): Promise<boolean> => ipcRenderer.invoke('write-file', path, content),
   workspaceFsMutate: (payload: WorkspaceFsMutateRequest): Promise<WorkspaceFsMutateResult> =>
     ipcRenderer.invoke('workspace-fs-mutate', payload),
-  agentToolBatch: (payload: AgentToolBatchPayload): Promise<AgentToolBatchResult> =>
-    ipcRenderer.invoke('agent-tool-batch', payload),
-  agentUndoLastBatch: (): Promise<AgentUndoLastBatchResult> =>
-    ipcRenderer.invoke('agent-undo-last-batch'),
-  getAgentWriteHistory: (args: { projectId: string }): Promise<GetAgentWriteHistoryResult> =>
-    ipcRenderer.invoke('get-agent-write-history', args),
-  revertAgentWriteBatch: (args: {
-    projectId: string
-    batchId: string
-  }): Promise<RevertAgentWriteBatchResult> =>
-    ipcRenderer.invoke('revert-agent-write-batch', args),
   listRoots: (): Promise<Root[]> => ipcRenderer.invoke('list-roots'),
   addWorkspaceRoot: (): Promise<AddWorkspaceRootResult | null> =>
     ipcRenderer.invoke('add-workspace-root'),
@@ -162,49 +127,27 @@ export const electronAPI = {
       ipcRenderer.removeListener('voice-realtime-event', listener)
     }
   },
-  getAgentContextPreview: (): Promise<GetAgentContextPreviewResult> =>
-    ipcRenderer.invoke('get-agent-context-preview'),
-  getChatSystemPrompt: (): Promise<GetChatSystemPromptResult> => ipcRenderer.invoke('get-chat-system-prompt'),
-  grokStreamCapabilities: (): Promise<GrokStreamCapabilitiesResult> =>
-    ipcRenderer.invoke('grok-stream-capabilities'),
-  grokStreamStart: (payload: GrokStreamStartPayload): Promise<GrokStreamStartResult> =>
-    ipcRenderer.invoke('grok-stream-start', payload),
-  grokStreamCancel: (streamId: string): Promise<{ ok: boolean }> =>
-    ipcRenderer.invoke('grok-stream-cancel', streamId),
   agentChatCapabilities: (): Promise<AgentChatCapabilitiesResult> =>
     ipcRenderer.invoke('agent-chat-capabilities'),
-  refreshProjectIntelligence: (): Promise<RefreshProjectIntelligenceResult> =>
-    ipcRenderer.invoke('refresh-project-intelligence'),
+  listAgentProviders: (args?: { refresh?: boolean }): Promise<AgentProvidersResult> =>
+    ipcRenderer.invoke('agent-providers-list', args ?? {}),
+  setAgentProvider: (id: AgentProviderId): Promise<SetAgentProviderResult> =>
+    ipcRenderer.invoke('agent-provider-set', id),
+  agentCheckpointFileDiff: (args: CheckpointFileDiffRequest): Promise<CheckpointFileDiffResult> =>
+    ipcRenderer.invoke('agent-checkpoint-file-diff', args),
+  agentCheckpointRevert: (args: CheckpointRevertRequest): Promise<CheckpointRevertResult> =>
+    ipcRenderer.invoke('agent-checkpoint-revert', args),
   agentChatStart: (payload: AgentChatStartPayload): Promise<AgentChatStartResult> =>
     ipcRenderer.invoke('agent-chat-start', payload),
-  agentReviewProposal: (payload: AgentProposalReviewRequest): Promise<AgentProposalReviewResult> =>
-    ipcRenderer.invoke('agent-review-proposal', payload),
-  computeAgentContentHash: (content: string): Promise<string | null> =>
-    ipcRenderer.invoke('compute-agent-content-hash', content),
   agentChatCancel: (streamId: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('agent-chat-cancel', streamId),
-  agentCommandApprovalRespond: (
-    payload: AgentCommandApprovalResponse,
-  ): Promise<AgentCommandApprovalRespondResult> =>
-    ipcRenderer.invoke('agent-command-approval-respond', payload),
-  getLastAgentTurnTrace: (): Promise<GetLastAgentTurnTraceResult> =>
-    ipcRenderer.invoke('get-last-agent-turn-trace'),
-  exportSanitizedAgentTurnTrace: (): Promise<ExportSanitizedAgentTurnTraceResult> =>
-    ipcRenderer.invoke('export-sanitized-agent-turn-trace'),
-  replayAgentRetrievalPreview: (): Promise<ReplayAgentRetrievalPreviewResult> =>
-    ipcRenderer.invoke('replay-agent-retrieval-preview'),
+  agentApprovalRespond: (payload: AgentApprovalResponse): Promise<AgentApprovalRespondResult> =>
+    ipcRenderer.invoke('agent-approval-respond', payload),
   onAgentChatEvent: (handler: (payload: AgentChatEventPayload) => void) => {
     const listener = (_event: unknown, payload: AgentChatEventPayload) => handler(payload)
     ipcRenderer.on('agent-chat-event', listener)
     return () => {
       ipcRenderer.removeListener('agent-chat-event', listener)
-    }
-  },
-  onGrokStreamEvent: (handler: (payload: GrokStreamEventPayload) => void) => {
-    const listener = (_event: unknown, payload: GrokStreamEventPayload) => handler(payload)
-    ipcRenderer.on('grok-stream-event', listener)
-    return () => {
-      ipcRenderer.removeListener('grok-stream-event', listener)
     }
   },
   loadChatThread: (): Promise<LoadChatThreadResult> => ipcRenderer.invoke('load-chat-thread'),
@@ -214,21 +157,7 @@ export const electronAPI = {
     projectId: string
     payload: PersistedChatLineV1
   }): Promise<AppendChatMessageResult> => ipcRenderer.invoke('append-chat-message-for-project', args),
-  setStoredPlanStatus: (args: SetStoredPlanStatusArgs): Promise<SetStoredPlanStatusResult> =>
-    ipcRenderer.invoke('set-stored-plan-status', args),
-  getStoredPlanForMessage: (args: GetStoredPlanForMessageArgs): Promise<GetStoredPlanForMessageResult> =>
-    ipcRenderer.invoke('get-stored-plan-for-message', args),
-  markStoredPlansSuperseded: (
-    args: MarkStoredPlansSupersededArgs,
-  ): Promise<MarkStoredPlansSupersededResult> =>
-    ipcRenderer.invoke('mark-stored-plans-superseded', args),
   clearChatThread: (): Promise<ClearChatThreadResult> => ipcRenderer.invoke('clear-chat-thread'),
-  getProjectContextPins: (args: { projectId: string }): Promise<GetProjectContextPinsResult> =>
-    ipcRenderer.invoke('get-project-context-pins', args),
-  setProjectContextPins: (args: {
-    projectId: string
-    pins: AgentContextPin[]
-  }): Promise<SetProjectContextPinsResult> => ipcRenderer.invoke('set-project-context-pins', args),
   stageChatAttachment: (payload: StageChatAttachmentPayload): Promise<StageChatAttachmentResult> =>
     ipcRenderer.invoke('stage-chat-attachment', payload),
   gitStatus: (payload: { rootId: string }): Promise<GitStatusSummary> =>

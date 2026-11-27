@@ -6,7 +6,8 @@ import type {
   VoiceRealtimeServerEvent,
   VoiceSessionStartResult,
 } from '@/types'
-import { CHAT_STORE_SCHEMA_VERSION, getModelForIntent } from '@/types'
+import { CHAT_STORE_SCHEMA_VERSION } from '@/types'
+import { voiceModelFromManifest } from '../../../shared/voice/voice-model'
 import { publishChatThreadLine } from '@/lib/chat-thread-bus'
 import { publishVoiceUserDraft } from '@/lib/voice-user-draft-bus'
 import { registerVoiceCaptureWorklet } from '@/lib/voice-capture-worklet'
@@ -176,7 +177,7 @@ export function useVoiceSession({
 
   useEffect(() => {
     if (project) {
-      voiceModelRef.current = getModelForIntent(project, 'voice')
+      voiceModelRef.current = voiceModelFromManifest(project)
     }
   }, [project])
 

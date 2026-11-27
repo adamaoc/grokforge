@@ -1,18 +1,16 @@
 /**
  * Conversation mode contract — maps UI labels, renderer composer state, and agent IPC `chatMode`.
  *
- * - **Work** (`conversationMode: normal`) → agent `chatMode: fast` (full toolset per profile)
- * - **Plan** (`conversationMode: plan`) → agent `chatMode: plan` (planner profile, gf-plan output)
- *
- * Approve-and-run temporarily sends `chatMode: fast` with `isApprovedPlanAutoRun` while the UI may
- * already show Work (velocity) or stay on Plan (trust) until execute completes.
+ * - **Work** (`conversationMode: normal`) → agent `chatMode: fast` (the agent may edit)
+ * - **Plan** (`conversationMode: plan`) → agent `chatMode: plan` (the agent's plan mode)
  */
 
 /** Renderer composer / persisted project preference. */
 export type ConversationMode = 'normal' | 'plan'
 
-/** Agent IPC `activeContext.chatMode` (story 118). */
-export type AgentChatMode = 'fast' | 'plan'
+/** Agent IPC `activeContext.chatMode`. */
+export type { AgentChatMode } from '../agent/chat-contract'
+import type { AgentChatMode } from '../agent/chat-contract'
 
 export const CONVERSATION_MODE_WORK: ConversationMode = 'normal'
 export const CONVERSATION_MODE_PLAN: ConversationMode = 'plan'

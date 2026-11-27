@@ -5,7 +5,7 @@ Thanks for your interest in GrokForge.
 ## Before you open a PR
 
 - Read [`AGENTS.md`](AGENTS.md) for architecture, IPC boundaries, and how the main vs renderer processes interact.
-- Backlog, stories, bugs, and features are tracked in **TheTaskManager** (`http://localhost:8080/api`, project `grokforge`, prefix `GFAPP`). See the **Task Manager** section in [`AGENTS.md`](AGENTS.md).
+- Bugs and feature ideas: open a GitHub issue.
 
 ## Local checks
 

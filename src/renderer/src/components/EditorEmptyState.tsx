@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils'
 interface EditorEmptyStateProps {
   onCollapseEditorPane?: () => void
   /** Optional line under “No files open” when the agent recently touched a path (143). */
-  agentContextHint?: string | null
 }
 
 function Keycap({ children, className }: { children: ReactNode; className?: string }) {
@@ -31,7 +30,7 @@ function Keycap({ children, className }: { children: ReactNode; className?: stri
   )
 }
 
-export function EditorEmptyState({ onCollapseEditorPane, agentContextHint }: EditorEmptyStateProps) {
+export function EditorEmptyState({ onCollapseEditorPane }: EditorEmptyStateProps) {
   const isMac = isMacElectron()
   const [shortcutsExpanded, setShortcutsExpanded] = useState(() => readEmptyShortcutsExpanded())
 
@@ -71,9 +70,6 @@ export function EditorEmptyState({ onCollapseEditorPane, agentContextHint }: Edi
           <div className="mb-5 flex flex-col items-center">
             <GrokForgeWordmark variant="muted" compact className="opacity-90" />
             <p className="mt-3 text-center text-sm text-zinc-500">No files open</p>
-            {agentContextHint ? (
-              <p className="mt-2 max-w-xs text-center text-xs leading-snug text-zinc-600">{agentContextHint}</p>
-            ) : null}
           </div>
 
           <div className="rounded-xl border border-zinc-800/60 bg-zinc-900/20">

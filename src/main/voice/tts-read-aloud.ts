@@ -7,7 +7,7 @@ import {
   type TtsReadAloudResult,
   type TtsVerifyVoiceResult,
 } from '../../shared/voice/tts-read-aloud-contract'
-import { getXaiApiKey } from '../xai/stream'
+import { getResolvedXaiApiKey as getXaiApiKey } from '../xai/key-store'
 
 const DEFAULT_TTS_URL = 'https://api.x.ai/v1/tts'
 

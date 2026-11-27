@@ -1,12 +1,5 @@
 import type { ReactNode } from 'react'
-import {
-  FileDiff,
-  FolderTree,
-  MessageSquare,
-  Mic,
-  Sparkles,
-  Zap,
-} from 'lucide-react'
+import { Bot, FileDiff, FolderTree, Mic, Sparkles, Undo2, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -57,7 +50,7 @@ export function AgentOnboardingDialog({
   onDontShowAgain,
 }: AgentOnboardingDialogProps) {
   const rootsLabel =
-    rootCount === 1 ? '1 workspace root' : `${rootCount} workspace roots`
+    rootCount === 1 ? 'one folder' : `${rootCount} folders`
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -74,29 +67,31 @@ export function AgentOnboardingDialog({
         </DialogHeader>
 
         <ul className="custom-scrollbar max-h-[min(50vh,22rem)] space-y-2 overflow-y-auto px-5 py-4">
-          <PrimerRow
-            icon={<FolderTree size={16} />}
-            title="Workspace roots"
-          >
-            This project has {rootsLabel}. Each root is a folder GrokForge can read and search — handy when
-            code, docs, and apps live in different places on disk.
+          <PrimerRow icon={<Bot size={16} />} title="Your coding agent does the work">
+            Chat runs on <strong className="font-medium text-zinc-300">Grok Build</strong> or{' '}
+            <strong className="font-medium text-zinc-300">Claude Code</strong>, signed in with your own subscription.
+            Switch agents from the chip above the message box.
           </PrimerRow>
-          <PrimerRow icon={<FileDiff size={16} />} title="Trust vs Velocity">
-            <strong className="font-medium text-zinc-300">Trust</strong> keeps review-before-apply — you open the diff and choose Apply.{' '}
-            <strong className="font-medium text-zinc-300">Velocity</strong> auto-applies valid proposals when a turn completes; Undo and Review diff stay on the proposal card. Switch temperament in Settings or the composer chip.
+          <PrimerRow icon={<FileDiff size={16} />} title="You approve edits">
+            With <strong className="font-medium text-zinc-300">Review edits</strong>, every file change shows a diff
+            and waits for you. <strong className="font-medium text-zinc-300">Auto-accept</strong> lets the agent edit
+            freely; commands still ask.
           </PrimerRow>
-          <PrimerRow icon={<Zap size={16} />} title="Work vs Plan mode">
-            <strong className="font-medium text-zinc-300">Work</strong> is the default agent loop for edits and follow-ups.{' '}
-            <strong className="font-medium text-zinc-300">Plan</strong> asks for a structured plan (steps and risks) before heavier edits — empty projects start in Plan. Use the mode control above the composer.
+          <PrimerRow icon={<Undo2 size={16} />} title="Every turn can be undone">
+            After each reply, a changes card lists the files the agent touched. Inspect any diff, revert one file, or
+            undo the whole turn.
           </PrimerRow>
-          <PrimerRow icon={<Mic size={16} />} title="Voice → agent chat">
-            Voice is great for thinking out loud. When you need file changes, use{' '}
-            <strong className="font-medium text-zinc-300">Continue in agent chat</strong> so proposals and diff
-            review stay in the normal workflow.
+          <PrimerRow icon={<Zap size={16} />} title="Work or Plan">
+            <strong className="font-medium text-zinc-300">Plan</strong> asks the agent to explore and propose steps
+            without changing files. Switch back to <strong className="font-medium text-zinc-300">Work</strong> to build it.
           </PrimerRow>
-          <PrimerRow icon={<MessageSquare size={16} />} title="Plain-language requests">
-            Try describing what you want in everyday language — e.g. “add a loading state to the settings
-            page” — and let the agent search the workspace before it edits.
+          <PrimerRow icon={<FolderTree size={16} />} title="Project folders">
+            This project has {rootsLabel}. The agent starts in the first one and can reach the others.
+          </PrimerRow>
+          <PrimerRow icon={<Mic size={16} />} title="Talk it through">
+            Voice is for thinking out loud. When you're ready for changes, use{' '}
+            <strong className="font-medium text-zinc-300">Continue in agent chat</strong> to hand the conversation
+            to the agent.
           </PrimerRow>
         </ul>
 

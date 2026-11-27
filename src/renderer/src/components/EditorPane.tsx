@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
-import { cn } from '@/lib/utils'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Editor, { type OnMount } from '@monaco-editor/react'
 import type { editor as MonacoEditor } from 'monaco-editor'
 import { Save, PanelRightClose } from 'lucide-react'
@@ -16,11 +15,8 @@ import { isSameOrDescendantPath, remapRecordForRename } from '@/lib/workspace-fs
 import { EditorEmptyState } from '@/components/EditorEmptyState'
 import { EditorTabBar } from '@/components/EditorTabBar'
 import { GroupedDiffView } from '@/components/GroupedDiffView'
-import { AgentEditSafetyBanner } from '@/components/AgentEditSafetyBanner'
-import { AgentProposalTraceSnippet } from '@/components/AgentProposalTraceSnippet'
 import { DiffViewErrorBoundary } from '@/components/DiffViewErrorBoundary'
-import type { AgentEditSafetyResult } from '../lib/legacy-agent/edit'
-import { formatDiffSessionSummary, summarizeDiffSessionStats } from '../../../harness/diff/line-stats'
+import { formatDiffSessionSummary, summarizeDiffSessionStats } from '../../../shared/diff/line-stats'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -65,17 +61,6 @@ interface EditorPaneProps {
   project: GrokProjectManifest
   /** In-memory diff session; when open, file tabs are hidden until closed. */
   diffSession?: DiffSession | null
-  diffSessionActions?: {
-    primaryLabel: string
-    onPrimary: () => void
-    secondaryLabel?: string
-    onSecondary?: () => void
-    regenerateLabel?: string
-    onRegenerate?: () => void
-    fixFailedEditLabel?: string
-    onFixFailedEdit?: () => void
-    primaryDisabled?: boolean
-  } | null
   onCloseDiffSession?: () => void
   /** When set for the active file, editor scrolls to line and clears via callback (story 016). */
   jumpToLineRequest?: { path: string; line: number } | null
@@ -92,10 +77,6 @@ interface EditorPaneProps {
   selectionMaxChars?: number
   /** Collapse the editor ResizablePanel (same affordance as sidebar `PanelLeftClose`). */
   onCollapseEditorPane?: () => void
-  /** Conversation-linked strip above Monaco / diff (story 143). */
-  contextCompanion?: ReactNode
-  contextCompanionHighlight?: boolean
-  agentEmptyHint?: string | null
 }
 
 export function EditorPane({
@@ -106,7 +87,6 @@ export function EditorPane({
   onUnsavedChange,
   project,
   diffSession,
-  diffSessionActions,
   onCloseDiffSession,
   jumpToLineRequest,
   onJumpToLineHandled,
@@ -117,14 +97,8 @@ export function EditorPane({
   onEditorSelectionChange,
   selectionMaxChars = 4_000,
   onCollapseEditorPane,
-  contextCompanion,
-  contextCompanionHighlight = false,
-  agentEmptyHint,
 }: EditorPaneProps) {
-  const editorShellClass = cn(
-    'flex min-h-0 flex-1 flex-col bg-zinc-950',
-    contextCompanionHighlight && 'ring-1 ring-inset ring-primary/25',
-  )
+  const editorShellClass = 'flex min-h-0 flex-1 flex-col bg-zinc-950'
   const [fileContents, setFileContents] = useState<Record<string, string>>({})
   const [isDirty, setIsDirty] = useState<Record<string, boolean>>({})
   const [pendingClosePath, setPendingClosePath] = useState<string | null>(null)
@@ -375,13 +349,6 @@ export function EditorPane({
 
   const pendingFileName = pendingClosePath ? pendingClosePath.split('/').pop() || pendingClosePath : ''
 
-  const agentProposalSafety: AgentEditSafetyResult[] =
-    diffSession?.source === 'agent-proposal'
-      ? diffSession.files
-          .map((f) => f.editSafety)
-          .filter((item): item is AgentEditSafetyResult => item != null)
-      : []
-
   const diffSessionStatsLine = diffSession
     ? formatDiffSessionSummary(diffSession.files.length, summarizeDiffSessionStats(diffSession.files))
     : null
@@ -389,7 +356,6 @@ export function EditorPane({
   if (diffSession) {
     return (
       <div className={editorShellClass}>
-        {contextCompanion}
         <div className="gf-no-drag flex shrink-0 flex-col gap-2 border-b border-zinc-800 bg-zinc-950 px-4 py-2.5">
           <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
@@ -424,50 +390,6 @@ export function EditorPane({
                 </TooltipContent>
               </Tooltip>
             ) : null}
-            {diffSessionActions?.onFixFailedEdit && diffSessionActions.fixFailedEditLabel ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-lg border-amber-800/80 bg-zinc-900 text-xs text-amber-100/90 hover:bg-zinc-800"
-                onClick={diffSessionActions.onFixFailedEdit}
-              >
-                {diffSessionActions.fixFailedEditLabel}
-              </Button>
-            ) : null}
-            {diffSessionActions?.onRegenerate && diffSessionActions.regenerateLabel ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-lg border-zinc-700 bg-zinc-900 text-xs hover:bg-zinc-800"
-                onClick={diffSessionActions.onRegenerate}
-              >
-                {diffSessionActions.regenerateLabel}
-              </Button>
-            ) : null}
-            {diffSessionActions?.secondaryLabel && diffSessionActions.onSecondary ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 rounded-lg border-zinc-700 bg-zinc-900 text-xs hover:bg-zinc-800"
-                onClick={diffSessionActions.onSecondary}
-              >
-                {diffSessionActions.secondaryLabel}
-              </Button>
-            ) : null}
-            {diffSessionActions ? (
-              <Button
-                type="button"
-                size="sm"
-                className="h-8 rounded-lg text-xs"
-                disabled={diffSessionActions.primaryDisabled}
-                onClick={diffSessionActions.onPrimary}
-              >
-                {diffSessionActions.primaryLabel}
-              </Button>
-            ) : null}
             <Button
               type="button"
               variant="outline"
@@ -479,10 +401,6 @@ export function EditorPane({
             </Button>
           </div>
           </div>
-          {agentProposalSafety.length > 0 ? (
-            <AgentEditSafetyBanner assessments={agentProposalSafety} />
-          ) : null}
-          {diffSession.source === 'agent-proposal' ? <AgentProposalTraceSnippet /> : null}
         </div>
         <div className="flex min-h-0 flex-1 flex-col px-3 pb-3 pt-1">
           <DiffViewErrorBoundary onClose={onCloseDiffSession}>
@@ -496,18 +414,13 @@ export function EditorPane({
   if (openFiles.length === 0) {
     return (
       <div className={editorShellClass}>
-        {contextCompanion}
-        <EditorEmptyState
-          onCollapseEditorPane={onCollapseEditorPane}
-          agentContextHint={agentEmptyHint}
-        />
+        <EditorEmptyState onCollapseEditorPane={onCollapseEditorPane} />
       </div>
     )
   }
 
   return (
     <div className={editorShellClass}>
-      {contextCompanion}
       <div className="gf-no-drag flex min-h-0 shrink-0 items-stretch">
         <div className="min-w-0 flex-1 overflow-hidden">
           <EditorTabBar
