@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import { useAgentChatActivityOptional } from '@/context/AgentChatActivityProvider'
+import { useAgentChatActivityOptional } from '@/context/agent-chat-activity-context'
 
 type WelcomeRecentsAgentActivityTone = 'none' | 'running' | 'unread'
 

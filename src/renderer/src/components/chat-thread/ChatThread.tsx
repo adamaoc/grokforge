@@ -87,7 +87,7 @@ import {
   buildTextAgentTurnContext,
   buildVoiceTurnContext,
 } from "@/lib/chat-turn-context";
-import { useAgentChatActivityOptional } from "@/context/AgentChatActivityProvider";
+import { useAgentChatActivityOptional } from "@/context/agent-chat-activity-context";
 import {
   CHAT_ATTACHMENT_MAX_BYTES_BASE64_STAGING,
   CHAT_ATTACHMENT_MAX_FILE_BYTES,
@@ -655,76 +655,12 @@ export function ChatThread({
       }
 
       if (caps.providerId === "grok-api" && !caps.apiKeyConfigured) {
-        toast.message("Grok API key not configured", {
+        toast.error("Grok API key not configured", {
           description:
-            "Add your key in Settings, or set XAI_API_KEY / GROKFORGE_XAI_API_KEY in .env or your shell (see .env.example). Using a mock reply for now.",
+            "Add your key in Settings, or pick Grok Build / Claude Code under Settings → Coding agent.",
+          duration: 12_000,
         });
-        streamChatModelRef.current = getModelForIntent(
-          project,
-          routedModelIntent,
-          { logSelection: true },
-        );
-        const userMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "user",
-          content: trimmed,
-          timestamp: new Date(),
-          model: streamChatModelRef.current,
-          turnContext: turnCtx,
-        };
-        setMessages((prev) => (prev ? [...prev, userMessage] : prev));
-        void appendPersistedLine(userMessage);
-        if (manageComposerInput) clearInput();
-        setIsThinking(true);
-        window.setTimeout(() => {
-          const mockPlanFence =
-            effectiveActiveChatMode === "plan"
-              ? `\n\n\`\`\`${GF_PLAN_FENCE}\n${JSON.stringify(
-                  {
-                    schemaVersion: 1,
-                    summary:
-                      "Mock plan: explore the workspace, then implement requested changes safely.",
-                    filesLikelyTouched: project.roots.map(
-                      (r) => `${r.label}/*`,
-                    ),
-                    risksUnknowns: [
-                      "This is a mock reply without a live model.",
-                    ],
-                    steps: [
-                      {
-                        id: "1",
-                        title: "Review workspace roots and key files",
-                      },
-                      {
-                        id: "2",
-                        title:
-                          "Implement changes with write_file / edit / tools",
-                      },
-                      { id: "3", title: "Verify with tests or typecheck" },
-                    ],
-                    verification: "Run project tests or typecheck after edits.",
-                  },
-                  null,
-                  2,
-                )}\n\`\`\`\n`
-              : "";
-          const response: ChatMessage = {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: `Understood. I've analyzed the full workspace (${project.roots.map((r) => r.label).join(", ")}).\n\nHere's my plan:\n\n1. **Update auth flow** in both frontend and backend roots for consistency\n2. **Add new dashboard components** using shadcn/ui + Tailwind v4\n3. **Sync changes** to the design and docs roots\n\nWould you like me to start executing this across the multi-root workspace?${mockPlanFence}`,
-            timestamp: new Date(),
-            model: streamChatModelRef.current,
-            turnContext: turnCtx,
-          };
-          setMessages((prev) => (prev ? [...prev, response] : prev));
-          void appendPersistedLine(response);
-          if (manageComposerInput) {
-            onClearAttachments?.();
-            if (selectionKey) setDismissedSelectionKey(selectionKey);
-          }
-          setIsThinking(false);
-          setIsSending(false);
-        }, 1200);
+        setIsSending(false);
         return;
       }
 
@@ -1180,7 +1116,7 @@ export function ChatThread({
     window.requestAnimationFrame(() => {
       document.querySelector<HTMLTextAreaElement>("textarea.gf-chat-composer")?.focus();
     });
-  }, []);
+  }, [setInput]);
 
   if (messages === null) {
     return (

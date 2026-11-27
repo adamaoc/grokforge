@@ -1,10 +1,7 @@
 import { AlertCircle } from 'lucide-react'
 import type { AgentChatActivityPayload } from '@/types'
 import { cn } from '@/lib/utils'
-import {
-  isCompactedEditFailureActivity,
-  resolveActivityEditFailurePath,
-} from '../../../shared/agent/activity-display'
+import { resolveActivityEditFailurePath } from '../../../shared/agent/activity-display'
 
 function basenameFromPath(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean)
@@ -86,8 +83,4 @@ export function EditFailureIssueCard({ activity, displayTitle, technicalTitle }:
       </div>
     </div>
   )
-}
-
-export function shouldRenderEditFailureIssueCard(activity: AgentChatActivityPayload): boolean {
-  return isCompactedEditFailureActivity(activity)
 }

@@ -180,7 +180,7 @@ export function ChatMessageItem({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.03 }}
       className={cn(
-        "flex w-full min-w-0 max-w-full overflow-x-hidden",
+        "flex w-full min-w-0 max-w-full overflow-x-clip",
         msg.role === "user" ? "justify-end" : "justify-start",
       )}
     >

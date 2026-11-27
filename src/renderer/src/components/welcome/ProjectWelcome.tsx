@@ -33,7 +33,7 @@ import { useWelcomeMetaDigitOpen } from "./useWelcomeMetaDigitOpen";
 import { useWelcomeRecents } from "./useWelcomeRecents";
 import { buildWelcomeRecentRowViewModels } from "./welcome-recent-row-view-model";
 import { clearAgentChatUnread } from "@/lib/agent-chat-unread-storage";
-import { useAgentChatActivityOptional } from "@/context/AgentChatActivityProvider";
+import { useAgentChatActivityOptional } from "@/context/agent-chat-activity-context";
 
 export interface ProjectWelcomeProps {
   isLoadingProject: boolean;

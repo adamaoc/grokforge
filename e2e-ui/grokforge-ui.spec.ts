@@ -148,34 +148,6 @@ test.describe('GrokForge Electron UI E2E', () => {
     await expect.poll(() => readFileSync(fixture.appFile, 'utf-8')).toContain('edited from Playwright UI')
   })
 
-  test('searches, mocks chat, applies a pending write, and persists chat across relaunch', async () => {
-    await openFixtureProject(page, fixture)
-
-    await page.getByRole('button', { name: /^Search$/ }).click()
-    await page.getByPlaceholder('Search…').fill('needle-037-search-result')
-    await page.getByRole('button', { name: /^Search$/ }).last().click()
-    await page.getByText(fixture.notesFile).click()
-    await expect(page.getByText('notes.md').last()).toBeVisible()
-
-    await page.getByPlaceholder('Ask GrokForge anything about your project...').fill('please write the mocked file')
-    await page.getByRole('button', { name: 'Send message' }).click()
-    await expect(page.getByText('Agent edit proposal')).toBeVisible()
-    await expect(page.getByText('src/agent-output.txt')).toBeVisible()
-    await page.getByRole('button', { name: 'Apply all' }).click()
-    await expect.poll(() => readFileSync(fixture.agentFile, 'utf-8')).toBe('written by mocked E2E agent\n')
-
-    await app.close()
-    const relaunched = await launchApp(fixture)
-    app = relaunched.app
-    page = relaunched.page
-    await page
-      .getByRole('button', { name: `Open project ${path.basename(fixture.workspaceDir)}` })
-      .click()
-    await dismissOnboardingIfPresent(page)
-    await expect(page.getByText('please write the mocked file')).toBeVisible()
-    await expect(page.getByText('I can prepare that file update for you.')).toBeVisible()
-  })
-
   test('renders settings and opens the terminal panel', async () => {
     await openFixtureProject(page, fixture)
 

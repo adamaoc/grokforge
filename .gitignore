@@ -8,3 +8,10 @@ release/
 *.key
 *.log
 .DS_Store
+
+# Test output
+playwright-report/
+test-results/
+
+# Local task tracker database (retired)
+taskmanager.db

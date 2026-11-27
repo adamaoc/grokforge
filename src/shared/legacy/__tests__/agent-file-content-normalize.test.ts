@@ -16,7 +16,6 @@ import {
   reflowCrushedJsxAndBlocks,
   reflowMarkdownDocumentLineBreaks,
   looksLikeMarkdownDocument,
-  repairJammedJavaScriptSource,
   looksLikeJavaScriptSource,
 } from '../../../harness-support/context/file-content-normalize'
 

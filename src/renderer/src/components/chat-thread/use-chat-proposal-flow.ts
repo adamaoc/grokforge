@@ -407,7 +407,10 @@ export function useChatProposalFlow({
   ]);
 
   const pendingWriteBatch = pendingProposal?.batch ?? null;
-  const pendingRejectedPaths = pendingProposal?.rejected ?? [];
+  const pendingRejectedPaths = useMemo(
+    () => pendingProposal?.rejected ?? [],
+    [pendingProposal?.rejected],
+  );
   const isAppliedProposal = pendingProposal?.uiPhase === "applied";
 
   const pendingUniquePaths = useMemo(() => {

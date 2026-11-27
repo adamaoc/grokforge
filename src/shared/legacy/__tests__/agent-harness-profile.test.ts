@@ -21,7 +21,6 @@ import { GREENFIELD_PLAN_VERIFY_COMMANDS_MARKER } from '../../../harness-support
 import { GREENFIELD_SCAFFOLD_MANIFEST_MARKER } from '../../../harness-support/context/bootstrap-manifest'
 import { SCAFFOLD_STRATEGY_ROUTING_MARKER } from '../../../harness-support/routing/scaffold-strategy'
 import {
-  GREENFIELD_EXECUTE_BOOTSTRAP_SECTIONS,
   GREENFIELD_EXECUTE_CLI_MARKER,
   GREENFIELD_WORK_BOOTSTRAP_MARKER,
 } from '../../../harness-support/profiles/harness-profile'

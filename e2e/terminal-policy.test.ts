@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateRunCommandPolicy } from '../src/main/run-command-policy'
+import { evaluateRunCommandPolicy } from '../src/harness-support/policy/command/run-command-policy'
 
 describe('run-command policy (019)', () => {
   it('hard-blocks rm -rf at filesystem root', () => {

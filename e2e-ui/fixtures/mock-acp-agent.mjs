@@ -3,6 +3,7 @@
 // delimited JSON-RPC on stdio like `grok agent stdio` / claude-agent-acp: on each prompt it
 // reads README.md through the client, proposes an edit, and writes it only if allowed.
 import { join } from 'node:path'
+import process from 'node:process'
 
 let nextId = 1
 const pending = new Map()

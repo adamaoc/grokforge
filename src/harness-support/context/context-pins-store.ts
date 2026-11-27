@@ -50,7 +50,7 @@ export function validateContextPinsForManifest(
     if (!existsSync(abs)) {
       return { ok: false, error: `Pinned path does not exist: ${pin.path}` }
     }
-    let type: AgentContextPin['type'] = pin.type
+    let type: AgentContextPin['type']
     try {
       const st = statSync(abs)
       if (st.isDirectory()) type = 'folder'

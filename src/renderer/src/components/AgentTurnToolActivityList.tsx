@@ -30,10 +30,7 @@ import {
   summarizeAgentActivityErrors,
 } from '../../../shared/agent/activity-display'
 import { mapActivityTitleForDisplay } from '@/lib/harness-activity-display-map'
-import {
-  EditFailureIssueCard,
-  shouldRenderEditFailureIssueCard,
-} from '@/components/EditFailureIssueCard'
+import { EditFailureIssueCard } from '@/components/EditFailureIssueCard'
 import { isCompactedEditFailureActivity } from '../../../shared/agent/activity-display'
 
 const TURN_END_COLLAPSE_MS = 300
@@ -340,7 +337,7 @@ export function AgentTurnToolActivityList({
             const { displayTitle, technicalTitle } = mapActivityTitleForDisplay(
               activity.title,
             )
-            if (shouldRenderEditFailureIssueCard(activity)) {
+            if (isCompactedEditFailureActivity(activity)) {
               return (
                 <li key={activity.id} className="min-w-0">
                   <EditFailureIssueCard

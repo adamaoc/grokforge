@@ -96,7 +96,7 @@ function repeatedIdenticalToolNudge(state: PlanLoopGuardState): string | null {
     if (count >= PLAN_REPEATED_IDENTICAL_TOOL_THRESHOLD) {
       return (
         `Harness: you called the same tool with identical arguments **${count} times** (\`${argsKey}\`). ` +
-        'That result is already in context. **Stop calling tools** and output your **\`gf-plan\` fence** now.'
+        'That result is already in context. **Stop calling tools** and output your **`gf-plan` fence** now.'
       )
     }
   }
@@ -107,7 +107,7 @@ function discoveryBudgetNudge(step: number): string | null {
   if (step < PLAN_DISCOVERY_BUDGET_TOOL_ROUNDS) return null
   return (
     `Harness: Plan discovery budget reached (${PLAN_DISCOVERY_BUDGET_TOOL_ROUNDS}+ tool rounds without a final answer). ` +
-    'You likely have enough context. **Output your structured `\`gf-plan\` JSON fence now** — ' +
+    'You likely have enough context. **Output your structured `gf-plan` JSON fence now** — ' +
     'use `risksUnknowns` for gaps instead of more `read_file` / `list_files`.'
   )
 }

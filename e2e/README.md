@@ -14,7 +14,7 @@ Electron UI E2E:
 npm run test:e2e:ui
 ```
 
-This runs **`npm run build`** then **Playwright** with `playwright.e2e.config.ts`. The suite launches `electron dist/main/main.js` against the built renderer, creates isolated temp `userData` and workspace folders, and uses env-gated test hooks for deterministic project picking and mocked agent replies.
+This runs **`npm run build`** then **Playwright** with `playwright.e2e.config.ts`. The suite launches `electron dist/main/main.js` against the built renderer, creates isolated temp `userData` and workspace folders, and uses env-gated test hooks for deterministic project picking. Agent turns run against a scripted ACP agent (`e2e-ui/fixtures/mock-acp-agent.mjs`, via `GROKFORGE_ACP_AGENT_OVERRIDE`).
 
 Useful local debugging:
 

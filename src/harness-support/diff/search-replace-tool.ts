@@ -129,12 +129,17 @@ export function resolveSearchReplaceToWriteBatch(
   // Multi-edit is preferred for anything beyond trivial changes.
   let patched: { ok: true; content: string; matchCount: 1 } | { ok: false; error: string; matchCount?: number }
 
-  const hasMulti = Array.isArray((args as any).edits) && (args as any).edits.length > 0
-  const hasLegacy = typeof (args as any).old_string === 'string' && (args as any).old_string.length > 0
+  const loose = args as {
+    edits?: Array<{ oldText: string; newText: string }>
+    old_string?: string
+    new_string?: string
+  }
+  const hasMulti = Array.isArray(loose.edits) && loose.edits.length > 0
+  const hasLegacy = typeof loose.old_string === 'string' && loose.old_string.length > 0
 
   let rawEdits: Array<{ oldText: string; newText: string }> | undefined
   if (hasMulti) {
-    rawEdits = (args as any).edits as Array<{ oldText: string; newText: string }>
+    rawEdits = loose.edits as Array<{ oldText: string; newText: string }>
     const ops: EditOp[] = rawEdits.map((e) => ({ oldText: e.oldText, newText: e.newText }))
     const multiResult = applyEdits(original, ops, resolved)
     if (multiResult.ok) {
@@ -143,14 +148,16 @@ export function resolveSearchReplaceToWriteBatch(
       patched = { ok: false, error: multiResult.error || 'Multi-edit failed', matchCount: multiResult.editIndex }
     }
   } else if (hasLegacy) {
-    const normalizedArgs = normalizeSearchReplaceStrings((args as any).old_string, (args as any).new_string)
-    patched = applySearchReplace(original, (args as any).old_string, (args as any).new_string)
+    const oldString = loose.old_string ?? ''
+    const newString = loose.new_string ?? ''
+    const normalizedArgs = normalizeSearchReplaceStrings(oldString, newString)
+    patched = applySearchReplace(original, oldString, newString)
     if (process.env.NODE_ENV === 'development' && !patched.ok) {
       const fileLines = original.split(/\r?\n/)
       console.warn('[GrokForge agent-edit] search_replace not found', {
         path: resolved,
         error: patched.error,
-        oldStringPreview: (args as any).old_string?.slice(0, 160),
+        oldStringPreview: loose.old_string?.slice(0, 160),
         normalizedOldPreview: normalizedArgs.oldString.slice(0, 160),
         fileLines: fileLines.length,
       })
@@ -175,10 +182,12 @@ export function resolveSearchReplaceToWriteBatch(
   if (!patched.ok) {
     // Smarter escalation support: on common "not found / fuzzy fail" cases, pre-build a tiny surgical
     // proposal the model can copy into propose_file_edits (far better than "do a full rawContent rewrite").
-    let suggestedMinimalProposal: any = undefined
+    let suggestedMinimalProposal:
+      | { op: 'write_file'; path: string; content: string; note: string }
+      | undefined = undefined
     const attemptedNew = hasMulti
       ? (rawEdits?.[0]?.newText as string | undefined)
-      : (hasLegacy ? (args as any).new_string : undefined)
+      : (hasLegacy ? loose.new_string : undefined)
 
     if (
       /not found|Could not find|closest region/i.test(patched.error || '') &&
@@ -190,7 +199,7 @@ export function resolveSearchReplaceToWriteBatch(
       // This gives the model a ready-to-paste small write_file that is much less likely to be "crushed".
       const lines = original.split(/\r?\n/)
       // Best effort: find a rough insertion point using the first line of the (failed) oldText
-      const firstOldLine = (hasMulti ? rawEdits?.[0]?.oldText : (args as any).old_string || '')
+      const firstOldLine = ((hasMulti ? rawEdits?.[0]?.oldText : loose.old_string) || '')
         .split(/\r?\n/)[0]
         ?.trim()
       let centerIdx = Math.floor(lines.length / 2)

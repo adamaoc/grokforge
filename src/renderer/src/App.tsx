@@ -394,7 +394,7 @@ function ProjectWorkspaceShell({
   const syncSidebarCollapsed = useCallback(() => {
     const next = sidebarPanelRef.current?.isCollapsed() ?? false
     setSidebarCollapsed(next)
-  }, [])
+  }, [sidebarPanelRef])
 
   const handleToggleSidebar = useCallback(() => {
     const api = sidebarPanelRef.current
@@ -405,11 +405,11 @@ function ProjectWorkspaceShell({
       api.collapse()
     }
     requestAnimationFrame(() => syncSidebarCollapsed())
-  }, [syncSidebarCollapsed])
+  }, [sidebarPanelRef, syncSidebarCollapsed])
 
   const syncEditorPaneCollapsed = useCallback(() => {
     setEditorPaneCollapsed(editorPanelRef.current?.isCollapsed() ?? false)
-  }, [])
+  }, [editorPanelRef])
 
   const ensureEditorPaneExpanded = useCallback(() => {
     const api = editorPanelRef.current
@@ -417,7 +417,7 @@ function ProjectWorkspaceShell({
       api.expand()
     }
     requestAnimationFrame(() => syncEditorPaneCollapsed())
-  }, [syncEditorPaneCollapsed])
+  }, [editorPanelRef, syncEditorPaneCollapsed])
 
   const handleToggleEditorPane = useCallback(() => {
     const api = editorPanelRef.current
@@ -428,14 +428,14 @@ function ProjectWorkspaceShell({
       api.collapse()
     }
     requestAnimationFrame(() => syncEditorPaneCollapsed())
-  }, [syncEditorPaneCollapsed])
+  }, [editorPanelRef, syncEditorPaneCollapsed])
 
   const handleCollapseEditorPane = useCallback(() => {
     const api = editorPanelRef.current
     if (!api || api.isCollapsed()) return
     api.collapse()
     requestAnimationFrame(() => syncEditorPaneCollapsed())
-  }, [syncEditorPaneCollapsed])
+  }, [editorPanelRef, syncEditorPaneCollapsed])
 
   const openSearchWorkspace = useCallback(() => {
     ensureEditorPaneExpanded()
@@ -615,7 +615,7 @@ function ProjectWorkspaceShell({
     } else {
       api.collapse()
     }
-  }, [terminalOpen])
+  }, [terminalOpen, terminalPanelRef])
 
   const handleAddPathToChat = useCallback((attachment: AgentChatAttachment) => {
     if (!isPathUnderWorkspaceRoots(attachment.path, project.roots)) {

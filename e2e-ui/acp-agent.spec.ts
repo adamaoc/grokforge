@@ -100,6 +100,26 @@ test.describe('External coding agent (ACP)', () => {
     await expect.poll(() => readFileSync(fixture.readme, 'utf8')).toContain('## Getting started')
   })
 
+  test('searches the workspace and keeps the chat across a relaunch', async () => {
+    await openProject(page)
+
+    await page.getByRole('button', { name: /^Search$/ }).click()
+    await page.getByPlaceholder('Search…').fill('tiny demo project')
+    await page.getByRole('button', { name: /^Search$/ }).last().click()
+    await expect(page.getByText('README.md').last()).toBeVisible()
+
+    await page.getByPlaceholder('Ask GrokForge anything about your project...').fill('Add setup instructions')
+    await page.getByRole('button', { name: 'Send message' }).click()
+    await page.locator('[data-agent-command-approval]').getByRole('button', { name: 'Allow edit' }).click()
+    await expect(page.getByText('Added the section to')).toBeVisible()
+
+    await app.close()
+    ;({ app, page } = await launchApp(fixture))
+    await page.getByRole('button', { name: `Open project ${path.basename(fixture.workspaceDir)}` }).click()
+    await expect(page.getByText('Add setup instructions', { exact: true })).toBeVisible()
+    await expect(page.getByText('Added the section to')).toBeVisible()
+  })
+
   test('rejecting the edit leaves the file unchanged', async () => {
     await openProject(page)
     await page.getByPlaceholder('Ask GrokForge anything about your project...').fill('Add setup instructions')
