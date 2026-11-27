@@ -213,6 +213,10 @@ export function useAgentStreamEvents({
             return prev;
           return [...prev, p.request].slice(-4);
         });
+        // External-agent edits are reviewed in this card; bring it into view.
+        requestAnimationFrame(() => {
+          scrollTranscriptToBottom(messagesScrollRef.current);
+        });
         return;
       }
       if (p.phase === "edit_proposal") {

@@ -24,6 +24,11 @@ import type {
   AgentChatStartResult,
 } from '../shared/agent/chat-contract'
 import type {
+  AgentProviderId,
+  AgentProvidersResult,
+  SetAgentProviderResult,
+} from '../shared/agent/provider-contract'
+import type {
   AgentProposalReviewRequest,
   AgentProposalReviewResult,
 } from '../shared/agent/proposal-reviewer'
@@ -173,6 +178,10 @@ export const electronAPI = {
     ipcRenderer.invoke('grok-stream-cancel', streamId),
   agentChatCapabilities: (): Promise<AgentChatCapabilitiesResult> =>
     ipcRenderer.invoke('agent-chat-capabilities'),
+  listAgentProviders: (args?: { refresh?: boolean }): Promise<AgentProvidersResult> =>
+    ipcRenderer.invoke('agent-providers-list', args ?? {}),
+  setAgentProvider: (id: AgentProviderId): Promise<SetAgentProviderResult> =>
+    ipcRenderer.invoke('agent-provider-set', id),
   refreshProjectIntelligence: (): Promise<RefreshProjectIntelligenceResult> =>
     ipcRenderer.invoke('refresh-project-intelligence'),
   agentChatStart: (payload: AgentChatStartPayload): Promise<AgentChatStartResult> =>

@@ -99,6 +99,7 @@ import type {
 import {
   buildAgentThreadSnapshot,
 } from "./chat-thread-helpers";
+import { useActiveAgentProvider } from "./use-active-agent-provider";
 import { useChatThreadComposerStore } from "./chat-thread-store";
 import { ChatComposer } from "./ChatComposer";
 import { ChatContextChips } from "./ChatContextChips";
@@ -450,6 +451,7 @@ export function ChatThread({
 
   /** After `turn_started`, composer model badge uses canonical main routing only. */
   const visibleModelId = liveTurnRouting?.modelId ?? nextSendDisplayModel;
+  const activeAgent = useActiveAgentProvider();
 
   const processAgentStreamEvent = useAgentStreamEvents({
     projectId,
@@ -641,7 +643,18 @@ export function ChatThread({
     try {
       const caps = await electron.agentChatCapabilities();
 
-      if (!caps.apiKeyConfigured) {
+      if (caps.providerId !== "grok-api" && !caps.providerReady) {
+        toast.error(`${caps.providerLabel} isn't ready`, {
+          description:
+            caps.providerHint ??
+            "Pick another coding agent in Settings → Coding agent.",
+          duration: 12_000,
+        });
+        setIsSending(false);
+        return;
+      }
+
+      if (caps.providerId === "grok-api" && !caps.apiKeyConfigured) {
         toast.message("Grok API key not configured", {
           description:
             "Add your key in Settings, or set XAI_API_KEY / GROKFORGE_XAI_API_KEY in .env or your shell (see .env.example). Using a mock reply for now.",
@@ -716,11 +729,12 @@ export function ChatThread({
       }
 
       const priorSnapshot = baseMessages;
-      streamChatModelRef.current = getModelForIntent(
-        project,
-        routedModelIntent,
-        { logSelection: true },
-      );
+      streamChatModelRef.current =
+        caps.providerId === "grok-api"
+          ? getModelForIntent(project, routedModelIntent, {
+              logSelection: true,
+            })
+          : caps.providerLabel;
 
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -1340,6 +1354,29 @@ export function ChatThread({
                   Save this workspace as a project to persist Plan mode.
                 </span>
               ) : null}
+              {activeAgent && activeAgent.providerId !== "grok-api" ? (
+                <div
+                  className="flex min-w-0 flex-wrap items-center gap-2"
+                  data-testid="active-coding-agent"
+                >
+                  <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+                    Agent
+                  </span>
+                  <ModelBadge
+                    variant="chip"
+                    title={
+                      activeAgent.providerReady
+                        ? `Turns run on your ${activeAgent.providerLabel} CLI (Settings → Coding agent)`
+                        : activeAgent.providerHint
+                    }
+                  >
+                    {liveTurnRouting?.provider ? liveTurnRouting.modelId : activeAgent.providerLabel}
+                  </ModelBadge>
+                  {!activeAgent.providerReady ? (
+                    <span className="text-[10px] text-amber-300/90">not installed</span>
+                  ) : null}
+                </div>
+              ) : (
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
                   Next turn
@@ -1414,6 +1451,7 @@ export function ChatThread({
                   </ModelBadge>
                 ) : null}
               </div>
+              )}
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

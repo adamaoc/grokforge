@@ -9,13 +9,19 @@ changes, touching IPC, or extending the desktop shell.
 agent UX. It uses **electron-vite**, **React 19**, **TypeScript**, **Tailwind
 CSS**, **Monaco Editor**, and **Zod** for the workspace manifest.
 
-Grok models provide intelligence; this app is the harness: tools, context,
-orchestration, review gates, storage, and UI that turn a model into a coding
-agent. Read [`docs/i-am-a-harness.md`](docs/i-am-a-harness.md) before large
-agent-loop, prompt, tool, or model-routing changes.
+Chat turns run on a **coding agent the user already has installed and signed in
+to** (their own subscription), driven over the Agent Client Protocol (ACP):
+**Grok Build** (`grok agent stdio`) or **Claude Code** (via the bundled
+`@agentclientprotocol/claude-agent-acp` adapter around the user's own `claude`
+CLI). The older built-in **Grok API** harness (pay-per-token xAI key) remains as
+a legacy provider. GrokForge is the workspace around the agent: roots, review
+gates, editor, git, terminal, voice, and storage. See
+[`docs/coding-agents.md`](docs/coding-agents.md).
 
-Text agent chat enters through `src/main/agent/runner.ts` and the minimal
-harness under `src/harness/`. Grok Voice uses a main-process realtime WebSocket
+Text agent chat enters through `src/main/agent/runner.ts`, which dispatches to
+`src/main/acp/` for external agents or the minimal harness under `src/harness/`
+for the Grok API provider. Read [`docs/i-am-a-harness.md`](docs/i-am-a-harness.md)
+before large changes to the built-in harness. Grok Voice uses a main-process realtime WebSocket
 in `src/main/voice/realtime.ts`; renderer code only captures mic audio and plays
 audio/events through preload IPC.
 
@@ -94,6 +100,7 @@ Main-process capability folders own their own registration modules:
 | Chat persistence and plan metadata | `src/main/chat/register-ipc.ts` |
 | Agent support write/apply/history IPC | `src/main/agent/register-ipc.ts` |
 | Agent chat stream | `src/main/agent/runner.ts` |
+| Coding-agent providers (ACP) | `src/main/acp/register-ipc.ts`; turns via `src/main/acp/chat-turn.ts` |
 | Git status/diff | `src/main/git/register-ipc.ts` |
 | Human PTY terminal | `src/main/terminal/register-ipc.ts` |
 | Voice and TTS | `src/main/voice/register-ipc.ts` |
@@ -216,24 +223,10 @@ task is explicitly a redesign.
 - Dependency/runtime watchlist: `docs/dependency-runtime-watchlist.md`.
 - UI/design consistency: `.cursor/skills/styleguide-design/SKILL.md` when
   working in Cursor.
+- External coding agents (ACP): `docs/coding-agents.md`.
 
-## Task Manager
-
-**All backlog, stories, bugs, and features** are tracked in TheTaskManager —
-not in-repo markdown task files. Use the API at `http://localhost:8080/api`. The
-GrokForge project is `grokforge` with human-friendly story prefix `GFAPP`.
-
-- Read `GET /api/docs` or `GET /api/openapi.yaml` if the API shape is unclear.
-- List stories: `GET /api/stories?projectId=grokforge`.
-- Create stories with `POST /api/stories`; every story must belong to the
-  `grokforge` project.
-- Use Markdown descriptions; include repo file paths and doc links in the
-  description body.
-- Bot-writable statuses are only `backlog`, `in_progress`, and `done`.
-- Do not set `closed`; closing is manual human review in the task manager UI.
-- When the user says work is complete, move the story to `done`, not `closed`.
-- When updating story status, use `.cursor/skills/update-task-manager/SKILL.md`
-  (`@update-task-manager`).
+Historical `GFAPP-###` story ids in commits and docs came from a local task
+tracker that is no longer used; there is no task-tracking API to call.
 
 ## Git And Cursor
 

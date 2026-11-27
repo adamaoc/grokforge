@@ -21,6 +21,14 @@ import type { GrokProjectManifest } from '../project/manifest';
 import { getXaiApiKey } from '../xai/stream';
 import { hasConfiguredXaiApiKey } from '../xai/key-store';
 import { waitForCommandApproval } from './command-approval';
+import { runAcpChatTurn } from '../acp/chat-turn';
+import {
+  getAcpProviderDetection,
+  getSelectedAgentProvider,
+  isAcpProviderId,
+} from '../acp/provider-registry';
+import { disposeAllAcpSessions } from '../acp/session-manager';
+import { AGENT_PROVIDER_LABELS } from '../../shared/agent/provider-contract';
 
 const ABORT_USER = "gf:agent-user-cancel";
 const ABORT_QUIT = "gf:agent-quit";
@@ -123,6 +131,7 @@ export function flushActiveAgentTurnReceiptsAsInterruptedForApp(): void {
     ac.abort(ABORT_QUIT);
   }
   activeTurns.clear();
+  disposeAllAcpSessions();
 }
 
 async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
@@ -135,6 +144,23 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
     const projectId = snapshot.projectId;
     if (!manifest || !projectId) {
       emit({ streamId: payload.streamId, phase: "error", error: "No project loaded" });
+      return;
+    }
+
+    const providerId = await getSelectedAgentProvider();
+    if (isAcpProviderId(providerId)) {
+      await runAcpChatTurn(
+        {
+          emit,
+          requestApproval: (request, signal) =>
+            waitForCommandApproval(request.requestId, payload.streamId, signal),
+        },
+        payload,
+        manifest,
+        projectId,
+        providerId,
+        ac,
+      );
       return;
     }
 
@@ -178,9 +204,26 @@ export function registerAgentChatIpc(options: {
 
   ipcMain.handle(
     "agent-chat-capabilities",
-    (): AgentChatCapabilitiesResult => ({
-      apiKeyConfigured: Boolean(hasConfiguredXaiApiKey() || getE2eMockReply()),
-    }),
+    async (): Promise<AgentChatCapabilitiesResult> => {
+      const apiKeyConfigured = Boolean(hasConfiguredXaiApiKey() || getE2eMockReply());
+      const providerId = await getSelectedAgentProvider();
+      if (!isAcpProviderId(providerId)) {
+        return {
+          apiKeyConfigured,
+          providerId,
+          providerLabel: AGENT_PROVIDER_LABELS[providerId],
+          providerReady: apiKeyConfigured,
+        };
+      }
+      const detection = await getAcpProviderDetection(providerId);
+      return {
+        apiKeyConfigured,
+        providerId,
+        providerLabel: detection.status.label,
+        providerReady: detection.launch !== null,
+        ...(detection.status.available ? {} : { providerHint: detection.status.hint }),
+      };
+    },
   );
 
   ipcMain.handle(
@@ -188,7 +231,8 @@ export function registerAgentChatIpc(options: {
     async (_, raw: unknown): Promise<AgentChatStartResult> => {
       const parsed = StartPayloadSchema.safeParse(raw);
       if (!parsed.success) return { ok: false, error: parsed.error.message };
-      if (!getXaiApiKey() && !getE2eMockReply()) {
+      const usesExternalAgent = isAcpProviderId(await getSelectedAgentProvider());
+      if (!usesExternalAgent && !getXaiApiKey() && !getE2eMockReply()) {
         return {
           ok: false,
           error:

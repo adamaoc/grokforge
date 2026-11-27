@@ -40,6 +40,11 @@ import type {
   RefreshProjectIntelligenceResult,
 } from '../agent/chat-contract'
 import type {
+  AgentProviderId,
+  AgentProvidersResult,
+  SetAgentProviderResult,
+} from '../agent/provider-contract'
+import type {
   AgentProposalReviewRequest,
   AgentProposalReviewResult,
 } from '../agent/proposal-reviewer'
@@ -126,6 +131,8 @@ export type ElectronAPI = {
   grokStreamStart(payload: GrokStreamStartPayload): Promise<GrokStreamStartResult>
   grokStreamCancel(streamId: string): Promise<{ ok: boolean }>
   agentChatCapabilities(): Promise<AgentChatCapabilitiesResult>
+  listAgentProviders(args?: { refresh?: boolean }): Promise<AgentProvidersResult>
+  setAgentProvider(id: AgentProviderId): Promise<SetAgentProviderResult>
   refreshProjectIntelligence(): Promise<RefreshProjectIntelligenceResult>
   agentChatStart(payload: AgentChatStartPayload): Promise<AgentChatStartResult>
   agentReviewProposal(payload: AgentProposalReviewRequest): Promise<AgentProposalReviewResult>

@@ -38,6 +38,7 @@ import {
   type HarnessTemperament,
 } from '@/lib/harness-temperament'
 import { AgentWriteHistorySection } from '@/components/AgentWriteHistorySection'
+import { AgentProviderSection } from '@/components/AgentProviderSection'
 
 const URL_XAI_CONSOLE = 'https://console.x.ai/'
 const URL_XAI_CHAT_DOCS = 'https://docs.x.ai/docs/guides/chat'
@@ -300,6 +301,8 @@ export function SettingsPage({
 
       <div className="gf-no-drag flex-1 overflow-y-auto custom-scrollbar px-4 py-8">
         <div className="mx-auto max-w-2xl space-y-8">
+          <AgentProviderSection />
+
           <section
             className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-sm"
             aria-labelledby="gf-settings-appearance-heading"

@@ -6,6 +6,7 @@ import type { ReasoningEffort } from '../../harness-support/profiles/reasoning-e
 import type { ModelIntent } from '../../harness-support/routing/model-router'
 import type { AgentSubagentEventPayload } from '../../harness-support/subagent/contracts/subagent-contract'
 import type { AgentProposalReview } from './proposal-reviewer'
+import type { AgentProviderId } from './provider-contract'
 
 /**
  * Agent chat IPC contract (no Node imports). Main implementation: `src/main/agent/runner.ts`.
@@ -70,6 +71,8 @@ export type AgentChatTurnRouting = {
   agentProfileId: AgentProfileId
   /** Chat completions `reasoning_effort` when supported (story 121). */
   reasoningEffort?: ReasoningEffort
+  /** Which coding agent ran the turn. Omitted for legacy turns (built-in Grok API harness). */
+  provider?: { id: AgentProviderId; label: string }
 }
 
 export type AgentChatStartPayload = {
@@ -96,7 +99,14 @@ export type AgentChatStartResult =
   | { ok: false; error: string }
 
 export type AgentChatCapabilitiesResult = {
+  /** xAI key present (only required by the built-in `grok-api` provider). */
   apiKeyConfigured: boolean
+  providerId: AgentProviderId
+  providerLabel: string
+  /** True when the selected provider can start a turn (CLI found, or API key set). */
+  providerReady: boolean
+  /** Install / sign-in guidance when `providerReady` is false. */
+  providerHint?: string
 }
 
 export type RefreshProjectIntelligenceResult =
@@ -116,6 +126,20 @@ export type AgentChatToolName =
 
 export type AgentCommandApprovalRisk = 'safe' | 'soft_risk' | 'network_or_install'
 
+/** A proposed file change attached to an external-agent permission request. */
+export type AgentPermissionDiff = {
+  path: string
+  /** `null` when the agent is creating a new file. */
+  oldText: string | null
+  newText: string
+}
+
+/**
+ * What the approval card is asking about. `command` is the legacy harness `run_command`
+ * gate; `edit` / `permission` come from external agents (ACP `session/request_permission`).
+ */
+export type AgentApprovalKind = 'command' | 'edit' | 'permission'
+
 export type AgentCommandApprovalRequest = {
   requestId: string
   streamId: string
@@ -129,6 +153,12 @@ export type AgentCommandApprovalRequest = {
   policyReason: string
   /** Optional harness warning (e.g. non-empty scaffold target). Does not block approval. */
   warning?: string
+  /** Defaults to `command`. */
+  kind?: AgentApprovalKind
+  /** Agent that is asking (external providers only). */
+  providerLabel?: string
+  /** Proposed file changes to review before allowing (edit permissions). */
+  diffs?: AgentPermissionDiff[]
 }
 
 export type AgentCommandApprovalResponse = {
