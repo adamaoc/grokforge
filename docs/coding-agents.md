@@ -49,7 +49,7 @@ agent chip switches agents in place.
 | `agent_thought_chunk` | "Thinking" activity row |
 | `tool_call` / `tool_call_update` | activity rows (status, path or command) |
 | `plan` | "Plan · n/m done" activity row |
-| `session/request_permission` | approval card (`command_approval_required`), with diffs for edits |
+| `session/request_permission` | approval card (`approval_required`), with diffs for edits |
 | `fs/read_text_file`, `fs/write_text_file` | served by GrokForge, limited to project roots (writes also respect manifest ignore rules) |
 
 GrokForge advertises `fs` but not `terminal`: agents run commands in their own process;
@@ -59,8 +59,8 @@ the PTY terminal stays human-only.
 
 | GrokForge setting | Agent session mode | Permissions |
 | --- | --- | --- |
-| Work + **Trust** | `default` (ask first) | Every edit shows a diff card (Allow edit / Reject); commands ask |
-| Work + **Velocity** | `acceptEdits` | Edits auto-allowed; commands and deletes still ask |
+| Work + **Review edits** | `default` (ask first) | Every edit shows a diff card (Allow edit / Allow all edits this turn / Reject); commands ask |
+| Work + **Auto-accept** | `acceptEdits` | Edits auto-allowed; commands and deletes still ask |
 | **Plan** | `plan` | Agent plans; when the agent has no plan mode, a plan-only instruction is added |
 
 Reads, searches, and "think" steps are always auto-allowed.
