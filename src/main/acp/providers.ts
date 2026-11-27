@@ -20,7 +20,7 @@ import type { AcpLaunchSpec } from './connection'
  *   billing stay inside Anthropic's official CLI.
  */
 
-export type AcpProviderId = Exclude<AgentProviderId, 'grok-api'>
+export type AcpProviderId = AgentProviderId
 
 export type AcpProviderDetection = {
   status: AgentProviderStatus
@@ -116,7 +116,6 @@ function overrideDetection(id: AcpProviderId, script: string): AcpProviderDetect
     status: {
       id,
       label: AGENT_PROVIDER_LABELS[id],
-      kind: 'acp',
       tagline: id === 'grok-build' ? 'Your SuperGrok subscription' : 'Your Claude subscription',
       available: true,
       detail: `ACP override: ${script}`,
@@ -134,7 +133,6 @@ async function detectGrokBuild(): Promise<AcpProviderDetection> {
   const base = {
     id: 'grok-build' as const,
     label: AGENT_PROVIDER_LABELS['grok-build'],
-    kind: 'acp' as const,
     tagline: 'Uses your SuperGrok / X Premium+ subscription via the `grok` CLI',
   }
   if (!bin) {
@@ -168,7 +166,6 @@ async function detectClaudeCode(): Promise<AcpProviderDetection> {
   const base = {
     id: 'claude-code' as const,
     label: AGENT_PROVIDER_LABELS['claude-code'],
-    kind: 'acp' as const,
     tagline: 'Uses your Claude Pro / Max subscription via the `claude` CLI',
   }
   const adapter = resolveClaudeAcpAdapterEntry()

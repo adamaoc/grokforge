@@ -82,8 +82,6 @@ interface SidebarProps {
   /** File tree local mutations — reconcile editor state and refresh affected directories/status. */
   onWorkspaceFsMutation?: (event: WorkspaceFsMutationEvent, refreshPaths: string[]) => void
   onAddPathToChat?: (attachment: AgentChatAttachment) => void
-  isPathPinnedForAgent?: (path: string) => boolean
-  onTogglePinForAgent?: (path: string, isDirectory: boolean) => void
   onOpenDiffSession?: (session: DiffSession) => void
 }
 
@@ -102,8 +100,6 @@ export function Sidebar({
   workspaceFsChange,
   onWorkspaceFsMutation,
   onAddPathToChat,
-  isPathPinnedForAgent,
-  onTogglePinForAgent,
   onOpenDiffSession,
 }: SidebarProps) {
   const [expandedRoots, setExpandedRoots] = useState<Record<string, boolean>>(() =>
@@ -379,8 +375,6 @@ export function Sidebar({
                           source: 'workspace',
                         })
                       }
-                      isPathPinnedForAgent={isPathPinnedForAgent}
-                      onTogglePinForAgent={onTogglePinForAgent}
                     />
                   </div>
                 )}
@@ -396,9 +390,11 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={onReturnToDashboard}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-zinc-900 py-2.5 text-sm transition-colors hover:bg-zinc-800"
+                className="flex min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-zinc-900 px-3 py-2.5 text-sm transition-colors hover:bg-zinc-800"
+                title="Switch project"
               >
-                <FolderOpen size={16} aria-hidden /> Switch Project
+                <FolderOpen size={16} className="shrink-0" aria-hidden />
+                <span className="truncate">Projects</span>
               </button>
               <Tooltip>
                 <TooltipTrigger asChild>

@@ -4,7 +4,7 @@ import {
   computeDiffLineStatsForFile,
   formatDiffSessionSummary,
   summarizeDiffSessionStats,
-} from '../../harness/diff/line-stats'
+} from './line-stats'
 
 describe('computeDiffLineStats', () => {
   it('counts localized line changes', () => {

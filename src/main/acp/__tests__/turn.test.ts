@@ -7,7 +7,7 @@ import type {
   AgentChatEventPayload,
   AgentChatStartPayload,
   AgentCommandApprovalRequest,
-  HarnessTemperament,
+  ReviewMode,
 } from '../../../shared/agent/chat-contract'
 import type { GrokProjectManifest } from '../../project/manifest'
 import { AcpAgentConnection } from '../connection'
@@ -107,14 +107,13 @@ function manifest(rootPath: string): GrokProjectManifest {
   }
 }
 
-function payload(over: Partial<AgentChatStartPayload> = {}, temperament: HarnessTemperament = 'trust'): AgentChatStartPayload {
+function payload(over: Partial<AgentChatStartPayload> = {}, reviewMode: ReviewMode = 'trust'): AgentChatStartPayload {
   return {
     streamId: 's1',
-    model: 'x',
     userText: 'Add a usage section to the README',
     threadSnapshot: [],
     activeContext: { openTabs: [], chatMode: 'fast' },
-    harnessTemperament: temperament,
+    reviewMode,
     ...over,
   }
 }
@@ -131,7 +130,7 @@ describe('runAcpTurn', () => {
     rmSync(dir, { recursive: true, force: true })
   })
 
-  async function run(opts: { temperament?: HarnessTemperament; approve?: boolean; chatMode?: 'fast' | 'plan' }) {
+  async function run(opts: { temperament?: ReviewMode; approve?: boolean; chatMode?: 'fast' | 'plan' }) {
     const { conn, agent } = startFakeAgent(dir)
     const m = manifest(dir)
     const session: ManagedAcpSession = {
@@ -185,7 +184,7 @@ describe('runAcpTurn', () => {
       id: 'claude-code',
       label: 'Claude Code',
     })
-    expect(started && started.phase === 'turn_started' && started.routing.modelId).toBe('Claude Code · Opus 5.5')
+    expect(started && started.phase === 'turn_started' && started.routing.modelLabel).toBe('Opus 5.5')
 
     expect(approvals).toHaveLength(1)
     expect(approvals[0]!.kind).toBe('edit')
@@ -222,10 +221,13 @@ describe('runAcpTurn', () => {
   })
 
   it('switches the agent into its plan mode for Plan turns', async () => {
-    const { agent, events } = await run({ chatMode: 'plan', approve: false })
+    const { agent } = await run({ chatMode: 'plan', approve: false })
     expect(agent.calls.find((c) => c.method === 'session/set_mode')?.params.modeId).toBe('plan')
-    const started = events.find((e) => e.phase === 'turn_started')
-    expect(started && started.phase === 'turn_started' && started.routing.agentProfileId).toBe('planner')
+    // The agent has a real plan mode, so no plan-only instruction is added to the prompt.
+    const prompt = agent.calls.find((c) => c.method === 'session/prompt')?.params as unknown as {
+      prompt: Array<{ text?: string }>
+    }
+    expect(prompt.prompt[0]?.text).not.toContain('GrokForge is in Plan mode')
   })
 })
 

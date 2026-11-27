@@ -5,14 +5,14 @@
 Chat turns run on a coding agent you **already have installed and signed in to** — **Grok Build** (`grok`, SuperGrok / X Premium+) or **Claude Code** (`claude`, Claude Pro / Max) — so you use your existing subscription instead of paying per API token. GrokForge talks to them over the [Agent Client Protocol](https://agentclientprotocol.com) and keeps edits reviewable. See [`docs/coding-agents.md`](docs/coding-agents.md).
 
 > [!NOTE]
-> GrokForge is an **independent** open source project by [Adam Moore](https://github.com/adamaoc). It uses the **xAI Grok API** for chat, voice, and TTS when you configure a key. **xAI**, **Grok**, **Anthropic**, and **Claude** are trademarks of their respective owners; this project is **not** affiliated with or endorsed by xAI or Anthropic.
+> GrokForge is an **independent** open source project by [Adam Moore](https://github.com/adamaoc). It drives coding agents you install yourself (Grok Build, Claude Code) and uses the **xAI API** for voice and read-aloud when you configure a key. **xAI**, **Grok**, **Anthropic**, and **Claude** are trademarks of their respective owners; this project is **not** affiliated with or endorsed by xAI or Anthropic.
 
 ## Prerequisites
 
 > [!WARNING]
 > **Coding agent:** Install and sign in to at least one of `grok` ([Grok Build](https://x.ai/cli), then `grok login`) or `claude` ([Claude Code](https://docs.anthropic.com/en/docs/claude-code), then `/login`). Pick one in **Settings → Coding agent**.
 >
-> **xAI API key (optional):** Only needed for Grok Voice / read-aloud and the legacy built-in Grok API chat harness. Use **Settings** in the app (stored with Electron `safeStorage`) or set **`XAI_API_KEY`** / **`GROKFORGE_XAI_API_KEY`** in the environment for local dev (see [`.env.example`](.env.example)). The full key is **never** exposed to the renderer.
+> **xAI API key (optional):** Only needed for Grok Voice and read-aloud. Add it in **Settings → Voice** (stored with Electron `safeStorage`) or set **`XAI_API_KEY`** / **`GROKFORGE_XAI_API_KEY`** in the environment for local dev (see [`.env.example`](.env.example)). The full key is **never** exposed to the renderer.
 >
 > **Node.js:** Use **Node 22 LTS** and **npm** with this repo’s `package-lock.json`.
 
@@ -56,7 +56,7 @@ On the **welcome** screen, start a **new project** by choosing a folder (first w
 | [`src/main/README.md`](src/main/README.md) | Main-process folder map and naming conventions |
 
 | [`docs/dependency-runtime-watchlist.md`](docs/dependency-runtime-watchlist.md) | Dependency and runtime upgrade notes |
-| [`docs/harness-102-xai-investigation.md`](docs/harness-102-xai-investigation.md) | xAI model catalog, redirects, and GrokForge defaults (last reviewed 2026-05-26) |
+| [`docs/i-am-a-harness.md`](docs/i-am-a-harness.md) | History: the original built-in Grok API agent loop and what it taught us |
 
 ## Security & keys (short)
 
@@ -82,7 +82,7 @@ The Zod schema lives in **`src/main/project/manifest.ts`**. **`example.grokproje
 
 ## Current status
 
-Early-stage. Chat now runs on **Grok Build** or **Claude Code** through your own subscription (spike: see [`docs/coding-agents.md`](docs/coding-agents.md)), with the multi-root UI, diff review, terminal, git, and voice around it. The original built-in Grok API harness is still available as a legacy option.
+Early-stage. Chat runs on **Grok Build** or **Claude Code** through your own subscription (see [`docs/coding-agents.md`](docs/coding-agents.md)). Around it: multi-folder projects, diff review before edits, per-turn undo, editor, terminal, git, and voice.
 
 ## Contributing
 

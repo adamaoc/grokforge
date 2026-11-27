@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { MoreHorizontal, Search, Terminal, Clock, Pencil, SearchCode, Mic } from 'lucide-react'
+import { MoreHorizontal, Search, Terminal, Clock, Pencil, Mic } from 'lucide-react'
 import { VoiceHeaderTrigger } from '@/components/VoiceControls'
 import type { VoiceHeaderIndicator } from '@/lib/voice-ui-state'
 import type { AppInfoPayload, GrokProjectManifest } from '@/types'
@@ -13,10 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { AgentTurnTraceInspector } from '@/components/AgentTurnTraceInspector'
 
 interface ProjectHeaderProps {
   project: GrokProjectManifest
@@ -45,43 +43,17 @@ export function ProjectHeader({
   voiceHeaderIndicator,
   onOpenSettings,
 }: ProjectHeaderProps) {
-  const [contextModalOpen, setContextModalOpen] = useState(false)
-  const [contextJson, setContextJson] = useState('')
-  const [contextLoading, setContextLoading] = useState(false)
   const [aboutOpen, setAboutOpen] = useState(false)
   const [aboutInfo, setAboutInfo] = useState<AppInfoPayload | null>(null)
-  const [traceInspectorOpen, setTraceInspectorOpen] = useState(false)
 
   useEffect(() => {
-    if (!contextModalOpen && !aboutOpen && !traceInspectorOpen) return
+    if (!aboutOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      setContextModalOpen(false)
-      setAboutOpen(false)
-      setTraceInspectorOpen(false)
+      if (e.key === 'Escape') setAboutOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [contextModalOpen, aboutOpen, traceInspectorOpen])
-
-  const openContextPreview = async () => {
-    if (!window.electron?.getAgentContextPreview) {
-      toast.error('Context preview requires the GrokForge desktop app.')
-      return
-    }
-    setContextLoading(true)
-    try {
-      const res = await window.electron.getAgentContextPreview()
-      if (!res.ok) {
-        toast.error(res.error)
-        return
-      }
-      setContextJson(JSON.stringify(res.preview, null, 2))
-      setContextModalOpen(true)
-    } finally {
-      setContextLoading(false)
-    }
-  }
+  }, [aboutOpen])
 
   const openAbout = async () => {
     if (!window.electron?.getAppInfo) {
@@ -117,9 +89,11 @@ export function ProjectHeader({
               aria-hidden
             />
           </button>
-          <span className="hidden shrink-0 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-400 sm:inline-flex">
-            {project.roots.length === 1 ? '1 workspace root' : `${project.roots.length} workspace roots`}
-          </span>
+          {project.roots.length > 1 ? (
+            <span className="hidden shrink-0 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-400 sm:inline-flex">
+              {project.roots.length} folders
+            </span>
+          ) : null}
         </div>
 
         <div className={cn('gf-no-drag flex shrink-0 items-center gap-3 pr-6 text-sm md:gap-4')}>
@@ -160,15 +134,6 @@ export function ProjectHeader({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>Workspace</DropdownMenuLabel>
-              <DropdownMenuItem onSelect={() => void openContextPreview()} disabled={contextLoading}>
-                {contextLoading ? 'Loading context…' : 'Preview agent context'}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setTraceInspectorOpen(true)}>
-                <span className="flex items-center gap-2">
-                  <SearchCode size={14} className="text-zinc-500" aria-hidden />
-                  Last agent turn trace…
-                </span>
-              </DropdownMenuItem>
               {onOpenSearch ? (
                 <DropdownMenuItem onSelect={() => onOpenSearch()}>Search workspace…</DropdownMenuItem>
               ) : null}
@@ -189,7 +154,6 @@ export function ProjectHeader({
               >
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem disabled>Keyboard shortcuts (soon)</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem disabled className="flex items-start gap-2 opacity-100">
                 <Clock size={14} className="mt-0.5 shrink-0 text-zinc-500" aria-hidden />
@@ -201,38 +165,6 @@ export function ProjectHeader({
           </DropdownMenu>
         </div>
       </div>
-
-      {contextModalOpen && (
-        <div
-          className="gf-no-drag fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
-          role="presentation"
-          onClick={() => setContextModalOpen(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="agent-context-preview-title"
-            className="flex max-h-[85vh] w-full max-w-3xl flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <h2 id="agent-context-preview-title" className="text-lg font-semibold text-white">
-                Agent context preview
-              </h2>
-              <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setContextModalOpen(false)}>
-                Close
-              </Button>
-            </div>
-            <p className="text-xs text-zinc-500">
-              Resolved from <span className="font-mono text-zinc-400">manifest.context</span> for debugging and future
-              Grok requests. File reads are capped at 64KB each.
-            </p>
-            <ScrollArea className="h-[58vh] rounded-xl border border-zinc-800 bg-zinc-900/40 p-3 custom-scrollbar">
-              <pre className="whitespace-pre-wrap break-words font-mono text-xs text-zinc-300">{contextJson}</pre>
-            </ScrollArea>
-          </div>
-        </div>
-      )}
 
       {aboutOpen && (
         <div
@@ -253,7 +185,7 @@ export function ProjectHeader({
                   GrokForge
                 </h2>
                 <p className="mt-1 text-sm leading-relaxed text-zinc-400">
-                  The Grok-native, voice-first, multi-root coding agent for real developers.
+                  A voice-first desktop workspace for the coding agents you already use: Grok Build and Claude Code.
                 </p>
               </div>
               <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => setAboutOpen(false)}>
@@ -279,13 +211,12 @@ export function ProjectHeader({
             </div>
 
             <p className="text-xs leading-relaxed text-zinc-500">
-              Project data is stored in GrokForge app storage. Workspace folders stay clean unless you ask the agent
-              to write files under your configured roots.
+              Chat history and checkpoints live in GrokForge app storage, not in your project folders. The agent only
+              changes files inside the folders you add to a project.
             </p>
           </div>
         </div>
       )}
-      <AgentTurnTraceInspector open={traceInspectorOpen} onOpenChange={setTraceInspectorOpen} />
     </>
   )
 }

@@ -12,13 +12,13 @@ function rootsSnapshot(project: GrokProjectManifest): ChatTurnContextV1['roots']
 export function buildTextAgentTurnContext(args: {
   project: GrokProjectManifest
   activeFilePath: string | null
-  modelIntent: 'chat_default' | 'planning' | 'execution'
   chatMode: 'fast' | 'plan'
 }): ChatTurnContextV1 {
-  const { project, activeFilePath, modelIntent, chatMode } = args
+  const { project, activeFilePath, chatMode } = args
   return {
     source: 'text',
-    modelIntent,
+    // Persisted schema field from the original multi-model chat; agent turns use the default slot.
+    modelIntent: chatMode === 'plan' ? 'planning' : 'chat_default',
     chatMode,
     activeRootId: null,
     activeRootLabel: null,
@@ -41,11 +41,4 @@ export function buildVoiceTurnContext(args: {
     activeFilePath: activeFilePath?.trim() ? activeFilePath : null,
     roots: rootsSnapshot(project),
   }
-}
-
-export function formatModelIntentLabel(intent: ChatTurnContextV1['modelIntent']): string {
-  if (intent === 'chat_default') return 'Default'
-  if (intent === 'planning') return 'Planning'
-  if (intent === 'execution') return 'Execution'
-  return 'Voice'
 }

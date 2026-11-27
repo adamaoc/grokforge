@@ -56,6 +56,13 @@ function PreviewWithHighlight({
   )
 }
 
+/** Root-relative display path (the absolute path stays in the tooltip). */
+function pathWithinRoot(path: string, rootPath: string | undefined): string {
+  if (!rootPath) return path
+  const root = rootPath.replace(/[\\/]+$/, '')
+  return path.startsWith(`${root}/`) || path.startsWith(`${root}\\`) ? path.slice(root.length + 1) : path
+}
+
 export function SearchPanel({ project, open, onClose, onOpenResult }: SearchPanelProps) {
   const [query, setQuery] = useState('')
   const [caseSensitive, setCaseSensitive] = useState(false)
@@ -277,12 +284,20 @@ export function SearchPanel({ project, open, onClose, onOpenResult }: SearchPane
                       'hover:border-zinc-700 hover:bg-zinc-900/80',
                     )}
                   >
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-zinc-500">
-                      <RootTypeDot type={project.roots.find((r) => r.id === row.rootId)?.type ?? 'other'} size="sm" />
-                      <span className="truncate text-zinc-400">{rootLabelById.get(row.rootId) ?? row.rootId}</span>
-                      <span className="shrink-0 text-gf-accent">:{row.line}</span>
+                    <div className="flex min-w-0 items-center gap-2 font-mono text-xs">
+                      {project.roots.length > 1 ? (
+                        <>
+                          <RootTypeDot type={project.roots.find((r) => r.id === row.rootId)?.type ?? 'other'} size="sm" />
+                          <span className="shrink-0 text-[10px] text-zinc-500">
+                            {rootLabelById.get(row.rootId) ?? row.rootId}
+                          </span>
+                        </>
+                      ) : null}
+                      <span className="truncate text-zinc-300" title={row.path}>
+                        {pathWithinRoot(row.path, project.roots.find((r) => r.id === row.rootId)?.path)}
+                      </span>
+                      <span className="shrink-0 text-[10px] text-gf-accent">:{row.line}</span>
                     </div>
-                    <div className="mt-0.5 truncate font-mono text-xs text-zinc-300">{row.path}</div>
                     <div className="mt-1 line-clamp-2 font-mono text-[11px] leading-snug">
                       <PreviewWithHighlight
                         preview={row.preview}

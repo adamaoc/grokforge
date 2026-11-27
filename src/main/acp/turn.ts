@@ -6,14 +6,13 @@ import type {
   AgentChatActivityPayload,
   AgentChatEventPayload,
   AgentChatStartPayload,
-  AgentCommandApprovalRequest,
+  AgentApprovalRequest,
   AgentPermissionDiff,
-  HarnessTemperament,
+  ReviewMode,
 } from '../../shared/agent/chat-contract'
 import type { AgentProviderId } from '../../shared/agent/provider-contract'
 import type { GrokProjectManifest, Root } from '../project/manifest'
-import { assertPathAllowedForTools } from '../../harness/workspace/paths'
-import { isPathWithinWorkspaceRoots } from '../workspace/path-guard'
+import { assertWritableWorkspacePath, isPathWithinWorkspaceRoots } from '../workspace/path-guard'
 import { ACP_AUTH_REQUIRED, JsonRpcError } from './json-rpc'
 import type { AcpClientHandlers } from './connection'
 import type {
@@ -42,7 +41,7 @@ export type AcpTurnDeps = {
   emit: (payload: AgentChatEventPayload) => void
   /** Shows an approval card and resolves with the user's choice (rejects on abort). */
   requestApproval: (
-    request: AgentCommandApprovalRequest,
+    request: AgentApprovalRequest,
     signal: AbortSignal,
   ) => Promise<AgentApprovalDecision>
   /** Agent changed files on disk (via GrokForge fs or its own tools). */
@@ -70,14 +69,14 @@ const MAX_DIFF_CHARS = 200_000
 const MAX_HISTORY_MESSAGES = 8
 const MAX_HISTORY_CHARS_PER_MESSAGE = 1_500
 
-type ApprovalKind = NonNullable<AgentCommandApprovalRequest['kind']>
+type ApprovalKind = AgentApprovalRequest['kind']
 
 export class AcpTurnError extends Error {}
 
 export function pickSessionModeId(
   available: readonly { id: string }[] | undefined,
   chatMode: 'fast' | 'plan',
-  temperament: HarnessTemperament,
+  temperament: ReviewMode,
 ): string | null {
   if (!available?.length) return null
   const ids = new Set(available.map((m) => m.id))
@@ -91,7 +90,7 @@ export function pickSessionModeId(
 }
 
 /** Auto-answer permissions that the current temperament does not need a human for. */
-export function shouldAutoAllow(kind: string | null | undefined, temperament: HarnessTemperament): boolean {
+export function shouldAutoAllow(kind: string | null | undefined, temperament: ReviewMode): boolean {
   const k = kind ?? 'other'
   if (k === 'read' || k === 'search' || k === 'think') return true
   if (temperament !== 'velocity') return false
@@ -287,7 +286,7 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
   const { payload, manifest, root, session, signal } = input
   const { conn, sessionId } = session
   const streamId = payload.streamId
-  const temperament: HarnessTemperament = payload.harnessTemperament ?? 'trust'
+  const temperament: ReviewMode = payload.reviewMode ?? 'trust'
   const chatMode = payload.activeContext.chatMode
   const newRequestId = deps.newRequestId ?? (() => Math.random().toString(36).slice(2, 12))
 
@@ -310,11 +309,8 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
     streamId,
     phase: 'turn_started',
     routing: {
-      modelIntent: payload.modelIntent ?? (chatMode === 'plan' ? 'planning' : 'chat_default'),
-      modelId: session.modelLabel ? `${input.providerLabel} · ${session.modelLabel}` : input.providerLabel,
-      harnessProfileKey: 'generic',
-      agentProfileId: chatMode === 'plan' ? 'planner' : 'default',
       provider: { id: input.providerId, label: input.providerLabel },
+      ...(session.modelLabel ? { modelLabel: session.modelLabel } : {}),
     },
   })
 
@@ -447,31 +443,33 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
       .filter(Boolean)
       .join('\n\n')
     const title = fields.title?.trim() || kindLabel(fields.kind)
-    const request: AgentCommandApprovalRequest = {
+    const destructive = fields.kind === 'delete'
+    const request: AgentApprovalRequest = {
       requestId: newRequestId(),
       streamId,
-      rootId: root.id,
-      rootLabel: root.label || root.id,
-      rootPath: root.path,
-      command: kind === 'command' ? (command ?? title) : bodyText ? truncate(bodyText, 8_000) : title,
-      timeoutMs: 0,
-      purpose: rawInputString(fields.rawInput, 'description') ?? title,
-      risk: fields.kind === 'delete' ? 'soft_risk' : 'safe',
-      policyReason:
+      kind,
+      ...(destructive ? { destructive: true } : {}),
+      providerLabel: input.providerLabel,
+      detail:
         kind === 'edit'
-          ? fields.kind === 'delete'
+          ? destructive
             ? 'Deleting cannot be reviewed as a diff. You can still undo the turn afterwards.'
             : 'Nothing is written until you allow it. Every change can be undone after the turn.'
           : kind === 'command'
-            ? `Commands always ask first, in every review mode.`
+            ? 'Commands always ask first, in every review mode.'
             : title,
-      kind,
-      providerLabel: input.providerLabel,
+      body: kind === 'command' ? (command ?? title) : bodyText ? truncate(bodyText, 8_000) : title,
+      ...(rawInputString(fields.rawInput, 'description')
+        ? { purpose: rawInputString(fields.rawInput, 'description') }
+        : {}),
+      rootId: root.id,
+      rootLabel: root.label || root.id,
+      rootPath: root.path,
       ...(diffs.length ? { diffs } : {}),
     }
 
     emitActivity(toolActivity(fields, 'awaiting_approval'))
-    emit({ streamId, phase: 'command_approval_required', request })
+    emit({ streamId, phase: 'approval_required', request })
     let approved: boolean
     try {
       const decision = await deps.requestApproval(request, signal)
@@ -500,7 +498,7 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
   const writeTextFile: AcpClientHandlers['writeTextFile'] = async (params) => {
     const abs = resolve(params.path)
     try {
-      assertPathAllowedForTools(abs, manifest)
+      assertWritableWorkspacePath(abs, manifest.roots, manifest.ignore ?? [])
     } catch (e) {
       throw new JsonRpcError(-32002, `GrokForge refused the write: ${e instanceof Error ? e.message : String(e)}`)
     }
@@ -549,7 +547,7 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
       phase: 'done',
       turnOutcome:
         result.stopReason === 'max_turn_requests' || result.stopReason === 'max_tokens'
-          ? 'iteration_exhausted'
+          ? 'limit_reached'
           : 'complete',
     })
   } finally {

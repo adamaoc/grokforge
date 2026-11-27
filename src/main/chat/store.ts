@@ -3,7 +3,6 @@ import type { AgentTurnChanges, TurnChangedFile } from '../../shared/agent/check
 import { dirname } from 'path'
 import { CHAT_STORE_SCHEMA_VERSION } from '../../shared/chat/thread-schema'
 import { chatThreadPathForProject } from '../project/store'
-import { upsertPlanArtifactFromAssistantMessage } from '../../harness-support/plan/store/plan-store'
 
 /**
  * Append-only JSONL chat log under the app project directory (`userData/workspace-projects/<id>/chat/`).
@@ -58,7 +57,7 @@ export type LoadChatThreadResult =
   | { ok: false; error: string }
 
 export type AppendChatMessageResult =
-  | { ok: true; planId?: string }
+  | { ok: true }
   | { ok: false; error: string }
 
 export type ClearChatThreadResult = { ok: true } | { ok: false; error: string }
@@ -280,12 +279,7 @@ export function appendChatMessage(
     ensureChatDir(projectId)
     const filePath = threadFilePath(projectId)
     appendFileSync(filePath, `${JSON.stringify(record)}\n`, 'utf-8')
-    let planId: string | undefined
-    if (record.role === 'assistant') {
-      const upserted = upsertPlanArtifactFromAssistantMessage(projectId, record.id, record.content)
-      if (upserted) planId = upserted.planId
-    }
-    return planId ? { ok: true, planId } : { ok: true }
+    return { ok: true }
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Failed to append chat message'
     return { ok: false, error: msg }

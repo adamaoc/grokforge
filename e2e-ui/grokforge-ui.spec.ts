@@ -16,7 +16,6 @@ type Fixture = {
   srcDir: string
   appFile: string
   notesFile: string
-  agentFile: string
 }
 
 function makeFixture(): Fixture {
@@ -31,7 +30,6 @@ function makeFixture(): Fixture {
 
   const appFile = path.join(srcDir, 'App.tsx')
   const notesFile = path.join(docsDir, 'notes.md')
-  const agentFile = path.join(srcDir, 'agent-output.txt')
 
   writeFileSync(
     appFile,
@@ -58,24 +56,7 @@ function makeFixture(): Fixture {
   }, null, 2))
   writeFileSync(path.join(workspaceDir, 'node_modules', 'ignored-lib', 'secret.txt'), 'needle-037-search-result')
 
-  return { baseDir, userDataDir, workspaceDir, srcDir, appFile, notesFile, agentFile }
-}
-
-function mockAgentReply(): string {
-  return 'I can prepare that file update for you.'
-}
-
-function mockE2eEditProposalJson(agentFile: string): string {
-  return JSON.stringify({
-    version: 1,
-    operations: [
-      {
-        op: 'write_file',
-        path: agentFile,
-        content: 'written by mocked E2E agent\n',
-      },
-    ],
-  })
+  return { baseDir, userDataDir, workspaceDir, srcDir, appFile, notesFile }
 }
 
 async function launchApp(fixture: Fixture): Promise<{ app: ElectronApplication; page: Page }> {
@@ -89,8 +70,6 @@ async function launchApp(fixture: Fixture): Promise<{ app: ElectronApplication; 
       NODE_ENV: 'test',
       GROKFORGE_E2E_USER_DATA_DIR: fixture.userDataDir,
       GROKFORGE_E2E_OPEN_PROJECT_PATH: fixture.workspaceDir,
-      GROKFORGE_E2E_AGENT_REPLY: mockAgentReply(),
-      GROKFORGE_E2E_EDIT_PROPOSAL_JSON: mockE2eEditProposalJson(fixture.agentFile),
       XAI_API_KEY: '',
       GROKFORGE_XAI_API_KEY: '',
     },
@@ -153,7 +132,9 @@ test.describe('GrokForge Electron UI E2E', () => {
 
     await page.getByRole('button', { name: 'Settings' }).click()
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'xAI API key' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Coding agent' })).toBeVisible()
+    await page.getByRole('tab', { name: 'Voice' }).click()
+    await expect(page.getByRole('heading', { name: 'xAI API key (voice)' })).toBeVisible()
     await page.getByRole('button', { name: 'Back' }).click()
 
     await page.getByRole('button', { name: /^Terminal$/ }).click()

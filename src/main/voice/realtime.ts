@@ -1,10 +1,9 @@
 import WebSocket from 'ws'
 import { app, type BrowserWindow } from 'electron'
 import type { GrokProjectManifest } from '../project/manifest'
-import { getModelForIntent } from '../../harness-support/routing/model-router'
-import { getXaiApiKey } from '../xai/stream'
-import { buildHarnessSystemPrompt, resolveHarnessProfileKey } from '../../harness'
-import { VOICE_THREAD_SUMMARY_EFFECTIVE_MAX } from '../../shared/voice/session-contract'
+import { getResolvedXaiApiKey as getXaiApiKey } from '../xai/key-store'
+import { voiceModelFromManifest } from '../../shared/voice/voice-model'
+import { buildVoiceInstructions } from './instructions'
 import { normalizeTtsVoiceId } from '../../shared/voice/tts-read-aloud-contract'
 
 const PCM_SAMPLE_RATE = 24_000
@@ -33,32 +32,12 @@ function isDevMode(): boolean {
 }
 
 function buildSessionUpdatePayload(manifest: GrokProjectManifest, opts?: { threadSummary?: string }): string {
-  const voiceModelId = getModelForIntent(manifest, 'voice', { logSelection: true })
-  const harnessProfileKey = resolveHarnessProfileKey(voiceModelId)
-  if (isDevMode()) {
-    console.debug('[GrokForge voice] harness routing', { voiceModelId, harnessProfileKey })
-  }
-
-  let instructions = buildHarnessSystemPrompt(manifest)
-  try {
-    const summary = opts?.threadSummary?.trim()
-    const summaryBlock =
-      summary && summary.length > 0
-        ? [
-            '',
-            '## Recent text chat (for continuity)',
-            'The user may switch between voice and typed agent chat in one thread. Summarized recent messages:',
-            summary.slice(0, VOICE_THREAD_SUMMARY_EFFECTIVE_MAX),
-          ].join('\n')
-        : ''
-    instructions = [
-      instructions.slice(0, 31_000),
-      `Voice model: ${voiceModelId}; harness profile: ${harnessProfileKey}.`,
-      summaryBlock,
-    ].join('\n')
-  } catch (e) {
-    console.warn('[GrokForge voice] instructions fallback:', e)
-  }
+  const voiceModelId = voiceModelFromManifest(manifest)
+  if (isDevMode()) console.debug('[GrokForge voice] model', voiceModelId)
+  const instructions = buildVoiceInstructions(manifest, {
+    voiceModelId,
+    threadSummary: opts?.threadSummary,
+  }).slice(0, 32_000)
 
   const voiceName =
     manifest.voice.customVoiceId != null && String(manifest.voice.customVoiceId).trim().length > 0
@@ -102,7 +81,7 @@ export function startVoiceRealtime(
 
   stopVoiceRealtime()
 
-  const model = getModelForIntent(manifest, 'voice', { logSelection: true })
+  const model = voiceModelFromManifest(manifest)
   const url = `${realtimeBaseUrl()}?model=${encodeURIComponent(model)}`
 
   return new Promise((resolve) => {

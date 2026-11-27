@@ -14,15 +14,11 @@ import {
 import { stopVoiceRealtime } from "./voice/realtime";
 import { invalidateRepoIgnoreCheckerCache } from "./workspace/repo-ignore";
 import { isPathWithinWorkspaceRoots as pathIsWithinWorkspaceRoots } from "./workspace/path-guard";
+import { registerAgentApprovalIpc } from "./agent/approval";
 import {
-  registerGrokStreamIpc,
-  setGrokStreamTargetWindow,
-} from "./xai/stream";
-import { registerAgentCommandApprovalIpc } from "./agent/command-approval";
-import {
-  flushActiveAgentTurnReceiptsAsInterruptedForApp,
   registerAgentChatIpc,
   setAgentChatTargetWindow,
+  stopAllAgentTurnsForQuit,
 } from "./agent/runner";
 import {
   scheduleWorkspaceFilesystemRefresh,
@@ -49,7 +45,6 @@ import {
 import { registerVoiceIpc } from "./voice/register-ipc";
 import { registerProjectIpc } from "./project/register-ipc";
 import { registerWorkspaceIpc } from "./workspace/register-ipc";
-import { registerAgentSupportIpc } from "./agent/register-ipc";
 import { registerChatIpc } from "./chat/register-ipc";
 import { registerAgentProviderIpc } from "./acp/register-ipc";
 import { registerCheckpointIpc } from "./checkpoints/register-ipc";
@@ -175,27 +170,23 @@ function createWindow() {
   mainWindow.on("closed", () => {
     stopVoiceRealtime();
     setTerminalIpcTargetWindow(null);
-    setGrokStreamTargetWindow(null);
     setAgentChatTargetWindow(null);
     setWorkspaceFsNotifyTargetWindow(null);
     mainWindow = null;
   });
 
-  setGrokStreamTargetWindow(mainWindow);
   setAgentChatTargetWindow(mainWindow);
   setTerminalIpcTargetWindow(mainWindow);
   setWorkspaceFsNotifyTargetWindow(mainWindow);
 }
 
-registerGrokStreamIpc();
-// registerAgentChatIpc - entry point (ish) for harness/agent
 registerAgentChatIpc({
   getCurrentProject: () => ({
     projectId: currentProjectId,
     manifest: currentProject,
   }),
-  registerCommandApprovalIpc: registerAgentCommandApprovalIpc,
 });
+registerAgentApprovalIpc();
 registerAgentProviderIpc();
 registerCheckpointIpc({
   getCurrentProject: () => ({ projectId: currentProjectId, manifest: currentProject }),
@@ -238,14 +229,7 @@ registerWorkspaceIpc({
   invalidateProjectCaches: invalidateRepoIgnoreCheckerCache,
   scheduleWorkspaceIndexRefresh,
 });
-registerAgentSupportIpc({
-  getCurrentProject: () => currentProject,
-  getCurrentProjectId: () => currentProjectId,
-  invalidateProjectCaches: invalidateRepoIgnoreCheckerCache,
-  scheduleWorkspaceIndexRefresh,
-});
 registerChatIpc({
-  getCurrentProject: () => currentProject,
   getCurrentProjectId: () => currentProjectId,
 });
 
@@ -281,7 +265,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  flushActiveAgentTurnReceiptsAsInterruptedForApp();
+  stopAllAgentTurnsForQuit();
   killAllTerminalSessions();
 });
 

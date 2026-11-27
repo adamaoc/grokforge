@@ -7,12 +7,6 @@ import {
   setWorkspaceFsNotifyTargetWindow,
 } from '../fs-notify'
 
-vi.mock('../../../harness-support/context/index-store', () => ({
-  refreshWorkspaceIndex: vi.fn(),
-}))
-
-import { refreshWorkspaceIndex } from '../../../harness-support/context/index-store'
-
 const manifest: GrokProjectManifest = {
   name: 'Test',
   roots: [{ id: 'r1', label: 'Root', path: '/tmp/workspace' }],
@@ -24,17 +18,18 @@ const manifest: GrokProjectManifest = {
 describe('scheduleWorkspaceFilesystemRefresh', () => {
   beforeEach(() => {
     resetWorkspaceFilesystemRefreshForTests()
-    vi.mocked(refreshWorkspaceIndex).mockClear()
   })
 
   afterEach(() => {
     resetWorkspaceFilesystemRefreshForTests()
   })
 
-  it('refreshes index without renderer notify by default', () => {
-    scheduleWorkspaceFilesystemRefresh({ projectId: 'p1', manifest })
+  it('does not notify the renderer unless asked to', () => {
+    const send = vi.fn()
+    setWorkspaceFsNotifyTargetWindow({ webContents: { send } } as never)
+    scheduleWorkspaceFilesystemRefresh({ projectId: 'p1', manifest, paths: ['/tmp/a'] })
     flushWorkspaceFilesystemRefreshForTests()
-    expect(refreshWorkspaceIndex).toHaveBeenCalledWith('p1', manifest)
+    expect(send).not.toHaveBeenCalled()
   })
 
   it('sends workspace-fs-changed when notifyRenderer is true', () => {
@@ -80,7 +75,7 @@ describe('scheduleWorkspaceFilesystemRefresh', () => {
     })
     flushWorkspaceFilesystemRefreshForTests()
 
-    expect(refreshWorkspaceIndex).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledTimes(1)
     expect(send).toHaveBeenCalledWith('workspace-fs-changed', {
       paths: expect.arrayContaining(['/tmp/a', '/tmp/b']),
       reason: 'agent_command',

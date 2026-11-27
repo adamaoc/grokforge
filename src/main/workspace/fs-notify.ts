@@ -1,6 +1,5 @@
 import type { BrowserWindow } from 'electron'
 import type { WorkspaceFsChangeReason, WorkspaceFsChangedPayload } from '../../shared/workspace/fs-change-contract'
-import { refreshWorkspaceIndex } from '../../harness-support/context/index-store'
 import type { GrokProjectManifest } from '../project/manifest'
 
 const REFRESH_DEBOUNCE_MS = 750
@@ -51,12 +50,6 @@ function flushWorkspaceFilesystemRefresh(): void {
   pendingReason = 'mutation'
 
   if (!projectId || !manifest) return
-
-  try {
-    refreshWorkspaceIndex(projectId, manifest)
-  } catch (e) {
-    console.warn('[GrokForge] failed to refresh workspace index:', e)
-  }
 
   if (!notifyRenderer || !targetWindow) return
 

@@ -2,20 +2,20 @@ import type {
   AgentApprovalDecision,
   AgentChatEventPayload,
   AgentChatStartPayload,
-  AgentCommandApprovalRequest,
+  AgentApprovalRequest,
 } from '../../shared/agent/chat-contract'
 import { AGENT_PROVIDER_LABELS } from '../../shared/agent/provider-contract'
 import type { GrokProjectManifest } from '../project/manifest'
 import { scheduleWorkspaceFilesystemRefresh } from '../workspace/fs-notify'
 import { collectTurnChanges, snapshotProjectRoots } from '../checkpoints/service'
-import { getAcpProviderDetection } from './provider-registry'
+import { getProviderDetection } from './provider-registry'
 import type { AcpProviderId } from './providers'
 import { acquireAcpSession, disposeAcpSession } from './session-manager'
 import { AcpTurnError, friendlyAcpError, runAcpTurn } from './turn'
 
 export type AcpChatTurnContext = {
   emit: (payload: AgentChatEventPayload) => void
-  requestApproval: (request: AgentCommandApprovalRequest, signal: AbortSignal) => Promise<AgentApprovalDecision>
+  requestApproval: (request: AgentApprovalRequest, signal: AbortSignal) => Promise<AgentApprovalDecision>
 }
 
 /** Entry point from `src/main/agent/runner.ts` when an external agent is selected. */
@@ -28,7 +28,7 @@ export async function runAcpChatTurn(
   ac: AbortController,
 ): Promise<void> {
   const providerLabel = AGENT_PROVIDER_LABELS[providerId]
-  const detection = await getAcpProviderDetection(providerId)
+  const detection = await getProviderDetection(providerId)
   if (!detection.launch) {
     throw new AcpTurnError(
       `${providerLabel} is not available. ${detection.status.hint ?? 'Pick another coding agent in Settings.'}`,
