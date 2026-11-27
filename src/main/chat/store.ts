@@ -1,4 +1,5 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync } from 'fs'
+import type { AgentTurnChanges, TurnChangedFile } from '../../shared/agent/checkpoint-contract'
 import { dirname } from 'path'
 import { CHAT_STORE_SCHEMA_VERSION } from '../../shared/chat/thread-schema'
 import { chatThreadPathForProject } from '../project/store'
@@ -48,6 +49,8 @@ export type PersistedChatLineV1 = {
   model?: string
   attachments?: ChatAttachmentPersisted[]
   turnContext?: ChatTurnContextV1
+  /** Files an external agent changed during this assistant turn (checkpoint review / undo). */
+  turnChanges?: AgentTurnChanges
 }
 
 export type LoadChatThreadResult =
@@ -157,6 +160,39 @@ function validateTurnContext(raw: unknown): ChatTurnContextV1 | undefined {
 }
 
 /** v1 → v2 migration hook (no v2 shape yet). */
+function validateTurnChanges(raw: unknown): AgentTurnChanges | undefined {
+  if (!isPlainObject(raw) || !Array.isArray(raw.roots)) return undefined
+  const roots: AgentTurnChanges['roots'] = []
+  for (const r of raw.roots) {
+    if (!isPlainObject(r)) return undefined
+    const { rootId, rootLabel, rootPath, checkpoint, files } = r
+    if (
+      typeof rootId !== 'string' ||
+      typeof rootLabel !== 'string' ||
+      typeof rootPath !== 'string' ||
+      typeof checkpoint !== 'string' ||
+      !/^[0-9a-f]{7,64}$/.test(checkpoint) ||
+      !Array.isArray(files)
+    ) {
+      return undefined
+    }
+    const outFiles: TurnChangedFile[] = []
+    for (const f of files) {
+      if (!isPlainObject(f) || typeof f.path !== 'string') return undefined
+      if (f.status !== 'added' && f.status !== 'modified' && f.status !== 'deleted') return undefined
+      outFiles.push({
+        path: f.path,
+        status: f.status,
+        additions: typeof f.additions === 'number' ? f.additions : 0,
+        deletions: typeof f.deletions === 'number' ? f.deletions : 0,
+        ...(f.binary === true ? { binary: true } : {}),
+      })
+    }
+    roots.push({ rootId, rootLabel, rootPath, checkpoint, files: outFiles })
+  }
+  return { roots }
+}
+
 export function migratePersistedLine(obj: unknown): PersistedChatLineV1 | null {
   if (!isPlainObject(obj)) return null
   const sv = obj.schemaVersion
@@ -172,6 +208,8 @@ export function migratePersistedLine(obj: unknown): PersistedChatLineV1 | null {
   /** Invalid `turnContext` is dropped so one bad field does not wipe the thread. */
   const turnContext =
     obj.turnContext !== undefined ? validateTurnContext(obj.turnContext) : undefined
+  const turnChanges =
+    obj.turnChanges !== undefined ? validateTurnChanges(obj.turnChanges) : undefined
   return {
     schemaVersion: 1,
     id: obj.id,
@@ -181,6 +219,7 @@ export function migratePersistedLine(obj: unknown): PersistedChatLineV1 | null {
     model,
     attachments,
     ...(turnContext ? { turnContext } : {}),
+    ...(turnChanges ? { turnChanges } : {}),
   }
 }
 

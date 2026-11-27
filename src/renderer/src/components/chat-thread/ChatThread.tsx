@@ -858,7 +858,11 @@ export function ChatThread({
   };
 
   const respondToCommandApproval = useCallback(
-    async (request: AgentCommandApprovalRequest, approved: boolean) => {
+    async (
+      request: AgentCommandApprovalRequest,
+      approved: boolean,
+      scope: "once" | "turn" = "once",
+    ) => {
       const api = window.electron?.agentCommandApprovalRespond;
       if (!api) {
         toast.error("Command approval requires the GrokForge desktop app.");
@@ -868,6 +872,7 @@ export function ChatThread({
         streamId: request.streamId,
         requestId: request.requestId,
         approved,
+        scope,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -1160,8 +1165,8 @@ export function ChatThread({
             hasPendingProposal={Boolean(pendingProposal)}
             onSelectWelcomePrompt={fillComposerFromSuggestion}
             onApprovePlan={handlePlanApproveAndRun}
-            onCommandApprove={(request, approved) =>
-              void respondToCommandApproval(request, approved)
+            onCommandApprove={(request, approved, scope) =>
+              void respondToCommandApproval(request, approved, scope)
             }
             onCommandCopy={(request) => void copyCommandApproval(request)}
             onCancelStream={cancelStream}

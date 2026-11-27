@@ -120,5 +120,6 @@ export function lineToMessage(line: PersistedChatLineV1): ChatMessage {
     model: line.model,
     attachments: line.attachments,
     turnContext: line.turnContext,
+    ...(line.turnChanges ? { turnChanges: line.turnChanges } : {}),
   };
 }

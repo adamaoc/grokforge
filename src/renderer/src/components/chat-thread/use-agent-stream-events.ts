@@ -294,6 +294,18 @@ export function useAgentStreamEvents({
         markPlanExecutingOnTurnStarted(p.routing.agentProfileId);
         return;
       }
+      if (p.phase === "turn_changes") {
+        setMessages((prev) =>
+          prev
+            ? prev.map((m) =>
+                m.id === assistantIdRef.current
+                  ? { ...m, turnChanges: p.changes }
+                  : m,
+              )
+            : prev,
+        );
+        return;
+      }
       if (p.phase === "final_chunk") {
         assistantBufferRef.current += p.delta;
         setMessages((prev) =>
@@ -314,8 +326,11 @@ export function useAgentStreamEvents({
         assistantIdRef.current = null;
         const finalContent = assistantBufferRef.current;
         if (!finalContent.trim() && endedAssistantId) {
+          // Keep a text-less turn when it still changed files (the changes card).
           setMessages((prev) =>
-            prev ? prev.filter((m) => m.id !== endedAssistantId) : prev,
+            prev
+              ? prev.filter((m) => m.id !== endedAssistantId || m.turnChanges)
+              : prev,
           );
         } else if (endedAssistantId && finalContent) {
           setMessages((prev) =>
@@ -448,7 +463,10 @@ export function useAgentStreamEvents({
             );
           }
           return prev.filter(
-            (m) => m.id !== endedAssistantId || m.content.trim().length > 0,
+            (m) =>
+              m.id !== endedAssistantId ||
+              m.content.trim().length > 0 ||
+              m.turnChanges,
           );
         });
         return;

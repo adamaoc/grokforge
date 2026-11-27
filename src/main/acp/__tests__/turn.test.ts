@@ -15,6 +15,7 @@ import { JsonRpcPeer } from '../json-rpc'
 import type { ManagedAcpSession } from '../session-manager'
 import { modelLabelFrom } from '../session-manager'
 import {
+  addSnippetLineNumbers,
   buildPromptBlocks,
   pickPermissionOption,
   pickSessionModeId,
@@ -165,7 +166,7 @@ describe('runAcpTurn', () => {
         emit: (e) => events.push(e),
         requestApproval: async (req) => {
           approvals.push(req)
-          return opts.approve ?? true
+          return { approved: opts.approve ?? true, scope: 'once' }
         },
         onFilesChanged: (paths) => changed.push(paths),
       },
@@ -225,6 +226,21 @@ describe('runAcpTurn', () => {
     expect(agent.calls.find((c) => c.method === 'session/set_mode')?.params.modeId).toBe('plan')
     const started = events.find((e) => e.phase === 'turn_started')
     expect(started && started.phase === 'turn_started' && started.routing.agentProfileId).toBe('planner')
+  })
+})
+
+describe('addSnippetLineNumbers', () => {
+  it('locates an edit snippet in the file so the card shows real line numbers', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gf-acp-snippet-'))
+    try {
+      const file = join(dir, 'cli.js')
+      writeFileSync(file, '#!/usr/bin/env node\nimport { split } from "./split.js"\n\nconst x = 1\n')
+      const diffs = [{ path: file, oldText: 'const x = 1', newText: 'const x = 2' }]
+      await addSnippetLineNumbers(diffs, manifest(dir).roots)
+      expect(diffs[0]).toMatchObject({ startLine: 4 })
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 

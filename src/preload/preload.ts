@@ -29,6 +29,12 @@ import type {
   SetAgentProviderResult,
 } from '../shared/agent/provider-contract'
 import type {
+  CheckpointFileDiffRequest,
+  CheckpointFileDiffResult,
+  CheckpointRevertRequest,
+  CheckpointRevertResult,
+} from '../shared/agent/checkpoint-contract'
+import type {
   AgentProposalReviewRequest,
   AgentProposalReviewResult,
 } from '../shared/agent/proposal-reviewer'
@@ -182,6 +188,10 @@ export const electronAPI = {
     ipcRenderer.invoke('agent-providers-list', args ?? {}),
   setAgentProvider: (id: AgentProviderId): Promise<SetAgentProviderResult> =>
     ipcRenderer.invoke('agent-provider-set', id),
+  agentCheckpointFileDiff: (args: CheckpointFileDiffRequest): Promise<CheckpointFileDiffResult> =>
+    ipcRenderer.invoke('agent-checkpoint-file-diff', args),
+  agentCheckpointRevert: (args: CheckpointRevertRequest): Promise<CheckpointRevertResult> =>
+    ipcRenderer.invoke('agent-checkpoint-revert', args),
   refreshProjectIntelligence: (): Promise<RefreshProjectIntelligenceResult> =>
     ipcRenderer.invoke('refresh-project-intelligence'),
   agentChatStart: (payload: AgentChatStartPayload): Promise<AgentChatStartResult> =>

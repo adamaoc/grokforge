@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type {
+  AgentApprovalDecision,
   AgentChatActivityPayload,
   AgentChatEventPayload,
   AgentChatStartPayload,
@@ -40,9 +41,14 @@ import type { ManagedAcpSession } from './session-manager'
 export type AcpTurnDeps = {
   emit: (payload: AgentChatEventPayload) => void
   /** Shows an approval card and resolves with the user's choice (rejects on abort). */
-  requestApproval: (request: AgentCommandApprovalRequest, signal: AbortSignal) => Promise<boolean>
+  requestApproval: (
+    request: AgentCommandApprovalRequest,
+    signal: AbortSignal,
+  ) => Promise<AgentApprovalDecision>
   /** Agent changed files on disk (via GrokForge fs or its own tools). */
   onFilesChanged?: (absPaths: string[]) => void
+  /** Runs after the agent finishes and before `done` is emitted (e.g. report turn changes). */
+  beforeDone?: () => Promise<void>
   newRequestId?: () => string
 }
 
@@ -141,6 +147,29 @@ export function collectDiffs(fields: AcpToolCallFields): AgentPermissionDiff[] {
     })
   }
   return out
+}
+
+/**
+ * Agents often send old/new *snippets* (Claude's Edit tool). Locate each snippet in the file
+ * on disk so the review card can show real line numbers.
+ */
+export async function addSnippetLineNumbers(
+  diffs: AgentPermissionDiff[],
+  roots: readonly Root[],
+): Promise<void> {
+  for (const d of diffs) {
+    if (!d.oldText) continue
+    const abs = resolve(d.path)
+    if (!isPathWithinWorkspaceRoots(abs, roots)) continue
+    try {
+      const content = await readFile(abs, 'utf8')
+      if (content === d.oldText) continue
+      const at = content.indexOf(d.oldText)
+      if (at > 0) d.startLine = content.slice(0, at).split('\n').length
+    } catch {
+      // New or unreadable file: keep snippet-relative numbers.
+    }
+  }
 }
 
 function approvalKindFor(fields: AcpToolCallFields, diffs: AgentPermissionDiff[]): ApprovalKind {
@@ -295,6 +324,8 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
   let wroteText = false
   let thoughtOpen = false
   let thoughtText = ''
+  /** Set when the user picks "Allow all edits this turn". */
+  let allowEditsThisTurn = false
 
   const closeThought = () => {
     if (!thoughtOpen) return
@@ -407,6 +438,8 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
     }
 
     if (shouldAutoAllow(fields.kind, temperament)) return answer(true)
+    if (allowEditsThisTurn && kind === 'edit' && fields.kind !== 'delete') return answer(true)
+    await addSnippetLineNumbers(diffs, manifest.roots)
 
     const command = rawInputString(fields.rawInput, 'command')
     const bodyText = (fields.content ?? [])
@@ -426,10 +459,12 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
       risk: fields.kind === 'delete' ? 'soft_risk' : 'safe',
       policyReason:
         kind === 'edit'
-          ? `${input.providerLabel} wants to change ${diffs.length || 'a'} file${diffs.length === 1 ? '' : 's'}. Review the diff — nothing is written until you allow it${temperament === 'trust' ? ' (Trust mode)' : ''}.`
+          ? fields.kind === 'delete'
+            ? 'Deleting cannot be reviewed as a diff. You can still undo the turn afterwards.'
+            : 'Nothing is written until you allow it. Every change can be undone after the turn.'
           : kind === 'command'
-            ? `${input.providerLabel} wants to run a command in ${root.label || root.id}. Commands always ask, in every temperament.`
-            : `${input.providerLabel} is asking for permission: ${title}.`,
+            ? `Commands always ask first, in every review mode.`
+            : title,
       kind,
       providerLabel: input.providerLabel,
       ...(diffs.length ? { diffs } : {}),
@@ -439,7 +474,9 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
     emit({ streamId, phase: 'command_approval_required', request })
     let approved: boolean
     try {
-      approved = await deps.requestApproval(request, signal)
+      const decision = await deps.requestApproval(request, signal)
+      approved = decision.approved
+      if (approved && decision.scope === 'turn' && kind === 'edit') allowEditsThisTurn = true
     } catch {
       return { outcome: { outcome: 'cancelled' } }
     }
@@ -506,6 +543,7 @@ export async function runAcpTurn(deps: AcpTurnDeps, input: AcpTurnInput): Promis
     }
 
     emit({ streamId, phase: 'activity_clear_running', reason: 'done' })
+    await deps.beforeDone?.()
     emit({
       streamId,
       phase: 'done',

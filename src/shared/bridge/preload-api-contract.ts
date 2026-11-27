@@ -45,6 +45,12 @@ import type {
   SetAgentProviderResult,
 } from '../agent/provider-contract'
 import type {
+  CheckpointFileDiffRequest,
+  CheckpointFileDiffResult,
+  CheckpointRevertRequest,
+  CheckpointRevertResult,
+} from '../agent/checkpoint-contract'
+import type {
   AgentProposalReviewRequest,
   AgentProposalReviewResult,
 } from '../agent/proposal-reviewer'
@@ -133,6 +139,8 @@ export type ElectronAPI = {
   agentChatCapabilities(): Promise<AgentChatCapabilitiesResult>
   listAgentProviders(args?: { refresh?: boolean }): Promise<AgentProvidersResult>
   setAgentProvider(id: AgentProviderId): Promise<SetAgentProviderResult>
+  agentCheckpointFileDiff(args: CheckpointFileDiffRequest): Promise<CheckpointFileDiffResult>
+  agentCheckpointRevert(args: CheckpointRevertRequest): Promise<CheckpointRevertResult>
   refreshProjectIntelligence(): Promise<RefreshProjectIntelligenceResult>
   agentChatStart(payload: AgentChatStartPayload): Promise<AgentChatStartResult>
   agentReviewProposal(payload: AgentProposalReviewRequest): Promise<AgentProposalReviewResult>

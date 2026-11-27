@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { z } from 'zod'
 import type {
+  AgentApprovalDecision,
   AgentCommandApprovalRespondResult,
   AgentCommandApprovalResponse,
 } from '../../shared/agent/chat-contract'
@@ -8,7 +9,7 @@ import { AGENT_CHAT_MAX_STREAM_ID_LEN } from '../../shared/agent/chat-contract'
 
 type PendingApproval = {
   streamId: string
-  resolve: (approved: boolean) => void
+  resolve: (decision: AgentApprovalDecision) => void
 }
 
 const pendingCommandApprovals = new Map<string, PendingApproval>()
@@ -17,16 +18,17 @@ const ApprovalResponseSchema = z.object({
   streamId: z.string().min(1).max(AGENT_CHAT_MAX_STREAM_ID_LEN),
   requestId: z.string().min(1).max(128),
   approved: z.boolean(),
+  scope: z.enum(['once', 'turn']).optional(),
 })
 
 /**
- * Blocks until the user approves/rejects via IPC or the turn abort signal fires.
+ * Blocks until the user answers an approval card via IPC, or the turn abort signal fires.
  */
-export function waitForCommandApproval(
+export function waitForApprovalDecision(
   requestId: string,
   streamId: string,
   signal: AbortSignal,
-): Promise<boolean> {
+): Promise<AgentApprovalDecision> {
   if (signal.aborted) {
     return Promise.reject(signal.reason ?? new Error('Aborted'))
   }
@@ -44,14 +46,23 @@ export function waitForCommandApproval(
 
     pendingCommandApprovals.set(requestId, {
       streamId,
-      resolve: (approved) => {
+      resolve: (decision) => {
         cleanup()
-        resolve(approved)
+        resolve(decision)
       },
     })
 
     signal.addEventListener('abort', onAbort, { once: true })
   })
+}
+
+/** Boolean form used by the built-in harness `run_command` gate. */
+export async function waitForCommandApproval(
+  requestId: string,
+  streamId: string,
+  signal: AbortSignal,
+): Promise<boolean> {
+  return (await waitForApprovalDecision(requestId, streamId, signal)).approved
 }
 
 export function registerAgentCommandApprovalIpc(): void {
@@ -67,7 +78,7 @@ export function registerAgentCommandApprovalIpc(): void {
         return { ok: false, error: 'Approval request is no longer active.' }
       }
 
-      pending.resolve(payload.approved)
+      pending.resolve({ approved: payload.approved, scope: payload.scope ?? 'once' })
       return { ok: true }
     },
   )

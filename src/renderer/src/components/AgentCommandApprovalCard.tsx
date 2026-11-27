@@ -1,10 +1,15 @@
-import { useMemo, useState } from 'react'
-import { AlertTriangle, Ban, Check, Copy, FileDiff, Play, ShieldQuestion } from 'lucide-react'
+import { useState } from 'react'
+import { AlertTriangle, Ban, Check, CheckCheck, Copy, FileDiff, Play, ShieldQuestion, Trash2 } from 'lucide-react'
 import type { AgentCommandApprovalRequest } from '@/types'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { InlineLineDiff } from '@/components/InlineLineDiff'
 import type { AgentPermissionDiff } from '../../../shared/agent/chat-contract'
 import { computeLineDiff, countLineDiff } from '../../../shared/diff/line-diff'
+
+export type ApprovalScope = 'once' | 'turn'
+
+type Tone = 'accent' | 'amber' | 'red'
 
 function relativeToRoot(path: string, rootPath: string): string {
   const root = rootPath.replace(/[\\/]+$/, '')
@@ -13,9 +18,32 @@ function relativeToRoot(path: string, rootPath: string): string {
   return path
 }
 
-function PermissionDiffView({ diff, rootPath }: { diff: AgentPermissionDiff; rootPath: string }) {
-  const rows = useMemo(() => computeLineDiff(diff.oldText, diff.newText), [diff.oldText, diff.newText])
-  const stats = countLineDiff(rows)
+function toneFor(request: AgentCommandApprovalRequest): Tone {
+  if (request.risk === 'soft_risk') return 'red'
+  if ((request.kind ?? 'command') === 'command') return 'amber'
+  return 'accent'
+}
+
+const TONE_CLASSES: Record<Tone, { card: string; icon: string; sub: string }> = {
+  accent: {
+    card: 'border-primary/40 bg-zinc-900/70',
+    icon: 'text-gf-accent',
+    sub: 'text-zinc-400',
+  },
+  amber: {
+    card: 'border-amber-900/50 bg-amber-950/20',
+    icon: 'text-amber-300',
+    sub: 'text-amber-200/90',
+  },
+  red: {
+    card: 'border-red-900/60 bg-red-950/25',
+    icon: 'text-red-300',
+    sub: 'text-red-200/90',
+  },
+}
+
+function DiffBlock({ diff, rootPath }: { diff: AgentPermissionDiff; rootPath: string }) {
+  const stats = countLineDiff(computeLineDiff(diff.oldText, diff.newText))
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-800 bg-zinc-950/80" data-agent-permission-diff="">
       <div className="flex min-w-0 items-center justify-between gap-2 border-b border-zinc-800 px-2.5 py-1.5">
@@ -35,92 +63,55 @@ function PermissionDiffView({ diff, rootPath }: { diff: AgentPermissionDiff; roo
           <span className="text-red-400">−{stats.removed}</span>
         </span>
       </div>
-      <div className="custom-scrollbar max-h-72 overflow-auto py-1 font-mono text-[11px] leading-[1.45]">
-        {rows.map((row, idx) =>
-          row.type === 'gap' ? (
-            <div key={idx} className="px-2.5 py-0.5 text-[10px] text-zinc-600">
-              ⋯ {row.hidden} unchanged line{row.hidden === 1 ? '' : 's'}
-            </div>
-          ) : (
-            <div
-              key={idx}
-              className={cn(
-                'flex whitespace-pre',
-                row.type === 'add' && 'bg-emerald-950/50 text-emerald-100',
-                row.type === 'del' && 'bg-red-950/40 text-red-200/90',
-                row.type === 'context' && 'text-zinc-400',
-              )}
-            >
-              <span className="w-9 shrink-0 select-none pr-2 text-right text-zinc-600">
-                {row.type === 'del' ? row.oldLine : row.newLine}
-              </span>
-              <span className="w-3 shrink-0 select-none text-zinc-500">
-                {row.type === 'add' ? '+' : row.type === 'del' ? '−' : ' '}
-              </span>
-              <span className="pr-3">{row.text || ' '}</span>
-            </div>
-          ),
-        )}
-      </div>
+      <InlineLineDiff before={diff.oldText} after={diff.newText} lineOffset={(diff.startLine ?? 1) - 1} />
     </div>
   )
 }
 
-function riskLabel(request: AgentCommandApprovalRequest): string {
-  if (request.providerLabel) return request.providerLabel
-  if (request.risk === 'network_or_install') return 'Network / install'
-  if (request.risk === 'soft_risk') return 'Elevated risk'
-  return 'Approval required'
-}
-
-function riskBannerClass(request: AgentCommandApprovalRequest): string {
-  if (request.risk === 'network_or_install') {
-    return 'border-amber-700/60 bg-amber-950/40 text-amber-100'
-  }
-  if (request.risk === 'soft_risk') {
-    return 'border-red-900/50 bg-red-950/30 text-red-200/90'
-  }
-  return 'border-zinc-800/80 bg-zinc-950/40 text-zinc-300'
-}
-
 type Props = {
   request: AgentCommandApprovalRequest
-  onApprove: (request: AgentCommandApprovalRequest) => void
+  onApprove: (request: AgentCommandApprovalRequest, scope: ApprovalScope) => void
   onReject: (request: AgentCommandApprovalRequest) => void
   onCopy: (request: AgentCommandApprovalRequest) => void
 }
 
-export function AgentCommandApprovalCard({
-  request,
-  onApprove,
-  onReject,
-  onCopy,
-}: Props) {
+/**
+ * Approval card for agent requests: file edits (with diffs), commands, and other
+ * permissions. Tone follows risk: accent for edits, amber for commands, red for deletes.
+ */
+export function AgentCommandApprovalCard({ request, onApprove, onReject, onCopy }: Props) {
   const [softRiskAck, setSoftRiskAck] = useState(false)
-  const needsSoftAck = request.risk === 'soft_risk'
-  const approveDisabled = needsSoftAck && !softRiskAck
   const kind = request.kind ?? 'command'
   const diffs = request.diffs ?? []
+  const tone = toneFor(request)
+  const toneClasses = TONE_CLASSES[tone]
+  const needsSoftAck = request.risk === 'soft_risk'
+  const approveDisabled = needsSoftAck && !softRiskAck
+  const agent = request.providerLabel ?? 'The agent'
+  const isDelete = needsSoftAck && kind === 'edit'
+
   const heading =
     kind === 'edit'
-      ? `Review ${request.providerLabel ?? 'agent'} edit`
+      ? isDelete
+        ? `${agent} wants to delete a file`
+        : `${agent} wants to edit ${diffs.length > 1 ? `${diffs.length} files` : 'a file'}`
       : kind === 'permission'
-        ? `${request.providerLabel ?? 'Agent'} is asking`
-        : 'Approve agent command?'
-  const HeadingIcon = kind === 'edit' ? FileDiff : kind === 'permission' ? ShieldQuestion : AlertTriangle
-  const showCommandBlock = kind !== 'edit' || diffs.length === 0
+        ? `${agent} is asking`
+        : `Run this command?`
+  const HeadingIcon = isDelete ? Trash2 : kind === 'edit' ? FileDiff : kind === 'permission' ? ShieldQuestion : AlertTriangle
+  const showRequestBlock = kind !== 'edit' || diffs.length === 0
 
   return (
     <div
-      className="rounded-2xl border border-amber-900/50 bg-amber-950/20 px-3 py-3 text-sm text-zinc-300"
+      className={cn('rounded-2xl border px-3 py-3 text-sm text-zinc-300', toneClasses.card)}
       data-agent-command-approval=""
     >
       <div className="mb-2 flex min-w-0 items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
-          <HeadingIcon size={16} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
+          <HeadingIcon size={16} className={cn('mt-0.5 shrink-0', toneClasses.icon)} aria-hidden />
           <div className="min-w-0">
             <div className="text-sm font-medium text-white">{heading}</div>
-            <div className="mt-0.5 text-xs text-amber-200/90">{riskLabel(request)}</div>
+            <div className={cn('mt-0.5 text-xs', toneClasses.sub)}>{request.policyReason}</div>
           </div>
         </div>
         {request.timeoutMs > 0 ? (
@@ -128,15 +119,6 @@ export function AgentCommandApprovalCard({
             {Math.round(request.timeoutMs / 1000)}s timeout
           </span>
         ) : null}
-      </div>
-
-      <div
-        className={cn(
-          'mb-2 rounded-xl border px-2.5 py-2 text-xs leading-relaxed',
-          riskBannerClass(request),
-        )}
-      >
-        {request.policyReason}
       </div>
 
       {request.warning ? (
@@ -147,42 +129,34 @@ export function AgentCommandApprovalCard({
 
       <div className="space-y-2">
         {diffs.map((diff) => (
-          <PermissionDiffView key={diff.path} diff={diff} rootPath={request.rootPath} />
+          <DiffBlock key={diff.path} diff={diff} rootPath={request.rootPath} />
         ))}
-        {showCommandBlock ? (
-          <div>
-            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-              {kind === 'command' ? 'Command' : 'Request'}
-            </div>
-            <pre className="custom-scrollbar max-h-48 overflow-y-auto whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-2 font-mono text-[11px] leading-relaxed text-zinc-200">
-              {request.command}
-            </pre>
-          </div>
+        {showRequestBlock ? (
+          <pre className="custom-scrollbar max-h-48 overflow-y-auto whitespace-pre-wrap rounded-xl border border-zinc-800 bg-zinc-950/80 px-2 py-2 font-mono text-[11px] leading-relaxed text-zinc-200">
+            {request.command}
+          </pre>
         ) : null}
-        <div className="grid gap-2 text-xs text-zinc-400 sm:grid-cols-2">
-          <div className="min-w-0 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-2 py-1.5">
-            <div className="text-[10px] uppercase tracking-wide text-zinc-500">Root</div>
-            <div className="truncate text-zinc-300">{request.rootLabel}</div>
-            <div className="truncate font-mono text-[10px] text-zinc-500" title={request.rootPath}>
-              {request.rootPath}
-            </div>
-          </div>
-          <div className="min-w-0 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-2 py-1.5">
-            <div className="text-[10px] uppercase tracking-wide text-zinc-500">Purpose</div>
-            <div className="line-clamp-2 text-zinc-300">{request.purpose}</div>
-          </div>
-        </div>
+        {kind === 'command' ? (
+          <p className="truncate text-[11px] text-zinc-500" title={request.rootPath}>
+            in <span className="text-zinc-300">{request.rootLabel}</span>
+            {request.purpose && request.purpose !== request.command ? <> · {request.purpose}</> : null}
+          </p>
+        ) : null}
       </div>
 
       {needsSoftAck ? (
-        <label className="mt-3 flex cursor-pointer items-start gap-2 text-xs text-amber-100/90">
+        <label className="mt-3 flex cursor-pointer items-start gap-2 text-xs text-red-100/90">
           <input
             type="checkbox"
-            className="mt-0.5 rounded border-amber-700 bg-zinc-950"
+            className="mt-0.5 rounded border-red-700 bg-zinc-950"
             checked={softRiskAck}
             onChange={(e) => setSoftRiskAck(e.target.checked)}
           />
-          <span>I understand this command may delete files or run elevated shell actions under the requested workspace root.</span>
+          <span>
+            {isDelete
+              ? 'I understand this permanently removes a file from the project (you can still undo the turn).'
+              : 'I understand this command may delete files or run elevated shell actions under the requested workspace root.'}
+          </span>
         </label>
       ) : null}
 
@@ -192,7 +166,7 @@ export function AgentCommandApprovalCard({
           size="sm"
           className="h-8 rounded-xl"
           disabled={approveDisabled}
-          onClick={() => onApprove(request)}
+          onClick={() => onApprove(request, 'once')}
         >
           {kind === 'edit' ? (
             <>
@@ -200,10 +174,22 @@ export function AgentCommandApprovalCard({
             </>
           ) : (
             <>
-              <Play size={13} aria-hidden /> {kind === 'permission' ? 'Allow' : 'Approve'}
+              <Play size={13} aria-hidden /> {kind === 'permission' ? 'Allow' : 'Run'}
             </>
           )}
         </Button>
+        {kind === 'edit' && !isDelete ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-xl border-zinc-700"
+            onClick={() => onApprove(request, 'turn')}
+            title="Allow this edit and any further edits until the agent finishes this turn"
+          >
+            <CheckCheck size={13} aria-hidden /> Allow all edits this turn
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="outline"

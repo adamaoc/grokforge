@@ -20,7 +20,7 @@ import {
 import type { GrokProjectManifest } from '../project/manifest';
 import { getXaiApiKey } from '../xai/stream';
 import { hasConfiguredXaiApiKey } from '../xai/key-store';
-import { waitForCommandApproval } from './command-approval';
+import { waitForApprovalDecision, waitForCommandApproval } from './command-approval';
 import { runAcpChatTurn } from '../acp/chat-turn';
 import {
   getAcpProviderDetection,
@@ -153,7 +153,7 @@ async function runTurnJob(payload: AgentChatStartPayload): Promise<void> {
         {
           emit,
           requestApproval: (request, signal) =>
-            waitForCommandApproval(request.requestId, payload.streamId, signal),
+            waitForApprovalDecision(request.requestId, payload.streamId, signal),
         },
         payload,
         manifest,

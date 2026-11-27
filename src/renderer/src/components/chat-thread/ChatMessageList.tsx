@@ -52,6 +52,7 @@ type ChatMessageListProps = {
   onCommandApprove: (
     request: AgentCommandApprovalRequest,
     approved: boolean,
+    scope?: "once" | "turn",
   ) => void;
   onCommandCopy: (request: AgentCommandApprovalRequest) => void;
   onCancelStream: () => void;
@@ -145,7 +146,7 @@ export function ChatMessageList({
             <AgentCommandApprovalCard
               key={request.requestId}
               request={request}
-              onApprove={(item) => onCommandApprove(item, true)}
+              onApprove={(item, scope) => onCommandApprove(item, true, scope)}
               onReject={(item) => onCommandApprove(item, false)}
               onCopy={onCommandCopy}
             />

@@ -90,7 +90,7 @@ test.describe('External coding agent (ACP)', () => {
     await page.getByRole('button', { name: 'Send message' }).click()
 
     const card = page.locator('[data-agent-command-approval]')
-    await expect(card.getByText('Review Claude Code edit')).toBeVisible()
+    await expect(card.getByText('Claude Code wants to edit a file')).toBeVisible()
     await expect(card.locator('[data-agent-permission-diff]')).toContainText('README.md')
     await expect(card.locator('[data-agent-permission-diff]')).toContainText('## Getting started')
     expect(readFileSync(fixture.readme, 'utf8')).not.toContain('Getting started')
@@ -98,6 +98,17 @@ test.describe('External coding agent (ACP)', () => {
     await card.getByRole('button', { name: 'Allow edit' }).click()
     await expect(page.getByText('Added the section to')).toBeVisible()
     await expect.poll(() => readFileSync(fixture.readme, 'utf8')).toContain('## Getting started')
+
+    // The turn's changes are listed against a checkpoint and can be undone.
+    const changes = page.locator('[data-turn-changes]')
+    await expect(changes).toContainText('Changed 1 file')
+    await expect(changes).toContainText('README.md')
+    await changes.getByText('README.md', { exact: true }).click()
+    await expect(changes).toContainText('## Getting started')
+    await changes.getByRole('button', { name: 'Undo turn' }).click()
+    await changes.getByRole('button', { name: 'Undo turn' }).click()
+    await expect(changes).toContainText('All changes reverted')
+    await expect.poll(() => readFileSync(fixture.readme, 'utf8')).toBe('# Fixture app\n\nA tiny demo project.\n')
   })
 
   test('searches the workspace and keeps the chat across a relaunch', async () => {
@@ -126,7 +137,7 @@ test.describe('External coding agent (ACP)', () => {
     await page.getByRole('button', { name: 'Send message' }).click()
 
     const card = page.locator('[data-agent-command-approval]')
-    await expect(card.getByText('Review Grok Build edit')).toBeVisible()
+    await expect(card.getByText('Grok Build wants to edit a file')).toBeVisible()
     await card.getByRole('button', { name: 'Reject' }).click()
     await expect(page.getByText('I left')).toBeVisible()
     expect(readFileSync(fixture.readme, 'utf8')).not.toContain('Getting started')

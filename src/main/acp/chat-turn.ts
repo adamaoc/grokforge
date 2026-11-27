@@ -1,4 +1,5 @@
 import type {
+  AgentApprovalDecision,
   AgentChatEventPayload,
   AgentChatStartPayload,
   AgentCommandApprovalRequest,
@@ -6,6 +7,7 @@ import type {
 import { AGENT_PROVIDER_LABELS } from '../../shared/agent/provider-contract'
 import type { GrokProjectManifest } from '../project/manifest'
 import { scheduleWorkspaceFilesystemRefresh } from '../workspace/fs-notify'
+import { collectTurnChanges, snapshotProjectRoots } from '../checkpoints/service'
 import { getAcpProviderDetection } from './provider-registry'
 import type { AcpProviderId } from './providers'
 import { acquireAcpSession, disposeAcpSession } from './session-manager'
@@ -13,7 +15,7 @@ import { AcpTurnError, friendlyAcpError, runAcpTurn } from './turn'
 
 export type AcpChatTurnContext = {
   emit: (payload: AgentChatEventPayload) => void
-  requestApproval: (request: AgentCommandApprovalRequest, signal: AbortSignal) => Promise<boolean>
+  requestApproval: (request: AgentCommandApprovalRequest, signal: AbortSignal) => Promise<AgentApprovalDecision>
 }
 
 /** Entry point from `src/main/agent/runner.ts` when an external agent is selected. */
@@ -56,11 +58,26 @@ export async function runAcpChatTurn(
 
   const { session, reused } = acquired
   session.busy = true
+
+  // Checkpoint every root so the turn's changes (from any agent tool, including shell
+  // commands) can be reviewed and reverted afterwards.
+  const checkpoints = await snapshotProjectRoots(projectId, manifest, `before turn ${payload.streamId}`)
+  let reported = false
+  const reportChanges = async () => {
+    if (reported || checkpoints.size === 0) return
+    reported = true
+    const changes = await collectTurnChanges(projectId, manifest, checkpoints)
+    if (changes.roots.length > 0) {
+      ctx.emit({ streamId: payload.streamId, phase: 'turn_changes', changes })
+    }
+  }
+
   try {
     await runAcpTurn(
       {
         emit: ctx.emit,
         requestApproval: ctx.requestApproval,
+        beforeDone: reportChanges,
         onFilesChanged: (paths) =>
           scheduleWorkspaceFilesystemRefresh({
             projectId,
@@ -82,6 +99,9 @@ export async function runAcpChatTurn(
         signal: ac.signal,
       },
     )
+  } catch (e) {
+    await reportChanges().catch(() => undefined)
+    throw e
   } finally {
     session.busy = false
     // A dead agent (crash, sign-out) gets a fresh process on the next turn.

@@ -276,6 +276,8 @@ export {
 }
 export type { GetModelForIntentOptions, ModelIntent }
 export type { ChatTurnContextV1 } from '../../main/chat/store'
+import type { AgentTurnChanges } from '../../shared/agent/checkpoint-contract'
+export type { AgentTurnChanges }
 
 export interface ChatMessage {
   id: string
@@ -294,6 +296,8 @@ export interface ChatMessage {
   toolActivities?: AgentChatActivityPayload[]
   /** Child subagent exploration block (story 112; session-only). */
   subagentActivity?: AgentSubagentEventPayload
+  /** Files the agent changed this turn, reviewable / revertible against a checkpoint. */
+  turnChanges?: AgentTurnChanges
 }
 
 export interface OpenFile {

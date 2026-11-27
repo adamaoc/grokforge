@@ -52,6 +52,7 @@ import { registerWorkspaceIpc } from "./workspace/register-ipc";
 import { registerAgentSupportIpc } from "./agent/register-ipc";
 import { registerChatIpc } from "./chat/register-ipc";
 import { registerAgentProviderIpc } from "./acp/register-ipc";
+import { registerCheckpointIpc } from "./checkpoints/register-ipc";
 
 /** Shown in the macOS menu bar and other OS shells instead of the default "Electron". */
 app.setName("GrokForge");
@@ -196,6 +197,9 @@ registerAgentChatIpc({
   registerCommandApprovalIpc: registerAgentCommandApprovalIpc,
 });
 registerAgentProviderIpc();
+registerCheckpointIpc({
+  getCurrentProject: () => ({ projectId: currentProjectId, manifest: currentProject }),
+});
 registerAppIpc({ getMainWindow: () => mainWindow });
 registerXaiSettingsIpc();
 registerGitIpc({ getCurrentProject: () => currentProject });

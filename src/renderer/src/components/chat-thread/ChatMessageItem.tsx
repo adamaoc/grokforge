@@ -1,4 +1,5 @@
 import { Copy, Loader2, Square, Volume2 } from "lucide-react";
+import { TurnChangesCard } from "./TurnChangesCard";
 import { motion } from "framer-motion";
 import type {
   AgentChatActivityPayload,
@@ -306,6 +307,9 @@ export function ChatMessageItem({
               </>
             ) : isThinking && !showToolActivityList ? (
               <div className="text-sm leading-relaxed text-zinc-400">...</div>
+            ) : null}
+            {msg.turnChanges && projectId ? (
+              <TurnChangesCard projectId={projectId} changes={msg.turnChanges} />
             ) : null}
           </>
         ) : (

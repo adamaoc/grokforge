@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import type { AgentChatEventPayload, PersistedChatLineV1 } from '@/types'
+import type { AgentChatEventPayload, AgentTurnChanges, PersistedChatLineV1 } from '@/types'
 import { CHAT_STORE_SCHEMA_VERSION } from '@/types'
 import { publishChatThreadLine } from '@/lib/chat-thread-bus'
 import { parseGfPlanFromAssistantContent } from '../lib/legacy-agent/plan'
@@ -27,6 +27,7 @@ export type { AgentChatAppSurface, AgentStreamRegistration }
 
 type StreamSession = AgentStreamRegistration & {
   buffer: string
+  turnChanges?: AgentTurnChanges
 }
 
 export function AgentChatActivityProvider({
@@ -75,7 +76,7 @@ export function AgentChatActivityProvider({
 
   const persistAssistant = useCallback(async (session: StreamSession, content: string, role: 'assistant'): Promise<void> => {
     const trimmed = content.trim()
-    if (!trimmed) return
+    if (!trimmed && !session.turnChanges) return
     const appendForProject = window.electron?.appendChatMessageForProject
     if (!appendForProject) {
       console.error('[AgentChatActivity] appendChatMessageForProject unavailable')
@@ -89,6 +90,7 @@ export function AgentChatActivityProvider({
       timestamp: session.assistantCreatedAt.toISOString(),
       model: session.model,
       ...(session.turnContext ? { turnContext: session.turnContext } : {}),
+      ...(session.turnChanges ? { turnChanges: session.turnChanges } : {}),
     }
     const res = await appendForProject({ projectId: session.projectId, payload: record })
     if (!res.ok) {
@@ -128,7 +130,7 @@ export function AgentChatActivityProvider({
 
       await persistAssistant(session, assistantContent, 'assistant')
 
-      const hadAssistant = assistantContent.trim().length > 0
+      const hadAssistant = assistantContent.trim().length > 0 || Boolean(session.turnChanges)
       if (hadAssistant) {
         publishChatThreadLine({
           schemaVersion: CHAT_STORE_SCHEMA_VERSION,
@@ -138,6 +140,7 @@ export function AgentChatActivityProvider({
           timestamp: session.assistantCreatedAt.toISOString(),
           model: session.model,
           ...(session.turnContext ? { turnContext: session.turnContext } : {}),
+          ...(session.turnChanges ? { turnChanges: session.turnChanges } : {}),
         })
       }
       const onWorkspaceForProject =
@@ -162,6 +165,11 @@ export function AgentChatActivityProvider({
 
       if (p.phase === 'final_chunk') {
         session.buffer += p.delta
+        return
+      }
+
+      if (p.phase === 'turn_changes') {
+        session.turnChanges = p.changes
         return
       }
 

@@ -7,6 +7,7 @@ import type { ModelIntent } from '../../harness-support/routing/model-router'
 import type { AgentSubagentEventPayload } from '../../harness-support/subagent/contracts/subagent-contract'
 import type { AgentProposalReview } from './proposal-reviewer'
 import type { AgentProviderId } from './provider-contract'
+import type { AgentTurnChanges } from './checkpoint-contract'
 
 /**
  * Agent chat IPC contract (no Node imports). Main implementation: `src/main/agent/runner.ts`.
@@ -129,6 +130,8 @@ export type AgentCommandApprovalRisk = 'safe' | 'soft_risk' | 'network_or_instal
 /** A proposed file change attached to an external-agent permission request. */
 export type AgentPermissionDiff = {
   path: string
+  /** 1-based line in the file where `oldText` starts, when the agent sent a snippet. */
+  startLine?: number
   /** `null` when the agent is creating a new file. */
   oldText: string | null
   newText: string
@@ -165,7 +168,11 @@ export type AgentCommandApprovalResponse = {
   streamId: string
   requestId: string
   approved: boolean
+  /** `turn`: also allow later requests of the same kind for the rest of this turn (edits only). */
+  scope?: 'once' | 'turn'
 }
+
+export type AgentApprovalDecision = { approved: boolean; scope: 'once' | 'turn' }
 
 export type AgentCommandApprovalRespondResult =
   | { ok: true }
@@ -212,6 +219,8 @@ export type AgentChatEventPayload =
     }
   | { streamId: string; phase: 'subagent'; subagent: AgentSubagentEventPayload }
   | { streamId: string; phase: 'final_chunk'; delta: string }
+  /** Files changed during the turn (external agents), sent before `done` / `error` / `cancelled`. */
+  | { streamId: string; phase: 'turn_changes'; changes: AgentTurnChanges }
   | {
       streamId: string
       phase: 'done'
